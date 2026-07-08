@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Diagrama de señal — Producción en vivo</title>
+<style>
+  :root{
+    --navy:#13294B; --ink:#0E1A2B;
+    --video:#2E7DDB; --audio:#1FA14E; --stream:#E0312F;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:"Barlow",system-ui,Segoe UI,Roboto,sans-serif;color:#15233D;background:var(--ink);overflow:hidden}
+  .app{display:flex;flex-direction:column;height:100vh}
+
+  .top{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--navy);color:#fff;flex-wrap:wrap;box-shadow:0 2px 8px rgba(0,0,0,.35);z-index:6}
+  .brand{font-family:"Barlow Condensed",sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:18px;display:flex;align-items:center;gap:8px}
+  .brand .led{width:11px;height:11px;border-radius:50%;background:var(--stream);box-shadow:0 0 8px var(--stream);animation:pulse 1.6s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  .spacer{flex:1}
+  .tbtn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  .tbtn:hover{background:rgba(255,255,255,.22)}
+  .tbtn:disabled{opacity:.4;cursor:default}
+  .tbtn.red{background:var(--stream)}.tbtn.red:hover{filter:brightness(1.08)}
+  .tbtn.on{background:#FFD23F;color:#15233D}
+
+  .main{display:flex;flex:1;min-height:0;position:relative}
+
+  .palette{width:178px;background:#0B1626;border-right:1px solid #1d2c44;padding:10px;overflow-y:auto;display:flex;flex-direction:column;gap:7px}
+  .palette h4{margin:6px 2px 2px;color:#7E93B4;font-size:10px;letter-spacing:1.2px;text-transform:uppercase;font-weight:700}
+  .chip{display:flex;align-items:center;gap:9px;background:#13243C;border:1px solid #243a5c;border-radius:9px;padding:8px 9px;cursor:pointer;color:#E7EEF8;font-size:13px;font-weight:600;transition:.12s}
+  .chip:hover{background:#1b3252;border-color:#3a5c8c;transform:translateX(2px)}
+  .chip.active{background:#554817;border-color:#FFD23F;color:#fff;box-shadow:0 0 0 2px rgba(255,210,63,.18)}
+  .chip .ic{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex:none}
+  .chip .ic svg{width:16px;height:16px;stroke:#fff}
+
+  .canvas-wrap{flex:1;position:relative;overflow:hidden;background:var(--ink);touch-action:none}
+  .canvas-wrap.zone-draw,.canvas-wrap.zone-draw .world{cursor:crosshair}
+  .world{position:absolute;left:0;top:0;width:3200px;height:2000px;transform-origin:0 0;
+     background:radial-gradient(circle, #1b2b44 1px, transparent 1px) 0 0/22px 22px}
+  svg.wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  svg.wires path.hit{pointer-events:stroke;cursor:pointer;fill:none}
+
+  .zone{position:absolute;border:2px dashed rgba(255,255,255,.35);border-radius:12px;background:rgba(255,255,255,.04)}
+  .zone.drawing{border-style:solid;background:rgba(255,210,63,.1);box-shadow:0 0 0 3px rgba(255,210,63,.14)}
+  .zone .ztitle{position:absolute;top:-12px;left:14px;background:#0E1A2B;padding:2px 9px;border-radius:6px;font-weight:700;font-size:12px;letter-spacing:.5px;cursor:grab;border:1px solid rgba(255,255,255,.25)}
+  .zone.sel{border-style:solid}
+  .zone .rsz{position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;border-radius:3px;background:#FFD23F;cursor:nwse-resize}
+
+  .note{position:absolute;min-width:120px;max-width:240px;background:#FFE9A8;color:#3a2f10;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;box-shadow:0 5px 14px rgba(0,0,0,.35);cursor:grab}
+  .note textarea{width:100%;border:0;background:transparent;resize:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#3a2f10;outline:none;overflow:hidden}
+  .note .x{position:absolute;top:-8px;right:-8px;width:18px;height:18px;border-radius:50%;background:var(--stream);color:#fff;font-weight:900;font-size:12px;display:none;align-items:center;justify-content:center;cursor:pointer;border:0}
+  .note:hover .x{display:flex}
+
+  .node{position:absolute;width:188px;background:#fff;border-radius:11px;box-shadow:0 6px 18px rgba(0,0,0,.4);user-select:none;border:2px solid transparent;cursor:grab}
+  .node:active{cursor:grabbing}
+  .node.sel{border-color:#FFD23F;box-shadow:0 0 0 3px rgba(255,210,63,.35),0 6px 18px rgba(0,0,0,.45)}
+  .node-head{height:34px;border-radius:9px 9px 0 0;display:flex;align-items:center;gap:7px;padding:0 9px;cursor:inherit;color:#fff;font-weight:700;font-size:13px}
+  .node-head svg{width:15px;height:15px;stroke:#fff;flex:none}
+  .node-head .ttl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .node-body{position:relative}
+  .port{position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #888;cursor:crosshair;z-index:2;transition:transform .12s,box-shadow .12s,background .12s}
+  .port::before{content:"";position:absolute;inset:-13px;border-radius:50%}
+  .port:hover{transform:scale(1.25)}
+  .port.video{border-color:var(--video)} .port.audio{border-color:var(--audio)} .port.stream{border-color:var(--stream)}
+  .port.lit{background:#FFD23F;border-color:#E0a800}
+  .port.magnet{transform:scale(1.75);background:#FFD23F;box-shadow:0 0 0 7px rgba(255,210,63,.2),0 0 18px rgba(255,210,63,.9)}
+  .node.magnet-target{border-color:#FFD23F;box-shadow:0 0 0 4px rgba(255,210,63,.24),0 10px 28px rgba(0,0,0,.5)}
+  .magnet-hint{position:fixed;z-index:20;pointer-events:none;transform:translate(-50%,-42px);padding:6px 10px;border:1px solid rgba(255,210,63,.65);border-radius:999px;background:rgba(11,22,38,.95);color:#ffe98c;font-size:11px;font-weight:800;box-shadow:0 8px 20px rgba(0,0,0,.4);opacity:0;transition:opacity .1s}
+  .magnet-hint.show{opacity:1}
+  .plabel{position:absolute;font-size:10px;color:#42536e;font-weight:600;white-space:nowrap;top:50%;transform:translateY(-50%);pointer-events:none}
+  .plabel b{color:#15233D}
+  .meta{font-size:10px;color:#6a7c98;padding:3px 9px 7px;border-top:1px solid #eef1f6;font-weight:600}
+
+  /* controles de zoom */
+  .zoomctl{position:absolute;left:12px;bottom:12px;display:flex;gap:6px;align-items:center;background:rgba(11,22,38,.92);border:1px solid #28406a;border-radius:10px;padding:6px;z-index:4}
+  .zoomctl button{width:30px;height:30px;border:0;border-radius:7px;background:#1b3252;color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+  .zoomctl button:hover{background:#27457a}
+  .zoomctl .pct{color:#cdd9ec;font-size:12px;font-weight:700;min-width:42px;text-align:center}
+  .zoomctl .fit{width:auto;padding:0 9px;font-size:12px}
+
+  .legend{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;background:rgba(11,22,38,.92);border:1px solid #28406a;border-radius:10px;padding:8px 12px;color:#cdd9ec;font-size:11px;display:flex;gap:14px;flex-wrap:wrap;z-index:3}
+  .legend b{color:#fff}
+  .lg{display:flex;align-items:center;gap:6px}
+  .lg .sw{width:22px;height:0;border-top-width:3px;border-top-style:solid}
+
+  /* panel "al aire" */
+  .checks{position:absolute;right:0;top:0;height:100%;width:260px;background:#0B1626;border-left:1px solid #1d2c44;color:#E7EEF8;transform:translateX(100%);transition:transform .16s;z-index:5;overflow-y:auto}
+  .checks.open{transform:none}
+  .checks .ph{padding:14px 14px 6px}
+  .checks h3{margin:0;font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:.5px;font-size:17px}
+  .checks .st{font-size:12px;font-weight:700;margin-top:4px;padding:6px 10px;border-radius:7px;display:inline-block}
+  .checks .st.go{background:#16462b;color:#7BE3A4}
+  .checks .st.no{background:#4a2118;color:#FFB4A2}
+  .ci{display:flex;gap:8px;padding:9px 14px;border-top:1px solid #15263f;font-size:12.5px;line-height:1.4}
+  .ci .mk{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:900;color:#fff}
+  .ci.ok .mk{background:#1FA14E}.ci.warn .mk{background:#E0a800;color:#3a2f10}.ci.info .mk{background:#2E7DDB}
+
+  /* inspector */
+  .inspector{position:absolute;right:0;top:0;height:100%;width:236px;background:#0B1626;border-left:1px solid #1d2c44;color:#E7EEF8;transform:translateX(100%);transition:transform .14s;z-index:5;overflow-y:auto}
+  .inspector.open{transform:none}
+  .insp-in{padding:14px}
+  .inspector h3{margin:0 0 4px;font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:.5px;font-size:16px}
+  .inspector .sub{color:#7E93B4;font-size:11px;margin-bottom:12px}
+  .field{margin-bottom:11px}
+  .field label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#8ea3c4;font-weight:700;margin-bottom:4px}
+  .field input,.field select{width:100%;background:#13243C;border:1px solid #2a466e;border-radius:7px;color:#fff;padding:7px 8px;font-size:13px;font-family:inherit}
+  .chrow{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+  .chrow span{flex:none;width:64px;font-size:11px;color:#9fb2d0;font-weight:600}
+  .chrow input{flex:1;background:#13243C;border:1px solid #2a466e;border-radius:6px;color:#fff;padding:5px 7px;font-size:12px}
+  .swatches{display:flex;gap:6px;flex-wrap:wrap}
+  .swatches button{width:22px;height:22px;border-radius:6px;border:2px solid transparent;cursor:pointer}
+  .swatches button.on{border-color:#fff}
+  .del{width:100%;background:var(--stream);color:#fff;border:0;border-radius:8px;padding:9px;font-weight:700;cursor:pointer;font-size:13px;margin-top:6px}
+  .hint{color:#7E93B4;font-size:11px;line-height:1.5;margin-top:10px}
+
+  .toast{position:fixed;left:50%;top:64px;transform:translateX(-50%);background:#1FA14E;color:#fff;padding:9px 16px;border-radius:9px;font-weight:600;font-size:13px;z-index:50;box-shadow:0 6px 16px rgba(0,0,0,.3);opacity:0;transition:.2s;pointer-events:none}
+
+  /* tarjeta de ayuda */
+  .help-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,480px);background:#0E1D33;border:1px solid #2c4a78;border-radius:14px;color:#E7EEF8;padding:20px 22px;z-index:40;box-shadow:0 20px 60px rgba(0,0,0,.55);display:none}
+  .help-card.show{display:block}
+  .help-card h3{margin:0 0 10px;font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:.5px;font-size:20px}
+  .help-card ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.5;color:#c8d6ea}
+  .help-card b{color:#fff}
+  .help-card .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#fff;border:3px solid var(--video);vertical-align:-1px}
+  .help-card button{margin-top:14px;width:100%;border:0;border-radius:9px;background:#1D6FD1;color:#fff;font-weight:800;font-size:14px;padding:10px;cursor:pointer}
+  .help-card button:hover{filter:brightness(1.1)}
+  .toast.show{opacity:1}
+  input[type=file]{display:none}
+
+  /* Diseño táctil para iPhone: controles desplazables y paleta horizontal. */
+  @media (max-width:700px){
+    .top{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;padding:7px 8px}
+    .top>*{flex:0 0 auto}.top .spacer{display:none}.brand{font-size:14px}
+    .tbtn{min-height:40px;padding:8px 11px;touch-action:manipulation}
+    .main{flex-direction:column}
+    .palette{order:2;width:100%;height:92px;min-height:92px;border-right:0;border-top:1px solid #1d2c44;padding:7px;overflow-x:auto;overflow-y:hidden;flex-direction:row;align-items:stretch;-webkit-overflow-scrolling:touch}
+    .palette h4{display:none}.chip{min-width:132px;justify-content:flex-start;padding:7px 9px}.chip:hover{transform:none}
+    .canvas-wrap{order:1}
+    .checks,.inspector{width:min(88vw,330px)}
+    .legend{display:none}.zoomctl{left:8px;bottom:8px}
+    .node{touch-action:none}.node-head,.zone .ztitle,.zone .rsz,.port{touch-action:none}
+  }
+
+  @media print{
+    .top,.palette,.inspector,.checks,.legend,.zoomctl{display:none!important}
+    .canvas-wrap{overflow:visible}
+    html,body,.app,.main{height:auto;overflow:visible;background:#fff}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <span class="brand"><span class="led"></span>Diagrama de señal · En vivo</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="btnUndo" title="Deshacer (Ctrl+Z)">↶</button>
+    <button class="tbtn" id="btnRedo" title="Rehacer (Ctrl+Y)">↷</button>
+    <button class="tbtn" id="btnAuto" title="Completa la cadena estándar: cámaras→switcher, mics→mezcladora, →encoder→plataformas (crea lo que falte)">⚡ Autoconectar</button>
+    <button class="tbtn on" id="btnChecks" title="Lista para salir al aire">✓ Al aire</button>
+    <button class="tbtn" id="btnTpl" title="Carga un ejemplo completo de multistream">★ Ejemplo</button>
+    <button class="tbtn" id="btnHelp" title="Cómo se usa el diagrama">?</button>
+    <button class="tbtn" id="btnShare">🔗 Compartir</button>
+    <button class="tbtn" id="btnExport">⬇ Exportar</button>
+    <button class="tbtn" id="btnImport">⬆ Importar</button>
+    <input type="file" id="file" accept=".json,application/json">
+    <button class="tbtn" id="btnClear">🗑 Vaciar</button>
+  </div>
+
+  <div class="main">
+    <aside class="palette" id="palette"></aside>
+
+    <div class="canvas-wrap" id="wrap">
+      <div class="world" id="world">
+        <svg class="wires" id="wires"></svg>
+      </div>
+
+      <div class="zoomctl">
+        <button id="zOut">−</button>
+        <span class="pct" id="zPct">100%</span>
+        <button id="zIn">+</button>
+        <button class="fit" id="zFit">Ajustar</button>
+      </div>
+
+      <div class="legend">
+        <span class="lg"><span class="sw" style="border-color:var(--video)"></span><b>Video</b> HDMI/SDI</span>
+        <span class="lg"><span class="sw" style="border-color:var(--audio)"></span><b>Audio</b> XLR</span>
+        <span class="lg"><span class="sw" style="border-color:var(--audio);border-top-style:dashed"></span><b>Inalámbrico</b> TX→RX</span>
+        <span class="lg"><span class="sw" style="border-color:var(--stream);border-top-style:dashed"></span><b>Stream</b> RTMP</span>
+        <span class="lg"><b>●→●</b> arrastra entre puertos para conectar</span>
+      </div>
+
+      <div class="help-card" id="helpCard">
+        <h3>Cómo armar tu ruta de señal</h3>
+        <ol>
+          <li><b>Agrega equipos</b>: haz clic en la paleta izquierda o <b>arrástralos</b> directo al lienzo.</li>
+          <li><b>Conéctalos</b>: arrastra desde un puerto <span class="dot"></span> de salida (lado derecho) hasta una entrada (lado izquierdo). El imán amarillo te ayuda a soltar.</li>
+          <li><b>Edita</b>: un clic sobre cualquier equipo abre su panel (nombre, conexión, canales físicos).</li>
+          <li><b>Borra</b>: selecciona y pulsa Supr, o toca un cable y su ×.</li>
+          <li><b>⚡ Autoconectar</b> completa la cadena estándar por ti, y el panel <b>✓ Al aire</b> te dice qué falta antes de transmitir.</li>
+        </ol>
+        <button id="helpClose">Entendido, a cablear</button>
+      </div>
+
+      <aside class="inspector" id="inspector"><div class="insp-in" id="inspIn"></div></aside>
+      <aside class="checks open" id="checks"></aside>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- iconos ---------- */
+const I = {
+  camara:'<path d="M2 7h11l2 3h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2z"/><circle cx="9" cy="14" r="3"/>',
+  microfono:'<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  receptor:'<rect x="3" y="9" width="18" height="9" rx="2"/><path d="M7 9V6m10 3V4M7 14h.01M11 14h6"/>',
+  switcher:'<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 14h12"/>',
+  audio:'<path d="M4 14V8m4 9V5m4 13V7m4 9V9m4 6v-3"/>',
+  encoder:'<rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  plataforma:'<path d="M4 5h16v11H4z"/><path d="M10 9l4 2.5L10 14z" fill="currentColor" stroke="none"/>',
+  monitor:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  fuente:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 9l6 3-6 3z"/>',
+  zona:'<rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 3"/>',
+  nota:'<path d="M4 4h16v12l-4 4H4z"/><path d="M14 20v-4h4"/>',
+};
+const svg=(p,stroke)=>'<svg viewBox="0 0 24 24" fill="none" stroke="'+(stroke||'#fff')+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>';
+
+const C={video:'#2E7DDB',audio:'#1FA14E',stream:'#E0312F'};
+const PLAT={YouTube:'#FF0000',Facebook:'#1877F2',Instagram:'#E1306C',TikTok:'#111827',Twitch:'#9146FF',Otra:'#64748B'};
+const ZONE_COLORS=['#2E7DDB','#1FA14E','#E0a800','#9146FF','#E0312F','#64748B'];
+
+const TYPES={
+  camara:{label:'Cámara',accent:C.video,props:{connector:'HDMI'},ports:[{id:'v',side:'out',signal:'video',label:'Video'}]},
+  microfono:{label:'Micrófono',accent:C.audio,props:{conexion:'XLR'},ports:[{id:'a',side:'out',signal:'audio',label:'Audio'}]},
+  receptor:{label:'Receptor RX',accent:C.audio,ports:[{id:'in',side:'in',signal:'audio',label:'RX'},{id:'out',side:'out',signal:'audio',label:'XLR'}]},
+  switcher:{label:'Switcher / Mezclador',accent:C.video,configurable:'video',props:{inputs:4}},
+  audio:{label:'Mezcladora de audio',accent:C.audio,configurable:'audio',props:{inputs:4}},
+  encoder:{label:'Encoder / PC',accent:C.stream,ports:[{id:'v',side:'in',signal:'video',label:'Video PGM'},{id:'a',side:'in',signal:'audio',label:'Audio'},{id:'out',side:'out',signal:'stream',label:'Stream'}]},
+  plataforma:{label:'Plataforma',accent:PLAT.YouTube,props:{plataforma:'YouTube'},ports:[{id:'in',side:'in',signal:'stream',label:'RTMP'}]},
+  monitor:{label:'Monitor',accent:C.video,ports:[{id:'in',side:'in',signal:'video',label:'Video'}]},
+  fuente:{label:'Fuente / Playback',accent:'#64748B',ports:[{id:'v',side:'out',signal:'video',label:'Video'}]},
+};
+const PALETTE_GROUPS=[
+  ['Cámaras y video',['camara','fuente','switcher','monitor']],
+  ['Audio',['microfono','receptor','audio']],
+  ['Mezcla y salida',['encoder']],
+  ['Plataformas',['plataforma']],
+  ['Organización',['__zona','__nota']],
+];
+
+/* ---------- puertos por instancia (configurables) ---------- */
+function nodePorts(node){
+  const def=TYPES[node.type];
+  if(def.configurable){
+    const sig=def.configurable, k=Math.max(1,Math.min(12,node.props.inputs||4));
+    const tag=sig==='video'?'Cám ':'Mic ';
+    const ins=[]; for(let i=1;i<=k;i++) ins.push({id:'i'+i,side:'in',signal:sig,label:tag+i});
+    const out=node.type==='switcher'?{id:'pgm',side:'out',signal:'video',label:'Programa'}:{id:'mix',side:'out',signal:'audio',label:'Mezcla'};
+    return ins.concat([out]);
+  }
+  return def.ports;
+}
+const NODE_W=188,HEAD_H=34,PORT_GAP=30,DOTR=7;
+function sideCount(node,side){return nodePorts(node).filter(p=>p.side===side).length;}
+function bodyH(node){return PORT_GAP*Math.max(sideCount(node,'in'),sideCount(node,'out'),1);}
+function portDef(node,id){return nodePorts(node).find(p=>p.id===id);}
+function portIndex(node,id){const p=portDef(node,id);return nodePorts(node).filter(q=>q.side===p.side).findIndex(q=>q.id===id);}
+function portCenter(node,id){const p=portDef(node,id),idx=portIndex(node,id);return{x:node.x+(p.side==='out'?NODE_W:0),y:node.y+HEAD_H+PORT_GAP*idx+PORT_GAP/2,signal:p.signal,side:p.side};}
+
+/* ---------- estado ---------- */
+let state={nodes:[],edges:[],zones:[],notes:[],seq:1};
+let view={x:40,y:30,scale:1};
+let sel=null; // {kind:'node'|'edge'|'zone'|'note', id}
+const KEY='senal:diagram2', VKEY='senal:view2';
+let undoStack=[],redoStack=[];
+
+const $=s=>document.querySelector(s);
+const world=$('#world'),wires=$('#wires'),wrap=$('#wrap');
+
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2300);}
+function nodeById(id){return state.nodes.find(n=>n.id===id);}
+function zoneById(id){return state.zones.find(z=>z.id===id);}
+function noteById(id){return state.notes.find(n=>n.id===id);}
+function ensureSharedKeys(){const p={camara:'cam:',microfono:'mic:',fuente:'src:'};state.nodes.forEach(n=>{if(p[n.type]&&!n.syncKey)n.syncKey=p[n.type]+'diagram-'+n.id;});}
+function save(){ensureSharedKeys();try{localStorage.setItem(KEY,JSON.stringify(state));localStorage.setItem(VKEY,JSON.stringify(view));}catch(e){}if(window.parent!==window)window.parent.postMessage({type:'producciontv:diagram-state',state},'*');}
+function clone(o){return JSON.parse(JSON.stringify(o));}
+
+/* ---------- historial ---------- */
+function snapshot(){undoStack.push(JSON.stringify(state));if(undoStack.length>60)undoStack.shift();redoStack=[];updateUndoBtns();}
+function undo(){if(!undoStack.length)return;redoStack.push(JSON.stringify(state));state=JSON.parse(undoStack.pop());sel=null;render();save();updateUndoBtns();}
+function redo(){if(!redoStack.length)return;undoStack.push(JSON.stringify(state));state=JSON.parse(redoStack.pop());sel=null;render();save();updateUndoBtns();}
+function updateUndoBtns(){$('#btnUndo').disabled=!undoStack.length;$('#btnRedo').disabled=!redoStack.length;}
+
+/* ---------- vista (zoom/pan) ---------- */
+function applyView(){world.style.transform='translate('+view.x+'px,'+view.y+'px) scale('+view.scale+')';$('#zPct').textContent=Math.round(view.scale*100)+'%';}
+function worldCoords(ev){const r=wrap.getBoundingClientRect();return{x:(ev.clientX-r.left-view.x)/view.scale,y:(ev.clientY-r.top-view.y)/view.scale};}
+function zoomAt(cx,cy,factor){
+  const r=wrap.getBoundingClientRect();
+  const ns=Math.max(.3,Math.min(2.2,view.scale*factor));
+  const wx=(cx-r.left-view.x)/view.scale, wy=(cy-r.top-view.y)/view.scale;
+  view.scale=ns; view.x=cx-r.left-wx*ns; view.y=cy-r.top-wy*ns; applyView(); save();
+}
+function fitToScreen(){
+  const items=[...state.nodes.map(n=>({x:n.x,y:n.y,w:NODE_W,h:HEAD_H+bodyH(n)+22})),
+               ...state.zones.map(z=>({x:z.x,y:z.y,w:z.w,h:z.h}))];
+  if(!items.length){view={x:40,y:30,scale:1};applyView();return;}
+  let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+  items.forEach(it=>{minx=Math.min(minx,it.x);miny=Math.min(miny,it.y);maxx=Math.max(maxx,it.x+it.w);maxy=Math.max(maxy,it.y+it.h);});
+  const pad=60, bw=maxx-minx+pad*2, bh=maxy-miny+pad*2;
+  const r=wrap.getBoundingClientRect();
+  const s=Math.max(.3,Math.min(1.4,Math.min(r.width/bw,r.height/bh)));
+  view.scale=s; view.x=-(minx-pad)*s+(r.width-bw*s)/2; view.y=-(miny-pad)*s+(r.height-bh*s)/2;
+  applyView(); save();
+}
+
+/* ---------- crear / borrar ---------- */
+function defaultPos(){const r=wrap.getBoundingClientRect();return{x:(r.width/2-view.x)/view.scale-NODE_W/2,y:(r.height/2-view.y)/view.scale-60};}
+// Crea un nodo en (x,y) y lo deja seleccionado con su panel abierto: así el
+// usuario descubre de inmediato que un clic edita el equipo.
+function addNodeAt(type,x,y){
+  snapshot();
+  const def=TYPES[type];
+  const n={id:'n'+(state.seq++),type,x:Math.max(0,x),y:Math.max(0,y),label:def.label,props:clone(def.props||{}),chan:{}};
+  if(type==='plataforma')n.accent=PLAT[n.props.plataforma];
+  state.nodes.push(n);select('node',n.id);save();toast(def.label+' agregado');
+  return n;
+}
+function addNode(type){const p=defaultPos();return addNodeAt(type,p.x,p.y);}
+let zoneDrawMode=false;
+function setZoneDrawMode(on){zoneDrawMode=on;wrap.classList.toggle('zone-draw',on);const chip=$('[data-tool="zone"]');if(chip)chip.classList.toggle('active',on);}
+function addZone(){setZoneDrawMode(!zoneDrawMode);toast(zoneDrawMode?'Mantén clic izquierdo y arrastra para dibujar la zona':'Creación de zona cancelada');}
+function addNote(){snapshot();const p=defaultPos();state.notes.push({id:'t'+(state.seq++),x:p.x,y:p.y,text:'Nota…'});render();save();}
+function removeNode(id){snapshot();state.nodes=state.nodes.filter(n=>n.id!==id);state.edges=state.edges.filter(e=>e.from.node!==id&&e.to.node!==id);sel=null;render();save();}
+function removeEdge(id){snapshot();state.edges=state.edges.filter(e=>e.id!==id);sel=null;render();save();}
+function removeZone(id){snapshot();state.zones=state.zones.filter(z=>z.id!==id);sel=null;render();save();}
+function removeNote(id){snapshot();state.notes=state.notes.filter(n=>n.id!==id);sel=null;render();save();}
+
+/* ---------- estilo de cable ---------- */
+function edgeStyle(e){
+  const src=nodeById(e.from.node),port=portDef(src,e.from.port),sig=port.signal;
+  if(sig==='video'){let c=src.type==='camara'?(src.props.connector||'HDMI'):'SDI';return{color:C.video,dash:'',label:c};}
+  if(sig==='audio'){if(src.type==='microfono'&&src.props.conexion==='Inalámbrico')return{color:C.audio,dash:'7 6',label:'TX→RX'};return{color:C.audio,dash:'',label:'XLR'};}
+  return{color:C.stream,dash:'3 7',label:'RTMP'};
+}
+
+/* ---------- render ---------- */
+function mkSVG(tag,attrs){const el=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const k in attrs)el.setAttribute(k,attrs[k]);return el;}
+function cablePath(a,b){const dx=Math.max(45,Math.abs(b.x-a.x)/2);return 'M '+a.x+' '+a.y+' C '+(a.x+dx)+' '+a.y+', '+(b.x-dx)+' '+b.y+', '+b.x+' '+b.y;}
+function escapeHtml(s){return(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function render(){
+  [...world.querySelectorAll('.node,.zone,.note')].forEach(el=>el.remove());
+  wires.innerHTML='';
+  state.zones.forEach(z=>world.appendChild(zoneEl(z)));
+  drawWires();
+  state.nodes.forEach(n=>world.appendChild(nodeEl(n)));
+  state.notes.forEach(t=>world.appendChild(noteEl(t)));
+  drawInspector(); drawChecklist();
+}
+function drawWires(){
+  wires.innerHTML='';
+  state.edges.forEach(e=>{
+    const sN=nodeById(e.from.node),tN=nodeById(e.to.node); if(!sN||!tN)return;
+    if(!portDef(sN,e.from.port)||!portDef(tN,e.to.port))return;
+    const a=portCenter(sN,e.from.port),b=portCenter(tN,e.to.port),st=edgeStyle(e),d=cablePath(a,b);
+    const hit=mkSVG('path',{d,class:'hit',stroke:'transparent','stroke-width':16});
+    hit.addEventListener('pointerdown',ev=>{ev.stopPropagation();select('edge',e.id);});
+    wires.appendChild(hit);
+    wires.appendChild(mkSVG('path',{d,stroke:st.color,'stroke-width':sel&&sel.kind==='edge'&&sel.id===e.id?5:3,'stroke-dasharray':st.dash,'stroke-linecap':'round',fill:'none',opacity:.95}));
+    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2,w=st.label.length*6.2+12;
+    wires.appendChild(mkSVG('rect',{x:mx-w/2,y:my-9,width:w,height:18,rx:5,fill:'#fff',stroke:st.color,'stroke-width':1.5}));
+    const tx=mkSVG('text',{x:mx,y:my+4,'text-anchor':'middle','font-size':11,'font-weight':700,fill:st.color});tx.textContent=st.label;wires.appendChild(tx);
+    if(sel&&sel.kind==='edge'&&sel.id===e.id){
+      const del=mkSVG('g',{});del.style.cursor='pointer';del.style.pointerEvents='all';
+      del.appendChild(mkSVG('circle',{cx:mx,cy:my-20,r:9,fill:C.stream}));
+      const xt=mkSVG('text',{x:mx,y:my-16,'text-anchor':'middle','font-size':13,'font-weight':900,fill:'#fff'});xt.textContent='×';del.appendChild(xt);
+      del.addEventListener('pointerdown',ev=>{ev.stopPropagation();removeEdge(e.id);});
+      wires.appendChild(del);
+    }
+  });
+}
+
+function nodeEl(n){
+  const def=TYPES[n.type];
+  const accent=n.type==='plataforma'?(PLAT[n.props.plataforma]||def.accent):def.accent;
+  const el=document.createElement('div');
+  el.className='node'+(sel&&sel.kind==='node'&&sel.id===n.id?' sel':'');el.style.left=n.x+'px';el.style.top=n.y+'px';el.dataset.id=n.id;
+  const head=document.createElement('div');head.className='node-head';head.style.background=accent;
+  head.innerHTML=svg(I[n.type])+'<span class="ttl">'+escapeHtml(n.label)+'</span>';el.appendChild(head);
+  const body=document.createElement('div');body.className='node-body';body.style.height=bodyH(n)+'px';
+  nodePorts(n).forEach(p=>{
+    const idx=portIndex(n,p.id),top=PORT_GAP*idx+PORT_GAP/2-DOTR;
+    const dot=document.createElement('div');dot.className='port '+p.signal;dot.style.top=top+'px';
+    dot.style[p.side==='out'?'right':'left']=(-DOTR)+'px';
+    dot.dataset.node=n.id;dot.dataset.port=p.id;dot.dataset.side=p.side;dot.dataset.signal=p.signal;
+    body.appendChild(dot);
+    const lab=document.createElement('div');lab.className='plabel';lab.style.top=(top+DOTR)+'px';
+    lab.dataset.port=p.id;lab.dataset.base=p.label;
+    const ch=n.chan&&n.chan[p.id];
+    lab.innerHTML=escapeHtml(p.label)+(ch?' · <b>'+escapeHtml(ch)+'</b>':'');
+    if(p.side==='out'){lab.style.right='14px';lab.style.textAlign='right';}else{lab.style.left='14px';}
+    body.appendChild(lab);
+  });
+  el.appendChild(body);
+  let meta='';
+  if(n.type==='camara')meta='Salida: '+(n.props.connector||'HDMI');
+  else if(n.type==='microfono')meta=n.props.conexion==='Inalámbrico'?'Inalámbrico (TX→RX)':'Cableado XLR';
+  else if(n.type==='plataforma')meta='RTMP · '+n.props.plataforma;
+  else if(n.type==='encoder')meta='Multistream a varias plataformas';
+  else if(def.configurable)meta=(n.props.inputs||4)+' entradas';
+  if(meta){const m=document.createElement('div');m.className='meta';m.textContent=meta;el.appendChild(m);}
+  el.title='Clic: editar · arrastra para mover';
+  el.addEventListener('pointerdown',ev=>{if(ev.button!==0||ev.target.closest('.port'))return;startDrag(ev,n,'node');});
+  el.addEventListener('contextmenu',ev=>{ev.preventDefault();ev.stopPropagation();select('node',n.id);});
+  body.querySelectorAll('.port').forEach(d=>d.addEventListener('pointerdown',ev=>startConnect(ev,d)));
+  return el;
+}
+
+function zoneEl(z){
+  const el=document.createElement('div');el.className='zone'+(sel&&sel.kind==='zone'&&sel.id===z.id?' sel':'');
+  el.style.left=z.x+'px';el.style.top=z.y+'px';el.style.width=z.w+'px';el.style.height=z.h+'px';
+  el.style.borderColor=z.color;el.dataset.id=z.id;
+  const t=document.createElement('div');t.className='ztitle';t.style.color=z.color;t.style.borderColor=z.color;t.textContent=z.label;
+  t.addEventListener('pointerdown',ev=>{ev.stopPropagation();select('zone',z.id);startDrag(ev,z,'zone');});
+  el.appendChild(t);
+  const rs=document.createElement('div');rs.className='rsz';
+  rs.addEventListener('pointerdown',ev=>{ev.stopPropagation();select('zone',z.id);startResize(ev,z);});
+  el.appendChild(rs);
+  el.addEventListener('pointerdown',ev=>{if(ev.target===el)select('zone',z.id);});
+  return el;
+}
+
+function noteEl(t){
+  const el=document.createElement('div');el.className='note';el.style.left=t.x+'px';el.style.top=t.y+'px';el.dataset.id=t.id;
+  const ta=document.createElement('textarea');ta.value=t.text;ta.rows=2;
+  const grow=()=>{ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';};
+  ta.addEventListener('focus',()=>snapshot());
+  ta.addEventListener('input',()=>{t.text=ta.value;grow();save();});
+  ta.addEventListener('pointerdown',ev=>ev.stopPropagation());
+  el.appendChild(ta);
+  const x=document.createElement('button');x.className='x';x.textContent='×';
+  x.addEventListener('pointerdown',ev=>{ev.stopPropagation();removeNote(t.id);});el.appendChild(x);
+  el.addEventListener('pointerdown',ev=>{if(ev.target===el)startDrag(ev,t,'note');});
+  setTimeout(grow,0);
+  return el;
+}
+
+/* ---------- arrastrar / redimensionar ---------- */
+// Clic sin mover = seleccionar (abre el inspector en nodos); mover = arrastrar.
+// El snapshot de undo solo se toma cuando el arrastre realmente inicia.
+function startDrag(ev,obj,kind){
+  if(ev.button!==0)return;
+  ev.preventDefault();
+  const s=worldCoords(ev),ox=s.x-obj.x,oy=s.y-obj.y;
+  const el=world.querySelector('.'+kind+'[data-id="'+obj.id+'"]');
+  let moved=false;
+  function mv(e){
+    const c=worldCoords(e);
+    if(!moved){
+      if(Math.abs(c.x-s.x)+Math.abs(c.y-s.y)<3)return;
+      moved=true;snapshot();
+    }
+    obj.x=Math.max(0,c.x-ox);obj.y=Math.max(0,c.y-oy);
+    if(el){el.style.left=obj.x+'px';el.style.top=obj.y+'px';}
+    if(kind==='node')drawWires();
+  }
+  function up(){
+    document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);
+    if(moved){save();return;}
+    if(kind==='node')select('node',obj.id);
+    else if(kind==='note')select('note',obj.id);
+  }
+  document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);
+}
+function startResize(ev,z){
+  ev.preventDefault();snapshot();
+  const s=worldCoords(ev),ow=z.w,oh=z.h,sx=s.x,sy=s.y;
+  const el=world.querySelector('.zone[data-id="'+z.id+'"]');
+  function mv(e){const c=worldCoords(e);z.w=Math.max(120,ow+(c.x-sx));z.h=Math.max(90,oh+(c.y-sy));if(el){el.style.width=z.w+'px';el.style.height=z.h+'px';}}
+  function up(){document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);save();}
+  document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);
+}
+
+/* ---------- conectar ---------- */
+const MAGNET_RADIUS=112;
+function magneticPort(from,clientX,clientY){
+  let best=null;
+  world.querySelectorAll('.port').forEach(port=>{
+    const to=port.dataset;
+    if(to.node===from.node||to.signal!==from.signal||to.side===from.side)return;
+    const r=port.getBoundingClientRect(),dx=clientX-(r.left+r.width/2),dy=clientY-(r.top+r.height/2),dist=Math.hypot(dx,dy);
+    if(dist<=MAGNET_RADIUS&&(!best||dist<best.dist))best={port,dist,to:{node:to.node,port:to.port,side:to.side,signal:to.signal}};
+  });
+  return best;
+}
+function startConnect(ev,dot){
+  ev.preventDefault();ev.stopPropagation();
+  const from={node:dot.dataset.node,port:dot.dataset.port,side:dot.dataset.side,signal:dot.dataset.signal};
+  dot.classList.add('lit');
+  const a=portCenter(nodeById(from.node),from.port);
+  const temp=mkSVG('path',{stroke:C[from.signal],'stroke-width':3,fill:'none','stroke-dasharray':'4 5','stroke-linecap':'round',opacity:.8});wires.appendChild(temp);
+  const hint=document.createElement('div');hint.className='magnet-hint';hint.textContent='Suelta para conectar';document.body.appendChild(hint);
+  let candidate=null;
+  function clearMagnet(){world.querySelectorAll('.port.magnet').forEach(p=>p.classList.remove('magnet'));world.querySelectorAll('.node.magnet-target').forEach(n=>n.classList.remove('magnet-target'));hint.classList.remove('show');}
+  function mv(e){
+    clearMagnet();candidate=magneticPort(from,e.clientX,e.clientY);
+    let end=worldCoords(e);
+    if(candidate){
+      candidate.port.classList.add('magnet');candidate.port.closest('.node')?.classList.add('magnet-target');
+      end=portCenter(nodeById(candidate.to.node),candidate.to.port);
+      hint.style.left=e.clientX+'px';hint.style.top=e.clientY+'px';hint.classList.add('show');
+    }
+    temp.setAttribute('d',cablePath(a,end));
+  }
+  function up(e){
+    document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);
+    dot.classList.remove('lit');clearMagnet();temp.remove();hint.remove();
+    const target=candidate||magneticPort(from,e.clientX,e.clientY);
+    if(target)tryConnect(from,target.to);
+  }
+  document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);
+}
+function tryConnect(from,to){
+  if(from.node===to.node)return;
+  if(from.signal!==to.signal){toast('Esos puertos son de señales distintas');return;}
+  let out,inp;
+  if(from.side==='out'&&to.side==='in'){out=from;inp=to;}
+  else if(from.side==='in'&&to.side==='out'){out=to;inp=from;}
+  else{toast('Conecta una salida con una entrada');return;}
+  snapshot();
+  state.edges=state.edges.filter(e=>!(e.to.node===inp.node&&e.to.port===inp.port));
+  state.edges.push({id:'e'+(state.seq++),from:{node:out.node,port:out.port},to:{node:inp.node,port:inp.port}});
+  render();save();
+}
+
+/* ---------- selección + inspector ---------- */
+function select(kind,id){sel=id?{kind,id}:null;render();}
+function sel2(id,label,opts,val){return '<div class="field"><label>'+label+'</label><select id="'+id+'">'+opts.map(o=>'<option'+(o===val?' selected':'')+'>'+o+'</option>').join('')+'</select></div>';}
+function drawInspector(){
+  const insp=$('#inspector'),box=$('#inspIn');
+  if(!sel||sel.kind==='edge'){insp.classList.remove('open');box.innerHTML='';return;}
+  if(sel.kind==='node')return inspNode(insp,box,nodeById(sel.id));
+  if(sel.kind==='zone')return inspZone(insp,box,zoneById(sel.id));
+  insp.classList.remove('open');
+}
+function inspNode(insp,box,n){
+  if(!n){insp.classList.remove('open');return;}
+  insp.classList.add('open');$('#checks').classList.remove('open');$('#btnChecks').classList.remove('on');
+  const def=TYPES[n.type];
+  let h='<h3>'+escapeHtml(def.label)+'</h3><div class="sub">Ajusta este equipo</div>';
+  h+='<div class="field"><label>Nombre</label><input id="f_label" value="'+escapeHtml(n.label)+'"></div>';
+  if(n.type==='camara')h+=sel2('f_conn','Salida de video',['HDMI','SDI'],n.props.connector);
+  if(n.type==='microfono')h+=sel2('f_con','Conexión',['XLR','Inalámbrico'],n.props.conexion);
+  if(n.type==='plataforma')h+=sel2('f_plat','Plataforma',Object.keys(PLAT),n.props.plataforma);
+  if(def.configurable)h+=sel2('f_in','Número de entradas',['2','3','4','5','6','8'],String(n.props.inputs||4));
+  // canales físicos
+  h+='<div class="field"><label>Canales físicos</label>';
+  nodePorts(n).forEach(p=>{h+='<div class="chrow"><span>'+escapeHtml(p.label)+'</span><input data-ch="'+p.id+'" placeholder="ej. '+(p.signal==='video'?'SDI 1':p.signal==='audio'?'XLR 1':'RTMP')+'" value="'+escapeHtml((n.chan&&n.chan[p.id])||'')+'"></div>';});
+  h+='</div>';
+  h+='<button class="del" id="f_del">Eliminar equipo</button>';
+  h+='<div class="hint">Conecta arrastrando de una salida (derecha) a una entrada (izquierda). Toca un cable para borrarlo.</div>';
+  box.innerHTML=h;
+  $('#f_label').addEventListener('focus',()=>snapshot());
+  $('#f_label').addEventListener('input',e=>{n.label=e.target.value;world.querySelector('.node[data-id="'+n.id+'"] .ttl').textContent=e.target.value;save();});
+  const c=$('#f_conn');if(c)c.addEventListener('change',e=>{snapshot();n.props.connector=e.target.value;render();save();});
+  const m=$('#f_con');if(m)m.addEventListener('change',e=>{snapshot();n.props.conexion=e.target.value;render();save();});
+  const p=$('#f_plat');if(p)p.addEventListener('change',e=>{snapshot();n.props.plataforma=e.target.value;n.accent=PLAT[e.target.value];render();save();});
+  const inp=$('#f_in');if(inp)inp.addEventListener('change',e=>{snapshot();const k=parseInt(e.target.value,10);n.props.inputs=k;state.edges=state.edges.filter(ed=>{if(ed.to.node!==n.id)return true;const num=parseInt(ed.to.port.replace('i',''),10);return num<=k;});render();save();});
+  box.querySelectorAll('input[data-ch]').forEach(ip=>{
+    ip.addEventListener('focus',()=>snapshot());
+    ip.addEventListener('input',e=>{n.chan=n.chan||{};const v=e.target.value;n.chan[ip.dataset.ch]=v;
+      const lab=world.querySelector('.node[data-id="'+n.id+'"] .plabel[data-port="'+ip.dataset.ch+'"]');
+      if(lab)lab.innerHTML=escapeHtml(lab.dataset.base)+(v?' · <b>'+escapeHtml(v)+'</b>':'');
+      save();});
+  });
+  $('#f_del').addEventListener('click',()=>removeNode(n.id));
+}
+function inspZone(insp,box,z){
+  if(!z){insp.classList.remove('open');return;}
+  insp.classList.add('open');$('#checks').classList.remove('open');$('#btnChecks').classList.remove('on');
+  let h='<h3>Zona</h3><div class="sub">Agrupa equipos del montaje</div>';
+  h+='<div class="field"><label>Nombre</label><input id="z_label" value="'+escapeHtml(z.label)+'"></div>';
+  h+='<div class="field"><label>Color</label><div class="swatches" id="z_sw">'+ZONE_COLORS.map(c=>'<button data-c="'+c+'" class="'+(c===z.color?'on':'')+'" style="background:'+c+'"></button>').join('')+'</div></div>';
+  h+='<button class="del" id="z_del">Eliminar zona</button>';
+  h+='<div class="hint">Arrastra la etiqueta para mover la zona; usa la esquina amarilla para cambiar el tamaño.</div>';
+  box.innerHTML=h;
+  $('#z_label').addEventListener('focus',()=>snapshot());
+  $('#z_label').addEventListener('input',e=>{z.label=e.target.value;const t=world.querySelector('.zone[data-id="'+z.id+'"] .ztitle');if(t)t.textContent=e.target.value;save();});
+  $('#z_sw').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{snapshot();z.color=b.dataset.c;render();save();}));
+  $('#z_del').addEventListener('click',()=>removeZone(z.id));
+}
+
+/* ---------- panel "listo para salir al aire" ---------- */
+function computeChecklist(){
+  const out=[],N=state.nodes;
+  const used=new Set();state.edges.forEach(e=>{used.add(e.from.node+':'+e.from.port);used.add(e.to.node+':'+e.to.port);});
+  const cams=N.filter(n=>n.type==='camara');
+  const camsOff=cams.filter(n=>!used.has(n.id+':v'));
+  if(cams.length===0)out.push(['warn','No hay cámaras en el diagrama.']);
+  else if(camsOff.length)out.push(['warn',camsOff.length+' cámara(s) sin conectar.']);
+  else out.push(['ok','Todas las cámaras están conectadas.']);
+
+  const mics=N.filter(n=>n.type==='microfono');
+  const micsOff=mics.filter(n=>!used.has(n.id+':a'));
+  if(mics.length&&micsOff.length)out.push(['warn',micsOff.length+' micrófono(s) sin conectar.']);
+  else if(mics.length)out.push(['ok','Todos los micrófonos están conectados.']);
+
+  const encs=N.filter(n=>n.type==='encoder');
+  if(!encs.length)out.push(['warn','No hay encoder/PC para enviar la señal.']);
+  encs.forEach(enc=>{
+    if(!used.has(enc.id+':v'))out.push(['warn','El encoder no recibe video del programa.']);
+    if(!used.has(enc.id+':a'))out.push(['warn','El encoder no recibe audio de la mezcla.']);
+    if(used.has(enc.id+':v')&&used.has(enc.id+':a'))out.push(['ok','El encoder recibe video y audio.']);
+  });
+
+  const plats=N.filter(n=>n.type==='plataforma');
+  const platsOff=plats.filter(n=>!used.has(n.id+':in'));
+  if(plats.length===0)out.push(['warn','No hay plataformas de destino.']);
+  else if(platsOff.length)out.push(['warn',platsOff.length+' plataforma(s) sin señal.']);
+  else out.push(['ok',plats.length+' plataforma(s) reciben señal.']);
+
+  if(plats.length-platsOff.length>=2)out.push(['info','Transmitir a '+(plats.length-platsOff.length)+' plataformas exige buena subida de internet y un encoder capaz. Verifícalo antes.']);
+
+  const warns=out.filter(o=>o[0]==='warn').length;
+  return{items:out,ok:warns===0&&N.length>0};
+}
+function drawChecklist(){
+  const box=$('#checks');if(!box.classList.contains('open')){box.innerHTML='';return;}
+  const r=computeChecklist();
+  let h='<div class="ph"><h3>Listo para salir al aire</h3><div class="st '+(r.ok?'go':'no')+'">'+(r.ok?'● Todo en orden':'● Faltan cosas')+'</div></div>';
+  r.items.forEach(([k,t])=>{const mk=k==='ok'?'✓':k==='warn'?'!':'i';h+='<div class="ci '+k+'"><span class="mk">'+mk+'</span><span>'+escapeHtml(t)+'</span></div>';});
+  box.innerHTML=h;
+}
+
+/* ---------- paleta ---------- */
+// Los equipos se agregan con clic (al centro) o ARRASTRANDO el chip hasta el
+// punto exacto del lienzo (con un fantasma que sigue al puntero).
+function chipPress(ev,t){
+  if(ev.button!==0)return;
+  ev.preventDefault();
+  const startX=ev.clientX,startY=ev.clientY;
+  let ghost=null,moved=false;
+  function mv(e){
+    if(!moved&&Math.hypot(e.clientX-startX,e.clientY-startY)<6)return;
+    if(!ghost){
+      moved=true;
+      ghost=document.createElement('div');
+      ghost.textContent='+ '+TYPES[t].label;
+      ghost.style.cssText='position:fixed;z-index:60;pointer-events:none;opacity:.92;background:#1b3252;border:1px solid #FFD23F;border-radius:9px;padding:8px 12px;color:#fff;font-weight:700;font-size:13px;transform:translate(-50%,-50%);box-shadow:0 8px 22px rgba(0,0,0,.45)';
+      document.body.appendChild(ghost);
+    }
+    ghost.style.left=e.clientX+'px';ghost.style.top=e.clientY+'px';
+  }
+  function up(e){
+    document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);
+    if(ghost)ghost.remove();
+    if(!moved){addNode(t);return;}
+    const r=wrap.getBoundingClientRect();
+    if(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom){
+      const c=worldCoords(e);
+      addNodeAt(t,c.x-NODE_W/2,c.y-HEAD_H/2);
+    }
+  }
+  document.addEventListener('pointermove',mv);
+  document.addEventListener('pointerup',up);
+}
+function buildPalette(){
+  const pal=$('#palette');pal.innerHTML='';
+  PALETTE_GROUPS.forEach(([title,types])=>{
+    const hh=document.createElement('h4');hh.textContent=title;pal.appendChild(hh);
+    types.forEach(t=>{
+      const chip=document.createElement('div');chip.className='chip';
+      if(t==='__zona'){chip.dataset.tool='zone';chip.title='Dibuja el área de la zona en el lienzo';chip.innerHTML='<span class="ic" style="background:#64748B">'+svg(I.zona)+'</span>Dibujar zona';chip.addEventListener('click',addZone);}
+      else if(t==='__nota'){chip.innerHTML='<span class="ic" style="background:#E0a800">'+svg(I.nota)+'</span>Nota';chip.addEventListener('click',addNote);}
+      else{const def=TYPES[t];chip.title='Clic para agregar, o arrástralo al lienzo';chip.innerHTML='<span class="ic" style="background:'+(t==='plataforma'?PLAT.YouTube:def.accent)+'">'+svg(I[t])+'</span>'+def.label;chip.addEventListener('pointerdown',ev=>chipPress(ev,t));}
+      pal.appendChild(chip);
+    });
+  });
+}
+
+/* ---------- autoconectar ---------- */
+// Completa la cadena estándar de un estudio: cámaras/fuentes → switcher,
+// micrófonos/receptores → mezcladora, programa+mezcla → encoder → plataformas.
+// Crea los equipos que falten y solo cablea puertos libres (no toca lo hecho).
+function autoConnect(){
+  snapshot();
+  const usedIn=new Set(),usedOut=new Set();
+  state.edges.forEach(e=>{usedIn.add(e.to.node+':'+e.to.port);usedOut.add(e.from.node+':'+e.from.port);});
+  const cams=state.nodes.filter(n=>n.type==='camara'||n.type==='fuente');
+  const mics=state.nodes.filter(n=>n.type==='microfono');
+  const rxs=state.nodes.filter(n=>n.type==='receptor');
+  let sw=state.nodes.find(n=>n.type==='switcher');
+  let au=state.nodes.find(n=>n.type==='audio');
+  let enc=state.nodes.find(n=>n.type==='encoder');
+  let plats=state.nodes.filter(n=>n.type==='plataforma');
+  const mkAt=(type,x,y,props)=>{const def=TYPES[type];const n={id:'n'+(state.seq++),type,x:Math.max(0,x),y:Math.max(0,y),label:def.label,props:clone(Object.assign({},def.props||{},props||{})),chan:{}};if(type==='plataforma')n.accent=PLAT[n.props.plataforma];state.nodes.push(n);return n;};
+  const midY=arr=>arr.length?arr.reduce((a,n)=>a+n.y,0)/arr.length:200;
+  const maxX=arr=>arr.length?Math.max(...arr.map(n=>n.x)):40;
+  let creados=0,conexiones=0;
+  if(cams.length&&!sw){sw=mkAt('switcher',maxX(cams)+NODE_W+130,midY(cams),{inputs:Math.min(12,Math.max(4,cams.length))});creados++;}
+  if(sw&&(sw.props.inputs||4)<cams.length)sw.props.inputs=Math.min(12,cams.length);
+  const audioFuentes=mics.length+rxs.length;
+  if(audioFuentes&&!au){au=mkAt('audio',maxX(mics.length?mics:rxs)+NODE_W+130,midY(mics.length?mics:rxs),{inputs:Math.min(12,Math.max(4,audioFuentes))});creados++;}
+  if(au&&(au.props.inputs||4)<audioFuentes)au.props.inputs=Math.min(12,audioFuentes);
+  if((sw||au||cams.length)&&!enc){
+    const bx=Math.max(sw?sw.x:0,au?au.x:0,maxX(cams))+NODE_W+130;
+    const by=sw&&au?(sw.y+au.y)/2:(sw?sw.y:au?au.y:midY(cams));
+    enc=mkAt('encoder',bx,by);creados++;
+  }
+  if(enc&&!plats.length){plats=[mkAt('plataforma',enc.x+NODE_W+130,enc.y,{plataforma:'YouTube'})];creados++;}
+  const conn=(fn,fp,tn,tp)=>{state.edges.push({id:'e'+(state.seq++),from:{node:fn.id,port:fp},to:{node:tn.id,port:tp}});usedIn.add(tn.id+':'+tp);usedOut.add(fn.id+':'+fp);conexiones++;};
+  const freeInput=(node,sig)=>nodePorts(node).filter(p=>p.side==='in'&&p.signal===sig).find(p=>!usedIn.has(node.id+':'+p.id));
+  if(sw)cams.forEach(c=>{if(usedOut.has(c.id+':v'))return;const f=freeInput(sw,'video');if(f)conn(c,'v',sw,f.id);});
+  if(au){
+    mics.forEach(m=>{if(usedOut.has(m.id+':a'))return;const f=freeInput(au,'audio');if(f)conn(m,'a',au,f.id);});
+    rxs.forEach(rx=>{if(usedOut.has(rx.id+':out'))return;const f=freeInput(au,'audio');if(f)conn(rx,'out',au,f.id);});
+  }
+  if(enc){
+    if(sw&&!usedIn.has(enc.id+':v')&&!usedOut.has(sw.id+':pgm'))conn(sw,'pgm',enc,'v');
+    else if(!sw&&cams.length===1&&!usedIn.has(enc.id+':v')&&!usedOut.has(cams[0].id+':v'))conn(cams[0],'v',enc,'v');
+    if(au&&!usedIn.has(enc.id+':a')&&!usedOut.has(au.id+':mix'))conn(au,'mix',enc,'a');
+    plats.forEach(p=>{if(!usedIn.has(p.id+':in'))conn(enc,'out',p,'in');});
+  }
+  if(!conexiones&&!creados){
+    undoStack.pop();updateUndoBtns();
+    toast('Nada que autoconectar: la cadena ya está completa');
+    return;
+  }
+  sel=null;render();save();fitToScreen();
+  toast('⚡ '+conexiones+' cable(s) conectados'+(creados?' · '+creados+' equipo(s) agregados':'')+' — revisa ✓ Al aire');
+}
+
+/* ---------- plantilla ---------- */
+function loadTemplate(){
+  snapshot();
+  state={nodes:[],edges:[],zones:[],notes:[],seq:1};
+  function mk(type,x,y,props,label){const def=TYPES[type];const n={id:'n'+(state.seq++),type,x,y,label:label||def.label,props:clone(Object.assign({},def.props||{},props||{})),chan:{}};if(type==='plataforma')n.accent=PLAT[n.props.plataforma];state.nodes.push(n);return n;}
+  state.zones.push({id:'z'+(state.seq++),x:10,y:10,w:300,h:430,label:'Set / Foro',color:'#2E7DDB'});
+  state.zones.push({id:'z'+(state.seq++),x:10,y:470,w:300,h:430,label:'Audio',color:'#1FA14E'});
+  state.zones.push({id:'z'+(state.seq++),x:930,y:80,w:300,h:560,label:'Plataformas',color:'#E0312F'});
+  const c1=mk('camara',40,60,{connector:'SDI'},'Cámara 1');
+  const c2=mk('camara',40,210,{connector:'SDI'},'Cámara 2');
+  const c3=mk('camara',40,360,{connector:'HDMI'},'Cámara 3');
+  const m1=mk('microfono',40,520,{conexion:'XLR'},'Mic 1 (conductor)');
+  const m2=mk('microfono',40,660,{conexion:'Inalámbrico'},'Mic 2 (invitado)');
+  const m3=mk('microfono',40,800,{conexion:'Inalámbrico'},'Mic 3 (reportero)');
+  const sw=mk('switcher',370,140,{inputs:4});
+  const au=mk('audio',370,600,{inputs:4});
+  const enc=mk('encoder',680,330);
+  const yt=mk('plataforma',960,130,{plataforma:'YouTube'});
+  const fb=mk('plataforma',960,270,{plataforma:'Facebook'});
+  const ig=mk('plataforma',960,410,{plataforma:'Instagram'});
+  const tk=mk('plataforma',960,550,{plataforma:'TikTok'});
+  c1.chan={v:'SDI 1'};c2.chan={v:'SDI 2'};c3.chan={v:'HDMI 1'};
+  const E=(fn,fp,tn,tp)=>state.edges.push({id:'e'+(state.seq++),from:{node:fn.id,port:fp},to:{node:tn.id,port:tp}});
+  E(c1,'v',sw,'i1');E(c2,'v',sw,'i2');E(c3,'v',sw,'i3');
+  E(m1,'a',au,'i1');E(m2,'a',au,'i2');E(m3,'a',au,'i3');
+  E(sw,'pgm',enc,'v');E(au,'mix',enc,'a');
+  E(enc,'out',yt,'in');E(enc,'out',fb,'in');E(enc,'out',ig,'in');E(enc,'out',tk,'in');
+  sel=null;render();save();fitToScreen();toast('Plantilla cargada — 3 cámaras, 3 micrófonos, multistream a 4 plataformas');
+}
+
+/* ---------- exportar / importar / compartir ---------- */
+function exportJSON(){
+  // Dentro de la app de escritorio las descargas blob no funcionan: se delega al shell.
+  if(window.parent!==window){
+    window.parent.postMessage({type:'producciontv:save-file',filename:'diagrama-senal.json',content:JSON.stringify(state,null,2),mime:'application/json'},'*');
+    return;
+  }
+  if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.download){
+    window.webkit.messageHandlers.download.postMessage({nombre:'diagrama-senal.json',contenido:JSON.stringify(state,null,2),mime:'application/json'});
+    toast('Diagrama listo para compartir');return;
+  }
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='diagrama-senal.json';a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),800);toast('Diagrama exportado');
+}
+function importJSON(file){
+  if(!file)return;const r=new FileReader();
+  r.onload=()=>{try{const s=JSON.parse(r.result);if(s&&s.nodes&&s.edges){snapshot();s.zones=s.zones||[];s.notes=s.notes||[];s.seq=s.seq||999;state=s;sel=null;render();save();fitToScreen();toast('Diagrama importado');}else toast('Archivo no válido');}catch(e){toast('No se pudo leer el archivo');}};
+  r.readAsText(file);
+}
+async function shareLink(){
+  if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.share){
+    window.webkit.messageHandlers.share.postMessage({nombre:'diagrama-senal.json',contenido:JSON.stringify(state,null,2),mime:'application/json'});
+    toast('Abriendo opciones para compartir');return;
+  }
+  const base=location.href.split('#')[0];
+  const url=base+'#d='+encodeURIComponent(JSON.stringify(state));
+  try{await navigator.clipboard.writeText(url);toast(url.length>8000?'Enlace copiado (largo: mejor comparte el archivo)':'Enlace copiado al portapapeles');}
+  catch(e){window.prompt('Copia este enlace para compartir:',url);}
+}
+function loadHash(){try{const m=(location.hash||'').match(/[#&]d=([^&]+)/);if(!m)return false;const s=JSON.parse(decodeURIComponent(m[1]));if(s&&s.nodes){s.zones=s.zones||[];s.notes=s.notes||[];state=s;history.replaceState(null,'',location.pathname+location.search);return true;}}catch(e){}return false;}
+
+function syncFromInfografia(cfg){
+  if(!cfg||!Array.isArray(cfg.camaras))return;
+  ensureSharedKeys();
+  const desired=[];
+  // Sin props para cámaras: el conector (HDMI/SDI) se edita en el diagrama y no debe
+  // restablecerse en cada sincronización; el valor por defecto lo pone TYPES al crear.
+  cfg.camaras.forEach((c,i)=>desired.push({key:'cam:'+c.id,type:'camara',label:c.nombre||('Cámara '+(i+1)),props:{},x:50,y:70+i*145}));
+  (cfg.microfonos||[]).forEach((m,i)=>desired.push({key:'mic:'+m.id,type:'microfono',label:m.nombre||('Mic '+(i+1)),props:{conexion:m.conexion||'XLR'},x:50,y:560+i*135}));
+  (cfg.extras||[]).filter(x=>!x.esCorte).forEach((x,i)=>desired.push({key:'src:'+x.id,type:'fuente',label:x.nombre||'Fuente',props:{},x:350,y:70+i*135}));
+  const keys=new Set(desired.map(d=>d.key));
+  const removed=state.nodes.filter(n=>n.syncKey&&!keys.has(n.syncKey)).map(n=>n.id);
+  if(removed.length){const dead=new Set(removed);state.nodes=state.nodes.filter(n=>!dead.has(n.id));state.edges=state.edges.filter(e=>!dead.has(e.from.node)&&!dead.has(e.to.node));}
+  desired.forEach(d=>{
+    let n=state.nodes.find(x=>x.syncKey===d.key);
+    if(n){n.label=d.label;n.props=Object.assign({},n.props||{},d.props);return;}
+    const def=TYPES[d.type];n={id:'n'+(state.seq++),type:d.type,x:d.x,y:d.y,label:d.label,props:clone(Object.assign({},def.props||{},d.props)),chan:{},syncKey:d.key};state.nodes.push(n);
+  });
+  render();save();
+}
+
+window.addEventListener('message',event=>{
+  if(event.data&&event.data.type==='producciontv:request-project'){
+    window.parent.postMessage({
+      type:'producciontv:project-data',
+      requestId:event.data.requestId,
+      filename:'diagrama-senal.json',
+      content:JSON.stringify(state,null,2)
+    },'*');
+  }
+  if(event.data&&event.data.type==='producciontv:hydrate-diagram'){
+    const s=event.data.state||{nodes:[],edges:[],zones:[],notes:[],seq:1};s.zones=s.zones||[];s.notes=s.notes||[];s.seq=s.seq||999;state=s;sel=null;syncFromInfografia(event.data.cfg);fitToScreen();
+  }
+  if(event.data&&event.data.type==='producciontv:sync-infografia')syncFromInfografia(event.data.cfg);
+  if(event.data&&event.data.type==='producciontv:load-diagram'&&event.data.state){
+    const s=event.data.state;s.zones=s.zones||[];s.notes=s.notes||[];s.seq=s.seq||999;state=s;sel=null;render();save();fitToScreen();
+  }
+});
+
+/* ---------- pan / fondo ---------- */
+let panStart=null,zoneDraft=null;
+wrap.addEventListener('pointerdown',e=>{
+  if(e.target!==wrap&&e.target!==world&&!e.target.classList.contains('wires'))return;
+  if(zoneDrawMode&&e.button===0){
+    e.preventDefault();e.stopPropagation();snapshot();
+    const s=worldCoords(e),z={id:'z'+(state.seq++),x:s.x,y:s.y,w:1,h:1,label:'Zona',color:ZONE_COLORS[state.zones.length%ZONE_COLORS.length]};
+    state.zones.push(z);sel=null;render();const el=world.querySelector('.zone[data-id="'+z.id+'"]');if(el)el.classList.add('drawing');zoneDraft={z,s,el};return;
+  }
+  if(e.button!==0)return;
+  panStart={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y,moved:false};
+});
+document.addEventListener('pointermove',e=>{
+  if(zoneDraft){const c=worldCoords(e),z=zoneDraft.z;z.x=Math.min(zoneDraft.s.x,c.x);z.y=Math.min(zoneDraft.s.y,c.y);z.w=Math.abs(c.x-zoneDraft.s.x);z.h=Math.abs(c.y-zoneDraft.s.y);if(zoneDraft.el){zoneDraft.el.style.left=z.x+'px';zoneDraft.el.style.top=z.y+'px';zoneDraft.el.style.width=z.w+'px';zoneDraft.el.style.height=z.h+'px';}return;}
+  if(!panStart)return;const dx=e.clientX-panStart.x,dy=e.clientY-panStart.y;
+  if(Math.abs(dx)+Math.abs(dy)>3)panStart.moved=true;
+  view.x=panStart.vx+dx;view.y=panStart.vy+dy;applyView();
+});
+document.addEventListener('pointerup',()=>{
+  if(zoneDraft){const z=zoneDraft.z,valid=z.w>=40&&z.h>=40;if(!valid){state.zones=state.zones.filter(x=>x.id!==z.id);undoStack.pop();updateUndoBtns();}zoneDraft=null;setZoneDrawMode(false);sel=null;render();if(valid){save();toast('Zona creada · arrastra el título para moverla');}else toast('Arrastra un área mayor para crear la zona');return;}
+  if(panStart){if(!panStart.moved){sel=null;render();}else save();panStart=null;}
+});
+wrap.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,e.deltaY<0?1.12:1/1.12);},{passive:false});
+
+/* ---------- eventos UI ---------- */
+document.addEventListener('keydown',e=>{
+  const a=document.activeElement,typing=a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.tagName==='SELECT');
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return;}
+  if((e.key==='Delete'||e.key==='Backspace')&&!typing&&sel){
+    if(sel.kind==='edge')removeEdge(sel.id);else if(sel.kind==='node')removeNode(sel.id);
+    else if(sel.kind==='zone')removeZone(sel.id);else if(sel.kind==='note')removeNote(sel.id);
+  }
+  if(e.key==='Escape'){if(zoneDrawMode){setZoneDrawMode(false);toast('Creación de zona cancelada');}toggleHelp(false);sel=null;render();}
+});
+$('#btnUndo').addEventListener('click',undo);
+$('#btnRedo').addEventListener('click',redo);
+$('#btnChecks').addEventListener('click',()=>{const c=$('#checks');const open=c.classList.toggle('open');$('#btnChecks').classList.toggle('on',open);if(open){$('#inspector').classList.remove('open');sel=null;}render();});
+$('#btnAuto').addEventListener('click',autoConnect);
+// El ejemplo reemplaza todo el diagrama: confirmación en dos pasos (no hay
+// window.confirm en el WebView), igual que el botón Vaciar.
+let tplArmedTimer=null;
+$('#btnTpl').addEventListener('click',()=>{
+  if(!state.nodes.length){loadTemplate();return;}
+  const b=$('#btnTpl');
+  if(tplArmedTimer){
+    clearTimeout(tplArmedTimer);tplArmedTimer=null;b.textContent='★ Ejemplo';b.classList.remove('red');
+    loadTemplate();return;
+  }
+  b.textContent='¿Reemplazar todo por el ejemplo?';b.classList.add('red');
+  tplArmedTimer=setTimeout(()=>{tplArmedTimer=null;b.textContent='★ Ejemplo';b.classList.remove('red');},3500);
+});
+// Ayuda: botón ? y auto-apertura la primera vez que no hay ningún cable.
+const HELP_KEY='senal:help-ok';
+function toggleHelp(show){$('#helpCard').classList.toggle('show',show);}
+$('#btnHelp').addEventListener('click',()=>toggleHelp(!$('#helpCard').classList.contains('show')));
+$('#helpClose').addEventListener('click',()=>{toggleHelp(false);try{localStorage.setItem(HELP_KEY,'1');}catch(e){}});
+$('#btnShare').addEventListener('click',shareLink);
+$('#btnExport').addEventListener('click',exportJSON);
+$('#btnImport').addEventListener('click',()=>$('#file').click());
+$('#file').addEventListener('change',e=>{importJSON(e.target.files[0]);e.target.value='';});
+// Confirmación en dos pasos: window.confirm no existe en el WebView de la app de escritorio.
+let clearArmedTimer=null;
+$('#btnClear').addEventListener('click',()=>{
+  const b=$('#btnClear');
+  if(clearArmedTimer){
+    clearTimeout(clearArmedTimer);clearArmedTimer=null;b.textContent='🗑 Vaciar';b.classList.remove('red');
+    snapshot();state={nodes:[],edges:[],zones:[],notes:[],seq:1};sel=null;render();save();toast('Diagrama vaciado — usa Deshacer si te arrepientes');
+    return;
+  }
+  b.textContent='¿Vaciar todo?';b.classList.add('red');
+  clearArmedTimer=setTimeout(()=>{clearArmedTimer=null;b.textContent='🗑 Vaciar';b.classList.remove('red');},3500);
+});
+$('#zIn').addEventListener('click',()=>{const r=wrap.getBoundingClientRect();zoomAt(r.left+r.width/2,r.top+r.height/2,1.15);});
+$('#zOut').addEventListener('click',()=>{const r=wrap.getBoundingClientRect();zoomAt(r.left+r.width/2,r.top+r.height/2,1/1.15);});
+$('#zFit').addEventListener('click',fitToScreen);
+
+/* ---------- arranque ---------- */
+buildPalette();
+const embedded=window.parent!==window;
+// Embebido en la app de escritorio: los enlaces compartidos no pueden abrirse fuera.
+if(embedded)$('#btnShare').style.display='none';
+let loaded=embedded?false:loadHash();
+if(!embedded&&!loaded){try{const raw=localStorage.getItem(KEY);if(raw){const s=JSON.parse(raw);if(s&&s.nodes){s.zones=s.zones||[];s.notes=s.notes||[];state=s;loaded=true;}}const v=localStorage.getItem(VKEY);if(v)view=JSON.parse(v);}catch(e){}}
+applyView();updateUndoBtns();
+if(embedded){render();}else if(!loaded||state.nodes.length===0){loadTemplate();}else{render();}
+// Primera visita sin cables: mostrar la guía rápida una sola vez.
+try{if(!localStorage.getItem(HELP_KEY)&&!state.edges.length)toggleHelp(true);}catch(e){}
+})();
+</script>
+</body>
+</html>

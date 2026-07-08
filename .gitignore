@@ -1,0 +1,9 @@
+node_modules/
+frontend/dist/
+frontend/wailsjs/
+frontend/package.json.md5
+build/bin/
+web-sources/generador-tv/dist/
+web-sources/generador-tv/node_modules/
+*.log
+.DS_Store

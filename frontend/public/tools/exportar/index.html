@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exportar — Producción TV</title>
+<link rel="stylesheet" href="../shared/sheets.css">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#25313f;color:#15233D}
+  .layout{display:grid;grid-template-columns:320px minmax(0,1fr);min-height:100vh}
+  /* Panel de configuración */
+  .config{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;display:flex;flex-direction:column;gap:18px;padding:18px 16px;background:#0d1b2e;color:#dce8f8;border-right:1px solid #2a3e58}
+  .config h1{margin:0;font-size:15px;text-transform:uppercase;letter-spacing:1px;color:#fff}
+  .config h2{margin:0 0 8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#62adff}
+  .type-grid{display:flex;flex-direction:column;gap:8px}
+  .type-card{display:flex;flex-direction:column;gap:2px;text-align:left;border:1px solid #2d4564;background:#12233c;color:#e9f1fc;border-radius:11px;padding:10px 12px;cursor:pointer;font:inherit}
+  .type-card strong{font-size:13px}
+  .type-card small{color:#7f93ae;font-size:10.5px}
+  .type-card.selected{border-color:#58a8ff;background:#17365e;box-shadow:0 0 0 1px #58a8ff}
+  .sec-list{display:flex;flex-direction:column;gap:6px}
+  .sec-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center;border:1px solid #2d4564;background:#12233c;border-radius:9px;padding:7px 9px}
+  .sec-row.off{opacity:.5}
+  .sec-row label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;cursor:pointer;min-width:0}
+  .sec-row label span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sec-row input{width:14px;height:14px;accent-color:#58a8ff;flex:none}
+  .sec-row button{width:24px;height:24px;border:0;border-radius:6px;background:#172c48;color:#bcd0e9;cursor:pointer;font-size:12px}
+  .sec-row button:disabled{opacity:.3;cursor:default}
+  .pages-hint{font-size:10.5px;color:#7f93ae;line-height:1.5;margin:6px 0 0}
+  .go{margin-top:auto;border:1px solid #4f89c8;background:#1d6fd1;color:#fff;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer}
+  .go:hover{background:#2d83e6}
+  .go:disabled{opacity:.45;cursor:default}
+  /* Previsualización */
+  .preview{display:flex;flex-direction:column;align-items:center;gap:22px;padding:24px 16px 60px;overflow:auto}
+  .preview-title{align-self:stretch;text-align:center;color:#a9b8c9;font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase}
+  .empty{margin-top:80px;text-align:center;color:#a9b8c9;font-size:14px;line-height:1.7}
+  @media print{
+    body{background:#fff}
+    .config,.preview-title{display:none!important}
+    .layout{display:block}
+    .preview{padding:0;gap:0;display:block;overflow:visible}
+    .page,.sheet{width:auto;min-height:auto;box-shadow:none;border-radius:0;padding:10mm 12mm;page-break-after:always}
+    .export-page:last-child{page-break-after:auto}
+  }
+  @page{size:letter;margin:8mm}
+</style>
+<!-- Estilos de las páginas del documento. Van en un bloque aparte (solo
+     selectores con clase) porque se envían junto con el HTML al shell para la
+     impresión multipágina (producciontv:print-document). -->
+<style id="page-styles">
+  .page{width:816px;min-height:1000px;background:#fff;border-radius:6px;box-shadow:0 14px 40px #0006;padding:38px 44px;position:relative;display:flex;flex-direction:column;color:#15233D;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+  .pg-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #16365F;padding-bottom:10px;margin-bottom:14px}
+  .pg-head h1{margin:0;font-size:21px;color:#16365F;text-transform:uppercase;letter-spacing:.5px}
+  .pg-head .sub{margin:3px 0 0;font-size:11px;color:#5b6b82;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+  .pg-head .org{text-align:right;font-size:11px;color:#5b6b82;font-weight:700;text-transform:uppercase}
+  .pg-foot{margin-top:auto;padding-top:18px;display:flex;justify-content:space-between;font-size:9px;color:#8a97a8;letter-spacing:1px;text-transform:uppercase}
+  .page table{width:100%;border-collapse:collapse;font-size:12px}
+  .page th{background:#16365F;color:#fff;text-transform:uppercase;font-size:10px;letter-spacing:.8px;padding:6px 8px;text-align:left}
+  .page td{border:1px solid #C8D2DE;padding:6px 8px;vertical-align:middle}
+  .page td.num{width:26px;text-align:center;color:#5b6b82;font-weight:700}
+  .chip{display:inline-block;color:#fff;font-weight:800;font-size:10.5px;border-radius:5px;padding:2px 8px}
+  .kv{display:grid;grid-template-columns:170px 1fr;font-size:12.5px}
+  .kv span{padding:8px 10px;background:#F2F5F8;border-bottom:1px solid #fff;font-weight:800;font-size:10px;text-transform:uppercase;color:#5b6b82;letter-spacing:.8px}
+  .kv b{padding:8px 10px;border-bottom:1px solid #EDF1F5}
+  .people{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .person{display:flex;align-items:center;gap:10px;border:1.5px solid #C8D2DE;border-radius:9px;padding:9px 11px}
+  .person i{width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:50%;background:#16365F;color:#fff;font-style:normal;font-size:16px}
+  .person div{min-width:0}
+  .person strong{display:block;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .person small{font-size:9.5px;color:#5b6b82;text-transform:uppercase;font-weight:700;letter-spacing:.5px}
+  .cat2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#16365F;border-bottom:2px solid #16365F;padding-bottom:3px;margin:14px 0 8px}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="config no-print">
+    <h1>⇩ Exportar</h1>
+    <section>
+      <h2>¿Qué quieres exportar?</h2>
+      <div class="type-grid" id="type-grid">
+        <button class="type-card" data-type="proyecto"><strong>◆ Proyecto editable (.ptv)</strong><small>Archivo de Producción TV: doble clic lo abre en la app, o impórtalo desde Inicio</small></button>
+        <button class="type-card selected" data-type="pdf"><strong>⎙ PDF imprimible</strong><small>Documento con las secciones elegidas, en el orden que definas</small></button>
+        <button class="type-card" data-type="png"><strong>▧ PNG por sección</strong><small>Una imagen de alta resolución por cada página del documento</small></button>
+      </div>
+    </section>
+    <section id="sections-panel">
+      <h2>Selecciona qué secciones quieres incluir</h2>
+      <div class="sec-list" id="sec-list"></div>
+      <p class="pages-hint">Usa ▲▼ para ordenar las páginas del documento. La vista previa de la derecha es exactamente lo que se genera.</p>
+    </section>
+    <button class="go" id="go">Generar</button>
+  </aside>
+  <main class="preview" id="preview">
+    <div class="empty">Abre un proyecto para configurar su exportación.</div>
+  </main>
+</div>
+
+<script src="../shared/sheets.js"></script>
+<script>
+(() => {
+  'use strict';
+  const S = window.PTVSheets;
+  const esc = S.esc, fmt = S.fmt, trunc = S.trunc;
+
+  let cfg = null, diagram = null, project = null, projectName = '';
+  let tipo = 'pdf';
+
+  // Secciones disponibles (id, etiqueta, páginas que produce)
+  const SECCIONES = [
+    { id: 'completa', label: 'Producción completa (resumen)', on: true },
+    { id: 'set', label: 'Sets (planos cenitales)', on: true },
+    { id: 'iluminacion', label: 'Iluminación', on: true },
+    { id: 'llamado', label: 'Hoja de llamado', on: true },
+    { id: 'escaleta', label: 'Escaleta', on: true },
+    { id: 'timeline', label: 'Línea de tiempo', on: true },
+    { id: 'diagrama', label: 'Diagrama técnico', on: true },
+    { id: 'personal', label: 'Personal de operación', on: true },
+    { id: 'guias', label: 'Guías rellenables', on: false },
+  ];
+  let orden = SECCIONES.map((s) => ({ ...s }));
+
+  /* --------------------------- Utilidades --------------------------- */
+
+  // Nombre de archivo seguro: sin acentos (NFD + quitar diacríticos) ni símbolos.
+  const slug = (s) => String(s || 'produccion').toLowerCase().normalize('NFD')
+    .replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'produccion';
+
+  const fuentesDe = () => {
+    const map = {};
+    (cfg.camaras || []).forEach((c, i) => { map[c.id] = { nombre: c.nombre || 'CAM ' + (i + 1), color: c.color || '#1D6FD1' }; });
+    (cfg.extras || []).forEach((x) => { map[x.id] = { nombre: x.nombre, color: x.color || '#64748B' }; });
+    return map;
+  };
+
+  const pgHead = (titulo, sub) => `
+    <div class="pg-head">
+      <div><h1>${esc(titulo)}</h1><p class="sub">${esc(sub)}</p></div>
+      <div class="org">${esc(cfg.organizacion || '')}<br>${esc(trunc(cfg.titulo || projectName, 42))}</div>
+    </div>`;
+
+  const pgFoot = (n, total) => `<div class="pg-foot"><span>Producción TV · ${esc(trunc(projectName || cfg.titulo || '', 40))}</span><span>${new Date().toLocaleDateString()}</span><span>Página ${n} / ${total}</span></div>`;
+
+  /* ------------------------ Páginas del documento ------------------------ */
+
+  function pagCompleta() {
+    const total = (cfg.escaleta || []).reduce((a, r) => a + (r.dur || 0), 0);
+    const cams = cfg.camaras || [], mics = cfg.microfonos || [];
+    const extras = (cfg.extras || []).filter((x) => !x.esCorte);
+    const kv = (k, v) => `<span>${k}</span><b>${v}</b>`;
+    return `
+      ${pgHead('Producción completa', 'Resumen ejecutivo del proyecto')}
+      <div class="kv">
+        ${kv('Título', esc(cfg.titulo || projectName))}
+        ${kv('Subtítulo', esc(cfg.subtitulo || '—'))}
+        ${kv('Productora', esc(cfg.organizacion || '—'))}
+        ${kv('Duración planeada', fmt(total) + ' · ' + (cfg.escaleta || []).length + ' segmentos')}
+        ${kv('Set', esc(cfg.pantalla || '—') + ' · Mesa: ' + esc(cfg.mesa || '—'))}
+        ${kv('Color de marca', `<span class="chip" style="background:${esc(cfg.branding?.primaryColor || '#16365F')}">${esc(cfg.branding?.primaryColor || '#16365F')}</span>`)}
+      </div>
+      <div class="cat2">Equipo técnico</div>
+      <table>
+        <tr><th>Cámaras (${cams.length})</th><th>Micrófonos (${mics.length})</th><th>Fuentes (${extras.length})</th></tr>
+        <tr>
+          <td>${cams.map((c, i) => `<span class="chip" style="background:${esc(c.color || '#16365F')};margin:2px 3px 2px 0">${esc(c.nombre || 'CAM ' + (i + 1))}</span> <small>${esc(c.plano || '')}</small>`).join('<br>') || '—'}</td>
+          <td>${mics.map((m) => `${esc(m.nombre)} <small style="color:#5b6b82">· ${esc(m.conexion || '')}</small>`).join('<br>') || '—'}</td>
+          <td>${extras.map((x) => esc(x.nombre)).join('<br>') || '—'}</td>
+        </tr>
+      </table>
+      <div class="cat2">Personal (${(cfg.personal || []).length}${cfg.includeCamOps ? ' + ' + cams.length + ' operadores de cámara' : ''})</div>
+      <p style="font-size:12px;line-height:1.8;margin:0">${(cfg.personal || []).map((p) => esc(p.rol)).join(' · ') || '—'}</p>`;
+  }
+
+  // Una página por set del proyecto.
+  function pagsSet() {
+    const sets = S.setsDe(cfg);
+    return sets.map((s) => ({
+      name: 'set-' + slug(s.nombre),
+      html: `${pgHead('Set · ' + s.nombre, s.locacion === 'ext' ? 'Locación exterior' : '¿Qué hay en el espacio físico y quién lo opera?')}${S.planoSvg(cfg, { display: true, set: s })}`,
+    }));
+  }
+
+  // Una página de iluminación por set (solo sets con luces; si ninguno tiene,
+  // una página que lo indica).
+  function pagsIluminacion() {
+    const sets = S.setsDe(cfg);
+    const conLuces = sets.filter((s) => ((s.iluminacion && s.iluminacion.luces) || []).length);
+    if (!conLuces.length) {
+      return [{
+        name: 'iluminacion',
+        html: `${pgHead('Iluminación', 'Plan de luces del proyecto')}<p style="font-size:12px">Sin iluminación configurada — se elige en la pestaña Set de la app.</p>`,
+      }];
+    }
+    return conLuces.map((s) => {
+      const luces = s.iluminacion.luces;
+      const lista = luces.map((l) =>
+        `<span class="chip" style="background:${esc(l.color || '#16365F')};margin:2px 4px 2px 0">${esc(l.abrev || 'LUZ')}</span> ${esc(l.nombre)}${l.opcional ? ' <small style="color:#5b6b82">· opcional</small>' : ''}`
+      ).join('<br>');
+      return {
+        name: 'iluminacion-' + slug(s.nombre),
+        html: `
+          ${pgHead('Iluminación · ' + s.nombre, 'Plan de luces sobre el plano cenital')}
+          ${S.planoSvg(cfg, { display: true, set: s })}
+          <div class="cat2">Luces (${luces.length})</div>
+          <p style="font-size:12px;line-height:2;margin:0">${lista}</p>`,
+      };
+    });
+  }
+
+  function pagEscaleta() {
+    const byId = fuentesDe();
+    let t = 0;
+    const rows = (cfg.escaleta || []).map((r, i) => {
+      const tin = t; t += r.dur || 0;
+      const f = byId[r.fuente];
+      return `<tr>
+        <td class="num">${i + 1}</td>
+        <td><b>${esc(r.segmento)}</b>${r.nota ? `<br><small style="color:#5b6b82">${esc(r.nota)}</small>` : ''}</td>
+        <td>${f ? `<span class="chip" style="background:${esc(f.color)}">${esc(trunc(f.nombre, 16))}</span>` : '—'}</td>
+        <td style="text-align:center">${fmt(tin)}</td>
+        <td style="text-align:center">${fmt(t)}</td>
+        <td style="text-align:center"><b>${fmt(r.dur)}</b></td>
+      </tr>`;
+    }).join('');
+    return `
+      ${pgHead('Escaleta / Rundown', '¿Qué pasa primero, qué pasa después y cuánto dura cada bloque?')}
+      <table>
+        <tr><th>#</th><th>Segmento</th><th>Fuente</th><th style="width:64px">Entra</th><th style="width:64px">Sale</th><th style="width:64px">Dur</th></tr>
+        ${rows || '<tr><td colspan="6">Sin segmentos.</td></tr>'}
+      </table>
+      <p style="font-size:12px;margin:10px 0 0">Duración total: <b>${fmt(t)}</b></p>`;
+  }
+
+  function pagTimeline() {
+    const byId = fuentesDe();
+    const rows = cfg.escaleta || [];
+    const total = rows.reduce((a, r) => a + (r.dur || 0), 0) || 1;
+    const W = 900, BAR_Y = 40, BAR_H = 64;
+    let x = 40, t = 0, alt = 0;
+    const segs = rows.map((r) => {
+      const w = (r.dur || 0) / total * (W - 80);
+      const f = byId[r.fuente] || { nombre: '—', color: '#9AA7B5' };
+      const cx = x + w / 2;
+      const labelY = alt % 2 ? BAR_Y + BAR_H + 34 : BAR_Y - 14;
+      alt += 1;
+      const s = `
+        <rect x="${x}" y="${BAR_Y}" width="${Math.max(1, w - 1)}" height="${BAR_H}" fill="${esc(f.color)}" opacity="0.85"/>
+        <line x1="${cx}" y1="${labelY > BAR_Y ? BAR_Y + BAR_H : BAR_Y}" x2="${cx}" y2="${labelY > BAR_Y ? labelY - 20 : labelY + 4}" stroke="#9AA7B5"/>
+        <text x="${cx}" y="${labelY}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#33445F">${esc(trunc(r.segmento, 18))}</text>
+        <text x="${cx}" y="${labelY + 11}" text-anchor="middle" font-size="9" fill="#5b6b82">${fmt(t)} → ${fmt(t + (r.dur || 0))}</text>`;
+      x += w; t += r.dur || 0;
+      return s;
+    }).join('');
+    const leyenda = Object.values(byId).map((f, i) =>
+      `<g transform="translate(${40 + (i % 4) * 215} ${190 + Math.floor(i / 4) * 22})">
+        <rect width="12" height="12" rx="3" fill="${esc(f.color)}"/>
+        <text x="18" y="10" font-size="10.5" fill="#33445F">${esc(trunc(f.nombre, 26))}</text>
+      </g>`).join('');
+    const legH = 200 + Math.ceil(Object.keys(byId).length / 4) * 22;
+    return `
+      ${pgHead('Línea de tiempo', 'Distribución temporal de la producción — total ' + fmt(total))}
+      <svg viewBox="0 0 ${W} ${legH}" style="width:100%;display:block">
+        <rect x="40" y="${BAR_Y}" width="${W - 80}" height="${BAR_H}" fill="none" stroke="#C8D2DE" stroke-width="1.5"/>
+        ${segs}
+        <text x="40" y="${BAR_Y + BAR_H + 58}" font-size="10" fill="#8A97A8" letter-spacing="1">FUENTES:</text>
+        ${leyenda}
+      </svg>`;
+  }
+
+  function pagDiagrama() {
+    const nodes = (diagram && diagram.nodes) || [];
+    const edges = (diagram && diagram.edges) || [];
+    if (!nodes.length) return `${pgHead('Diagrama técnico', 'Ruta de señal')}<p style="font-size:12px">Este proyecto aún no tiene diagrama de señal.</p>`;
+    const SIGNAL = { camara: 'video', fuente: 'video', switcher: 'video', monitor: 'video', microfono: 'audio', receptor: 'audio', audio: 'audio', encoder: 'stream', plataforma: 'stream' };
+    const COLOR = { video: '#1D6FD1', audio: '#1FA14E', stream: '#E0312F' };
+    const NW = 150, NH = 46;
+    const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
+    const minX = Math.min(...xs) - 30, minY = Math.min(...ys) - 30;
+    const w = Math.max(...xs) - minX + NW + 60, h = Math.max(...ys) - minY + NH + 60;
+    const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
+    const edgesSvg = edges.map((e) => {
+      const a = byId[e.from?.node], b = byId[e.to?.node];
+      if (!a || !b) return '';
+      const x1 = a.x - minX + NW, y1 = a.y - minY + NH / 2;
+      const x2 = b.x - minX, y2 = b.y - minY + NH / 2;
+      const c = COLOR[SIGNAL[a.type]] || '#64748B';
+      const mx = (x1 + x2) / 2;
+      return `<path d="M${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}" fill="none" stroke="${c}" stroke-width="2.5" opacity="0.85"/>`;
+    }).join('');
+    const nodesSvg = nodes.map((n) => {
+      const c = COLOR[SIGNAL[n.type]] || '#64748B';
+      return `<g transform="translate(${n.x - minX} ${n.y - minY})">
+        <rect width="${NW}" height="${NH}" rx="9" fill="#fff" stroke="${c}" stroke-width="2.5"/>
+        <text x="${NW / 2}" y="20" text-anchor="middle" font-size="11.5" font-weight="800" fill="#15233D">${esc(trunc(n.label || n.type, 20))}</text>
+        <text x="${NW / 2}" y="35" text-anchor="middle" font-size="8.5" fill="#5b6b82" letter-spacing=".5">${esc((n.type || '').toUpperCase())}</text>
+      </g>`;
+    }).join('');
+    const ley = Object.entries(COLOR).map(([sig, c], i) =>
+      `<g transform="translate(${i * 130} 0)"><line x1="0" y1="6" x2="26" y2="6" stroke="${c}" stroke-width="3"/><text x="32" y="10" font-size="11" fill="#33445F">${sig.toUpperCase()}</text></g>`).join('');
+    return `
+      ${pgHead('Diagrama técnico', 'Ruta de señal: video, audio y streaming')}
+      <svg viewBox="0 0 390 20" style="width:390px;margin-bottom:10px">${ley}</svg>
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;display:block;border:1px solid #C8D2DE;border-radius:8px;background:#FAFBFD">${edgesSvg}${nodesSvg}</svg>`;
+  }
+
+  function pagPersonal() {
+    const ICON = { director: '🎧', switcher: '🎚', audio: '🔊', graficos: '🖥', playback: '▶', conductor: '🎤', floor: '🎬', luces: '💡', productor: '👥', script: '✏️', custom: '👤' };
+    const people = (cfg.personal || []).map((p) =>
+      `<div class="person"><i>${ICON[p.icon] || '👤'}</i><div><strong>${esc(p.rol)}</strong><small>Operación</small></div></div>`);
+    const camOps = cfg.includeCamOps
+      ? (cfg.camaras || []).map((c, i) => `<div class="person"><i style="background:${esc(c.color || '#16365F')}">📷</i><div><strong>Operador(a) ${esc(c.nombre || 'CAM ' + (i + 1))}</strong><small>${esc(c.plano || 'Cámara')}</small></div></div>`)
+      : [];
+    return `
+      ${pgHead('Personal de operación', '¿Quién opera qué durante la producción?')}
+      <div class="people">${[...people, ...camOps].join('') || '<p>Sin personal definido.</p>'}</div>`;
+  }
+
+  /* --------------------------- Composición --------------------------- */
+
+  // Devuelve la lista de páginas [{name, html, fillable}] según secciones y orden.
+  function buildPages() {
+    const pages = [];
+    orden.filter((s) => s.on).forEach((s) => {
+      if (s.id === 'completa') pages.push({ name: 'resumen', html: pagCompleta() });
+      if (s.id === 'set') pages.push(...pagsSet());
+      if (s.id === 'iluminacion') pages.push(...pagsIluminacion());
+      if (s.id === 'llamado') pages.push({ name: 'hoja-de-llamado', html: S.llamado(cfg, projectName), fillable: true });
+      if (s.id === 'escaleta') pages.push({ name: 'escaleta', html: pagEscaleta() });
+      if (s.id === 'timeline') pages.push({ name: 'linea-de-tiempo', html: pagTimeline() });
+      if (s.id === 'diagrama') pages.push({ name: 'diagrama-tecnico', html: pagDiagrama() });
+      if (s.id === 'personal') pages.push({ name: 'personal', html: pagPersonal() });
+      if (s.id === 'guias') {
+        ['escaleta', 'camaras', 'checklist', 'plano', 'iluminacion', 'llamado', 'cambios'].forEach((g, i) => {
+          pages.push({ name: `guia-${i + 1}-${g}`, html: S[g](cfg, projectName, { extraRows: 4 }), fillable: true });
+        });
+      }
+    });
+    return pages;
+  }
+
+  /* ----------------------------- Render ----------------------------- */
+
+  function renderConfig() {
+    document.querySelectorAll('[data-type]').forEach((b) => b.classList.toggle('selected', b.dataset.type === tipo));
+    document.querySelector('#sections-panel').style.display = tipo === 'proyecto' ? 'none' : '';
+    const list = document.querySelector('#sec-list');
+    list.innerHTML = orden.map((s, i) => `
+      <div class="sec-row ${s.on ? '' : 'off'}">
+        <input type="checkbox" data-on="${i}" ${s.on ? 'checked' : ''}>
+        <label><span>${s.label}</span></label>
+        <button data-up="${i}" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button data-down="${i}" ${i === orden.length - 1 ? 'disabled' : ''}>▼</button>
+      </div>`).join('');
+    list.querySelectorAll('[data-on]').forEach((c) => c.onchange = () => { orden[Number(c.dataset.on)].on = c.checked; render(); });
+    list.querySelectorAll('[data-up]').forEach((b) => b.onclick = () => { const i = Number(b.dataset.up); [orden[i - 1], orden[i]] = [orden[i], orden[i - 1]]; render(); });
+    list.querySelectorAll('[data-down]').forEach((b) => b.onclick = () => { const i = Number(b.dataset.down); [orden[i + 1], orden[i]] = [orden[i], orden[i + 1]]; render(); });
+    const go = document.querySelector('#go');
+    const n = buildPages().length;
+    go.textContent = tipo === 'proyecto' ? 'Exportar proyecto (.ptv)' : tipo === 'pdf' ? `Generar PDF (${n} páginas)` : `Generar ${n} PNG`;
+    go.disabled = tipo !== 'proyecto' && n === 0;
+  }
+
+  function renderPreview() {
+    const box = document.querySelector('#preview');
+    if (!cfg) return;
+    if (tipo === 'proyecto') {
+      box.innerHTML = `
+        <div class="preview-title no-print">Contenido del archivo</div>
+        <section class="page" style="min-height:auto">
+          ${pgHead('Proyecto editable', 'Archivo JSON reimportable con todo el proyecto')}
+          <div class="kv">
+            <span>Nombre</span><b>${esc(projectName || cfg.titulo || 'Proyecto')}</b>
+            <span>Infografía</span><b>${(cfg.camaras || []).length} cámaras · ${(cfg.microfonos || []).length} micrófonos · ${(cfg.escaleta || []).length} segmentos</b>
+            <span>Plano del set</span><b>${Object.keys(cfg.setLayout?.pos || {}).length ? 'Posiciones personalizadas incluidas' : 'Acomodo automático'}</b>
+            <span>Diagrama técnico</span><b>${((diagram || {}).nodes || []).length} nodos · ${((diagram || {}).edges || []).length} conexiones</b>
+          </div>
+          <p style="font-size:12px;color:#5b6b82;line-height:1.7;margin-top:14px">Este formato conserva todo: se importa de regreso en la app y se sigue editando. Es la copia de seguridad recomendada del proyecto.</p>
+        </section>`;
+      return;
+    }
+    const pages = buildPages();
+    box.innerHTML = pages.length
+      ? `<div class="preview-title no-print">Vista previa · ${pages.length} página${pages.length === 1 ? '' : 's'} — así se verá el documento</div>`
+        + pages.map((p, i) =>
+          `<section class="export-page ${p.fillable ? 'sheet' : 'page'}" data-name="${slug(projectName)}-${p.name}" style="display:flex;flex-direction:column">
+            ${p.html}${p.fillable ? S.foot(i + 1, pages.length) : pgFoot(i + 1, pages.length)}
+          </section>`).join('')
+      : '<div class="empty">Marca al menos una sección para incluir en el documento.</div>';
+  }
+
+  function render() { renderConfig(); renderPreview(); }
+
+  /* ----------------------------- Acciones ----------------------------- */
+
+  document.querySelectorAll('[data-type]').forEach((b) => b.onclick = () => { tipo = b.dataset.type; render(); });
+
+  // El PDF se imprime desde el shell: se le manda el HTML de las páginas con sus
+  // estilos, porque imprimir el iframe solo saca la parte visible (una pantalla).
+  async function printDocument() {
+    let sheetsCss = '';
+    try { sheetsCss = await (await fetch('../shared/sheets.css')).text(); } catch {}
+    const pagesCss = document.querySelector('#page-styles')?.textContent || '';
+    const html = [...document.querySelectorAll('.export-page')].map((el) => el.outerHTML).join('');
+    parent.postMessage({ type: 'producciontv:print-document', html, css: sheetsCss + pagesCss }, '*');
+  }
+
+  document.querySelector('#go').onclick = () => {
+    if (!cfg) return;
+    if (tipo === 'proyecto') {
+      parent.postMessage({
+        type: 'producciontv:save-file',
+        filename: `${slug(projectName)}.ptv`,
+        content: JSON.stringify({ project: project, infographic: cfg, diagram: diagram }, null, 2),
+      }, '*');
+      return;
+    }
+    if (tipo === 'pdf') { printDocument(); return; }
+    parent.postMessage({ type: 'producciontv:export-pngs' }, '*');
+  };
+
+  window.addEventListener('message', (event) => {
+    const data = event.data;
+    if (data && data.type === 'producciontv:load-exportar') {
+      cfg = data.cfg || null;
+      diagram = data.diagram || null;
+      project = data.project || null;
+      projectName = data.projectName || '';
+      if (cfg) render();
+    }
+  });
+})();
+</script>
+</body>
+</html>
