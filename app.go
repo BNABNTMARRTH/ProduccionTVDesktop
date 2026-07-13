@@ -103,6 +103,28 @@ func (a *App) Print() {
 	runtime.WindowPrint(a.ctx)
 }
 
+// FocusLauncher trae al frente la ventana ORIGINAL de inicio, como la
+// pantalla de inicio de Word: el lanzador es el proceso padre que abrió esta
+// ventana de proyecto. Si el lanzador ya se cerró, se abre uno nuevo.
+// (En desarrollo, si la ventana se lanzó a mano desde una terminal, el padre
+// es el shell y se activaría la terminal; en el flujo real siempre es el
+// lanzador o la instancia que importó el .ptv.)
+func (a *App) FocusLauncher() error {
+	if activateProcess(os.Getppid()) {
+		return nil
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(executable)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go func() { _ = cmd.Wait() }()
+	return nil
+}
+
 /* ------------------- Persistencia de proyectos en disco -------------------
 La fuente de verdad de los proyectos es ~/Documents/ProduccionTV: un archivo
 .ptv por proyecto (mismo paquete que exporta la app, compartible tal cual).

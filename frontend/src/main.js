@@ -1,7 +1,7 @@
 import './style.css';
 import html2canvas from 'html2canvas';
 import appIcon from './assets/images/atj-icon-small.png';
-import { DeleteProjectFile, DeleteTrashFile, GetLaunchContext, ListTrashFiles, LoadAllProjects, LoadProjectFile, OpenProjectWindow, Print, ReadTrashFile, SaveBase64File, SaveProjectFile, SaveTextFile } from '../wailsjs/go/main/App';
+import { DeleteProjectFile, DeleteTrashFile, FocusLauncher, GetLaunchContext, ListTrashFiles, LoadAllProjects, LoadProjectFile, OpenProjectWindow, Print, ReadTrashFile, SaveBase64File, SaveProjectFile, SaveTextFile } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 import { templateCatalog, makeTemplate, diagramFromConfig, infografiaFromDiagram, uid } from './templates.js';
 import { createProductionView } from './production.js';
@@ -215,9 +215,6 @@ async function createProject(profile) {
 }
 
 async function launchProjectWindow(id) {
-    // Este proyecto ya vive en esta ventana: volver a la herramienta en vez
-    // de abrir una ventana duplicada del mismo proyecto.
-    if (id === activeProjectId && shell.classList.contains('project-window')) { selectView('infografias'); return; }
     localStorage.setItem(ACTIVE_KEY, id);
     const project = projects.find((item) => item.id === id);
     if (!project) { showToast('El proyecto solicitado ya no existe', true); return; }
@@ -347,17 +344,7 @@ function selectView(view, forceReload = false) {
     productionView.hidden = view !== 'production';
     header.hidden = !isTool;
     frameWrap.hidden = !isTool;
-    if (view === 'home') {
-        renderRecent();
-        // Inicio desde una ventana de proyecto (estilo Word: Archivo →
-        // pantalla de inicio): su lista puede estar vieja, así que guarda lo
-        // actual en silencio y relee el disco, donde escriben todas las ventanas.
-        if (shell.classList.contains('project-window') && activeProject) {
-            flushSaveNow(true);
-            loadProjectsFromDisk().then(renderRecent);
-        }
-        return;
-    }
+    if (view === 'home') { renderRecent(); return; }
     if (view === 'production') { production.render(); return; }
     const tool = toolInfo[view];
     title.textContent = tool.title;
@@ -523,8 +510,12 @@ renderRecent();
 
 document.querySelector('#new-project-focus').onclick = () => wizard.open();
 // El nombre del proyecto en el header funciona como la pestaña Archivo de
-// Word: clic → pantalla de inicio (proyectos y plantillas).
-document.querySelector('#active-name').onclick = () => selectView('home');
+// Word: desde una ventana de proyecto trae al frente la ventana ORIGINAL de
+// inicio (el lanzador) — no una copia local; si ya se cerró, Go abre una nueva.
+document.querySelector('#active-name').onclick = () => {
+    if (shell.classList.contains('project-window')) { FocusLauncher().catch(() => {}); return; }
+    selectView('home');
+};
 document.querySelector('#focus-mode').onclick = () => shell.classList.toggle('focus-mode');
 
 // Importar proyecto .ptv: desde el botón de Inicio o con doble clic en Finder
@@ -628,9 +619,9 @@ window.addEventListener('drop', (e) => {
 
 // ⌘S: guardado inmediato a disco (también llega desde las herramientas en
 // iframe vía el mensaje producciontv:request-save).
-function flushSaveNow(silent = false) {
+function flushSaveNow() {
     clearTimeout(saveTimer);
-    if (!activeProject) { if (!silent) showToast('No hay proyecto activo que guardar'); return; }
+    if (!activeProject) { showToast('No hay proyecto activo que guardar'); return; }
     activeProject.cfg = latestInfografia;
     activeProject.diagram = latestDiagram;
     activeProject.updatedAt = new Date().toISOString();
@@ -639,7 +630,7 @@ function flushSaveNow(silent = false) {
     saveProjectToDisk(activeProject);
     document.querySelector('#save-status').textContent = 'Guardado en disco';
     renderRecent();
-    if (!silent) showToast('Proyecto guardado en disco');
+    showToast('Proyecto guardado en disco');
 }
 
 const welcomeOverlay = document.querySelector('#welcome-overlay');
