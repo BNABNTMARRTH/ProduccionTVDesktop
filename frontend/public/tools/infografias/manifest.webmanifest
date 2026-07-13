@@ -1,0 +1,12 @@
+{
+  "name": "Generador de infografías de producción TV",
+  "short_name": "Producción TV",
+  "description": "Planifica producciones de TV: infografía, set, escaleta, guion técnico y storyboard.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0c1727",
+  "theme_color": "#16365F",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
