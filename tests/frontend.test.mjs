@@ -1,0 +1,109 @@
+// Pruebas de la lógica pura del frontend (sin navegador ni framework):
+//   node --test tests/frontend.test.mjs
+// (con la ruta explícita: `node --test tests/` no descubre archivos .mjs
+// en las versiones recientes de Node)
+// Cubre plantillas/migración de datos y el catálogo de iluminación.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { makeTemplate, infografiaFromDiagram, templateDefaults, SCHEMA_VERSION } from '../frontend/src/templates.js';
+import {
+  LUZ_CATALOGO, SETUPS_ILUMINACION, SETUPS_EXTERIOR, RECOMENDADAS_POR_PLANTILLA,
+  getSetup, instanciarSetup, instanciarElemento, posicionesParaLuces,
+} from '../web-sources/generador-tv/src/iluminacion.js';
+
+test('makeTemplate produce el esquema v3 con sets, talentos y mics asignados', () => {
+  const cfg = makeTemplate('entrevista', {
+    projectName: 'Prueba',
+    location: 'mixta',
+    talents: [{ name: 'Ana', tipo: 'conductor' }, { name: 'Luis', tipo: 'invitado' }],
+  });
+  assert.equal(cfg.schema, SCHEMA_VERSION);
+  assert.equal(cfg.plantilla, 'entrevista');
+  // mixta = set de estudio + locación exterior
+  assert.equal(cfg.sets.length, 2);
+  assert.equal(cfg.sets[0].locacion, 'int');
+  assert.equal(cfg.sets[1].locacion, 'ext');
+  assert.equal(cfg.setActivo, cfg.sets[0].id);
+  // talentos propios, un mic de solapa asignado a cada uno
+  assert.equal(cfg.talentos.length, 2);
+  const solapas = cfg.microfonos.filter((m) => m.micTipo === 'solapa');
+  assert.equal(solapas.length, 2);
+  solapas.forEach((m, i) => assert.equal(m.asignadoA, `tal:${cfg.talentos[i].id}`));
+  // sugerencias del asistente listas para que el generador las aplique
+  assert.equal(cfg.iluminacionSugerida, 'three_point_lighting');
+  assert.deepEqual(cfg.mueblesSugeridos, ['sillon1', 'sillon2']);
+});
+
+test('makeTemplate en exterior marca el set sin mesa y mics inalámbricos', () => {
+  const cfg = makeTemplate('streaming', { location: 'ext' });
+  assert.equal(cfg.sets.length, 1);
+  assert.equal(cfg.sets[0].locacion, 'ext');
+  assert.equal(cfg.sets[0].mesaVisible, false);
+  cfg.microfonos.forEach((m) => assert.equal(m.conexion, 'Inalámbrico'));
+});
+
+test('templateDefaults conserva los números de la plantilla', () => {
+  assert.deepEqual(templateDefaults('noticiero'), { cams: 3, mics: 2 });
+});
+
+test('infografiaFromDiagram preserva micTipo y asignadoA al sincronizar', () => {
+  const cfg = {
+    camaras: [{ id: 'c1', nombre: 'CAM 1', plano: 'PG', color: '#111111' }],
+    microfonos: [{ id: 'm1', nombre: 'Boom', conexion: 'XLR', micTipo: 'boom', asignadoA: 'set' }],
+    extras: [],
+  };
+  const diagram = {
+    nodes: [
+      { id: 'n1', type: 'camara', label: 'CAM 1', syncKey: 'cam:c1', props: {} },
+      { id: 'n2', type: 'microfono', label: 'Boom renombrado', syncKey: 'mic:m1', props: { conexion: 'XLR' } },
+    ],
+    edges: [],
+  };
+  const out = infografiaFromDiagram(diagram, cfg);
+  assert.equal(out.microfonos[0].micTipo, 'boom');
+  assert.equal(out.microfonos[0].asignadoA, 'set');
+  assert.equal(out.microfonos[0].nombre, 'Boom renombrado');
+});
+
+test('todos los elementos de todos los setups existen en el catálogo', () => {
+  SETUPS_ILUMINACION.forEach((s) => {
+    [...(s.required_elements || []), ...(s.optional_elements || [])].forEach((tipo) => {
+      assert.ok(LUZ_CATALOGO[tipo], `${s.id}: elemento desconocido "${tipo}"`);
+    });
+  });
+  SETUPS_EXTERIOR.forEach((id) => assert.ok(getSetup(id), `setup exterior faltante: ${id}`));
+  Object.values(RECOMENDADAS_POR_PLANTILLA).flat().forEach((id) => assert.ok(getSetup(id), `recomendada faltante: ${id}`));
+});
+
+test('instanciarSetup coloca los requeridos con posición e ids únicos', () => {
+  const { luces, pos } = instanciarSetup(getSetup('three_point_lighting'), { x: 490, y: 240 });
+  assert.equal(luces.length, 3);
+  assert.equal(new Set(luces.map((l) => l.id)).size, 3);
+  luces.forEach((l) => {
+    const p = pos[`luz:${l.id}`];
+    assert.ok(p && Number.isFinite(p.x) && Number.isFinite(p.y), `sin posición para ${l.tipo}`);
+    assert.ok(l.nombre && l.abrev && l.forma && l.color, `instancia incompleta de ${l.tipo}`);
+  });
+});
+
+test('los elementos count 2 generan dos instancias espejadas', () => {
+  const { luces, pos } = instanciarElemento('back_lights', { x: 490, y: 240 });
+  assert.equal(luces.length, 2);
+  const [a, b] = luces.map((l) => pos[`luz:${l.id}`]);
+  assert.notEqual(a.x, b.x);
+  assert.equal(a.y, b.y);
+});
+
+test('posicionesParaLuces (Reacomodar) no apila luces en el centro', () => {
+  const { luces } = instanciarSetup(getSetup('four_point_lighting'), { x: 490, y: 240 });
+  // dos luces extra del mismo tipo para probar el escalonado
+  const extra = instanciarElemento('practical_light', { x: 490, y: 240 }, { opcional: true });
+  const extra2 = instanciarElemento('practical_light', { x: 490, y: 240 }, { opcional: true });
+  const todas = [...luces, ...extra.luces, ...extra2.luces];
+  const pos = posicionesParaLuces(todas);
+  const puntos = todas.map((l) => pos[`luz:${l.id}`]);
+  puntos.forEach((p) => assert.ok(p, 'toda luz recibe posición'));
+  // sin duplicados exactos (el default roto era: todas en 490,320)
+  const unicos = new Set(puntos.map((p) => `${p.x},${p.y}`));
+  assert.equal(unicos.size, puntos.length);
+});

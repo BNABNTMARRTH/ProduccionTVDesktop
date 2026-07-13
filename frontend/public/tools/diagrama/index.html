@@ -803,15 +803,33 @@ function syncFromInfografia(cfg){
   // Sin props para cámaras: el conector (HDMI/SDI) se edita en el diagrama y no debe
   // restablecerse en cada sincronización; el valor por defecto lo pone TYPES al crear.
   cfg.camaras.forEach((c,i)=>desired.push({key:'cam:'+c.id,type:'camara',label:c.nombre||('Cámara '+(i+1)),props:{},x:50,y:70+i*145}));
-  (cfg.microfonos||[]).forEach((m,i)=>desired.push({key:'mic:'+m.id,type:'microfono',label:m.nombre||('Mic '+(i+1)),props:{conexion:m.conexion||'XLR'},x:50,y:560+i*135}));
+  (cfg.microfonos||[]).forEach((m,i)=>desired.push({key:'mic:'+m.id,type:'microfono',label:m.nombre||('Mic '+(i+1)),props:{conexion:m.conexion||'XLR'},x:50,y:560+i*135,micId:m.id}));
   (cfg.extras||[]).filter(x=>!x.esCorte).forEach((x,i)=>desired.push({key:'src:'+x.id,type:'fuente',label:x.nombre||'Fuente',props:{},x:350,y:70+i*135}));
   const keys=new Set(desired.map(d=>d.key));
-  const removed=state.nodes.filter(n=>n.syncKey&&!keys.has(n.syncKey)).map(n=>n.id);
+  // Receptores RX auto-creados: viven mientras su micrófono siga inalámbrico.
+  const rxKeys=new Set();
+  (cfg.microfonos||[]).forEach(m=>{if((m.conexion||'')==='Inalámbrico')rxKeys.add('rx:'+m.id);});
+  const removed=state.nodes.filter(n=>n.syncKey&&!keys.has(n.syncKey)&&!(n.syncKey.indexOf('rx:')===0&&rxKeys.has(n.syncKey))).map(n=>n.id);
   if(removed.length){const dead=new Set(removed);state.nodes=state.nodes.filter(n=>!dead.has(n.id));state.edges=state.edges.filter(e=>!dead.has(e.from.node)&&!dead.has(e.to.node));}
+  // Un mic inalámbrico necesita receptor: se crea junto al mic con su cable
+  // TX→RX (solo si no existe; el usuario puede moverlo o recablearlo después).
+  const ensureRX=(micNode,micId,y)=>{
+    const rk='rx:'+micId;
+    if(!rxKeys.has(rk)||state.nodes.some(x=>x.syncKey===rk))return;
+    const def=TYPES.receptor;
+    const rx={id:'n'+(state.seq++),type:'receptor',x:micNode.x+260,y:y!=null?y:micNode.y,label:'Receptor '+(micNode.label||'RX'),props:clone(def.props||{}),chan:{},syncKey:rk};
+    state.nodes.push(rx);
+    state.edges.push({id:'e'+(state.seq++),from:{node:micNode.id,port:'a'},to:{node:rx.id,port:'in'}});
+  };
   desired.forEach(d=>{
     let n=state.nodes.find(x=>x.syncKey===d.key);
-    if(n){n.label=d.label;n.props=Object.assign({},n.props||{},d.props);return;}
+    if(n){
+      n.label=d.label;n.props=Object.assign({},n.props||{},d.props);
+      if(d.micId)ensureRX(n,d.micId);
+      return;
+    }
     const def=TYPES[d.type];n={id:'n'+(state.seq++),type:d.type,x:d.x,y:d.y,label:d.label,props:clone(Object.assign({},def.props||{},d.props)),chan:{},syncKey:d.key};state.nodes.push(n);
+    if(d.micId)ensureRX(n,d.micId,d.y);
   });
   render();save();
 }
@@ -863,6 +881,7 @@ document.addEventListener('keydown',e=>{
   const a=document.activeElement,typing=a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.tagName==='SELECT');
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return;}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();if(window.parent!==window)window.parent.postMessage({type:'producciontv:request-save'},'*');return;}
   if((e.key==='Delete'||e.key==='Backspace')&&!typing&&sel){
     if(sel.kind==='edge')removeEdge(sel.id);else if(sel.kind==='node')removeNode(sel.id);
     else if(sel.kind==='zone')removeZone(sel.id);else if(sel.kind==='note')removeNote(sel.id);

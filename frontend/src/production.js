@@ -1,4 +1,7 @@
-// Modo producción: cronómetro en vivo de la escaleta + checklist técnico.
+// Modo producción: cronómetro en vivo de la escaleta + checklist técnico +
+// teleprompter de pantalla completa.
+
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export function formatTime(seconds) {
     const total = Math.max(0, Math.round(seconds || 0));
@@ -98,6 +101,87 @@ export function createProductionView({ container, getProject, getInfografia, get
         render();
     }
 
+    // Teleprompter de pantalla completa: guion por segmento (las notas de la
+    // escaleta), auto-scroll con velocidad regulable, tamaño de letra y modo
+    // espejo para cristal de prompter. Atajos: espacio, ↑/↓, Esc.
+    function openPrompter() {
+        const cfg = getInfografia();
+        const list = cfg?.escaleta || [];
+        if (!list.length) return;
+        const overlay = document.createElement('div');
+        overlay.className = 'prompter-overlay';
+        overlay.innerHTML = `
+            <div class="prompter-bar">
+                <button id="pp-play" aria-label="Iniciar o pausar el desplazamiento">▶ Rodar</button>
+                <label>Velocidad <input id="pp-speed" type="range" min="10" max="220" step="5" value="55" aria-label="Velocidad de desplazamiento"></label>
+                <button id="pp-smaller" aria-label="Texto más chico">A−</button>
+                <button id="pp-bigger" aria-label="Texto más grande">A+</button>
+                <button id="pp-mirror" aria-label="Activar o desactivar modo espejo">🪞 Espejo</button>
+                <button id="pp-here" aria-label="Ir al segmento al aire">● Al aire</button>
+                <span class="pp-hint">Espacio: rodar/pausar · ↑↓: velocidad · Esc: salir</span>
+                <button id="pp-close" aria-label="Cerrar teleprompter">✕</button>
+            </div>
+            <div class="prompter-scroll" id="pp-scroll">
+                <div class="prompter-text" id="pp-text" style="--pfs:46px">
+                    <div class="pp-pad"></div>
+                    ${list.map((s, i) => `
+                    <section class="pp-seg${i === index ? ' current' : ''}" data-i="${i}">
+                        <h3>${i + 1} · ${esc(s.segmento || 'Segmento')} · ${formatTime(s.dur)}</h3>
+                        <p>${esc(s.nota || '(Sin guion para este segmento: escríbelo en la nota de la escaleta)')}</p>
+                    </section>`).join('')}
+                    <div class="pp-pad"></div>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+
+        const scroller = overlay.querySelector('#pp-scroll');
+        const texto = overlay.querySelector('#pp-text');
+        const playBtn = overlay.querySelector('#pp-play');
+        let playing = false;
+        let speed = 55;
+        let fs = 46;
+        let raf = null;
+        let last = 0;
+
+        function step(t) {
+            if (!playing) return;
+            scroller.scrollTop += speed * ((t - last) / 1000);
+            last = t;
+            raf = requestAnimationFrame(step);
+        }
+        function togglePlay() {
+            playing = !playing;
+            playBtn.textContent = playing ? 'Ⅱ Pausa' : '▶ Rodar';
+            playBtn.classList.toggle('on', playing);
+            if (playing) { last = performance.now(); raf = requestAnimationFrame(step); }
+            else cancelAnimationFrame(raf);
+        }
+        function irAlAire() {
+            const cur = overlay.querySelector(`.pp-seg[data-i="${index}"]`);
+            if (cur) scroller.scrollTop = cur.offsetTop - scroller.clientHeight * 0.28;
+        }
+        function close() {
+            cancelAnimationFrame(raf);
+            document.removeEventListener('keydown', keys, true);
+            overlay.remove();
+        }
+        function keys(e) {
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
+            if (e.key === ' ') { e.preventDefault(); togglePlay(); return; }
+            if (e.key === 'ArrowUp') { e.preventDefault(); speed = Math.min(220, speed + 10); overlay.querySelector('#pp-speed').value = speed; }
+            if (e.key === 'ArrowDown') { e.preventDefault(); speed = Math.max(10, speed - 10); overlay.querySelector('#pp-speed').value = speed; }
+        }
+        playBtn.onclick = togglePlay;
+        overlay.querySelector('#pp-speed').oninput = (e) => { speed = Number(e.target.value); };
+        overlay.querySelector('#pp-bigger').onclick = () => { fs = Math.min(96, fs + 5); texto.style.setProperty('--pfs', `${fs}px`); };
+        overlay.querySelector('#pp-smaller').onclick = () => { fs = Math.max(24, fs - 5); texto.style.setProperty('--pfs', `${fs}px`); };
+        overlay.querySelector('#pp-mirror').onclick = (e) => { texto.classList.toggle('mirror'); e.target.classList.toggle('on'); };
+        overlay.querySelector('#pp-here').onclick = irAlAire;
+        overlay.querySelector('#pp-close').onclick = close;
+        document.addEventListener('keydown', keys, true);
+        irAlAire();
+    }
+
     // Actualiza solo cronómetro y barra de progreso (cada segundo, sin re-render completo).
     function updateClock() {
         const current = rows()[index];
@@ -134,7 +218,8 @@ export function createProductionView({ container, getProject, getInfografia, get
 
         container.innerHTML = `
             <div class="production-header">
-                <div><span class="eyebrow">MODO PRODUCCIÓN</span><h1>${project.name}</h1></div>
+                <div><span class="eyebrow">MODO PRODUCCIÓN</span><h1>${esc(project.name)}</h1></div>
+                <button id="open-prompter" ${list.length ? '' : 'disabled'} title="Guion en pantalla completa con auto-scroll y modo espejo">🗒 Teleprompter</button>
             </div>
             <div class="production-layout">
                 <section class="live-card${colLive ? ' collapsed' : ''}">
@@ -158,10 +243,10 @@ export function createProductionView({ container, getProject, getInfografia, get
                         <small>${next ? formatTime(next.dur) : ''}</small>
                     </div>`}
                     <div class="production-controls">
-                        <button id="prev-seg" title="Segmento anterior" ${index === 0 ? 'disabled' : ''}>◀</button>
-                        <button id="play-seg" class="play" title="${running ? 'Pausar' : 'Iniciar'}" ${list.length ? '' : 'disabled'}>${running ? 'Ⅱ' : '▶'}</button>
-                        <button id="next-seg" title="Siguiente segmento" ${index >= list.length - 1 ? 'disabled' : ''}>▶</button>
-                        <button id="reset-seg" title="Reiniciar segmento">↺</button>
+                        <button id="prev-seg" title="Segmento anterior" aria-label="Segmento anterior" ${index === 0 ? 'disabled' : ''}>◀</button>
+                        <button id="play-seg" class="play" title="${running ? 'Pausar' : 'Iniciar'}" aria-label="${running ? 'Pausar cronómetro' : 'Iniciar cronómetro'}" ${list.length ? '' : 'disabled'}>${running ? 'Ⅱ' : '▶'}</button>
+                        <button id="next-seg" title="Siguiente segmento" aria-label="Siguiente segmento" ${index >= list.length - 1 ? 'disabled' : ''}>▶</button>
+                        <button id="reset-seg" title="Reiniciar segmento" aria-label="Reiniciar segmento">↺</button>
                     </div>
                 </section>
                 <aside class="checklist-card${colAside ? ' collapsed' : ''}">
@@ -191,6 +276,7 @@ export function createProductionView({ container, getProject, getInfografia, get
         container.querySelectorAll('[data-panel]').forEach((b) => b.onclick = () => { panel = b.dataset.panel; render(); });
         container.querySelector('#col-live').onclick = () => { colLive = !colLive; render(); };
         container.querySelector('#col-aside').onclick = () => { colAside = !colAside; render(); };
+        container.querySelector('#open-prompter').onclick = openPrompter;
         container.querySelector('#prev-seg').onclick = () => { index = Math.max(0, index - 1); elapsed = 0; render(); };
         container.querySelector('#next-seg').onclick = () => { index = Math.min(Math.max(0, list.length - 1), index + 1); elapsed = 0; render(); };
         container.querySelector('#reset-seg').onclick = () => { elapsed = 0; stop(); render(); };

@@ -1,5 +1,11 @@
 // Catálogo de plantillas y conversión entre la infografía y el diagrama de señal.
 
+// Versión del esquema de proyecto. Se estampa en cada cfg nuevo y el
+// normalizeCfg del generador la usa para migrar de forma explícita.
+// 1 = un solo set en cfg.setLayout · 2 = sets[] + talentos/mics tipados ·
+// 3 = sugerencias del asistente (iluminación/mobiliario) aplicadas al crear.
+export const SCHEMA_VERSION = 3;
+
 export const NAVY = '#16365F';
 export const COLORS = ['#1D6FD1', '#1FA14E', '#F07F13', '#8B5CF6', '#E0312F', '#0E9F9E', '#D1268F', '#4F46E5'];
 
@@ -34,6 +40,22 @@ export const CREW_CATALOG = [
 export const DEFAULT_CREW = ['director', 'switcher', 'audio'];
 
 export const LOCATION_LABELS = { int: 'Locación interior (estudio)', ext: 'Locación exterior', mixta: 'Locación mixta (int/ext)' };
+
+// Sugerencias por plantilla: el generador las aplica UNA vez al primer set
+// del proyecto (normalizeCfg) y borra las banderas. Los ids de iluminación
+// existen en SETUPS_ILUMINACION; los de muebles en MUEBLES_CATALOGO.
+const ILUMINACION_SUGERIDA = {
+    podcast: 'podcast_practical_setup',
+    noticiero: 'news_desk_lighting_setup',
+    entrevista: 'three_point_lighting',
+    streaming: 'solo_host_streaming_setup',
+    multicamara: 'stage_wash_setup',
+};
+const MUEBLES_SUGERIDOS = {
+    podcast: ['sillon1', 'sillon1'],
+    entrevista: ['sillon1', 'sillon2'],
+    streaming: ['sillon1'],
+};
 
 export const uid = (prefix = 'id') => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
@@ -140,9 +162,12 @@ export function makeTemplate(kind, profile = {}) {
     const subtitulo = profile.subtitle
         || (profile.location ? `Plan de producción · ${LOCATION_LABELS[profile.location] || ''}` : 'Plan de producción audiovisual');
     return {
+        schema: SCHEMA_VERSION,
         // Plantilla de origen: la usa el panel de iluminación del generador
         // para recomendar configuraciones según el tipo de producción.
         plantilla: kind,
+        iluminacionSugerida: ILUMINACION_SUGERIDA[kind] || null,
+        mueblesSugeridos: MUEBLES_SUGERIDOS[kind] || null,
         titulo: `${spec.title} – ${profile.projectName || 'NUEVO PROYECTO'}`,
         subtitulo,
         organizacion: profile.company || 'ATJ PRODUCCIONES',

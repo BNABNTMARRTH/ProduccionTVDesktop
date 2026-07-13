@@ -20,6 +20,10 @@ const INK = "#15233D";
 const PREVIEW_COLOR = "#7C3AED";
 const AIR_COLOR = "#D92B2B";
 const PALETTE = ["#1D6FD1", "#1FA14E", "#F07F13", "#8B5CF6", "#E0312F", "#0E9F9E", "#D1268F", "#4F46E5"];
+const SET_CANVAS_DEFAULTS = {
+  showLabels: false,
+  showGuides: false,
+};
 
 const PLANOS = [
   "Gran Plano General", "Plano General", "Plano Entero", "Plano Conjunto",
@@ -446,10 +450,34 @@ const normalizeCfg = (cfg) => {
     return { mesaVisible: true, locacion: "int", nombre: "Set", ...s, muebles, setLayout: { ...layout, pos, rot: layout.rot || {} } };
   });
   if (!c.sets.some((s) => s.id === c.setActivo)) c.setActivo = c.sets[0].id;
+  // Sugerencias del asistente (iluminación/mobiliario por plantilla): se
+  // aplican UNA vez al primer set y se borran las banderas.
+  const s0 = c.sets[0];
+  if (c.iluminacionSugerida && s0 && !s0.iluminacion) {
+    const setup = getSetup(c.iluminacionSugerida);
+    if (setup) {
+      const { luces, pos } = instanciarSetup(setup, { x: 490, y: 240 });
+      s0.iluminacion = { setup: setup.id, luces };
+      s0.setLayout = { ...s0.setLayout, pos: { ...(s0.setLayout.pos || {}), ...pos } };
+    }
+  }
+  if ((c.mueblesSugeridos || []).length && s0 && !(s0.muebles || []).length) {
+    const pos = { ...(s0.setLayout.pos || {}) };
+    s0.muebles = c.mueblesSugeridos.filter((tipo) => MUEBLES_CATALOGO[tipo]).map((tipo, i) => {
+      const id = uid();
+      pos[`mue:${id}`] = posMuebleDefault(i);
+      // Un talento sentado por mueble, en orden (conductor primero).
+      return { id, tipo, ocupantes: c.talentos[i] ? [c.talentos[i].id] : [] };
+    });
+    s0.setLayout = { ...s0.setLayout, pos };
+  }
+  delete c.iluminacionSugerida;
+  delete c.mueblesSugeridos;
   // El layout/iluminación de raíz ya vive dentro de sets: se retira para
   // evitar dobles fuentes de verdad (sheets.js tiene su propio fallback).
   delete c.setLayout;
   delete c.iluminacion;
+  c.schema = 3;
   return c;
 };
 
@@ -660,7 +688,7 @@ function GlyphMueble({ tipo }) {
 // puntero. Lo direccional (cámaras, luces, booms) apunta a la mesa/foco por
 // defecto; su manija fija un ángulo manual (set.setLayout.rot) y con doble
 // clic vuelve al seguimiento automático.
-function EstudioCenital({ cfg, set, cams, editable, setCfg }) {
+function EstudioCenital({ cfg, set, cams, editable, setCfg, showLabels = true, showGuides = true }) {
   const W = 980, H = 600;
   const svgRef = useRef(null);
   const liveRef = useRef(null); // posiciones durante el arrastre (espejo del estado)
@@ -840,9 +868,10 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg }) {
         const rot = typeof manual === "number" ? manual : auto;
         return (
           <g key={l.id} transform={`translate(${p.x} ${p.y})`} onPointerDown={startDrag(key)} style={grab}>
+            <title>{l.nombre}</title>
             {rot !== null && (
               <g transform={`rotate(${rot})`}>
-                <path d="M10 0 L64 -26 L64 26 Z" fill={l.color} opacity="0.12" />
+                {showGuides && <path d="M10 0 L64 -26 L64 26 Z" fill={l.color} opacity="0.12" />}
                 {editable && (
                   <g className="no-print" onPointerDown={startRotate(key)} onDoubleClick={resetRotate(key)} style={{ cursor: "crosshair" }}>
                     <title>Arrastra para girar la luz · doble clic: dirección automática</title>
@@ -858,7 +887,7 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg }) {
               <rect x="-14" y="-11" width="28" height="12" rx="6" fill={l.color} />
               <text y="-2" textAnchor="middle" fontSize="8" fontWeight="800" fill={textOn(l.color)}>{l.abrev}</text>
             </g>
-            <text y="27" textAnchor="middle" fontSize="9" fontWeight="700" fill="#33445F">{trunc(l.nombre, 20)}</text>
+            {showLabels && <text y="27" textAnchor="middle" fontSize="9" fontWeight="700" fill="#33445F">{trunc(l.nombre, 20)}</text>}
           </g>
         );
       })}
@@ -892,6 +921,7 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg }) {
         const ocupantes = (m.ocupantes || []).map((id) => talentos.find((t) => t.id === id)).filter(Boolean);
         return (
           <g key={m.id} transform={`translate(${p.x} ${p.y})`} onPointerDown={startDrag(key)} style={grab}>
+            <title>{def.es}{ocupantes.length ? ` · ${ocupantes.map((t) => t.nombre).join(", ")}` : ""}</title>
             <g transform={`rotate(${rot})`}>
               <GlyphMueble tipo={m.tipo} />
               {ocupantes.map((t, i) => {
@@ -913,8 +943,8 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg }) {
                 </g>
               )}
             </g>
-            <text y="34" textAnchor="middle" fontSize="9" fontWeight="700" fill="#5F7189">{def.es.toUpperCase()}</text>
-            {ocupantes.map((t, i) => {
+            {showLabels && <text y="34" textAnchor="middle" fontSize="9" fontWeight="700" fill="#5F7189">{def.es.toUpperCase()}</text>}
+            {showLabels && ocupantes.map((t, i) => {
               const micsT = micsDeTal(t.id);
               const micTxt = micsT.length ? ` · ${micsT.map((x) => MIC_TIPO_CORTO[x.micTipo] || "mic").join(" + ")}` : "";
               return (
@@ -937,6 +967,7 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg }) {
         const col = t.tipo === "invitado" ? "#0E9F9E" : NAVY;
         return (
           <g key={t.id} transform={`translate(${p.x} ${p.y})`} onPointerDown={startDrag(`tal:${t.id}`)} style={grab}>
+            <title>{t.nombre}{micsT.length ? ` · ${micsT.map((m) => MIC_TIPO_CORTO[m.micTipo] || m.micTipo).join(" + ")}` : ""}</title>
             <circle r="17" fill="#fff" stroke={col} strokeWidth="2.5" />
             <circle r="6" cy="-4" fill={col} />
             <path d="M-8 4 q8 9 16 0 l2 9 h-20 z" fill={col} />
@@ -949,8 +980,8 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg }) {
                 <path d="M-3.2 -0.5 a3.2 3.2 0 0 0 6.4 0 M0 2.7 V4.4" stroke="#fff" strokeWidth="1" fill="none" />
               </g>
             )}
-            <text y="32" textAnchor="middle" fontSize="10" fontWeight="700" fill="#33445F">{trunc(t.nombre, 20)}</text>
-            {micsT.length > 0 && (
+            {showLabels && <text y="32" textAnchor="middle" fontSize="10" fontWeight="700" fill="#33445F">{trunc(t.nombre, 20)}</text>}
+            {showLabels && micsT.length > 0 && (
               <text y="43" textAnchor="middle" fontSize="8.5" fontWeight="600" fill="#1FA14E">
                 {trunc(micsT.map((m) => MIC_TIPO_CORTO[m.micTipo] || m.micTipo).join(" + "), 26)}
               </text>
@@ -967,8 +998,9 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg }) {
         const rot = typeof manual === "number" ? manual : (Math.atan2(mesa.y - p.y, mesa.x - p.x) * 180) / Math.PI;
         return (
           <g key={m.id} transform={`translate(${p.x} ${p.y})`} onPointerDown={startDrag(key)} style={grab}>
+            <title>{m.nombre} · boom</title>
             <g transform={`rotate(${rot})`}>
-              <path d="M8 0 L46 -12 L46 12 Z" fill="#1FA14E" opacity="0.10" />
+              {showGuides && <path d="M8 0 L46 -12 L46 12 Z" fill="#1FA14E" opacity="0.10" />}
               <line x1="-14" y1="0" x2="26" y2="0" stroke="#3C4654" strokeWidth="3" strokeLinecap="round" />
               <rect x="26" y="-4" width="14" height="8" rx="4" fill="#1FA14E" stroke="#fff" strokeWidth="1.2" />
               {editable && (
@@ -979,7 +1011,7 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg }) {
               )}
             </g>
             <circle cx="-14" cy="0" r="6" fill="#3C4654" />
-            <text y="26" textAnchor="middle" fontSize="9" fontWeight="700" fill="#1FA14E">{trunc(m.nombre, 18)} · boom</text>
+            {showLabels && <text y="26" textAnchor="middle" fontSize="9" fontWeight="700" fill="#1FA14E">{trunc(m.nombre, 18)} · boom</text>}
           </g>
         );
       })}
@@ -989,10 +1021,11 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg }) {
         const p = posDe(`mic:${m.id}`);
         return (
           <g key={m.id} transform={`translate(${p.x} ${p.y})`} onPointerDown={startDrag(`mic:${m.id}`)} style={grab}>
+            <title>{m.nombre} · {MIC_TIPO_CORTO[m.micTipo] || "mic"}</title>
             <circle r="10" fill="#fff" stroke="#1FA14E" strokeWidth="2" />
             <rect x="-2.5" y="-6" width="5" height="8" rx="2.5" fill="#1FA14E" />
             <path d="M-5 -1 a5 5 0 0 0 10 0 M0 4 V7" stroke="#1FA14E" strokeWidth="1.4" fill="none" />
-            <text y="24" textAnchor="middle" fontSize="9" fontWeight="700" fill="#1FA14E">{trunc(m.nombre, 16)} · {MIC_TIPO_CORTO[m.micTipo] || "mic"}</text>
+            {showLabels && <text y="24" textAnchor="middle" fontSize="9" fontWeight="700" fill="#1FA14E">{trunc(m.nombre, 16)} · {MIC_TIPO_CORTO[m.micTipo] || "mic"}</text>}
           </g>
         );
       })}
@@ -1007,8 +1040,9 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg }) {
         const shots = shotgunDe(c.id);
         return (
           <g key={c.id} transform={`translate(${p.x} ${p.y})`} onPointerDown={startDrag(key)} style={grab}>
+            <title>{c.nombre}{c.plano ? ` · ${c.plano}` : ""}</title>
             <g transform={`rotate(${rot})`}>
-              <path d="M14 0 L82 -26 L82 26 Z" fill={c.color} opacity="0.15" />
+              {showGuides && <path d="M14 0 L82 -26 L82 26 Z" fill={c.color} opacity="0.15" />}
               <rect x="-18" y="-11" width="30" height="22" rx="4" fill="#1B1F26" />
               <rect x="12" y="-6" width="8" height="12" fill="#2C333D" />
               <circle cx="-18" cy="0" r="5" fill="#0C0F14" stroke="#7D8794" strokeWidth="1.5" />
@@ -1030,11 +1064,11 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg }) {
             </g>
             <circle cx="0" cy="-27" r="10" fill={c.color} stroke="#fff" strokeWidth="2" />
             <text x="0" y="-23" textAnchor="middle" fontSize="11" fontWeight="800" fill={textOn(c.color)}>{c.num}</text>
-            <g transform="translate(0 22)">
+            {showLabels && <g transform="translate(0 22)">
               <rect x="-56" y="0" width="112" height="30" rx="6" fill="#fff" stroke={c.color} strokeWidth="2" />
               <text x="0" y="13" textAnchor="middle" fontSize="11" fontWeight="800" fill={c.color}>{trunc(c.nombre, 14)}</text>
               <text x="0" y="25" textAnchor="middle" fontSize="9" fill="#3C4654">{trunc(c.plano, 20)}</text>
-            </g>
+            </g>}
           </g>
         );
       })}
@@ -1814,6 +1848,8 @@ function VistaSet({ cfg, setCfg }) {
   const sets = cfg.sets || [];
   const activo = setActivoDe(cfg);
   const [confirmaDel, setConfirmaDel] = useState(false);
+  const [showLabels, setShowLabels] = useState(SET_CANVAS_DEFAULTS.showLabels);
+  const [showGuides, setShowGuides] = useState(SET_CANVAS_DEFAULTS.showGuides);
   const tieneCustom = Object.keys(activo.setLayout?.pos || {}).length > 0 || Object.keys(activo.setLayout?.rot || {}).length > 0;
 
   const agregarMueble = (tipo) => setCfg((c) => upSetPor(c, activo.id, (s) => {
@@ -1905,6 +1941,14 @@ function VistaSet({ cfg, setCfg }) {
                   onChange={(e) => upActivo({ mesaVisible: e.target.checked }, { commit: true })} />
                 Mesa / escritorio en el set
               </label>
+              <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "#33445F" }} title="Muestra u oculta nombres para despejar el plano. Mantén el puntero encima de un icono para ver su nombre.">
+                <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
+                Mostrar etiquetas
+              </label>
+              <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "#33445F" }} title="Muestra u oculta los conos de cámara, luz y boom.">
+                <input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} />
+                Mostrar guías
+              </label>
               {tieneCustom && (
                 <button onClick={() => setCfg((c) => upSetPor(c, activo.id, reacomodoDe), { commit: true })}
                   className="rounded-lg border px-2.5 py-1 text-xs font-bold" style={chip}>
@@ -1928,7 +1972,8 @@ function VistaSet({ cfg, setCfg }) {
               {activo.mesaVisible === false ? " Sin mesa, el punto de foco marca a dónde apuntan cámaras y luces." : ""}
             </span>
           </div>
-          <EstudioCenital key={activo.id} cfg={cfg} set={activo} cams={cams} editable={editable} setCfg={setCfg} />
+          <EstudioCenital key={activo.id} cfg={cfg} set={activo} cams={cams} editable={editable} setCfg={setCfg}
+            showLabels={showLabels} showGuides={showGuides} />
         </Box>
         <Box title={`Mobiliario de ${activo.nombre}${(activo.muebles || []).length ? ` (${activo.muebles.length})` : ""}`}>
           {editable ? (
@@ -2601,6 +2646,8 @@ export default function GeneradorInfografiaTV() {
       const k = (e.key || "").toLowerCase();
       if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
       else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); redo(); }
+      // ⌘S dentro del generador: el shell fuerza el guardado a disco.
+      else if (k === "s" && EMBEDDED) { e.preventDefault(); window.parent.postMessage({ type: "producciontv:request-save" }, "*"); }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);

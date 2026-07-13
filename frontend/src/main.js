@@ -1,25 +1,24 @@
 import './style.css';
 import html2canvas from 'html2canvas';
 import appIcon from './assets/images/atj-icon-small.png';
-import { DeleteProjectFile, GetLaunchContext, LoadAllProjects, OpenProjectWindow, Print, SaveBase64File, SaveProjectFile, SaveTextFile } from '../wailsjs/go/main/App';
+import { DeleteProjectFile, GetLaunchContext, LoadAllProjects, LoadProjectFile, OpenProjectWindow, Print, SaveBase64File, SaveProjectFile, SaveTextFile } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 import { templateCatalog, makeTemplate, diagramFromConfig, infografiaFromDiagram, uid } from './templates.js';
 import { createProductionView } from './production.js';
 import { createWizard } from './wizard.js';
 import { DEMO_PROJECT_ID, makeDemoProject } from './demo.js';
+import { MAX_PROJECTS, STORAGE_KEYS } from './constants.js';
 
 /* ----------------------------- Estado ----------------------------- */
 
-const PROJECTS_KEY = 'producciontv:desktop:projects:v2';
-// Tope de proyectos en localStorage: los logos van embebidos en base64 dentro de
-// cada proyecto, así que un tope evita agotar la cuota. Se conservan los más
-// recientes; el JSON exportado es la copia de seguridad de los demás.
-const MAX_PROJECTS = 60;
-const ACTIVE_KEY = 'producciontv:desktop:active-project';
-const WELCOME_KEY = 'producciontv:desktop:welcome-seen';
-const DEMO_SEEDED_KEY = 'producciontv:desktop:demo-seeded';
-const AUTOSAVE_KEY = 'tvprod:autosave';
-const DIAGRAM_KEY = 'senal:diagram2';
+const {
+    projects: PROJECTS_KEY,
+    activeProject: ACTIVE_KEY,
+    welcomeSeen: WELCOME_KEY,
+    demoSeeded: DEMO_SEEDED_KEY,
+    autosave: AUTOSAVE_KEY,
+    diagram: DIAGRAM_KEY,
+} = STORAGE_KEYS;
 
 const readJSON = (key, fallback) => {
     try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; }
@@ -110,7 +109,7 @@ document.querySelector('#app').innerHTML = `
             <p class="template-hint">Cada plantilla abre el asistente con la base técnica ya sugerida.</p>
             <div class="template-grid" id="template-grid"></div>
           </div>
-          <aside class="recent-panel"><div class="section-title"><h2>Proyectos recientes</h2><span id="project-count"></span></div><div id="recent-projects"></div><button class="import-project" id="import-project" title="Abre un proyecto .ptv exportado desde otra computadora">⬆ Importar proyecto (.ptv)</button><input type="file" id="import-file" accept=".ptv,.json" hidden></aside>
+          <aside class="recent-panel"><div class="section-title"><h2>Proyectos recientes</h2><span id="project-count"></span></div><input id="project-search" class="project-search" type="search" placeholder="Buscar proyecto…" aria-label="Buscar proyecto por nombre"><div id="recent-projects"></div><button class="import-project" id="import-project" title="Abre un proyecto .ptv exportado desde otra computadora (también puedes soltarlo sobre la ventana)">⬆ Importar proyecto (.ptv)</button><input type="file" id="import-file" accept=".ptv,.json" hidden></aside>
         </div>
         <p class="home-credit">Hecha por <strong>Aldo Abiud Torres Juárez</strong>, alumno de la FCC, para las y los alumnos de la FCC.</p>
       </section>
@@ -284,13 +283,21 @@ function importProjectFromText(text, { launch = true } = {}) {
     if (launch) launchProjectWindow(project.id);
 }
 
+let projectQuery = '';
+
 function renderRecent() {
     const box = document.querySelector('#recent-projects');
-    document.querySelector('#project-count').textContent = `${projects.length}`;
+    const cerca = projects.length >= MAX_PROJECTS - 10;
+    const count = document.querySelector('#project-count');
+    count.textContent = cerca ? `${projects.length} / ${MAX_PROJECTS} ⚠` : `${projects.length}`;
+    count.title = cerca ? `Cerca del tope de ${MAX_PROJECTS} proyectos: exporta o elimina los que ya no uses` : '';
     document.querySelector('#project-label').textContent = activeProject?.name || 'Sin proyecto activo';
     document.querySelector('#active-name').textContent = activeProject?.name || 'Guardado local';
-    box.innerHTML = projects.length
-        ? projects.slice(0, 8).map((p) => `
+    const filtrados = projectQuery
+        ? projects.filter((p) => (p.name || '').toLowerCase().includes(projectQuery))
+        : projects;
+    box.innerHTML = filtrados.length
+        ? filtrados.slice(0, projectQuery ? 30 : 8).map((p) => `
             <article class="recent-item">
               <span class="recent-icon">${p.id === DEMO_PROJECT_ID ? '🎓' : templateCatalog.find((t) => t.id === p.template)?.icon || '◆'}</span>
               <span><strong>${p.name}</strong><small>${new Date(p.updatedAt).toLocaleString()}</small></span>
@@ -302,7 +309,7 @@ function renderRecent() {
                     : `<button data-delete="${p.id}" title="Eliminar">×</button>`}
               </div>
             </article>`).join('')
-        : '<div class="empty-projects">Todavía no hay proyectos.<br>Elige una plantilla para comenzar.</div>';
+        : `<div class="empty-projects">${projectQuery ? `Sin resultados para “${projectQuery}”.` : 'Todavía no hay proyectos.<br>Elige una plantilla para comenzar.'}</div>`;
     box.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => launchProjectWindow(b.dataset.open));
     box.querySelectorAll('[data-duplicate]').forEach((b) => b.onclick = () => duplicateProject(b.dataset.duplicate));
     box.querySelectorAll('[data-delete]').forEach((b) => b.onclick = () => requestDeleteProject(b.dataset.delete));
@@ -459,6 +466,7 @@ window.addEventListener('message', async (event) => {
 
     // Las herramientas piden guardar archivos (EDL, CSV, JSON) a través del shell
     // porque las descargas blob no funcionan dentro del WebView.
+    if (data.type === 'producciontv:request-save') { flushSaveNow(); return; }
     if (data.type === 'producciontv:save-file' && event.source === frame.contentWindow) {
         try {
             if (await SaveTextFile(data.filename || 'archivo.txt', data.content || '')) showToast('Archivo guardado');
@@ -516,6 +524,41 @@ importInput.onchange = () => {
 };
 EventsOn('producciontv:open-file', (content) => importProjectFromText(String(content || '')));
 
+// Buscador de proyectos recientes.
+document.querySelector('#project-search').oninput = (e) => {
+    projectQuery = e.target.value.trim().toLowerCase();
+    renderRecent();
+};
+
+// Soltar archivos .ptv/.json sobre cualquier parte de la ventana los importa.
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const files = [...(e.dataTransfer?.files || [])].filter((f) => /\.(ptv|json)$/i.test(f.name));
+    if (!files.length) return;
+    files.forEach((f, i) => {
+        const reader = new FileReader();
+        reader.onload = () => importProjectFromText(String(reader.result || ''), { launch: files.length === 1 && i === 0 });
+        reader.readAsText(f);
+    });
+});
+
+// ⌘S: guardado inmediato a disco (también llega desde las herramientas en
+// iframe vía el mensaje producciontv:request-save).
+function flushSaveNow() {
+    clearTimeout(saveTimer);
+    if (!activeProject) { showToast('No hay proyecto activo que guardar'); return; }
+    activeProject.cfg = latestInfografia;
+    activeProject.diagram = latestDiagram;
+    activeProject.updatedAt = new Date().toISOString();
+    projects = [activeProject, ...projects.filter((p) => p.id !== activeProject.id)];
+    persistProjects();
+    saveProjectToDisk(activeProject);
+    document.querySelector('#save-status').textContent = 'Guardado en disco';
+    renderRecent();
+    showToast('Proyecto guardado en disco');
+}
+
 const welcomeOverlay = document.querySelector('#welcome-overlay');
 const closeWelcome = () => {
     if (!welcomeOverlay || !document.body.contains(welcomeOverlay)) return;
@@ -544,6 +587,7 @@ document.addEventListener('keydown', (event) => {
         shell.classList.remove('focus-mode');
     }
     if (!(event.metaKey || event.ctrlKey)) return;
+    if (event.key.toLowerCase() === 's') { event.preventDefault(); flushSaveNow(); return; }
     if (event.key === '1') selectView('infografias');
     if (event.key === '2') selectView('set');
     if (event.key === '3') selectView('escaleta');
@@ -558,6 +602,33 @@ window.addEventListener('storage', (event) => {
     if (event.key !== PROJECTS_KEY || shell.classList.contains('project-window')) return;
     projects = readJSON(PROJECTS_KEY, []);
     renderRecent();
+});
+
+// Reconciliación entre ventanas vía disco: al recuperar el foco, el lanzador
+// relee la lista y una ventana de proyecto recarga su .ptv si otra ventana
+// lo guardó más nuevo (gana el último guardado; el disco es la verdad).
+window.addEventListener('focus', async () => {
+    if (shell.classList.contains('project-window') && activeProject) {
+        try {
+            const text = await LoadProjectFile(activeProject.id);
+            if (!text) return;
+            const enDisco = proyectoDesdeBundle(JSON.parse(text));
+            if (enDisco && (enDisco.updatedAt || '') > (activeProject.updatedAt || '')) {
+                activeProject = enDisco;
+                latestInfografia = enDisco.cfg;
+                latestDiagram = enDisco.diagram;
+                projects = [enDisco, ...projects.filter((p) => p.id !== enDisco.id)];
+                if (activeView === 'production') production.render();
+                else hydrateFrame();
+                showToast('Proyecto actualizado desde otra ventana');
+            }
+        } catch {}
+        return;
+    }
+    if (shell.classList.contains('launcher-window')) {
+        await loadProjectsFromDisk();
+        renderRecent();
+    }
 });
 
 /* ----------------------------- Arranque ----------------------------- */

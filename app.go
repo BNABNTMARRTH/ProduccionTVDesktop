@@ -170,6 +170,24 @@ func (a *App) SaveProjectFile(id string, content string) error {
 	return os.Rename(tmp, filepath.Join(dir, id+".ptv"))
 }
 
+// LoadProjectFile lee el .ptv de UN proyecto (cadena vacía si no existe).
+// Lo usan las ventanas para recargar su proyecto si otra ventana lo cambió.
+func (a *App) LoadProjectFile(id string) (string, error) {
+	id = sanitizeProjectID(id)
+	if id == "" {
+		return "", nil
+	}
+	dir, err := projectsDir()
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(filepath.Join(dir, id+".ptv"))
+	if err != nil {
+		return "", nil
+	}
+	return string(data), nil
+}
+
 // DeleteProjectFile no borra: mueve el .ptv a la papelera interna
 // (~/Documents/ProduccionTV/Papelera) con marca de tiempo, recuperable a mano.
 func (a *App) DeleteProjectFile(id string) error {
