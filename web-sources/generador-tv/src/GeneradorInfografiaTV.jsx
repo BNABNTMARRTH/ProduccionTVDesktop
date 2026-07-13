@@ -722,6 +722,19 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg, showLabels = true, s
   const talentos = cfg.talentos || [];
   const mics = cfg.microfonos || [];
   const muebles = set.muebles || [];
+  // Etiquetas ocultas una por una (doble clic sobre la etiqueta): se guardan
+  // por set y también las respetan las hojas impresas (sheets.js).
+  const labelsOff = set.setLayout?.labelsOff || {};
+  const lab = (key) => showLabels && !labelsOff[key];
+  const hideLabel = (key) => (e) => {
+    if (!editable) return;
+    e.stopPropagation();
+    setCfg((c) => upSetPor(c, set.id, (s) => ({
+      ...s,
+      setLayout: { ...s.setLayout, labelsOff: { ...(s.setLayout.labelsOff || {}), [key]: true } },
+    })));
+  };
+  const labProps = (key) => ({ onDoubleClick: hideLabel(key), style: editable ? { cursor: "pointer" } : undefined });
   // Talentos sentados en un mueble: se dibujan sobre él, no sueltos.
   const sentados = new Set(muebles.flatMap((m) => m.ocupantes || []));
   const N = cams.length;
@@ -911,7 +924,7 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg, showLabels = true, s
               <rect x="-14" y="-11" width="28" height="12" rx="6" fill={l.color} />
               <text y="-2" textAnchor="middle" fontSize="8" fontWeight="800" fill={textOn(l.color)}>{l.abrev}</text>
             </g>
-            {showLabels && <text y="27" textAnchor="middle" fontSize="9" fontWeight="700" fill="#33445F">{trunc(l.nombre, 20)}</text>}
+            {lab(`luz:${l.id}`) && <text {...labProps(`luz:${l.id}`)} y="27" textAnchor="middle" fontSize="9" fontWeight="700" fill="#33445F">{trunc(l.nombre, 20)}</text>}
           </g>
         );
       })}
@@ -967,12 +980,13 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg, showLabels = true, s
                 </g>
               )}
             </g>
-            {showLabels && <text y="34" textAnchor="middle" fontSize="9" fontWeight="700" fill="#5F7189">{def.es.toUpperCase()}</text>}
-            {showLabels && ocupantes.map((t, i) => {
+            {lab(`mue:${m.id}`) && <text {...labProps(`mue:${m.id}`)} y="34" textAnchor="middle" fontSize="9" fontWeight="700" fill="#5F7189">{def.es.toUpperCase()}</text>}
+            {ocupantes.map((t, i) => {
+              if (!lab(`tal:${t.id}`)) return null;
               const micsT = micsDeTal(t.id);
               const micTxt = micsT.length ? ` · ${micsT.map((x) => MIC_TIPO_CORTO[x.micTipo] || "mic").join(" + ")}` : "";
               return (
-                <text key={t.id} y={45 + i * 11} textAnchor="middle" fontSize="9" fontWeight="700"
+                <text key={t.id} {...labProps(`tal:${t.id}`)} y={45 + i * 11} textAnchor="middle" fontSize="9" fontWeight="700"
                   fill={t.tipo === "invitado" ? "#0E9F9E" : "#33445F"}>
                   {trunc(`${t.nombre}${micTxt}`, 30)}
                 </text>
@@ -1004,8 +1018,8 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg, showLabels = true, s
                 <path d="M-3.2 -0.5 a3.2 3.2 0 0 0 6.4 0 M0 2.7 V4.4" stroke="#fff" strokeWidth="1" fill="none" />
               </g>
             )}
-            {showLabels && <text y="32" textAnchor="middle" fontSize="10" fontWeight="700" fill="#33445F">{trunc(t.nombre, 20)}</text>}
-            {showLabels && micsT.length > 0 && (
+            {lab(`tal:${t.id}`) && <text {...labProps(`tal:${t.id}`)} y="32" textAnchor="middle" fontSize="10" fontWeight="700" fill="#33445F">{trunc(t.nombre, 20)}</text>}
+            {lab(`tal:${t.id}`) && micsT.length > 0 && (
               <text y="43" textAnchor="middle" fontSize="8.5" fontWeight="600" fill="#1FA14E">
                 {trunc(micsT.map((m) => MIC_TIPO_CORTO[m.micTipo] || m.micTipo).join(" + "), 26)}
               </text>
@@ -1035,7 +1049,7 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg, showLabels = true, s
               )}
             </g>
             <circle cx="-14" cy="0" r="6" fill="#3C4654" />
-            {showLabels && <text y="26" textAnchor="middle" fontSize="9" fontWeight="700" fill="#1FA14E">{trunc(m.nombre, 18)} · boom</text>}
+            {lab(`mic:${m.id}`) && <text {...labProps(`mic:${m.id}`)} y="26" textAnchor="middle" fontSize="9" fontWeight="700" fill="#1FA14E">{trunc(m.nombre, 18)} · boom</text>}
           </g>
         );
       })}
@@ -1049,7 +1063,7 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg, showLabels = true, s
             <circle r="10" fill="#fff" stroke="#1FA14E" strokeWidth="2" />
             <rect x="-2.5" y="-6" width="5" height="8" rx="2.5" fill="#1FA14E" />
             <path d="M-5 -1 a5 5 0 0 0 10 0 M0 4 V7" stroke="#1FA14E" strokeWidth="1.4" fill="none" />
-            {showLabels && <text y="24" textAnchor="middle" fontSize="9" fontWeight="700" fill="#1FA14E">{trunc(m.nombre, 16)} · {MIC_TIPO_CORTO[m.micTipo] || "mic"}</text>}
+            {lab(`mic:${m.id}`) && <text {...labProps(`mic:${m.id}`)} y="24" textAnchor="middle" fontSize="9" fontWeight="700" fill="#1FA14E">{trunc(m.nombre, 16)} · {MIC_TIPO_CORTO[m.micTipo] || "mic"}</text>}
           </g>
         );
       })}
@@ -1088,7 +1102,7 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg, showLabels = true, s
             </g>
             <circle cx="0" cy="-27" r="10" fill={c.color} stroke="#fff" strokeWidth="2" />
             <text x="0" y="-23" textAnchor="middle" fontSize="11" fontWeight="800" fill={textOn(c.color)}>{c.num}</text>
-            {showLabels && <g transform="translate(0 22)">
+            {lab(`cam:${c.id}`) && <g transform="translate(0 22)" {...labProps(`cam:${c.id}`)}>
               <rect x="-56" y="0" width="112" height="30" rx="6" fill="#fff" stroke={c.color} strokeWidth="2" />
               <text x="0" y="13" textAnchor="middle" fontSize="11" fontWeight="800" fill={c.color}>{trunc(c.nombre, 14)}</text>
               <text x="0" y="25" textAnchor="middle" fontSize="9" fill="#3C4654">{trunc(c.plano, 20)}</text>
@@ -1705,6 +1719,7 @@ function VistaSet({ cfg, setCfg }) {
   const [showLabels, setShowLabels] = useState(SET_CANVAS_DEFAULTS.showLabels);
   const [showGuides, setShowGuides] = useState(SET_CANVAS_DEFAULTS.showGuides);
   const tieneCustom = Object.keys(activo.setLayout?.pos || {}).length > 0 || Object.keys(activo.setLayout?.rot || {}).length > 0;
+  const etiquetasOcultas = Object.keys(activo.setLayout?.labelsOff || {}).length;
 
   const agregarMueble = (tipo) => setCfg((c) => upSetPor(c, activo.id, (s) => {
     const id = uid();
@@ -1795,7 +1810,7 @@ function VistaSet({ cfg, setCfg }) {
                   onChange={(e) => upActivo({ mesaVisible: e.target.checked }, { commit: true })} />
                 Mesa / escritorio en el set
               </label>
-              <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "#33445F" }} title="Muestra u oculta nombres para despejar el plano. Mantén el puntero encima de un icono para ver su nombre.">
+              <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "#33445F" }} title="Muestra u oculta todos los nombres. Doble clic sobre una etiqueta del plano la oculta individualmente. Mantén el puntero encima de un icono para ver su nombre.">
                 <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
                 Mostrar etiquetas
               </label>
@@ -1803,6 +1818,13 @@ function VistaSet({ cfg, setCfg }) {
                 <input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} />
                 Mostrar guías
               </label>
+              {etiquetasOcultas > 0 && (
+                <button onClick={() => setCfg((c) => upSetPor(c, activo.id, (s) => ({ ...s, setLayout: { ...s.setLayout, labelsOff: {} } })), { commit: true })}
+                  className="rounded-lg border px-2.5 py-1 text-xs font-bold" style={chip}
+                  title="Vuelve a mostrar las etiquetas ocultadas con doble clic">
+                  ⟲ Restaurar {etiquetasOcultas} etiqueta{etiquetasOcultas === 1 ? "" : "s"}
+                </button>
+              )}
               {tieneCustom && (
                 <button onClick={() => setCfg((c) => upSetPor(c, activo.id, reacomodoDe), { commit: true })}
                   className="rounded-lg border px-2.5 py-1 text-xs font-bold" style={chip}>

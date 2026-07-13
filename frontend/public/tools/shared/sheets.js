@@ -202,6 +202,10 @@
     const layout = set.setLayout || {};
     const pos = layout.pos || {};
     const rots = layout.rot || {};
+    // Etiquetas ocultas individualmente en el editor (doble clic): las hojas
+    // impresas las respetan para mantener el plano limpio.
+    const labelsOff = layout.labelsOff || {};
+    const labOk = (key) => !labelsOff[key];
     const cams = cfg.camaras || [];
     const mics = cfg.microfonos || [];
     const talentos = talentosDe(cfg);
@@ -264,13 +268,14 @@
         </g>`;
       }).join('');
       const nombres = ocupantes.map((t, i) => {
+        if (!labOk('tal:' + t.id)) return '';
         const micsT = (esLegacy ? [] : mics.filter((x) => x.micTipo !== 'boom' && x.asignadoA === 'tal:' + t.id));
         const micTxt = micsT.length ? ' · ' + micsT.map((x) => MIC_CORTO[x.micTipo] || 'mic').join(' + ') : '';
         return `<text y="${45 + i * 11}" text-anchor="middle" font-size="9" font-weight="700" fill="${t.tipo === 'invitado' ? '#0E9F9E' : '#33445f'}">${esc(trunc(t.nombre + micTxt, 30))}</text>`;
       }).join('');
       return `<g transform="translate(${p.x} ${p.y})">
         <g transform="rotate(${rot})">${muebleGlyph(m.tipo)}${gente}</g>
-        <text y="34" text-anchor="middle" font-size="9" font-weight="700" fill="#5F7189">${esc(def.es.toUpperCase())}</text>
+        ${labOk('mue:' + m.id) ? `<text y="34" text-anchor="middle" font-size="9" font-weight="700" fill="#5F7189">${esc(def.es.toUpperCase())}</text>` : ''}
         ${nombres}
       </g>`;
     }).join('');
@@ -280,7 +285,7 @@
       const p = atTal(t);
       const col = t.tipo === 'invitado' ? '#0E9F9E' : ink;
       const micsT = micsDeTal(t.id);
-      const micTxt = micsT.length
+      const micTxt = micsT.length && labOk('tal:' + t.id)
         ? `<text y="41" text-anchor="middle" font-size="8.5" font-weight="600" fill="#1FA14E">${esc(trunc(micsT.map((m) => MIC_CORTO[m.micTipo] || 'mic').join(' + '), 26))}</text>`
         : '';
       return `<g transform="translate(${p.x} ${p.y})">
@@ -289,7 +294,7 @@
         <path d="M-7 3 q7 8 14 0 l2 8 h-18 z" fill="${col}"/>
         <circle cx="11.5" cy="-11.5" r="6" fill="${col}"/>
         <text x="11.5" y="-9" text-anchor="middle" font-size="7.5" font-weight="800" fill="#fff">${t.tipo === 'invitado' ? 'I' : 'C'}</text>
-        <text y="30" text-anchor="middle" font-size="10" font-weight="700" fill="#33445f">${esc(trunc(t.nombre, 20))}</text>
+        ${labOk('tal:' + t.id) ? `<text y="30" text-anchor="middle" font-size="10" font-weight="700" fill="#33445f">${esc(trunc(t.nombre, 20))}</text>` : ''}
         ${micTxt}
       </g>`;
     }).join('');
@@ -306,7 +311,7 @@
           <rect x="26" y="-4" width="14" height="8" rx="4" fill="#1FA14E" stroke="#fff" stroke-width="1.2"/>
         </g>
         <circle cx="-14" cy="0" r="6" fill="#3C4654"/>
-        <text y="24" text-anchor="middle" font-size="9" font-weight="700" fill="#1FA14E">${esc(trunc(m.nombre, 18))} · boom</text>
+        ${labOk('mic:' + m.id) ? `<text y="24" text-anchor="middle" font-size="9" font-weight="700" fill="#1FA14E">${esc(trunc(m.nombre, 18))} · boom</text>` : ''}
       </g>`;
     }).join('');
 
@@ -317,7 +322,7 @@
         <circle r="10" fill="${opts.display ? '#fff' : 'none'}" stroke="#1FA14E" stroke-width="2"/>
         <rect x="-2.5" y="-6" width="5" height="8" rx="2.5" fill="#1FA14E"/>
         <path d="M-5 -1 a5 5 0 0 0 10 0 M0 4 V7" stroke="#1FA14E" stroke-width="1.4" fill="none"/>
-        <text y="23" text-anchor="middle" font-size="9" font-weight="700" fill="#1FA14E">${esc(trunc(m.nombre, 16))} · ${MIC_CORTO[m.micTipo] || 'mic'}</text>
+        ${labOk('mic:' + m.id) ? `<text y="23" text-anchor="middle" font-size="9" font-weight="700" fill="#1FA14E">${esc(trunc(m.nombre, 16))} · ${MIC_CORTO[m.micTipo] || 'mic'}</text>` : ''}
       </g>`;
     }).join('');
 
@@ -339,7 +344,7 @@
         ${beam}${anillo}<g>${luzGlyph(l.forma, color)}</g>
         <rect x="-14" y="-29" width="28" height="12" rx="6" fill="${color}"/>
         <text y="-20" text-anchor="middle" font-size="8" font-weight="800" fill="#fff">${esc(l.abrev || 'LUZ')}</text>
-        <text y="27" text-anchor="middle" font-size="9" font-weight="700" fill="#33445f">${esc(trunc(l.nombre, 20))}</text>
+        ${labOk('luz:' + l.id) ? `<text y="27" text-anchor="middle" font-size="9" font-weight="700" fill="#33445f">${esc(trunc(l.nombre, 20))}</text>` : ''}
       </g>`;
     }).join('');
     const camsSvg = cams.map((c, i) => {
@@ -373,7 +378,7 @@
         </g>
         <circle cx="0" cy="-24" r="10" fill="${color}"/>
         <text x="0" y="-20" text-anchor="middle" font-size="11" font-weight="800" fill="#fff">${i + 1}</text>
-        <text x="0" y="34" text-anchor="middle" font-size="10" font-weight="700" fill="#33445f">${esc(trunc(c.nombre, 14))}</text>
+        ${labOk('cam:' + c.id) ? `<text x="0" y="34" text-anchor="middle" font-size="10" font-weight="700" fill="#33445f">${esc(trunc(c.nombre, 14))}</text>` : ''}
         ${tally}
       </g>`;
     }).join('');
