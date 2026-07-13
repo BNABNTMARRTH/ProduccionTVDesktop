@@ -114,7 +114,7 @@ document.querySelector('#app').innerHTML = `
         <p class="home-credit">Hecha por <strong>Aldo Abiud Torres Juárez</strong>, alumno de la FCC, para las y los alumnos de la FCC.</p>
       </section>
 
-      <header class="workspace-header" id="workspace-header"><div><h1 id="tool-title"></h1><p id="tool-description"></p></div><div class="header-actions"><span class="offline-badge" id="active-name">Guardado local</span><button id="focus-mode" title="Modo pantalla completa">⛶</button></div></header>
+      <header class="workspace-header" id="workspace-header"><div><h1 id="tool-title"></h1><p id="tool-description"></p></div><div class="header-actions"><button class="offline-badge" id="active-name" title="Ir a Inicio: proyectos y plantillas">Guardado local</button><button id="focus-mode" title="Modo pantalla completa">⛶</button></div></header>
       <div class="frame-wrap" id="frame-wrap"><div class="loading" id="loading"><span></span>Cargando herramienta…</div><iframe id="tool-frame" title="Herramienta de Producción TV" allow="clipboard-read; clipboard-write"></iframe></div>
       <section class="production-view" id="production-view"></section>
       <div class="export-toast" id="export-toast"></div>
@@ -522,6 +522,9 @@ renderTemplates();
 renderRecent();
 
 document.querySelector('#new-project-focus').onclick = () => wizard.open();
+// El nombre del proyecto en el header funciona como la pestaña Archivo de
+// Word: clic → pantalla de inicio (proyectos y plantillas).
+document.querySelector('#active-name').onclick = () => selectView('home');
 document.querySelector('#focus-mode').onclick = () => shell.classList.toggle('focus-mode');
 
 // Importar proyecto .ptv: desde el botón de Inicio o con doble clic en Finder
