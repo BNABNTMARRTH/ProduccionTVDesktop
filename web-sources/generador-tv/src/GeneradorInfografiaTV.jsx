@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
   Camera, Monitor, Tv, Play, Pause, User, Users, Headphones, SlidersHorizontal,
   Volume2, Mic, Lightbulb, Megaphone, Clapperboard, Plus, Trash2,
@@ -2610,6 +2610,24 @@ export default function GeneradorInfografiaTV() {
   const [cargado, setCargado] = useState(false);
   const [copiado, setCopiado] = useState(false);
 
+  // Zoom de impresión calculado por contenido: la infografía entra completa
+  // en una página A4 horizontal mientras siga legible; si quedaría demasiado
+  // chica, se ajusta solo al ancho y fluye a varias páginas. (Antes era un
+  // 0.6 fijo: lo largo se cortaba y lo corto desperdiciaba página.)
+  const printZoomRef = useRef(null);
+  useLayoutEffect(() => {
+    const el = printZoomRef.current;
+    if (!el) return;
+    const sheet = el.querySelector(".infografia-sheet");
+    if (!sheet) return;
+    const PRINT_W = 1077; // área útil A4 horizontal (297−2×6 mm) en px CSS
+    const PRINT_H = 748; //  área útil A4 horizontal (210−2×6 mm) en px CSS
+    const fitW = PRINT_W / Math.max(1, sheet.scrollWidth);
+    const fitPage = Math.min(fitW, PRINT_H / Math.max(1, sheet.scrollHeight));
+    const zoom = Math.min(1, fitPage >= 0.5 ? fitPage : fitW);
+    el.style.setProperty("--print-zoom", zoom.toFixed(3));
+  });
+
   // Adaptador de almacenamiento: usa localStorage del navegador.
   const st = typeof window !== "undefined" && window.localStorage
     ? {
@@ -2749,7 +2767,7 @@ export default function GeneradorInfografiaTV() {
           .no-print { display: none !important; }
           .seccion-cerrada { display: none !important; }
           .scrollwrap { overflow: visible !important; padding: 0 !important; }
-          .print-zoom { zoom: 0.6; }
+          .print-zoom { zoom: var(--print-zoom, 0.6); }
           body { background: #fff; }
           @page { size: A4 landscape; margin: 6mm; }
         }
@@ -2797,7 +2815,7 @@ export default function GeneradorInfografiaTV() {
         <VistaEscaleta cfg={cfg} />
       ) : (
         <div className="scrollwrap overflow-auto px-2 py-4">
-          <div className="print-zoom"><Infografia cfg={cfg} setCfg={setCfg} /></div>
+          <div className="print-zoom" ref={printZoomRef}><Infografia cfg={cfg} setCfg={setCfg} /></div>
           <p className="no-print text-center text-xs text-slate-500 mt-3">
             En pantallas pequeñas desliza horizontalmente. En escritorio usa el menú Exportar para crear el proyecto, una imagen PNG o un PDF.
           </p>

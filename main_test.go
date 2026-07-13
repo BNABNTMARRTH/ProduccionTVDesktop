@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -65,6 +66,75 @@ func TestLaunchDataOpensPtvFile(t *testing.T) {
 	// openedFile se entrega una sola vez por contexto.
 	if again := NewApp("", "", "").GetLaunchContext(); again["openedFile"] != "" {
 		t.Fatalf("openedFile should default to empty, got %#v", again)
+	}
+}
+
+func TestSanitizeTrashNameRejectsPaths(t *testing.T) {
+	cases := map[string]string{
+		"proyecto-20260712-101500.ptv":  "proyecto-20260712-101500.ptv",
+		"  demo.PTV ":                   "demo.PTV",
+		"../fuera.ptv":                  "fuera.ptv", // Base() recorta la ruta
+		"/etc/passwd":                   "",
+		"sin-extension":                 "",
+		".oculto.ptv":                   "",
+		"..":                            "",
+		"sub/carpeta/../../../algo.ptv": "algo.ptv",
+	}
+	for input, expected := range cases {
+		if got := sanitizeTrashName(input); got != expected {
+			t.Fatalf("sanitizeTrashName(%q) = %q, expected %q", input, got, expected)
+		}
+	}
+}
+
+func TestTrashTitleReadsBundleAndLooseCfg(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, content string) string {
+		path := dir + "/" + name
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	cases := map[string]string{
+		write("bundle.ptv", `{"project":{"name":"Noticiero 7"},"infographic":{"titulo":"otro"}}`): "Noticiero 7",
+		write("solo-info.ptv", `{"infographic":{"titulo":"Matutino"},"diagram":{}}`):              "Matutino",
+		write("cfg.ptv", `{"titulo":"Cfg suelto","camaras":[]}`):                                  "Cfg suelto",
+		write("roto.ptv", `esto no es json`):                                                      "",
+	}
+	for path, expected := range cases {
+		if got := trashTitle(path); got != expected {
+			t.Fatalf("trashTitle(%q) = %q, expected %q", path, got, expected)
+		}
+	}
+}
+
+func TestTrashLifecycle(t *testing.T) {
+	t.Setenv("HOME", t.TempDir()) // aísla ~/Documents/ProduccionTV del usuario real
+	app := NewApp("", "", "")
+	payload := `{"project":{"name":"Mi Noticiero","id":"project-x"},"infographic":{"camaras":[]}}`
+	if err := app.SaveProjectFile("project-x", payload); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.DeleteProjectFile("project-x"); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := app.ListTrashFiles()
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("expected 1 trash entry, got %#v (err %v)", entries, err)
+	}
+	if entries[0].Title != "Mi Noticiero" {
+		t.Fatalf("unexpected trash title %q", entries[0].Title)
+	}
+	content, err := app.ReadTrashFile(entries[0].Name)
+	if err != nil || !strings.Contains(content, "Mi Noticiero") {
+		t.Fatalf("unexpected trash content %q (err %v)", content, err)
+	}
+	if err := app.DeleteTrashFile(entries[0].Name); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := app.ListTrashFiles(); len(again) != 0 {
+		t.Fatalf("trash should be empty after purge, got %#v", again)
 	}
 }
 

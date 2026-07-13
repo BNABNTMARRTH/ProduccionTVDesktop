@@ -33,6 +33,24 @@ iframe{display:block;width:100%;height:100%;border:0;background:#0e1a2b}
 .home-credit{max-width:1400px;margin:30px auto 0;text-align:center;color:#5f7394;font-size:12px}.home-credit strong{color:#8fa9c9}
 .import-project{width:100%;margin-top:12px;border:1px dashed #31547b;background:transparent;color:#8fa9c9;border-radius:9px;padding:9px;font-weight:700;font-size:12px;cursor:pointer}
 .import-project:hover{border-color:#58a8ff;color:#fff}
+/* Papelera de proyectos */
+.trash-link{width:100%;margin-top:8px;border:0;background:transparent;color:#5f7394;font-size:11px;font-weight:700;cursor:pointer;padding:6px}
+.trash-link:hover{color:#8fa9c9}
+.trash-overlay{position:fixed;z-index:95;inset:0;display:grid;place-items:center;padding:24px;background:rgba(3,10,20,.72);backdrop-filter:blur(12px)}
+.trash-card{width:min(560px,calc(100vw - 48px));max-height:calc(100vh - 80px);overflow:auto;display:flex;flex-direction:column;padding:24px 26px;border:1px solid #34577e;border-radius:18px;background:radial-gradient(circle at 50% 0,#17365e,#0d1b2e 60%);box-shadow:0 30px 90px #000b}
+.trash-head{display:flex;align-items:center;justify-content:space-between}
+.trash-head h2{margin:0;font-size:20px}
+.trash-head button{border:0;background:transparent;color:#7d94b5;font-size:16px;cursor:pointer}
+.trash-head button:hover{color:#fff}
+.trash-note{margin:6px 0 14px;color:#8094af;font-size:12px;line-height:1.5}
+.trash-list{display:flex;flex-direction:column}
+.trash-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid #213650}
+.trash-item>span{display:flex;flex-direction:column;min-width:0}
+.trash-item strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trash-item small{font-size:10px;color:#7186a3}
+.trash-item button{border:0;background:#172c48;color:#bcd0e9;border-radius:6px;padding:6px 9px;cursor:pointer;margin-left:6px}
+.trash-item button:hover{background:#1f3b60}
+.trash-item button.confirm-delete{background:#c92f32;color:#fff;font-weight:800;animation:confirm-pulse .9s ease-in-out infinite}
 .project-search{width:100%;margin:0 0 10px;border:1px solid #263c5c;background:#0d1b2e;color:#e7eef8;border-radius:9px;padding:8px 10px;font:inherit;font-size:13px}
 .project-search::placeholder{color:#5f7394}
 .project-search:focus{outline:2px solid #58a8ff;outline-offset:1px}

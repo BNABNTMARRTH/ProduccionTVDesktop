@@ -1,7 +1,7 @@
 import './style.css';
 import html2canvas from 'html2canvas';
 import appIcon from './assets/images/atj-icon-small.png';
-import { DeleteProjectFile, GetLaunchContext, LoadAllProjects, LoadProjectFile, OpenProjectWindow, Print, SaveBase64File, SaveProjectFile, SaveTextFile } from '../wailsjs/go/main/App';
+import { DeleteProjectFile, DeleteTrashFile, GetLaunchContext, ListTrashFiles, LoadAllProjects, LoadProjectFile, OpenProjectWindow, Print, ReadTrashFile, SaveBase64File, SaveProjectFile, SaveTextFile } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 import { templateCatalog, makeTemplate, diagramFromConfig, infografiaFromDiagram, uid } from './templates.js';
 import { createProductionView } from './production.js';
@@ -109,7 +109,7 @@ document.querySelector('#app').innerHTML = `
             <p class="template-hint">Cada plantilla abre el asistente con la base técnica ya sugerida.</p>
             <div class="template-grid" id="template-grid"></div>
           </div>
-          <aside class="recent-panel"><div class="section-title"><h2>Proyectos recientes</h2><span id="project-count"></span></div><input id="project-search" class="project-search" type="search" placeholder="Buscar proyecto…" aria-label="Buscar proyecto por nombre"><div id="recent-projects"></div><button class="import-project" id="import-project" title="Abre un proyecto .ptv exportado desde otra computadora (también puedes soltarlo sobre la ventana)">⬆ Importar proyecto (.ptv)</button><input type="file" id="import-file" accept=".ptv,.json" hidden></aside>
+          <aside class="recent-panel"><div class="section-title"><h2>Proyectos recientes</h2><span id="project-count"></span></div><input id="project-search" class="project-search" type="search" placeholder="Buscar proyecto…" aria-label="Buscar proyecto por nombre"><div id="recent-projects"></div><button class="import-project" id="import-project" title="Abre un proyecto .ptv exportado desde otra computadora (también puedes soltarlo sobre la ventana)">⬆ Importar proyecto (.ptv)</button><input type="file" id="import-file" accept=".ptv,.json" hidden><button class="trash-link" id="open-trash" title="Los proyectos eliminados se pueden restaurar desde aquí">🗑 Ver papelera</button></aside>
         </div>
         <p class="home-credit">Hecha por <strong>Aldo Abiud Torres Juárez</strong>, alumno de la FCC, para las y los alumnos de la FCC.</p>
       </section>
@@ -268,11 +268,11 @@ function duplicateProject(id) {
 // suelto del generador. Lo agrega a recientes y lo abre en su propia ventana.
 function importProjectFromText(text, { launch = true } = {}) {
     let data;
-    try { data = JSON.parse(text); } catch { showToast('El archivo no es un proyecto de Producción TV válido', true); return; }
+    try { data = JSON.parse(text); } catch { showToast('El archivo no es un proyecto de Producción TV válido', true); return null; }
     const project = proyectoDesdeBundle(data, { conservarId: false });
     if (!project) {
         showToast('El archivo no contiene un proyecto de Producción TV', true);
-        return;
+        return null;
     }
     project.updatedAt = new Date().toISOString();
     projects = [project, ...projects];
@@ -281,6 +281,7 @@ function importProjectFromText(text, { launch = true } = {}) {
     renderRecent();
     showToast(`Proyecto “${project.name}” importado`);
     if (launch) launchProjectWindow(project.id);
+    return project;
 }
 
 let projectQuery = '';
@@ -523,6 +524,74 @@ importInput.onchange = () => {
     reader.readAsText(file);
 };
 EventsOn('producciontv:open-file', (content) => importProjectFromText(String(content || '')));
+
+// Papelera: lista los .ptv eliminados (Documentos/ProduccionTV/Papelera) y
+// permite restaurarlos como proyecto o borrarlos definitivamente (dos pasos).
+const escHtml = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+async function openTrash() {
+    const overlay = document.createElement('div');
+    overlay.className = 'trash-overlay';
+    let confirmName = null;
+    let confirmTimer = 0;
+    const close = () => {
+        clearTimeout(confirmTimer);
+        document.removeEventListener('keydown', onKey, true);
+        overlay.remove();
+    };
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
+    document.addEventListener('keydown', onKey, true);
+    overlay.onclick = (e) => { if (e.target === overlay) close(); };
+    document.body.appendChild(overlay);
+
+    const render = async () => {
+        let items = [];
+        try { items = (await ListTrashFiles()) || []; } catch { /* papelera ilegible: se muestra vacía */ }
+        overlay.innerHTML = `
+          <div class="trash-card">
+            <div class="trash-head"><h2>🗑 Papelera</h2><button id="trash-close" aria-label="Cerrar papelera">✕</button></div>
+            <p class="trash-note">Los proyectos eliminados se guardan en Documentos/ProduccionTV/Papelera. Restaurar los agrega de nuevo a tus proyectos recientes.</p>
+            ${items.length ? `<div class="trash-list">${items.map((t) => `
+              <article class="trash-item">
+                <span><strong>${escHtml(t.title || t.name)}</strong><small>Eliminado: ${escHtml(t.deletedAt)}</small></span>
+                <div>
+                  <button data-restore="${escHtml(t.name)}">Restaurar</button>
+                  ${confirmName === t.name
+                    ? `<button data-purge="${escHtml(t.name)}" class="confirm-delete">¿Borrar para siempre?</button>`
+                    : `<button data-purge="${escHtml(t.name)}" title="Borrar definitivamente">×</button>`}
+                </div>
+              </article>`).join('')}</div>`
+            : '<div class="empty-projects">La papelera está vacía.</div>'}
+          </div>`;
+        overlay.querySelector('#trash-close').onclick = close;
+        overlay.querySelectorAll('[data-restore]').forEach((b) => b.onclick = async () => {
+            const name = b.dataset.restore;
+            const text = await ReadTrashFile(name).catch(() => '');
+            if (!text) { showToast('No se pudo leer el proyecto de la papelera', true); return; }
+            // Si la importación falla, el archivo se queda en la papelera.
+            if (!importProjectFromText(text, { launch: false })) return;
+            await DeleteTrashFile(name).catch(() => {});
+            render();
+        });
+        overlay.querySelectorAll('[data-purge]').forEach((b) => b.onclick = async () => {
+            const name = b.dataset.purge;
+            clearTimeout(confirmTimer);
+            if (confirmName !== name) {
+                confirmName = name;
+                confirmTimer = setTimeout(() => { confirmName = null; render(); }, 4000);
+                render();
+                return;
+            }
+            confirmName = null;
+            try { await DeleteTrashFile(name); showToast('Proyecto borrado definitivamente'); }
+            catch (error) { showToast(error?.message || 'No se pudo borrar el proyecto', true); }
+            render();
+        });
+    };
+    await render();
+}
+
+document.querySelector('#open-trash').onclick = openTrash;
 
 // Buscador de proyectos recientes.
 document.querySelector('#project-search').oninput = (e) => {
