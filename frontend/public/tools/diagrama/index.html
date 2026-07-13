@@ -380,14 +380,17 @@ function zoomAt(cx,cy,factor){
   const wx=(cx-r.left-view.x)/view.scale, wy=(cy-r.top-view.y)/view.scale;
   view.scale=ns; view.x=cx-r.left-wx*ns; view.y=cy-r.top-wy*ns; applyView(); save();
 }
-function fitToScreen(){
-  const items=[...state.nodes.map(n=>({x:n.x,y:n.y,w:NODE_W,h:HEAD_H+bodyH(n)+22})),
+function fitToScreen(reintento){
+  // Si el lienzo aún no tiene layout (iframe recién montado u oculto), el
+  // rect mide 0 y el encuadre saldría en la esquina: reintentar un momento.
+  const r=wrap.getBoundingClientRect();
+  if(!r.width||!r.height){if((reintento||0)<60)requestAnimationFrame(()=>fitToScreen((reintento||0)+1));return;}
+  const items=[...state.nodes.map(n=>({x:n.x,y:n.y,w:NODE_W,h:HEAD_H+bodyH(n)+(FIG[n.type]?52:0)+22})),
                ...state.zones.map(z=>({x:z.x,y:z.y,w:z.w,h:z.h}))];
   if(!items.length){view={x:40,y:30,scale:1};applyView();return;}
   let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
   items.forEach(it=>{minx=Math.min(minx,it.x);miny=Math.min(miny,it.y);maxx=Math.max(maxx,it.x+it.w);maxy=Math.max(maxy,it.y+it.h);});
   const pad=60, bw=maxx-minx+pad*2, bh=maxy-miny+pad*2;
-  const r=wrap.getBoundingClientRect();
   const s=Math.max(.3,Math.min(1.4,Math.min(r.width/bw,r.height/bh)));
   view.scale=s; view.x=-(minx-pad)*s+(r.width-bw*s)/2; view.y=-(miny-pad)*s+(r.height-bh*s)/2;
   applyView(); save();
@@ -1014,9 +1017,13 @@ const embedded=window.parent!==window;
 // Embebido en la app de escritorio: los enlaces compartidos no pueden abrirse fuera.
 if(embedded)$('#btnShare').style.display='none';
 let loaded=embedded?false:loadHash();
-if(!embedded&&!loaded){try{const raw=localStorage.getItem(KEY);if(raw){const s=JSON.parse(raw);if(s&&s.nodes){s.zones=s.zones||[];s.notes=s.notes||[];state=s;loaded=true;}}const v=localStorage.getItem(VKEY);if(v)view=JSON.parse(v);}catch(e){}}
+let hadView=false;
+if(!embedded&&!loaded){try{const raw=localStorage.getItem(KEY);if(raw){const s=JSON.parse(raw);if(s&&s.nodes){s.zones=s.zones||[];s.notes=s.notes||[];state=s;loaded=true;}}const v=localStorage.getItem(VKEY);if(v){view=JSON.parse(v);hadView=true;}}catch(e){}}
 applyView();updateUndoBtns();
 if(embedded){render();}else if(!loaded||state.nodes.length===0){loadTemplate();}else{render();}
+// La primera vista siempre encuadra el contenido: sin esto el lienzo arranca
+// en el origen y el diagrama queda pegado a la esquina superior izquierda.
+if(!hadView&&state.nodes.length)requestAnimationFrame(()=>fitToScreen());
 // Primera visita sin cables: mostrar la guía rápida una sola vez.
 try{if(!localStorage.getItem(HELP_KEY)&&!state.edges.length)toggleHelp(true);}catch(e){}
 })();
