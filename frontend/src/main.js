@@ -215,6 +215,9 @@ async function createProject(profile) {
 }
 
 async function launchProjectWindow(id) {
+    // Este proyecto ya vive en esta ventana: volver a la herramienta en vez
+    // de abrir una ventana duplicada del mismo proyecto.
+    if (id === activeProjectId && shell.classList.contains('project-window')) { selectView('infografias'); return; }
     localStorage.setItem(ACTIVE_KEY, id);
     const project = projects.find((item) => item.id === id);
     if (!project) { showToast('El proyecto solicitado ya no existe', true); return; }
@@ -344,7 +347,17 @@ function selectView(view, forceReload = false) {
     productionView.hidden = view !== 'production';
     header.hidden = !isTool;
     frameWrap.hidden = !isTool;
-    if (view === 'home') { renderRecent(); return; }
+    if (view === 'home') {
+        renderRecent();
+        // Inicio desde una ventana de proyecto (estilo Word: Archivo →
+        // pantalla de inicio): su lista puede estar vieja, así que guarda lo
+        // actual en silencio y relee el disco, donde escriben todas las ventanas.
+        if (shell.classList.contains('project-window') && activeProject) {
+            flushSaveNow(true);
+            loadProjectsFromDisk().then(renderRecent);
+        }
+        return;
+    }
     if (view === 'production') { production.render(); return; }
     const tool = toolInfo[view];
     title.textContent = tool.title;
@@ -612,9 +625,9 @@ window.addEventListener('drop', (e) => {
 
 // ⌘S: guardado inmediato a disco (también llega desde las herramientas en
 // iframe vía el mensaje producciontv:request-save).
-function flushSaveNow() {
+function flushSaveNow(silent = false) {
     clearTimeout(saveTimer);
-    if (!activeProject) { showToast('No hay proyecto activo que guardar'); return; }
+    if (!activeProject) { if (!silent) showToast('No hay proyecto activo que guardar'); return; }
     activeProject.cfg = latestInfografia;
     activeProject.diagram = latestDiagram;
     activeProject.updatedAt = new Date().toISOString();
@@ -623,7 +636,7 @@ function flushSaveNow() {
     saveProjectToDisk(activeProject);
     document.querySelector('#save-status').textContent = 'Guardado en disco';
     renderRecent();
-    showToast('Proyecto guardado en disco');
+    if (!silent) showToast('Proyecto guardado en disco');
 }
 
 const welcomeOverlay = document.querySelector('#welcome-overlay');
