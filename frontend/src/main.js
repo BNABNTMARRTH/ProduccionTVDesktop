@@ -84,23 +84,24 @@ const showWelcome = !localStorage.getItem(WELCOME_KEY);
 
 document.querySelector('#app').innerHTML = `
   <div class="desktop-shell">
-    <aside class="sidebar">
-      <div class="brand"><img class="brand-logo" src="${appIcon}" alt=""><span><strong>Producción TV</strong><small>Centro de trabajo</small></span></div>
-      <nav class="tool-nav" aria-label="Navegación">
-        <button data-view="home"><span class="nav-icon">⌂</span><span><strong>Inicio</strong><small>Proyectos y plantillas</small></span></button>
-        <button data-view="infografias"><span class="nav-icon">▤</span><span><strong>Infografías</strong><small>La hoja completa del proyecto</small></span><kbd>⌘1</kbd></button>
-        <button data-view="set"><span class="nav-icon">▦</span><span><strong>Set</strong><small>Espacio físico y quién lo opera</small></span><kbd>⌘2</kbd></button>
-        <button data-view="escaleta"><span class="nav-icon">≡</span><span><strong>Escaleta / Rundown</strong><small>Orden narrativo y temporal</small></span><kbd>⌘3</kbd></button>
-        <button data-view="diagrama"><span class="nav-icon">⌁</span><span><strong>Diagrama</strong><small>Ruta de señal</small></span><kbd>⌘4</kbd></button>
-        <button data-view="production"><span class="nav-icon">●</span><span><strong>Producción</strong><small>En vivo y validaciones</small></span><kbd>⌘5</kbd></button>
-        <button data-view="guias"><span class="nav-icon">⎙</span><span><strong>Guías de set</strong><small>Hojas imprimibles para llenar a mano</small></span><kbd>⌘6</kbd></button>
-        <button data-view="exportar"><span class="nav-icon">⇩</span><span><strong>Exportar</strong><small>Arma el documento: formato, secciones y orden</small></span><kbd>⌘7</kbd></button>
-      </nav>
-      <div class="sidebar-resizer" id="sidebar-resizer"></div>
-      <div class="sidebar-footer"><span class="status-dot"></span><span><strong id="save-status">Guardado local</strong><small id="project-label">Sin proyecto activo</small></span></div>
-    </aside>
-
     <main class="workspace">
+      <header class="workspace-header" id="workspace-header">
+        <img class="header-logo" src="${appIcon}" alt="">
+        <nav class="header-tabs" aria-label="Navegación">
+          <button data-view="infografias" title="La hoja completa: set, escaleta, personal y branding (⌘1)">▤ Infografías</button>
+          <button data-view="set" title="Espacio físico, mobiliario e iluminación (⌘2)">▦ Set</button>
+          <button data-view="escaleta" title="Rundown, guion técnico y storyboard (⌘3)">≡ Escaleta</button>
+          <button data-view="diagrama" title="Diseña y valida la ruta de señal (⌘4)">⌁ Diagrama</button>
+          <button data-view="production" title="En vivo: cronómetro, tally y teleprompter (⌘5)">● Producción</button>
+          <button data-view="guias" title="Hojas imprimibles para llenar a mano (⌘6)">⎙ Guías</button>
+          <button data-view="exportar" title="Arma el documento: formato, secciones y orden (⌘7)">⇩ Exportar</button>
+        </nav>
+        <div class="header-actions">
+          <span class="save-status" id="save-status">Guardado local</span>
+          <button class="offline-badge" id="active-name" title="Ir a Inicio: proyectos y plantillas">Guardado local</button>
+          <button id="focus-mode" title="Modo pantalla completa">⛶</button>
+        </div>
+      </header>
       <section class="home-view" id="home-view">
         <div class="home-hero"><div><span class="eyebrow">ATJ · PRODUCCIÓN AUDIOVISUAL</span><h1>¿Qué vas a producir hoy?</h1><p>Crea un proyecto desde cero o comienza con una estructura técnica preparada.</p></div><button id="new-project-focus">＋ Nuevo proyecto</button></div>
         <div class="home-grid">
@@ -114,7 +115,6 @@ document.querySelector('#app').innerHTML = `
         <p class="home-credit">Hecha por <strong>Aldo Abiud Torres Juárez</strong>, alumno de la FCC, para las y los alumnos de la FCC.</p>
       </section>
 
-      <header class="workspace-header" id="workspace-header"><div><h1 id="tool-title"></h1><p id="tool-description"></p></div><div class="header-actions"><button class="offline-badge" id="active-name" title="Ir a Inicio: proyectos y plantillas">Guardado local</button><button id="focus-mode" title="Modo pantalla completa">⛶</button></div></header>
       <div class="frame-wrap" id="frame-wrap"><div class="loading" id="loading"><span></span>Cargando herramienta…</div><iframe id="tool-frame" title="Herramienta de Producción TV" allow="clipboard-read; clipboard-write"></iframe></div>
       <section class="production-view" id="production-view"></section>
       <div class="export-toast" id="export-toast"></div>
@@ -150,8 +150,6 @@ const productionView = document.querySelector('#production-view');
 const header = document.querySelector('#workspace-header');
 const loading = document.querySelector('#loading');
 const navButtons = [...document.querySelectorAll('[data-view]')];
-const title = document.querySelector('#tool-title');
-const description = document.querySelector('#tool-description');
 const toast = document.querySelector('#export-toast');
 let toastTimer;
 
@@ -292,7 +290,6 @@ function renderRecent() {
     const count = document.querySelector('#project-count');
     count.textContent = cerca ? `${projects.length} / ${MAX_PROJECTS} ⚠` : `${projects.length}`;
     count.title = cerca ? `Cerca del tope de ${MAX_PROJECTS} proyectos: exporta o elimina los que ya no uses` : '';
-    document.querySelector('#project-label').textContent = activeProject?.name || 'Sin proyecto activo';
     document.querySelector('#active-name').textContent = activeProject?.name || 'Guardado local';
     const filtrados = projectQuery
         ? projects.filter((p) => (p.name || '').toLowerCase().includes(projectQuery))
@@ -342,13 +339,13 @@ function selectView(view, forceReload = false) {
     const isTool = !!toolInfo[view];
     homeView.hidden = view !== 'home';
     productionView.hidden = view !== 'production';
-    header.hidden = !isTool;
+    // Las pestañas viven en el header: visible siempre, salvo en Inicio
+    // (el lanzador es solo la pantalla de inicio).
+    header.hidden = view === 'home';
     frameWrap.hidden = !isTool;
     if (view === 'home') { renderRecent(); return; }
     if (view === 'production') { production.render(); return; }
     const tool = toolInfo[view];
-    title.textContent = tool.title;
-    description.textContent = tool.description;
     if (forceReload || !frame.src.includes(tool.src.replace('./', ''))) {
         loading.classList.remove('hidden');
         frame.src = tool.src;
@@ -646,13 +643,6 @@ if (welcomeOverlay) {
     document.querySelector('#welcome-close').onclick = closeWelcome;
     welcomeOverlay.onclick = (event) => { if (event.target === welcomeOverlay) closeWelcome(); };
 }
-
-const resizer = document.querySelector('#sidebar-resizer');
-resizer.onpointerdown = (event) => {
-    resizer.setPointerCapture(event.pointerId);
-    resizer.onpointermove = (move) => shell.style.setProperty('--sidebar-width', `${Math.max(210, Math.min(360, move.clientX))}px`);
-    resizer.onpointerup = () => { resizer.onpointermove = null; };
-};
 
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
