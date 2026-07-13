@@ -2,6 +2,7 @@
 // el perfil del proyecto (plantilla, identidad, cámaras, locación, talentos,
 // crew) y se lo entregan al shell para crear la plantilla base personalizable.
 import { templateCatalog, templateDefaults, CREW_CATALOG, DEFAULT_CREW } from './templates.js';
+import { esc } from './constants.js';
 
 const STEPS = ['tipo', 'identidad', 'tecnica', 'talentos', 'crew', 'resumen'];
 const STEP_TITLES = {
@@ -20,8 +21,6 @@ const STEP_HINTS = {
     crew: 'Marca los roles que tendrás disponibles en esta producción.',
     resumen: 'Revisa el resumen; todo se puede personalizar después.',
 };
-
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const freshAnswers = () => ({
     template: '',

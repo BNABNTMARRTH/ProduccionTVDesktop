@@ -1,11 +1,9 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
-  Camera, Monitor, Tv, Play, Pause, User, Users, Headphones, SlidersHorizontal,
-  Volume2, Mic, Lightbulb, Megaphone, Clapperboard, Plus, Trash2,
-  ChevronUp, ChevronDown, ChevronRight, Save, FolderOpen, FilePlus, Eye,
-  Pencil, X, ArrowRight, GripVertical, Search, StickyNote, Undo2, Redo2,
-  ZoomIn, ZoomOut, Share2, Link2, Check, Maximize, Minimize, Radio,
-  SkipForward, SkipBack, Download, AlertTriangle, Info, Clock
+  Camera, Monitor, Play, User, Users, Headphones, SlidersHorizontal, Volume2, Mic,
+  Lightbulb, Clapperboard, Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Save, FolderOpen,
+  FilePlus, Eye, Pencil, X, GripVertical, Search, StickyNote, Undo2, Redo2,
+  ZoomIn, ZoomOut, Share2, Link2, Check, Download, AlertTriangle, Info
 } from "lucide-react";
 import LZString from "lz-string";
 import {
@@ -1080,77 +1078,6 @@ function EstudioCenital({ cfg, set, cams, editable, setCfg, showLabels = true, s
   );
 }
 
-/** @deprecated Vista frontal retirada de la sección Set/Estudio (solo queda la cenital). Se conserva por compatibilidad. */
-function EstudioFrontal({ cfg, cams }) {
-  const N = cams.length;
-  const stagger = N > 4;
-  const H = stagger ? 530 : 480;
-  const cx = 490, targetY = 250;
-  const pos = cams.map((c, i) => {
-    const t = N === 1 ? 0 : -1 + (2 * i) / (N - 1);
-    const a = (t * 62 * Math.PI) / 180;
-    const x = cx + Math.sin(a) * 360;
-    const y = 312 + Math.cos(a) * 72;
-    const rot = (Math.atan2(targetY - y, cx - x) * 180) / Math.PI;
-    const ly = stagger && i % 2 === 1 ? 80 : 38;
-    return { c, x, y, rot, ly };
-  });
-  const lw = N > 5 ? 124 : 156;
-  return (
-    <svg viewBox={`0 0 980 ${H}`} className="w-full" style={{ display: "block" }}>
-      <rect x="20" y="248" width="940" height={H - 262} rx="10" fill="#E7EBF0" />
-      <rect x="20" y="248" width="940" height="8" fill="#CFD6DE" />
-      <rect x="60" y="30" width="860" height="222" rx="10" fill={NAVY} />
-      <rect x="78" y="46" width="120" height="190" rx="6" fill="#1D4577" />
-      <rect x="782" y="46" width="120" height="190" rx="6" fill="#1D4577" />
-      <rect x="215" y="46" width="550" height="150" rx="8" fill="#0E2748" stroke="#3A6EA5" strokeWidth="2" />
-      <foreignObject x="228" y="56" width="524" height="130">
-        <div style={{
-          width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center",
-          textAlign: "center", color: "#FFFFFF", fontFamily: "'Barlow Condensed', Arial, sans-serif",
-          fontWeight: 700, fontSize: 26, lineHeight: 1.15, textTransform: "uppercase", letterSpacing: 0.5, padding: "0 8px",
-        }}>{cfg.pantalla}</div>
-      </foreignObject>
-      {[140, 330, 650, 840].map((x) => (
-        <g key={x}>
-          <line x1={x} y1="12" x2={x} y2="30" stroke="#0B1C33" strokeWidth="4" />
-          <rect x={x - 16} y="28" width="32" height="14" rx="3" fill="#101D31" />
-        </g>
-      ))}
-      <circle cx="490" cy="218" r="11" fill="#13315B" />
-      <path d="M474 232 q16 -12 32 0 l4 22 h-40 z" fill="#1C3F6E" />
-      <path d="M372 254 h236 l34 56 h-304 z" fill="#F3F5F7" stroke="#9AA7B5" strokeWidth="2" />
-      <rect x="402" y="270" width="176" height="28" rx="5" fill={NAVY} />
-      <foreignObject x="404" y="272" width="172" height="24">
-        <div style={{
-          color: "#fff", textAlign: "center", fontSize: 12, fontWeight: 800, lineHeight: "24px",
-          overflow: "hidden", whiteSpace: "nowrap", fontFamily: "'Barlow Condensed', Arial, sans-serif", letterSpacing: 1,
-        }}>{cfg.mesa}</div>
-      </foreignObject>
-      {pos.map(({ c, x, y, rot, ly }) => (
-        <g key={c.id} transform={`translate(${x} ${y})`}>
-          <line x1="0" y1="6" x2="-13" y2="26" stroke="#222831" strokeWidth="3" />
-          <line x1="0" y1="6" x2="13" y2="26" stroke="#222831" strokeWidth="3" />
-          <line x1="0" y1="6" x2="0" y2="28" stroke="#222831" strokeWidth="3" />
-          <g transform={`rotate(${rot})`}>
-            <rect x="-16" y="-10" width="24" height="20" rx="3" fill="#1B1F26" />
-            <rect x="8" y="-6" width="9" height="12" fill="#2C333D" />
-            <circle cx="21" cy="0" r="6" fill="#0C0F14" stroke="#7D8794" strokeWidth="2" />
-            <rect x="-14" y="-16" width="12" height="6" rx="1" fill="#2C333D" />
-          </g>
-          <circle cx="0" cy="-34" r="11" fill={c.color} stroke="#fff" strokeWidth="2" />
-          <text x="0" y="-30" textAnchor="middle" fontSize="12" fontWeight="800" fill={textOn(c.color)}>{c.num}</text>
-          <g transform={`translate(0 ${ly})`}>
-            <rect x={-lw / 2} y="0" width={lw} height="36" rx="7" fill="#fff" stroke={c.color} strokeWidth="2.5" />
-            <text x="0" y="15" textAnchor="middle" fontSize="13" fontWeight="800" fill={c.color}>{trunc(c.nombre, 16)}</text>
-            <text x="0" y="29" textAnchor="middle" fontSize="10" fill="#3C4654">{trunc(c.plano, N > 5 ? 20 : 26)}</text>
-          </g>
-        </g>
-      ))}
-    </svg>
-  );
-}
-
 function Nodo({ color, icon: Ic, t, s, badge }) {
   return (
     <div className="rounded-xl border-2 bg-white shrink-0" style={{ borderColor: color, width: 150 }}>
@@ -1163,72 +1090,6 @@ function Nodo({ color, icon: Ic, t, s, badge }) {
         )}
       </div>
       <div className="text-center text-slate-500" style={{ fontSize: 10, lineHeight: 1.2, padding: "4px 4px" }}>{s}</div>
-    </div>
-  );
-}
-
-/** @deprecated Retirado de la vista Infografía (ver SECCIONES_DEPRECADAS). Se conserva por compatibilidad. */
-function Flujo({ cfg, fuentes }) {
-  const cams = fuentes.filter((f) => f.tipo === "cam");
-  const corte = fuentes.find((f) => f.tipo === "extra" && f.esCorte) || { nombre: "COMERCIALES", color: "#F3C513" };
-  return (
-    <div className="overflow-x-auto">
-      <div className="flex items-center gap-3" style={{ minWidth: 900, paddingBottom: 4 }}>
-        <div className="flex flex-col gap-2">
-          {cams.map((c) => (
-            <div key={c.id} className="flex items-center gap-2">
-              <span className="flex items-center justify-center rounded-full font-bold shrink-0"
-                style={{ width: 22, height: 22, background: c.color, color: textOn(c.color), fontSize: 12 }}>{c.num}</span>
-              <Camera size={18} color="#3C4654" />
-              <div style={{ width: 172 }}>
-                <div className="font-bold" style={{ fontSize: 12, color: INK, lineHeight: 1.1 }}>{c.nombre}</div>
-                <div className="text-slate-500" style={{ fontSize: 10, lineHeight: 1.1, marginTop: 2 }}>{c.plano}</div>
-              </div>
-              <span style={{ width: 30, height: 3, background: c.color, borderRadius: 2 }} />
-            </div>
-          ))}
-        </div>
-        <ArrowRight size={22} color="#64748B" className="shrink-0" />
-        <Nodo color="#27415F" icon={SlidersHorizontal} t="Switcher" s="Selección de cámaras y mezcla de señales" />
-        {cfg.flujo.preview && (
-          <>
-            <ArrowRight size={22} color="#64748B" className="shrink-0" />
-            <Nodo color={PREVIEW_COLOR} icon={Monitor} t="Preview" s="Monitor de selección" />
-          </>
-        )}
-        <ArrowRight size={22} color="#64748B" className="shrink-0" />
-        <Nodo color={AIR_COLOR} icon={Tv} t="Al aire" s="Programa (en transmisión)" badge="ON AIR" />
-        {cfg.flujo.playback && (
-          <>
-            <span className="shrink-0" style={{ width: 34, borderTop: `3px dashed ${corte.color}` }} />
-            <Nodo color={corte.color} icon={Megaphone} t={corte.nombre} s="Playback (spots / cortinillas)" />
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** @deprecated Retirado de la vista Infografía (ver SECCIONES_DEPRECADAS). Se conserva por compatibilidad. */
-function MiniMonitor({ label, color, num, Ic, air }) {
-  return (
-    <div className="rounded-lg overflow-hidden border-2 bg-white" style={{ borderColor: air ? AIR_COLOR : "#22344E", width: 142 }}>
-      <div className="flex items-center gap-1" style={{ padding: "2px 6px", background: "#F1F4F8" }}>
-        {num != null ? (
-          <span className="flex items-center justify-center rounded-full font-bold shrink-0"
-            style={{ width: 16, height: 16, background: color, color: textOn(color), fontSize: 10 }}>{num}</span>
-        ) : (
-          <span className="rounded-full shrink-0" style={{ width: 10, height: 10, background: color }} />
-        )}
-        <span className="font-bold uppercase truncate" style={{ fontSize: 10, color: INK }}>{label}</span>
-      </div>
-      <div className="relative flex items-center justify-center" style={{ height: 70, background: "#0D1726" }}>
-        <Ic size={24} color="#33476A" />
-        {air && (
-          <span className="absolute font-bold text-white"
-            style={{ bottom: 4, background: AIR_COLOR, fontSize: 9, padding: "1px 8px", borderRadius: 4 }}>ON AIR</span>
-        )}
-      </div>
     </div>
   );
 }
@@ -1449,39 +1310,6 @@ function PersonalGrid({ cfg, cams }) {
           <span style={{ fontSize: 8.5, color: "#5B6B82", lineHeight: 1.1 }}>{trunc(c.plano, 24)}</span>
         </div>
       ))}
-    </div>
-  );
-}
-
-/** @deprecated Retirado de la vista Infografía (ver SECCIONES_DEPRECADAS). Se conserva por compatibilidad. */
-function LeyendaContenido({ cfg, cams }) {
-  return (
-    <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-      {cams.map((c) => (
-        <span key={c.id} className="flex items-center gap-1.5">
-          <span className="flex items-center justify-center rounded-full font-bold"
-            style={{ width: 18, height: 18, background: c.color, color: textOn(c.color), fontSize: 10 }}>{c.num}</span>
-          <b style={{ fontSize: 11, color: INK }}>{c.nombre}</b>
-          <span style={{ fontSize: 10.5, color: "#5B6B82" }}>({c.plano})</span>
-        </span>
-      ))}
-      {cfg.flujo.preview && (
-        <span className="flex items-center gap-1.5">
-          <span className="flex items-center justify-center rounded-full font-bold text-white" style={{ width: 18, height: 18, background: PREVIEW_COLOR, fontSize: 10 }}>P</span>
-          <b style={{ fontSize: 11, color: INK }}>PREVIEW</b><span style={{ fontSize: 10.5, color: "#5B6B82" }}>(Selección)</span>
-        </span>
-      )}
-      {cfg.extras.map((x) => (
-        <span key={x.id} className="flex items-center gap-1.5">
-          <span className="flex items-center justify-center rounded-full font-bold"
-            style={{ width: 18, height: 18, background: x.color, color: textOn(x.color), fontSize: 10 }}>{(x.nombre || "•").slice(0, 1)}</span>
-          <b style={{ fontSize: 11, color: INK }}>{x.nombre}</b>
-        </span>
-      ))}
-      <span className="flex items-center gap-1.5">
-        <span className="flex items-center justify-center rounded-full font-bold text-white" style={{ width: 18, height: 18, background: AIR_COLOR, fontSize: 10 }}>A</span>
-        <b style={{ fontSize: 11, color: INK }}>AL AIRE</b><span style={{ fontSize: 10.5, color: "#5B6B82" }}>(Programa)</span>
-      </span>
     </div>
   );
 }

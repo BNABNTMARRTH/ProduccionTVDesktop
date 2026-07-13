@@ -8,3 +8,6 @@ export const STORAGE_KEYS = {
 };
 
 export const MAX_PROJECTS = 60;
+
+// Escapa texto para interpolarlo con seguridad en innerHTML.
+export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

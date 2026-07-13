@@ -7,7 +7,7 @@ import { templateCatalog, makeTemplate, diagramFromConfig, infografiaFromDiagram
 import { createProductionView } from './production.js';
 import { createWizard } from './wizard.js';
 import { DEMO_PROJECT_ID, makeDemoProject } from './demo.js';
-import { MAX_PROJECTS, STORAGE_KEYS } from './constants.js';
+import { MAX_PROJECTS, STORAGE_KEYS, esc } from './constants.js';
 
 /* ----------------------------- Estado ----------------------------- */
 
@@ -527,8 +527,6 @@ EventsOn('producciontv:open-file', (content) => importProjectFromText(String(con
 
 // Papelera: lista los .ptv eliminados (Documentos/ProduccionTV/Papelera) y
 // permite restaurarlos como proyecto o borrarlos definitivamente (dos pasos).
-const escHtml = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-
 async function openTrash() {
     const overlay = document.createElement('div');
     overlay.className = 'trash-overlay';
@@ -553,12 +551,12 @@ async function openTrash() {
             <p class="trash-note">Los proyectos eliminados se guardan en Documentos/ProduccionTV/Papelera. Restaurar los agrega de nuevo a tus proyectos recientes.</p>
             ${items.length ? `<div class="trash-list">${items.map((t) => `
               <article class="trash-item">
-                <span><strong>${escHtml(t.title || t.name)}</strong><small>Eliminado: ${escHtml(t.deletedAt)}</small></span>
+                <span><strong>${esc(t.title || t.name)}</strong><small>Eliminado: ${esc(t.deletedAt)}</small></span>
                 <div>
-                  <button data-restore="${escHtml(t.name)}">Restaurar</button>
+                  <button data-restore="${esc(t.name)}">Restaurar</button>
                   ${confirmName === t.name
-                    ? `<button data-purge="${escHtml(t.name)}" class="confirm-delete">¿Borrar para siempre?</button>`
-                    : `<button data-purge="${escHtml(t.name)}" title="Borrar definitivamente">×</button>`}
+                    ? `<button data-purge="${esc(t.name)}" class="confirm-delete">¿Borrar para siempre?</button>`
+                    : `<button data-purge="${esc(t.name)}" title="Borrar definitivamente">×</button>`}
                 </div>
               </article>`).join('')}</div>`
             : '<div class="empty-projects">La papelera está vacía.</div>'}

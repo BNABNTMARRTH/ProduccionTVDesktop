@@ -7,7 +7,7 @@
 export const SCHEMA_VERSION = 3;
 
 export const NAVY = '#16365F';
-export const COLORS = ['#1D6FD1', '#1FA14E', '#F07F13', '#8B5CF6', '#E0312F', '#0E9F9E', '#D1268F', '#4F46E5'];
+const COLORS = ['#1D6FD1', '#1FA14E', '#F07F13', '#8B5CF6', '#E0312F', '#0E9F9E', '#D1268F', '#4F46E5'];
 
 // Secciones visibles de la hoja de Infografía. (flujo/monitores/leyenda quedaron
 // deprecadas: el generador las ignora al renderizar, pero siguen siendo ids
@@ -39,7 +39,7 @@ export const CREW_CATALOG = [
 ];
 export const DEFAULT_CREW = ['director', 'switcher', 'audio'];
 
-export const LOCATION_LABELS = { int: 'Locación interior (estudio)', ext: 'Locación exterior', mixta: 'Locación mixta (int/ext)' };
+const LOCATION_LABELS = { int: 'Locación interior (estudio)', ext: 'Locación exterior', mixta: 'Locación mixta (int/ext)' };
 
 // Sugerencias por plantilla: el generador las aplica UNA vez al primer set
 // del proyecto (normalizeCfg) y borra las banderas. Los ids de iluminación

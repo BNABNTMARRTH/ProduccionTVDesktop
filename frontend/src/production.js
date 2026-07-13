@@ -1,9 +1,8 @@
 // Modo producción: cronómetro en vivo de la escaleta + checklist técnico +
 // teleprompter de pantalla completa.
+import { esc } from './constants.js';
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-
-export function formatTime(seconds) {
+function formatTime(seconds) {
     const total = Math.max(0, Math.round(seconds || 0));
     const m = Math.floor(total / 60);
     const s = total % 60;
@@ -11,7 +10,7 @@ export function formatTime(seconds) {
 }
 
 // Revisa la configuración y el diagrama y devuelve [tipo, mensaje] por cada hallazgo.
-export function validations(cfg, diagram) {
+function validations(cfg, diagram) {
     const config = cfg || { camaras: [], microfonos: [], extras: [], escaleta: [] };
     const sources = new Set([...(config.camaras || []), ...(config.extras || [])].map((x) => x.id));
     const result = [];
@@ -37,7 +36,7 @@ export function validations(cfg, diagram) {
 // Set en vivo: plano cenital con tally sincronizado a la escaleta. Rojo = la
 // cámara del segmento al aire, verde = la del siguiente; si la fuente al aire
 // no es cámara (VTR/corte), nadie enciende y se muestra un letrero.
-export function liveSetSVG(cfg, current, next) {
+function liveSetSVG(cfg, current, next) {
     if (!window.PTVSheets) return '<p class="set-live-note">El plano del set no está disponible.</p>';
     const cams = cfg.camaras || [];
     const camDe = (segment) => cams.find((c) => c.id === segment?.fuente) || null;
