@@ -1,24 +1,21 @@
 // Asistente "¿Qué quieres producir hoy?": una serie de preguntas que arman
-// el perfil del proyecto (plantilla, identidad, cámaras, locación, talentos,
-// crew) y se lo entregan al shell para crear la plantilla base personalizable.
+// el perfil del proyecto (plantilla, identidad, cámaras, locación y crew) y
+// se lo entregan al shell. Quienes salen a cuadro se capturan una sola vez,
+// como personajes del Asistente narrativo (que los vuelve talentos).
 import { templateCatalog, templateDefaults, CREW_CATALOG, DEFAULT_CREW } from './templates.js';
 import { esc } from './constants.js';
 
-const STEPS = ['tipo', 'identidad', 'tecnica', 'talentos', 'crew', 'resumen'];
+const STEPS = ['tipo', 'identidad', 'tecnica', 'resumen'];
 const STEP_TITLES = {
     tipo: '¿Qué quieres producir hoy?',
     identidad: '¿Cómo se llama tu producción?',
-    tecnica: 'Configuración técnica',
-    talentos: '¿Quiénes salen a cuadro?',
-    crew: 'Personal de operación',
+    tecnica: 'Configuración técnica y crew',
     resumen: 'Tu plantilla está lista',
 };
 const STEP_HINTS = {
     tipo: 'Elige el formato y el asistente preparará una base técnica a tu medida.',
     identidad: 'Estos datos aparecen en la infografía y en los exportados.',
-    tecnica: 'Cámaras y locación definen planos, conexiones y validaciones.',
-    talentos: 'Cada talento recibe su micrófono y su lugar en el personal.',
-    crew: 'Marca los roles que tendrás disponibles en esta producción.',
+    tecnica: 'Cámaras, locación y roles de operación. Quienes salen a cuadro se definen después, en el Asistente narrativo.',
     resumen: 'Revisa el resumen; todo se puede personalizar después.',
 };
 
@@ -30,7 +27,7 @@ const freshAnswers = () => ({
     logoDataUrl: '',
     cams: 2,
     location: 'int',
-    talents: [{ name: '', tipo: 'conductor' }],
+    talents: [],
     crew: [...DEFAULT_CREW],
     includeCamOps: true,
     narrativa: true,
@@ -73,8 +70,6 @@ export function createWizard({ onCreate }) {
         // Al cambiar de formato se parte de la base (sin acumular sugerencias
         // del formato anterior) y se aplican las del nuevo.
         answers.crew = [...DEFAULT_CREW];
-        answers.talents = [{ name: '', tipo: 'conductor' }];
-        if (id === 'podcast' || id === 'entrevista') answers.talents = [{ name: '', tipo: 'conductor' }, { name: '', tipo: 'invitado' }];
         if (id === 'noticiero') answers.crew = [...DEFAULT_CREW, 'graficos'];
         if (id === 'streaming') answers.crew = [...DEFAULT_CREW, 'playback'];
         if (id === 'multicamara') answers.crew = [...DEFAULT_CREW, 'floor', 'productor'];
@@ -114,33 +109,18 @@ export function createWizard({ onCreate }) {
                 <button data-loc="ext" class="${answers.location === 'ext' ? 'selected' : ''}"><strong>EXT</strong><small>Exterior · mics inalámbricos</small></button>
                 <button data-loc="mixta" class="${answers.location === 'mixta' ? 'selected' : ''}"><strong>MIXTA</strong><small>Interior y exterior</small></button>
               </div>
+              <label>Personal de operación</label>
+              <div class="wizard-crew">
+                ${CREW_CATALOG.map((r) => `
+                  <button class="wizard-chip ${answers.crew.includes(r.id) ? 'selected' : ''}" data-crew="${r.id}">${r.rol}</button>`).join('')}
+              </div>
+              <label class="wizard-toggle">
+                <input type="checkbox" id="wz-camops" ${answers.includeCamOps ? 'checked' : ''}>
+                Incluir un(a) operador(a) por cámara en el personal
+              </label>
             </div>`,
-        talentos: () => `
-            <div class="wizard-talents">
-              ${answers.talents.map((t, i) => `
-                <div class="wizard-talent-row">
-                  <input data-talent-name="${i}" placeholder="Nombre del talento" value="${esc(t.name)}">
-                  <select data-talent-tipo="${i}">
-                    <option value="conductor" ${t.tipo === 'conductor' ? 'selected' : ''}>Conductor(a)</option>
-                    <option value="invitado" ${t.tipo === 'invitado' ? 'selected' : ''}>Invitado(a)</option>
-                  </select>
-                  <button data-talent-remove="${i}" title="Quitar">×</button>
-                </div>`).join('')}
-              <button class="wizard-add" id="wz-add-talent">＋ Agregar talento</button>
-              <p class="wizard-note">Cada talento con nombre recibe su micrófono. Si lo dejas vacío, se usan los micrófonos de la plantilla.</p>
-            </div>`,
-        crew: () => `
-            <div class="wizard-crew">
-              ${CREW_CATALOG.map((r) => `
-                <button class="wizard-chip ${answers.crew.includes(r.id) ? 'selected' : ''}" data-crew="${r.id}">${r.rol}</button>`).join('')}
-            </div>
-            <label class="wizard-toggle">
-              <input type="checkbox" id="wz-camops" ${answers.includeCamOps ? 'checked' : ''}>
-              Incluir un(a) operador(a) por cámara en el personal
-            </label>`,
         resumen: () => {
             const template = templateCatalog.find((t) => t.id === answers.template);
-            const talents = answers.talents.filter((t) => t.name.trim());
             const crew = answers.crew.map((id) => CREW_CATALOG.find((r) => r.id === id)?.rol).filter(Boolean);
             const locationLabel = { int: 'Interior (estudio)', ext: 'Exterior', mixta: 'Mixta' }[answers.location];
             const row = (label, value) => `<div class="wizard-summary-row"><span>${label}</span><strong>${value}</strong></div>`;
@@ -151,7 +131,7 @@ export function createWizard({ onCreate }) {
               ${row('Productora', esc(answers.company.trim()) || 'ATJ Producciones')}
               ${row('Cámaras', `${answers.cams}${answers.includeCamOps && answers.cams ? ' · con operadores' : ''}`)}
               ${row('Locación', locationLabel)}
-              ${row('Talentos', talents.length ? talents.map((t) => esc(t.name)).join(', ') : 'Micrófonos genéricos')}
+              ${row('Talentos', '<em>Se definen como personajes en el Asistente narrativo</em>')}
               ${row('Crew', crew.join(' · ') || 'Básico')}
             </div>
             <label class="wizard-toggle">
@@ -190,11 +170,6 @@ export function createWizard({ onCreate }) {
             answers.name = overlay.querySelector('#wz-name')?.value ?? answers.name;
             answers.company = overlay.querySelector('#wz-company')?.value ?? answers.company;
             answers.color = overlay.querySelector('#wz-color')?.value ?? answers.color;
-        }
-        if (key === 'talentos') {
-            overlay.querySelectorAll('[data-talent-name]').forEach((input) => {
-                answers.talents[Number(input.dataset.talentName)].name = input.value;
-            });
         }
     }
 
@@ -252,23 +227,6 @@ export function createWizard({ onCreate }) {
                 answers.location = button.dataset.loc;
                 render();
             });
-        }
-        if (key === 'talentos') {
-            overlay.querySelector('#wz-add-talent').onclick = () => {
-                collectInputs(key);
-                answers.talents.push({ name: '', tipo: answers.talents.length ? 'invitado' : 'conductor' });
-                render();
-            };
-            overlay.querySelectorAll('[data-talent-tipo]').forEach((select) => select.onchange = () => {
-                answers.talents[Number(select.dataset.talentTipo)].tipo = select.value;
-            });
-            overlay.querySelectorAll('[data-talent-remove]').forEach((button) => button.onclick = () => {
-                collectInputs(key);
-                answers.talents.splice(Number(button.dataset.talentRemove), 1);
-                render();
-            });
-        }
-        if (key === 'crew') {
             overlay.querySelectorAll('[data-crew]').forEach((button) => button.onclick = () => {
                 const id = button.dataset.crew;
                 answers.crew = answers.crew.includes(id) ? answers.crew.filter((c) => c !== id) : [...answers.crew, id];

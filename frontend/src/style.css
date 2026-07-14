@@ -14,6 +14,14 @@ button{font:inherit}
 .header-tabs button:hover{color:#fff;background:#12243b}
 .header-tabs button.active{color:#fff;background:#17365e;border-color:#2f5c91}
 .save-status{color:#7186a3;font-size:11px;font-weight:700;white-space:nowrap}
+/* Ruta de producción: preproducción → producción, lo cumplido en verde */
+.ruta{flex:none;display:flex;align-items:center;justify-content:center;gap:6px;padding:5px 14px;background:#0b1828;border-bottom:1px solid #1d3049;overflow-x:auto;scrollbar-width:none}
+.ruta::-webkit-scrollbar{display:none}
+.ruta[hidden]{display:none}
+.ruta button{border:1px solid transparent;background:transparent;color:#7d93b3;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+.ruta button:hover{color:#fff;background:#122a44}
+.ruta button.done{color:#7be3a4;border-color:#1d5c38;background:#0f2b1d}
+.ruta-sep{color:#3a5273;font-size:10px}
 .header-actions{display:flex;align-items:center;gap:10px}.header-actions .offline-badge{font-size:10px;font-weight:700;color:#72df99;background:#113522;border:1px solid #205d38;border-radius:999px;padding:5px 9px;cursor:pointer}.header-actions .offline-badge:hover{background:#17492e;border-color:#2f8a52;color:#9ff0b9}
 .header-actions button{border:1px solid #314b6b;background:#142943;color:#dce8f8;border-radius:8px;padding:7px 10px;cursor:pointer}.header-actions button:hover{background:#1b385d}
 .export-toast{position:absolute;z-index:30;right:24px;bottom:22px;max-width:360px;padding:10px 14px;border:1px solid #2b7146;border-radius:10px;background:#123c27;color:#9ff0b9;font-size:12px;font-weight:700;box-shadow:0 14px 34px #0007;opacity:0;transform:translateY(10px);pointer-events:none;transition:.18s}.export-toast.show{opacity:1;transform:none}.export-toast.error{border-color:#873f42;background:#4d2023;color:#ffc1c3}
@@ -83,7 +91,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #58a8ff;outline-offse
 .set-live{background:#fff;border-radius:10px;padding:6px;border:1px solid #2b405d}
 .set-live svg{width:100%;display:block}
 .set-live-note{margin:10px 0 0;color:#9db1cc;font-size:11px;text-align:center}.validation-summary{margin:7px 0 14px;color:#9db1cc;font-size:11px}.checks-list{display:flex;flex-direction:column;gap:7px;max-height:65vh;overflow:auto}.check{display:flex;align-items:flex-start;gap:8px;border:1px solid #39495f;background:#122137;border-radius:8px;padding:8px;font-size:11px;color:#aebdd2}.check span{width:18px;height:18px;flex:none;display:grid;place-items:center;border-radius:50%;font-weight:800}.check.error span{background:#7a292d;color:#ffc2c4}.check.warn span{background:#725817;color:#ffe294}.check.info span{background:#1a4e81;color:#b8dcff}.check.ok span{background:#1d673c;color:#c7ffda}.production-empty{height:100%;display:grid;place-content:center;text-align:center;color:#8194ae}.production-empty h1{color:#fff}
-.desktop-shell.focus-mode .workspace-header{display:none}.desktop-shell.focus-mode .frame-wrap{margin:0;border-radius:0;border:0}
+.desktop-shell.focus-mode .workspace-header,.desktop-shell.focus-mode .ruta{display:none}.desktop-shell.focus-mode .frame-wrap{margin:0;border-radius:0;border:0}
 .desktop-shell.launcher-window .workspace{background:#0c1727}
 .template-hint{margin:-6px 0 12px;color:#7f93ae;font-size:12px}
 /* Asistente "¿Qué quieres producir hoy?" */
@@ -134,7 +142,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #58a8ff;outline-offse
 /* Contenedor donde se montan los documentos multipágina antes de imprimir */
 #print-host{display:none}
 @media print{
-  .workspace-header{display:none!important}
+  .workspace-header,.ruta{display:none!important}
   .desktop-shell{display:block!important;background:#fff!important}
   .workspace{display:block!important;background:#fff!important}
   .frame-wrap{position:fixed!important;inset:0!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:#fff!important}

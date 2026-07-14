@@ -14,7 +14,7 @@ import {
   TIPOS_PROYECTO, TIPOS_NO_NARRATIVOS, IMPACTOS, EMOCIONES, ESTRUCTURAS,
   ENCUADRES, PERCEPCIONES, MOVIMIENTOS_W, VOCES, MUSICAS,
   MODALIDADES_CLIP, RELACION_MUSICA, PRESENCIAS_ARTISTA,
-  loglineDe, escenasDe, planoPorEncuadre, anguloPorPercepcion, alertasDe,
+  loglineDe, escenasDe, planoPorEncuadre, anguloPorPercepcion, alertasDe, sincronizarPersonajes,
 } from "./narrativa.js";
 
 /* ----------------------------- Tokens / utilidades ----------------------------- */
@@ -593,6 +593,37 @@ function Box({ title, children, style }) {
       </div>
       <div className="p-3">{children}</div>
     </div>
+  );
+}
+
+// Ayuda contextual: botón "?" con una tarjeta que se auto-muestra la primera
+// vez (recordada en localStorage por id) y se puede reabrir. Mismo patrón que
+// el "Cómo armar tu ruta de señal" del diagrama. Los pasos son HTML estático
+// propio (admite <b>), no entrada del usuario.
+function TarjetaAyuda({ id, titulo, pasos }) {
+  const key = `ptv:ayuda-${id}`;
+  const [abierta, setAbierta] = useState(() => {
+    try { return !localStorage.getItem(key); } catch { return false; }
+  });
+  const cerrar = () => { setAbierta(false); try { localStorage.setItem(key, "1"); } catch {} };
+  return (
+    <>
+      <button type="button" onClick={() => setAbierta(true)} title="¿Cómo funciona esta pestaña?"
+        className="no-print grid h-7 w-7 place-items-center rounded-full border text-sm font-bold"
+        style={{ borderColor: "#C8D2DE", color: NAVY, background: "#fff" }}>?</button>
+      {abierta && (
+        <div className="no-print fixed inset-0 z-50 grid place-items-center" style={{ background: "rgba(6,14,28,.45)" }} onClick={cerrar}>
+          <div onClick={(e) => e.stopPropagation()} className="rounded-2xl text-white shadow-2xl"
+            style={{ width: "min(92vw,460px)", background: "#0E1D33", border: "1px solid #2c4a78", padding: "20px 22px" }}>
+            <h3 className="cond m-0 mb-3 text-xl font-bold uppercase" style={{ letterSpacing: 0.5 }}>{titulo}</h3>
+            <ol className="m-0 flex list-decimal flex-col gap-2 pl-5 text-sm" style={{ color: "#c8d6ea", lineHeight: 1.5 }}>
+              {pasos.map((p, i) => <li key={i} dangerouslySetInnerHTML={{ __html: p }} />)}
+            </ol>
+            <button type="button" onClick={cerrar} className="mt-4 w-full rounded-lg font-bold text-white" style={{ background: "#1D6FD1", padding: 10 }}>Entendido</button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1797,6 +1828,16 @@ function VistaSet({ cfg, setCfg }) {
               <button onClick={agregarSet} className="rounded-lg border px-2.5 py-1 text-xs font-bold" style={chip}>
                 + Nuevo set
               </button>
+              <span className="ml-auto">
+                <TarjetaAyuda id="set" titulo="Cómo montar tu set"
+                  pasos={[
+                    "<b>Elige o crea un set</b> con los botones de arriba; cada set guarda su propia planta física.",
+                    "<b>Agrega mobiliario</b> desde la paleta y arrástralo en el plano para colocarlo donde va.",
+                    "Lo direccional (cámaras, luces, boom) <b>gira con su manija</b>; doble clic en la manija vuelve al ángulo automático.",
+                    "<b>Doble clic en una etiqueta</b> la oculta; las casillas <b>Mostrar etiquetas / guías</b> controlan todo de golpe.",
+                    "Si el plano se enreda, <b>Reacomodar automáticamente</b> reparte todo de nuevo.",
+                  ]} />
+              </span>
             </div>
           )}
           {editable && (
@@ -1957,7 +1998,9 @@ const TIPO_DESDE_PLANTILLA = { podcast: "podcast", noticiero: "estudio", entrevi
 const TONOS = ["Ligero", "Serio", "Oscuro", "Poético", "Irónico", "Épico", "Íntimo", "Cálido"];
 
 function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
-  const [paso, setPaso] = useState(0);
+  // Si el tipo ya viene resuelto (plantilla de Inicio o narrativa previa),
+  // el paso Tipo se salta para no preguntar dos veces (Atrás lo recupera).
+  const [paso, setPaso] = useState(() => ((cfg.narrativa?.tipo || TIPO_DESDE_PLANTILLA[cfg.plantilla]) ? 1 : 0));
   const [confirma, setConfirma] = useState(false);
   const [n, setN] = useState(() => ({
     tipo: TIPO_DESDE_PLANTILLA[cfg.plantilla] || "", tema: "", mensaje: "", emocion: "", audiencia: "", impacto: "", cta: "", plataforma: "",
@@ -2001,7 +2044,9 @@ function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
         fuente: cams.length ? cams[i % cams.length].id : (c.extras?.[0]?.id || ""),
         tomas: e.tomas.map((t) => ({ id: uid(), camId: cams[0]?.id || "", ...t })),
       }));
-      return { ...c, narrativa: { ...n, logline }, escaleta };
+      // Los personajes son los talentos del proyecto: mic y personal automáticos.
+      const gente = sincronizarPersonajes(c, n.personajes);
+      return { ...c, ...gente, narrativa: { ...n, logline }, escaleta };
     });
     onGenerado();
   };
@@ -2131,7 +2176,7 @@ function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
           </>)}
 
           {actual === "Personajes" && (<>
-            <p className="m-0 text-sm font-bold">{noNarr ? "Sujetos principales: relación con el tema, punto de vista y acceso." : "Personajes: imperfectos y motivados generan identificación."}</p>
+            <p className="m-0 text-sm font-bold">{noNarr ? "Sujetos principales: relación con el tema, punto de vista y acceso." : "Personajes: imperfectos y motivados generan identificación."} <span className="font-normal text-slate-500">Al generar, se vuelven los talentos del proyecto (micrófono y personal automáticos).</span></p>
             {n.personajes.map((p, i) => (
               <div key={i} className="flex flex-col gap-2 rounded-xl border p-3" style={{ borderColor: "#C8D2DE" }}>
                 <div className="flex items-center justify-between">
@@ -2354,6 +2399,18 @@ function VistaEscaleta({ cfg, setCfg }) {
             <button onClick={() => setAsistente(true)} className="ml-2 rounded-md px-3 py-1.5 text-sm font-bold text-white"
               title="Wizard narrativo: tipo, intención, premisa, personajes y estructura → genera escaleta y guion técnico"
               style={{ background: NAVY }}>✦ Asistente narrativo</button>
+          )}
+          {editable && (
+            <span className="ml-2">
+              <TarjetaAyuda id="escaleta" titulo="Cómo escribir tu escaleta"
+                pasos={[
+                  "<b>✦ Asistente narrativo</b> arma premisa, personajes, estructura y escenas por ti — el mejor punto de partida.",
+                  "<b>Escaleta</b>: el orden, la duración y la fuente de cada segmento al aire.",
+                  "<b>Guion técnico</b>: desglosa cada segmento en tomas (cámara, plano, movimiento, audio y texto).",
+                  "<b>Storyboard</b>: la vista visual de cada toma con su imagen y notas.",
+                  "La duración total y las alertas se recalculan solas mientras editas.",
+                ]} />
+            </span>
           )}
         </div>
         {cfg.narrativa?.logline && (

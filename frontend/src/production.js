@@ -53,7 +53,7 @@ function liveSetSVG(cfg, current, next) {
     });
 }
 
-export function createProductionView({ container, getProject, getInfografia, getDiagram, onGoHome }) {
+export function createProductionView({ container, getProject, getInfografia, getDiagram, onGoHome, onEnsayo }) {
     let index = 0;
     let elapsed = 0;
     let running = false;
@@ -96,6 +96,7 @@ export function createProductionView({ container, getProject, getInfografia, get
             running = true;
             clearInterval(timer);
             timer = setInterval(tick, 1000);
+            onEnsayo?.(); // hito de la ruta de producción: ya ensayó
         }
         render();
     }

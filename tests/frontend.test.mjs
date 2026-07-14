@@ -10,7 +10,7 @@ import {
   LUZ_CATALOGO, SETUPS_ILUMINACION, SETUPS_EXTERIOR, RECOMENDADAS_POR_PLANTILLA,
   getSetup, instanciarSetup, instanciarElemento, posicionesParaLuces,
 } from '../web-sources/generador-tv/src/iluminacion.js';
-import { ESTRUCTURAS, loglineDe, escenasDe, alertasDe, planoPorEncuadre, anguloPorPercepcion } from '../web-sources/generador-tv/src/narrativa.js';
+import { ESTRUCTURAS, loglineDe, escenasDe, alertasDe, planoPorEncuadre, anguloPorPercepcion, sincronizarPersonajes } from '../web-sources/generador-tv/src/narrativa.js';
 
 test('makeTemplate produce el esquema v3 con sets, talentos y mics asignados', () => {
   const cfg = makeTemplate('entrevista', {
@@ -173,6 +173,30 @@ test('alertasDe detecta cambio faltante, nocturno, soporte y audio sin crew', ()
   assert.ok(alertas.some((a) => /nocturna/.test(a)), 'falta alerta nocturna');
   assert.ok(alertas.some((a) => /estabilización/i.test(a)), 'falta alerta de soporte');
   assert.ok(alertas.some((a) => /operador de audio/.test(a)), 'falta alerta de audio');
+});
+
+test('sincronizarPersonajes reusa el talento placeholder y agrega el resto como invitados', () => {
+  const cfg = {
+    talentos: [{ id: 't1', nombre: 'Conductor(a)', tipo: 'conductor' }],
+    microfonos: [{ id: 'm1', nombre: 'Mic 1', conexion: 'Inalámbrico', micTipo: 'solapa', asignadoA: 'tal:t1' }],
+    personal: [{ id: 'p1', rol: 'Conductor(a)', icon: 'conductor' }],
+  };
+  const out = sincronizarPersonajes(cfg, [{ nombre: 'Ana' }, { nombre: 'Luis' }, { nombre: 'ana' }]);
+  // El primer personaje reescribe el placeholder (no crea otro talento)
+  assert.equal(out.talentos.length, 2, 'placeholder reusado; el duplicado "ana" se ignora');
+  assert.equal(out.talentos[0].nombre, 'Ana');
+  assert.equal(out.talentos[0].tipo, 'conductor');
+  assert.equal(out.talentos[1].nombre, 'Luis');
+  assert.equal(out.talentos[1].tipo, 'invitado');
+  // El mic y el personal del placeholder heredan el nombre real
+  assert.equal(out.microfonos.find((m) => m.asignadoA === 'tal:t1').nombre, 'Mic · Ana');
+  assert.equal(out.personal[0].rol, 'Ana · Conductor(a)');
+  // El invitado nuevo trae su propio mic de solapa y su rol en personal
+  const micLuis = out.microfonos.find((m) => m.nombre.includes('Luis'));
+  assert.ok(micLuis && micLuis.micTipo === 'solapa', 'Luis recibe mic de solapa');
+  assert.ok(out.personal.some((r) => r.rol === 'Luis · Invitado(a)'));
+  // No muta el cfg original
+  assert.equal(cfg.talentos.length, 1);
 });
 
 test('la técnica se recomienda desde la intención (manual audiovisual)', () => {

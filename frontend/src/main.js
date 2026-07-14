@@ -102,6 +102,7 @@ document.querySelector('#app').innerHTML = `
           <button id="focus-mode" title="Modo pantalla completa">⛶</button>
         </div>
       </header>
+      <nav class="ruta" id="ruta" hidden aria-label="Ruta de producción"></nav>
       <section class="home-view" id="home-view">
         <div class="home-hero"><div><span class="eyebrow">ATJ · PRODUCCIÓN AUDIOVISUAL</span><h1>¿Qué vas a producir hoy?</h1><p>Crea un proyecto desde cero o comienza con una estructura técnica preparada.</p></div><button id="new-project-focus">＋ Nuevo proyecto</button></div>
         <div class="home-grid">
@@ -168,7 +169,40 @@ function persistProjects() {
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
 }
 
+/* ------------------------- Ruta de producción -------------------------
+Guía el flujo preproducción → producción marcando lo que el proyecto ya
+tiene; clic en un paso lleva a su pestaña. Los dos últimos hitos se marcan
+al usar Producción y Exportar (cfg.ensayado / cfg.exportado). */
+
+const RUTA_PASOS = [
+    ['Historia', 'escaleta', (cfg) => !!cfg?.narrativa, 'Premisa, personajes y estructura — genera todo con el ✦ Asistente narrativo'],
+    ['Guion técnico', 'escaleta', (cfg) => (cfg?.escaleta || []).some((s) => (s.tomas || []).length), 'Desglosa cada escena en tomas: plano, movimiento y audio'],
+    ['Set', 'set', (cfg) => (cfg?.sets || []).some((s) => (s.muebles || []).length || s.iluminacion || Object.keys(s.setLayout?.pos || {}).length), 'Monta el estudio: mobiliario, iluminación y posiciones'],
+    ['Señal', 'diagrama', (cfg, diagram) => (diagram?.edges || []).length > 0, 'Cablea la ruta de video y audio en el diagrama'],
+    ['Ensayo', 'production', (cfg) => !!cfg?.ensayado, 'Corre la escaleta en Producción: cronómetro, tally y teleprompter'],
+    ['Exportar', 'exportar', (cfg) => !!cfg?.exportado, 'Genera el paquete final: PDF, PNG o proyecto .ptv'],
+];
+const ruta = document.querySelector('#ruta');
+
+function renderRuta() {
+    if (!shell.classList.contains('project-window')) { ruta.hidden = true; return; }
+    ruta.hidden = header.hidden;
+    ruta.innerHTML = RUTA_PASOS.map(([label, view, listo, hint], i) => `
+        <button data-ruta="${view}" class="${listo(latestInfografia, latestDiagram) ? 'done' : ''}" title="${hint}">
+          ${listo(latestInfografia, latestDiagram) ? '✓' : i + 1} ${label}
+        </button>`).join('<span class="ruta-sep">›</span>');
+    ruta.querySelectorAll('[data-ruta]').forEach((b) => b.onclick = () => selectView(b.dataset.ruta));
+}
+
+// Marca un hito de la ruta (ensayado/exportado) la primera vez que ocurre.
+function marcaHito(campo) {
+    if (!latestInfografia || latestInfografia[campo]) return;
+    latestInfografia = { ...latestInfografia, [campo]: true };
+    scheduleSave();
+}
+
 function scheduleSave() {
+    renderRuta();
     document.querySelector('#save-status').textContent = 'Guardando…';
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
@@ -329,6 +363,7 @@ const production = createProductionView({
     getInfografia: () => latestInfografia,
     getDiagram: () => latestDiagram,
     onGoHome: () => selectView('home'),
+    onEnsayo: () => marcaHito('ensayado'),
 });
 
 function selectView(view, forceReload = false) {
@@ -342,6 +377,7 @@ function selectView(view, forceReload = false) {
     // Las pestañas viven en el header: visible siempre, salvo en Inicio
     // (el lanzador es solo la pantalla de inicio).
     header.hidden = view === 'home';
+    renderRuta();
     frameWrap.hidden = !isTool;
     if (view === 'home') { renderRecent(); return; }
     if (view === 'production') { production.render(); return; }
@@ -437,6 +473,7 @@ window.addEventListener('message', async (event) => {
 
     // Documento multipágina: la herramienta manda páginas + estilos ya listos.
     if (data.type === 'producciontv:print-document' && event.source === frame.contentWindow) {
+        if (activeView === 'exportar') marcaHito('exportado');
         await printDocumentHTML(data.html, data.css);
         return;
     }
@@ -446,6 +483,7 @@ window.addEventListener('message', async (event) => {
     // guarda página por página con el diálogo nativo.
     if (data.type === 'producciontv:export-pngs' && event.source === frame.contentWindow) {
         try {
+            if (activeView === 'exportar') marcaHito('exportado');
             const pages = [...(frame.contentDocument?.querySelectorAll('.export-page') || [])];
             if (!pages.length) throw new Error('No hay páginas para exportar.');
             let saved = 0;
@@ -467,6 +505,7 @@ window.addEventListener('message', async (event) => {
     if (data.type === 'producciontv:request-save') { flushSaveNow(); return; }
     if (data.type === 'producciontv:save-file' && event.source === frame.contentWindow) {
         try {
+            if (activeView === 'exportar') marcaHito('exportado');
             if (await SaveTextFile(data.filename || 'archivo.txt', data.content || '')) showToast('Archivo guardado');
         } catch (error) {
             showToast(error?.message || 'No se pudo guardar el archivo', true);

@@ -214,3 +214,46 @@ export function escenasDe(narrativa, { durTotalSeg = 300 } = {}) {
     };
   });
 }
+
+/* --------------------- Personajes = talentos del proyecto ---------------------
+Quienes salen a cuadro se capturan UNA vez, como personajes del asistente.
+Al generar, cada personaje con nombre se convierte en talento del proyecto
+con micrófono de solapa asignado y entrada en el personal. El talento
+genérico "Conductor(a)" de la plantilla se renombra con el primer personaje
+en vez de duplicarse. Devuelve copias (no muta cfg). */
+export function sincronizarPersonajes(cfg, personajes) {
+  const gen = (p) => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  const talentos = (cfg.talentos || []).map((t) => ({ ...t }));
+  let microfonos = (cfg.microfonos || []).map((m) => ({ ...m }));
+  let personal = (cfg.personal || []).map((r) => ({ ...r }));
+  const usados = new Set(talentos.map((t) => (t.nombre || '').trim().toLowerCase()));
+
+  (personajes || []).filter((p) => (p.nombre || '').trim()).forEach((p, i) => {
+    const nombre = p.nombre.trim();
+    if (usados.has(nombre.toLowerCase())) return;
+    usados.add(nombre.toLowerCase());
+    const tipo = i === 0 ? 'conductor' : 'invitado';
+    const etiqueta = tipo === 'invitado' ? 'Invitado(a)' : 'Conductor(a)';
+
+    const idx = talentos.findIndex((t) => (t.nombre || '').trim() === 'Conductor(a)');
+    if (idx >= 0) {
+      const t = talentos[idx];
+      t.nombre = nombre;
+      t.tipo = tipo;
+      microfonos = microfonos.map((m) => (m.asignadoA === `tal:${t.id}` ? { ...m, nombre: `Mic · ${nombre}` } : m));
+      let renombrado = false;
+      personal = personal.map((r) => {
+        if (!renombrado && r.rol === 'Conductor(a)') { renombrado = true; return { ...r, rol: `${nombre} · ${etiqueta}` }; }
+        return r;
+      });
+      return;
+    }
+
+    const id = gen('tal');
+    talentos.push({ id, nombre, tipo });
+    microfonos.push({ id: gen('mic'), nombre: `Mic ${microfonos.length + 1} · ${nombre}`, conexion: 'Inalámbrico', micTipo: 'solapa', asignadoA: `tal:${id}` });
+    personal.push({ id: gen('role'), rol: `${nombre} · ${etiqueta}`, icon: 'conductor' });
+  });
+
+  return { talentos, microfonos, personal };
+}
