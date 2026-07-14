@@ -93,6 +93,23 @@ button:focus-visible,input:focus-visible{outline:2px solid #58a8ff;outline-offse
 .set-live-note{margin:10px 0 0;color:#9db1cc;font-size:11px;text-align:center}.validation-summary{margin:7px 0 14px;color:#9db1cc;font-size:11px}.checks-list{display:flex;flex-direction:column;gap:7px;max-height:65vh;overflow:auto}.check{display:flex;align-items:flex-start;gap:8px;border:1px solid #39495f;background:#122137;border-radius:8px;padding:8px;font-size:11px;color:#aebdd2}.check span{width:18px;height:18px;flex:none;display:grid;place-items:center;border-radius:50%;font-weight:800}.check.error span{background:#7a292d;color:#ffc2c4}.check.warn span{background:#725817;color:#ffe294}.check.info span{background:#1a4e81;color:#b8dcff}.check.ok span{background:#1d673c;color:#c7ffda}.production-empty{height:100%;display:grid;place-content:center;text-align:center;color:#8194ae}.production-empty h1{color:#fff}
 .desktop-shell.focus-mode .workspace-header,.desktop-shell.focus-mode .ruta{display:none}.desktop-shell.focus-mode .frame-wrap{margin:0;border-radius:0;border:0}
 .desktop-shell.launcher-window .workspace{background:#0c1727}
+/* Recorrido guiado (coach marks de primera vez) */
+.tour-overlay{position:fixed;inset:0;z-index:3000}
+.tour-overlay.dim{background:rgba(8,15,30,.55)}
+.tour-hole{position:fixed;display:none;border-radius:10px;border:2px solid #4ea1ff;box-shadow:0 0 0 9999px rgba(8,15,30,.55);pointer-events:none;transition:left .25s ease,top .25s ease,width .25s ease,height .25s ease}
+.tour-card{position:fixed;width:min(92vw,360px);background:#0E1D33;color:#E7EEF8;border:1px solid #2c4a78;border-radius:14px;padding:16px 18px 14px;box-shadow:0 20px 60px rgba(0,0,0,.55);z-index:3001}
+.tour-card .tour-count{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#6f8fc0}
+.tour-card h3{margin:6px 0 8px;font-size:18px}
+.tour-card p{margin:0 0 14px;font-size:13.5px;line-height:1.55;color:#c8d6ea}
+.tour-card b{color:#fff}
+.tour-nav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tour-nav>div{display:flex;gap:8px}
+.tour-card button{border:0;border-radius:8px;font-weight:700;font-size:13px;padding:8px 12px;cursor:pointer}
+.tour-skip{background:transparent;color:#7f97bd}
+.tour-skip:hover{color:#c8d6ea}
+.tour-back{background:#223a5e;color:#dfe8f5}
+.tour-next{background:#1D6FD1;color:#fff}
+.tour-card .tour-next:hover,.tour-card .tour-back:hover{filter:brightness(1.08)}
 .template-hint{margin:-6px 0 12px;color:#7f93ae;font-size:12px}
 /* Asistente "¿Qué quieres producir hoy?" */
 .wizard-overlay{position:fixed;z-index:90;inset:0;display:grid;place-items:center;padding:24px;background:rgba(3,10,20,.72);backdrop-filter:blur(12px)}

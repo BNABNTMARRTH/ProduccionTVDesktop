@@ -6,6 +6,7 @@ import { EventsOn } from '../wailsjs/runtime/runtime';
 import { templateCatalog, makeTemplate, diagramFromConfig, infografiaFromDiagram, uid } from './templates.js';
 import { createProductionView } from './production.js';
 import { createWizard } from './wizard.js';
+import { createTour } from './tour.js';
 import { DEMO_PROJECT_ID, makeDemoProject } from './demo.js';
 import { MAX_PROJECTS, STORAGE_KEYS, esc } from './constants.js';
 
@@ -99,6 +100,7 @@ document.querySelector('#app').innerHTML = `
         <div class="header-actions">
           <span class="save-status" id="save-status">Guardado local</span>
           <button class="offline-badge" id="active-name" title="Ir a Inicio: proyectos y plantillas">Guardado local</button>
+          <button id="tour-btn" title="Recorrido guiado: cómo usar la app paso a paso">❔</button>
           <button id="focus-mode" title="Modo pantalla completa">⛶</button>
         </div>
       </header>
@@ -366,6 +368,10 @@ const production = createProductionView({
     onEnsayo: () => marcaHito('ensayado'),
 });
 
+// Recorrido guiado de primera vez (y repetible desde el botón ❔ del header).
+const TOUR_KEY = 'producciontv:desktop:tour-hecho';
+const tour = createTour({ selectView });
+
 function selectView(view, forceReload = false) {
     activeView = view;
     acceptFrameState = false;
@@ -553,6 +559,7 @@ document.querySelector('#active-name').onclick = () => {
     selectView('home');
 };
 document.querySelector('#focus-mode').onclick = () => shell.classList.toggle('focus-mode');
+document.querySelector('#tour-btn').onclick = () => { localStorage.setItem(TOUR_KEY, '1'); tour.start(); };
 
 // Importar proyecto .ptv: desde el botón de Inicio o con doble clic en Finder
 // (el evento llega desde Go vía la asociación de archivos).
@@ -793,9 +800,16 @@ async function initializeWindow() {
         shell.classList.add('project-window');
         if (welcomeOverlay && document.body.contains(welcomeOverlay)) welcomeOverlay.remove();
         renderRecent();
-        // Proyecto recién creado con narrativa pendiente: abre en Escaleta,
-        // donde el generador despliega el Asistente narrativo automáticamente.
-        selectView(project.cfg?.abrirAsistente ? 'escaleta' : 'infografias', true);
+        // La primera ventana de proyecto arranca con el recorrido guiado (que
+        // conduce la navegación), sobre Infografías para no chocar con el
+        // Asistente narrativo. Después, la apertura normal: Escaleta si hay
+        // narrativa pendiente (ahí el generador despliega el asistente solo).
+        const primerRecorrido = !localStorage.getItem(TOUR_KEY);
+        selectView(primerRecorrido ? 'infografias' : (project.cfg?.abrirAsistente ? 'escaleta' : 'infografias'), true);
+        if (primerRecorrido) {
+            localStorage.setItem(TOUR_KEY, '1');
+            setTimeout(() => tour.start(), 450);
+        }
         return;
     }
 
