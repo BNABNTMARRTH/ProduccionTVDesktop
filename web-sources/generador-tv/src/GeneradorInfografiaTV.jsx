@@ -10,6 +10,7 @@ import {
   LUZ_CATALOGO, LUZ_GRUPOS, SETUPS_ILUMINACION, SETUPS_EXTERIOR, RECOMENDADAS_POR_PLANTILLA, DIFICULTAD_ES,
   getSetup, instanciarElemento, instanciarSetup, posicionesParaLuces,
 } from "./iluminacion.js";
+import { TIPOS_PROYECTO, TIPOS_NO_NARRATIVOS, IMPACTOS, EMOCIONES, ESTRUCTURAS, loglineDe, escenasDe } from "./narrativa.js";
 
 /* ----------------------------- Tokens / utilidades ----------------------------- */
 
@@ -1941,6 +1942,202 @@ function VistaSet({ cfg, setCfg }) {
 
 // Pestaña "Escaleta / Rundown": ¿qué pasa primero, qué pasa después y cuánto dura?
 // Solo la escaleta y la línea de tiempo.
+/* --------------------- Asistente narrativo (wizard MVP) ---------------------
+Recorrido: tipo → intención comunicativa → premisa asistida → personajes o
+sujetos → estructura y duración → resumen → genera cfg.narrativa + escaleta
+con guion técnico inicial. Las ramas especializadas (videoclip con canción,
+transmedia, validaciones completas) se activarán como módulos posteriores. */
+function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
+  const PASOS = ["Tipo", "Intención", "Premisa", "Personajes", "Estructura", "Generar"];
+  const [paso, setPaso] = useState(0);
+  const [confirma, setConfirma] = useState(false);
+  const [n, setN] = useState(() => ({
+    tipo: "", tema: "", mensaje: "", emocion: "", audiencia: "", impacto: "", cta: "", plataforma: "",
+    premisa: {}, personajes: [{ nombre: "", quiere: "", obstaculo: "", cambio: "" }],
+    estructura: "tresactos", durMin: 5,
+    ...(cfg.narrativa || {}),
+  }));
+  const up = (patch) => setN((x) => ({ ...x, ...patch }));
+  const upPre = (k, v) => setN((x) => ({ ...x, premisa: { ...x.premisa, [k]: v } }));
+  const upPersonaje = (i, k, v) => setN((x) => ({ ...x, personajes: x.personajes.map((p, j) => (j === i ? { ...p, [k]: v } : p)) }));
+  const noNarr = TIPOS_NO_NARRATIVOS.includes(n.tipo);
+  const logline = loglineDe(n);
+  const escenas = useMemo(() => escenasDe(n, { durTotalSeg: Math.max(1, n.durMin || 5) * 60 }), [n]);
+
+  const siguiente = () => {
+    // Al pasar de premisa a personajes, el protagonista hereda la premisa.
+    if (paso === 2 && !noNarr && !n.personajes[0]?.nombre && n.premisa.quien) {
+      setN((x) => ({ ...x, personajes: [{ nombre: x.premisa.quien, quiere: x.premisa.quiere || "", obstaculo: x.premisa.obstaculo || "", cambio: "" }, ...x.personajes.slice(1)] }));
+    }
+    setPaso((p) => Math.min(PASOS.length - 1, p + 1));
+  };
+
+  const generar = () => {
+    if ((cfg.escaleta || []).length && !confirma) { setConfirma(true); return; }
+    setCfg((c) => {
+      const cams = c.camaras || [];
+      const escaleta = escenas.map((e, i) => ({
+        id: uid(), segmento: e.segmento, dur: e.dur, nota: e.nota,
+        fuente: cams.length ? cams[i % cams.length].id : (c.extras?.[0]?.id || ""),
+        tomas: e.tomas.map((t) => ({ id: uid(), camId: cams[0]?.id || "", ...t })),
+      }));
+      return { ...c, narrativa: { ...n, logline }, escaleta };
+    });
+    onGenerado();
+  };
+
+  const lbl = "flex flex-col gap-1 text-xs font-bold uppercase";
+  const lblStyle = { color: "#5F7189" };
+  const campo = (etiqueta, valor, onCh, placeholder, multi) => (
+    <label className={lbl} style={lblStyle}>{etiqueta}
+      {multi
+        ? <textarea className={inp} style={inpStyle} rows={2} value={valor || ""} placeholder={placeholder || ""} onChange={(e) => onCh(e.target.value)} />
+        : <input className={inp} style={inpStyle} value={valor || ""} placeholder={placeholder || ""} onChange={(e) => onCh(e.target.value)} />}
+    </label>
+  );
+  const chips = (lista, valor, onCh) => (
+    <div className="flex flex-wrap gap-1.5">
+      {lista.map((x) => (
+        <button key={x} onClick={() => onCh(x)} className="rounded-full border px-3 py-1 text-xs font-bold"
+          style={valor === x ? { background: NAVY, color: "#fff", borderColor: NAVY } : { borderColor: "#C8D2DE", color: INK }}>{x}</button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(9,20,35,.6)" }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center gap-3 px-5 py-3" style={{ background: NAVY }}>
+          <span className="text-lg">✦</span>
+          <b className="text-white">Asistente narrativo</b>
+          <span className="flex-1" />
+          {PASOS.map((p, i) => (
+            <span key={p} className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+              style={i === paso ? { background: "#FFD23F", color: "#15233D" } : { color: i < paso ? "#9DC1EC" : "#5B79A6" }}>{p}</span>
+          ))}
+          <button onClick={onClose} className="ml-2 text-white/70 hover:text-white" aria-label="Cerrar asistente"><X size={17} /></button>
+        </div>
+
+        <div className="flex flex-col gap-4 overflow-y-auto p-5" style={{ color: INK }}>
+          {paso === 0 && (<>
+            <p className="m-0 text-sm font-bold">¿Qué clase de proyecto vas a producir?</p>
+            <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
+              {TIPOS_PROYECTO.map((t) => (
+                <button key={t.id} onClick={() => up({ tipo: t.id })} className="flex flex-col items-start gap-0.5 rounded-xl border p-3 text-left"
+                  style={n.tipo === t.id ? { borderColor: NAVY, background: "#EDF3FB", boxShadow: `0 0 0 1px ${NAVY}` } : { borderColor: "#C8D2DE" }}>
+                  <span className="text-xl">{t.icono}</span>
+                  <b className="text-sm">{t.nombre}</b>
+                  <small className="text-slate-500">{t.detalle}</small>
+                </button>
+              ))}
+            </div>
+          </>)}
+
+          {paso === 1 && (<>
+            <p className="m-0 text-sm font-bold">Intención comunicativa: ¿qué quieres provocar y en quién?</p>
+            {campo("¿Cuál es el tema?", n.tema, (v) => up({ tema: v }), "De qué trata realmente el proyecto")}
+            {campo("¿Qué debe comprender el espectador? (mensaje clave)", n.mensaje, (v) => up({ mensaje: v }), "", true)}
+            <label className={lbl} style={lblStyle}>¿Qué quieres que sienta? (emoción principal){chips(EMOCIONES, n.emocion, (v) => up({ emocion: v }))}</label>
+            <label className={lbl} style={lblStyle}>Impacto principal{chips(IMPACTOS, n.impacto, (v) => up({ impacto: v }))}</label>
+            <div className="grid grid-cols-2 gap-3">
+              {campo("¿A quién va dirigido?", n.audiencia, (v) => up({ audiencia: v }), "Audiencia")}
+              {campo("¿Dónde será exhibido?", n.plataforma, (v) => up({ plataforma: v }), "YouTube, sala, redes, TV…")}
+            </div>
+            {campo("¿Qué debe hacer después de verlo? (llamada a la acción)", n.cta, (v) => up({ cta: v }))}
+          </>)}
+
+          {paso === 2 && (<>
+            <p className="m-0 text-sm font-bold">Premisa asistida: completa la fórmula.</p>
+            {noNarr ? (<>
+              <p className="m-0 text-xs text-slate-500">Este proyecto explora <b>[tema]</b> desde <b>[punto de vista]</b> para demostrar, cuestionar o comunicar <b>[idea central]</b>.</p>
+              {campo("Explora… (tema)", n.premisa.quien, (v) => upPre("quien", v))}
+              {campo("Desde… (punto de vista)", n.premisa.quiere, (v) => upPre("quiere", v))}
+              <label className={lbl} style={lblStyle}>Para…{chips(["demostrar", "cuestionar", "comunicar"], n.premisa.accion, (v) => upPre("accion", v))}</label>
+              {campo("Idea central", n.premisa.obstaculo, (v) => upPre("obstaculo", v))}
+            </>) : (<>
+              <p className="m-0 text-xs text-slate-500">Esta es la historia de <b>[protagonista]</b>, que quiere <b>[objetivo]</b>, pero se enfrenta a <b>[obstáculo]</b>, por lo que debe <b>[acción]</b> antes de <b>[consecuencia o límite]</b>.</p>
+              {campo("Protagonista o sujeto", n.premisa.quien, (v) => upPre("quien", v))}
+              {campo("Quiere… (objetivo)", n.premisa.quiere, (v) => upPre("quiere", v))}
+              {campo("Pero se enfrenta a… (obstáculo)", n.premisa.obstaculo, (v) => upPre("obstaculo", v))}
+              {campo("Por lo que debe… (acción principal)", n.premisa.accion, (v) => upPre("accion", v))}
+              {campo("Antes de… (consecuencia o límite)", n.premisa.limite, (v) => upPre("limite", v))}
+            </>)}
+            {logline && <p className="m-0 rounded-lg border p-3 text-sm italic" style={{ borderColor: "#C8D2DE", background: "#F8FAFC" }}>{logline}</p>}
+          </>)}
+
+          {paso === 3 && (<>
+            <p className="m-0 text-sm font-bold">{noNarr ? "Sujetos principales" : "Personajes: imperfectos y motivados generan identificación."}</p>
+            {n.personajes.map((p, i) => (
+              <div key={i} className="flex flex-col gap-2 rounded-xl border p-3" style={{ borderColor: "#C8D2DE" }}>
+                <div className="flex items-center justify-between">
+                  <b className="text-xs uppercase text-slate-500">{noNarr ? `Sujeto ${i + 1}` : i === 0 ? "Protagonista" : `Personaje ${i + 1}`}</b>
+                  {n.personajes.length > 1 && <button onClick={() => setN((x) => ({ ...x, personajes: x.personajes.filter((_, j) => j !== i) }))} className="text-slate-400 hover:text-red-600"><Trash2 size={14} /></button>}
+                </div>
+                {campo("Nombre", p.nombre, (v) => upPersonaje(i, "nombre", v))}
+                <div className="grid grid-cols-3 gap-2">
+                  {campo(noNarr ? "Relación con el tema" : "¿Qué quiere?", p.quiere, (v) => upPersonaje(i, "quiere", v))}
+                  {campo(noNarr ? "Punto de vista que representa" : "¿Qué se lo impide? / ¿qué teme?", p.obstaculo, (v) => upPersonaje(i, "obstaculo", v))}
+                  {campo(noNarr ? "Acceso y riesgo ético" : "¿Cómo cambia?", p.cambio, (v) => upPersonaje(i, "cambio", v))}
+                </div>
+              </div>
+            ))}
+            <button onClick={() => setN((x) => ({ ...x, personajes: [...x.personajes, { nombre: "", quiere: "", obstaculo: "", cambio: "" }] }))}
+              className={`${btn} self-start border`} style={{ borderColor: "#C8D2DE", color: NAVY }}><Plus size={15} /> Agregar {noNarr ? "sujeto" : "personaje"}</button>
+          </>)}
+
+          {paso === 4 && (<>
+            <p className="m-0 text-sm font-bold">Estructura narrativa y duración objetivo.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(ESTRUCTURAS).map(([id, e]) => (
+                <button key={id} onClick={() => up({ estructura: id })} className="flex flex-col items-start gap-1 rounded-xl border p-3 text-left"
+                  style={n.estructura === id ? { borderColor: NAVY, background: "#EDF3FB", boxShadow: `0 0 0 1px ${NAVY}` } : { borderColor: "#C8D2DE" }}>
+                  <b className="text-sm">{e.nombre}</b>
+                  <small className="text-slate-500">{e.detalle}</small>
+                  <small className="font-bold text-slate-400">{e.beats.length} escenas: {e.beats.map((b) => b[0]).join(" · ")}</small>
+                </button>
+              ))}
+            </div>
+            <label className={lbl} style={lblStyle}>Duración objetivo (minutos)
+              <input type="number" min="1" max="120" className={inp} style={{ ...inpStyle, width: 110 }} value={n.durMin}
+                onChange={(e) => up({ durMin: Math.max(1, Number(e.target.value) || 1) })} />
+            </label>
+          </>)}
+
+          {paso === 5 && (<>
+            <p className="m-0 text-sm font-bold">Así quedará tu proyecto. Cada escena nace con función narrativa, guion por llenar, apuntes de sonido y una toma con el plano recomendado.</p>
+            {logline && <p className="m-0 rounded-lg border p-3 text-sm italic" style={{ borderColor: "#C8D2DE", background: "#F8FAFC" }}>{logline}</p>}
+            <div className="flex flex-col gap-1.5">
+              {escenas.map((e, i) => (
+                <div key={i} className="grid items-center gap-2 rounded-lg border px-3 py-2 text-sm" style={{ gridTemplateColumns: "auto 1fr auto auto", borderColor: "#C8D2DE" }}>
+                  <span className="rounded-md px-2 py-0.5 text-xs font-bold text-white" style={{ background: NAVY }}>{i + 1}</span>
+                  <span><b>{e.segmento.replace(/^\d+\.\s*/, "")}</b> <small className="text-slate-500">— {e.tomas[0].plano}</small></span>
+                  <small className="text-slate-500">{fmt(e.dur)}</small>
+                </div>
+              ))}
+            </div>
+            {confirma && (
+              <p className="m-0 rounded-lg border px-3 py-2 text-sm font-bold" style={{ borderColor: "#E8B4B4", background: "#FDF2F2", color: "#B4232A" }}>
+                Ya existe una escaleta con {(cfg.escaleta || []).length} segmentos: se reemplazará por estas {escenas.length} escenas. ¿Continuar?
+              </p>
+            )}
+          </>)}
+        </div>
+
+        <div className="flex items-center gap-2 border-t px-5 py-3" style={{ borderColor: "#E2E8F0" }}>
+          <button onClick={() => { setConfirma(false); setPaso((p) => Math.max(0, p - 1)); }} disabled={paso === 0}
+            className={`${btn} border disabled:opacity-40`} style={{ borderColor: "#C8D2DE", color: INK }}>← Atrás</button>
+          <span className="flex-1" />
+          {paso < PASOS.length - 1
+            ? <button onClick={siguiente} disabled={paso === 0 && !n.tipo} className={`${btn} text-white disabled:opacity-40`} style={{ background: NAVY }}>Siguiente →</button>
+            : <button onClick={generar} className={`${btn} text-white`} style={{ background: confirma ? "#B4232A" : "#1FA14E" }}>
+                {confirma ? "Sí, reemplazar y generar" : "✦ Generar escaleta y guion técnico"}
+              </button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function VistaEscaleta({ cfg, setCfg }) {
   const editable = typeof setCfg === "function";
   const fuentes = useMemo(() => computeFuentes(cfg), [cfg]);
@@ -1949,6 +2146,7 @@ function VistaEscaleta({ cfg, setCfg }) {
   const total = rows.length ? rows[rows.length - 1].tout : 0;
   const bloques = useMemo(() => computeBloques(rows, byId), [rows, byId]);
   const [sub, setSub] = useState("escaleta");
+  const [asistente, setAsistente] = useState(false);
 
   const upSeg = (segId, patch) => setCfg((c) => ({ ...c, escaleta: c.escaleta.map((s) => (s.id === segId ? { ...s, ...patch } : s)) }));
   const upToma = (segId, tomaId, patch) => setCfg((c) => ({
@@ -1982,11 +2180,23 @@ function VistaEscaleta({ cfg, setCfg }) {
   return (
     <div className="scrollwrap overflow-auto px-2 py-4">
       <div className="vista-foco mx-auto flex flex-col gap-3 bg-white shadow-lg" style={{ width: 1240, maxWidth: "100%", padding: 16, borderRadius: 8 }}>
-        <div className="no-print mx-auto flex gap-1 rounded-lg p-1" style={{ background: "#E2E8F0" }}>
+        <div className="no-print mx-auto flex items-center gap-1 rounded-lg p-1" style={{ background: "#E2E8F0" }}>
           {subTab("escaleta", "≡ Escaleta")}
           {subTab("guion", "✎ Guion técnico")}
           {subTab("storyboard", "▦ Storyboard")}
+          {editable && (
+            <button onClick={() => setAsistente(true)} className="ml-2 rounded-md px-3 py-1.5 text-sm font-bold text-white"
+              title="Wizard narrativo: tipo, intención, premisa, personajes y estructura → genera escaleta y guion técnico"
+              style={{ background: NAVY }}>✦ Asistente narrativo</button>
+          )}
         </div>
+        {cfg.narrativa?.logline && (
+          <p className="m-0 text-center text-sm italic text-slate-500">{cfg.narrativa.logline}</p>
+        )}
+        {asistente && (
+          <AsistenteNarrativo cfg={cfg} setCfg={setCfg} onClose={() => setAsistente(false)}
+            onGenerado={() => { setAsistente(false); setSub("guion"); }} />
+        )}
 
         {sub === "escaleta" && (<>
           <Box title={`Escaleta / Rundown — ${fmt(total)}`}>
@@ -2291,6 +2501,37 @@ function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
       </Card>}
 
       {/* Datos generales */}
+      <Card title="Narrativa / Brief" open={!!cfg.narrativa}>
+        {cfg.narrativa ? (<>
+          <p className="m-0 text-xs text-slate-500">
+            Generado con el ✦ Asistente narrativo (pestaña Escaleta) — {TIPOS_PROYECTO.find((t) => t.id === cfg.narrativa.tipo)?.nombre || cfg.narrativa.tipo}
+            {cfg.narrativa.impacto ? ` · ${cfg.narrativa.impacto}` : ""}{cfg.narrativa.emocion ? ` · ${cfg.narrativa.emocion}` : ""}
+          </p>
+          <label className="text-xs font-bold uppercase text-slate-500">Logline
+            <textarea className={inp} style={inpStyle} rows={2} value={cfg.narrativa.logline || ""}
+              onChange={(e) => up({ narrativa: { ...cfg.narrativa, logline: e.target.value } })} />
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label className="text-xs font-bold uppercase text-slate-500">Mensaje clave
+              <input className={inp} style={inpStyle} value={cfg.narrativa.mensaje || ""}
+                onChange={(e) => up({ narrativa: { ...cfg.narrativa, mensaje: e.target.value } })} />
+            </label>
+            <label className="text-xs font-bold uppercase text-slate-500">Audiencia
+              <input className={inp} style={inpStyle} value={cfg.narrativa.audiencia || ""}
+                onChange={(e) => up({ narrativa: { ...cfg.narrativa, audiencia: e.target.value } })} />
+            </label>
+          </div>
+          <label className="text-xs font-bold uppercase text-slate-500">Llamada a la acción
+            <input className={inp} style={inpStyle} value={cfg.narrativa.cta || ""}
+              onChange={(e) => up({ narrativa: { ...cfg.narrativa, cta: e.target.value } })} />
+          </label>
+        </>) : (
+          <p className="m-0 text-sm text-slate-500">
+            Todavía no hay brief: ábrelo con el botón <b>✦ Asistente narrativo</b> de la pestaña Escaleta
+            (tipo de proyecto → intención → premisa → personajes → estructura → escaleta y guion técnico generados).
+          </p>
+        )}
+      </Card>
       <Card title="Datos generales">
         <label className="text-xs font-bold uppercase text-slate-500">Título principal
           <input className={inp} style={inpStyle} value={cfg.titulo} onChange={(e) => up({ titulo: e.target.value })} />

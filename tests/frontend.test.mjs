@@ -10,6 +10,7 @@ import {
   LUZ_CATALOGO, SETUPS_ILUMINACION, SETUPS_EXTERIOR, RECOMENDADAS_POR_PLANTILLA,
   getSetup, instanciarSetup, instanciarElemento, posicionesParaLuces,
 } from '../web-sources/generador-tv/src/iluminacion.js';
+import { ESTRUCTURAS, loglineDe, escenasDe } from '../web-sources/generador-tv/src/narrativa.js';
 
 test('makeTemplate produce el esquema v3 con sets, talentos y mics asignados', () => {
   const cfg = makeTemplate('entrevista', {
@@ -106,4 +107,37 @@ test('posicionesParaLuces (Reacomodar) no apila luces en el centro', () => {
   // sin duplicados exactos (el default roto era: todas en 490,320)
   const unicos = new Set(puntos.map((p) => `${p.x},${p.y}`));
   assert.equal(unicos.size, puntos.length);
+});
+
+test('escenasDe reparte la duración objetivo entre los beats de la estructura', () => {
+  const esc = escenasDe({ estructura: 'harmon', personajes: [{ nombre: 'Ana' }] }, { durTotalSeg: 480 });
+  assert.equal(esc.length, 8);
+  const total = esc.reduce((n, e) => n + e.dur, 0);
+  assert.ok(Math.abs(total - 480) <= 8 * 5, `total ${total} lejos de 480`);
+  esc.forEach((e) => {
+    assert.ok(e.dur >= 10);
+    assert.equal(e.tomas.length, 1);
+    assert.ok(e.tomas[0].plano, 'toda toma nace con plano recomendado');
+    assert.match(e.nota, /Sonido/, 'el guion incluye apuntes de sonido por escena');
+  });
+  assert.equal(esc[0].segmento, '1. Tú');
+  assert.match(esc[0].tomas[0].texto, /Ana/, 'la primera escena presenta al protagonista');
+});
+
+test('loglineDe usa la fórmula narrativa o la de exploración según el tipo', () => {
+  const narr = loglineDe({ tipo: 'ficcion', premisa: { quien: 'Leo', quiere: 'ganar el concurso', obstaculo: 'su miedo escénico', accion: 'presentarse en vivo', limite: 'la final' } });
+  assert.match(narr, /^Esta es la historia de Leo/);
+  assert.match(narr, /antes de la final\./);
+  const doc = loglineDe({ tipo: 'documental', premisa: { quien: 'la radio comunitaria', quiere: 'sus fundadoras', accion: 'demostrar', obstaculo: 'que comunicar es un derecho' } });
+  assert.match(doc, /^Este proyecto explora la radio comunitaria/);
+  assert.equal(loglineDe({ tipo: 'ficcion', premisa: {} }), '', 'sin premisa no hay logline');
+});
+
+test('todas las estructuras tienen beats completos', () => {
+  Object.values(ESTRUCTURAS).forEach((e) => {
+    assert.ok(e.nombre && e.detalle && e.beats.length >= 3);
+    e.beats.forEach(([titulo, funcion, plano, peso]) => {
+      assert.ok(titulo && funcion && plano && peso > 0, `beat incompleto en ${e.nombre}`);
+    });
+  });
 });
