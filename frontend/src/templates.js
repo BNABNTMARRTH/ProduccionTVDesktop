@@ -168,6 +168,9 @@ export function makeTemplate(kind, profile = {}) {
         plantilla: kind,
         iluminacionSugerida: ILUMINACION_SUGERIDA[kind] || null,
         mueblesSugeridos: MUEBLES_SUGERIDOS[kind] || null,
+        // Marcado desde el asistente de Inicio: el proyecto abre en Escaleta
+        // con el Asistente narrativo desplegado (la bandera se consume ahí).
+        ...(profile.abrirAsistente ? { abrirAsistente: true } : {}),
         titulo: `${spec.title} – ${profile.projectName || 'NUEVO PROYECTO'}`,
         subtitulo,
         organizacion: profile.company || 'ATJ PRODUCCIONES',

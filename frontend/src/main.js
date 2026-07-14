@@ -754,7 +754,9 @@ async function initializeWindow() {
         shell.classList.add('project-window');
         if (welcomeOverlay && document.body.contains(welcomeOverlay)) welcomeOverlay.remove();
         renderRecent();
-        selectView('infografias', true, 'editar');
+        // Proyecto recién creado con narrativa pendiente: abre en Escaleta,
+        // donde el generador despliega el Asistente narrativo automáticamente.
+        selectView(project.cfg?.abrirAsistente ? 'escaleta' : 'infografias', true);
         return;
     }
 

@@ -10,7 +10,7 @@ import {
   LUZ_CATALOGO, SETUPS_ILUMINACION, SETUPS_EXTERIOR, RECOMENDADAS_POR_PLANTILLA,
   getSetup, instanciarSetup, instanciarElemento, posicionesParaLuces,
 } from '../web-sources/generador-tv/src/iluminacion.js';
-import { ESTRUCTURAS, loglineDe, escenasDe } from '../web-sources/generador-tv/src/narrativa.js';
+import { ESTRUCTURAS, loglineDe, escenasDe, alertasDe, planoPorEncuadre, anguloPorPercepcion } from '../web-sources/generador-tv/src/narrativa.js';
 
 test('makeTemplate produce el esquema v3 con sets, talentos y mics asignados', () => {
   const cfg = makeTemplate('entrevista', {
@@ -140,4 +140,44 @@ test('todas las estructuras tienen beats completos', () => {
       assert.ok(titulo && funcion && plano && peso > 0, `beat incompleto en ${e.nombre}`);
     });
   });
+});
+
+test('escenasDe usa las fichas: encuadre→plano, percepción→ángulo, sonido y duración manual', () => {
+  const n = {
+    estructura: 'sencilla',
+    personajes: [{ nombre: 'Ana' }],
+    escenas: [
+      { titulo: 'La sala', lugar: 'Foro 2, noche', cambio: 'Ana descubre la carta', encuadre: 'Mostrar contexto',
+        percepcion: 'Vulnerable', mov: 'Travelling', voz: 'Diálogo', sonidos: 'lluvia',
+        musica: 'Anempática (contrasta o la ignora)', fueraCampo: 'sirenas a lo lejos', dur: 45 },
+      {}, {},
+    ],
+  };
+  const esc = escenasDe(n, { durTotalSeg: 180 });
+  assert.equal(esc.length, 3);
+  assert.equal(esc[0].segmento, '1. La sala');
+  assert.equal(esc[0].dur, 45);
+  assert.match(esc[0].tomas[0].plano, /^Gran Plano General · Picado/);
+  assert.equal(esc[0].tomas[0].mov, 'Travelling');
+  assert.equal(esc[0].tomas[0].audio, 'Diálogo + lluvia');
+  assert.match(esc[0].nota, /sirenas a lo lejos/);
+  assert.match(esc[0].nota, /Foro 2, noche/);
+});
+
+test('alertasDe detecta cambio faltante, nocturno, soporte y audio sin crew', () => {
+  const n = { estructura: 'sencilla', escenas: [
+    { titulo: 'Uno', lugar: 'calle, noche', mov: 'Travelling', encuadre: 'Mostrar acción', voz: 'Diálogo' },
+  ] };
+  const alertas = alertasDe(n, { hayAudioCrew: false });
+  assert.ok(alertas.some((a) => /qué cambia/.test(a)), 'falta alerta de cambio');
+  assert.ok(alertas.some((a) => /nocturna/.test(a)), 'falta alerta nocturna');
+  assert.ok(alertas.some((a) => /estabilización/i.test(a)), 'falta alerta de soporte');
+  assert.ok(alertas.some((a) => /operador de audio/.test(a)), 'falta alerta de audio');
+});
+
+test('la técnica se recomienda desde la intención (manual audiovisual)', () => {
+  assert.equal(planoPorEncuadre('Mostrar emoción'), 'Primer Plano');
+  assert.equal(planoPorEncuadre('Mostrar contexto'), 'Gran Plano General');
+  assert.equal(anguloPorPercepcion('Poderoso')[1], 'Contrapicado');
+  assert.ok(anguloPorPercepcion('Aislado')[2].length > 10, 'toda percepción explica su efecto');
 });

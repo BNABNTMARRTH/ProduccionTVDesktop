@@ -81,6 +81,85 @@ export const ESTRUCTURAS = {
   },
 };
 
+/* ----------------------- Diseño visual por intención -----------------------
+El manual pide elegir primero la intención y después la técnica: el usuario
+dice QUÉ quiere mostrar y la app recomienda el plano; dice CÓMO debe
+percibirse al sujeto y la app propone el ángulo explicando su efecto. */
+
+export const ENCUADRES = [
+  ['Mostrar contexto', 'Gran Plano General'],
+  ['Mostrar acción', 'Plano General'],
+  ['Mostrar relaciones entre personajes', 'Plano Conjunto'],
+  ['Mostrar emoción', 'Primer Plano'],
+  ['Mostrar un detalle importante', 'Plano Detalle'],
+  ['Ocultar información', 'Over the Shoulder'],
+  ['Crear desorientación', 'Plano Holandés'],
+];
+
+export const PERCEPCIONES = [
+  ['Poderoso', 'Contrapicado', 'la cámara mira hacia arriba y el sujeto domina el cuadro'],
+  ['Vulnerable', 'Picado', 'la cámara mira hacia abajo y el sujeto se empequeñece'],
+  ['Neutral', 'A la altura de los ojos', 'sin carga: observamos de igual a igual'],
+  ['Inestable', 'Ángulo holandés', 'el horizonte inclinado transmite desequilibrio'],
+  ['Vigilado', 'Cenital / picado lejano', 'alguien observa desde arriba sin ser visto'],
+  ['Dominante', 'Contrapicado cercano', 'invade el cuadro y se impone al espectador'],
+  ['Aislado', 'Plano amplio con aire', 'el espacio vacío alrededor lo separa del mundo'],
+];
+
+export const MOVIMIENTOS_W = ['Cámara fija', 'Paneo', 'Tilt', 'Travelling', 'Seguimiento', 'Cámara en mano', 'Grúa', 'Dolly zoom', 'Plano secuencia'];
+
+/* ------------------------ Diseño sonoro por escena ------------------------
+Chion: el sonido se decide por escena. Voz, sonidos, música (empática o
+anempática, dentro o fuera de la escena) y fuera de campo. */
+
+export const VOCES = ['Diálogo', 'Voz en off', 'Narración', 'Entrevista', 'Texto leído', 'Voz interna', 'Sin voz'];
+
+export const MUSICAS = [
+  'Empática (acompaña la emoción)',
+  'Anempática (contrasta o la ignora)',
+  'Diegética (suena dentro de la escena)',
+  'Extradiegética (acompaña desde fuera)',
+  'Motivo de personaje',
+  'Transición',
+  'Sin música',
+];
+
+/* ----------------------------- Rama videoclip -----------------------------
+La canción aporta la estructura temporal (análisis de Knives Out). */
+
+export const MODALIDADES_CLIP = ['Performance', 'Narrativo', 'Conceptual', 'Coreográfico', 'Experimental', 'Híbrido'];
+export const RELACION_MUSICA = ['Ilustrar la letra', 'Complementarla', 'Contradecirla', 'Historia independiente', 'Asociaciones visuales', 'Seguir ritmo y textura'];
+export const PRESENCIAS_ARTISTA = ['Protagonista', 'Intérprete', 'Observador', 'Aparición parcial', 'Sin presencia', 'Alterna actuación e historia'];
+
+export const planoPorEncuadre = (enc) => (ENCUADRES.find((e) => e[0] === enc) || [])[1] || 'Plano Medio';
+export const anguloPorPercepcion = (p) => PERCEPCIONES.find((x) => x[0] === p) || null;
+
+const fmtSeg = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+
+// Validaciones inteligentes (spec §7 y §9): informan sin bloquear.
+export function alertasDe(narrativa, ctx = {}) {
+  const alertas = [];
+  const escenas = narrativa.escenas || [];
+  escenas.forEach((e, i) => {
+    const num = `Escena ${i + 1}${e.titulo ? ` (${e.titulo})` : ''}`;
+    if (!e.cambio) alertas.push(`${num}: no definiste qué cambia — puede ser descriptiva o prescindible.`);
+    if (/noche|nocturn|madrugada/i.test(e.lugar || '')) alertas.push(`${num}: requiere grabación nocturna — planea iluminación y horario del llamado.`);
+    if (['Travelling', 'Grúa', 'Dolly zoom', 'Seguimiento'].includes(e.mov)) alertas.push(`${num}: elegiste ${e.mov} — agrega soporte o estabilización a la lista de equipo.`);
+    if (e.mov === 'Plano secuencia') alertas.push(`${num}: plano secuencia — considera ensayo, recorrido, foco y captura de sonido.`);
+  });
+  const hayVoz = escenas.some((e) => e.voz && e.voz !== 'Sin voz');
+  if (hayVoz && ctx.hayAudioCrew === false) alertas.push('Hay diálogo o voz, pero no hay operador de audio en el personal de operación.');
+  if (escenas.length && !escenas.some((e) => !e.encuadre || e.encuadre === 'Mostrar contexto')) {
+    alertas.push('Ninguna escena establece el espacio: considera un plano de establecimiento al abrir.');
+  }
+  const durCancion = narrativa.cancion?.durSeg;
+  if (narrativa.tipo === 'videoclip' && durCancion && narrativa.durMin) {
+    const esc = narrativa.durMin * 60;
+    if (Math.abs(esc - durCancion) > 15) alertas.push(`La canción dura ${fmtSeg(durCancion)}, pero la escaleta suma ${fmtSeg(esc)}.`);
+  }
+  return alertas;
+}
+
 // Logline a partir de la premisa asistida. Narrativa:
 // "Esta es la historia de X, que quiere Y, pero se enfrenta a Z…"
 // No narrativa: "Este proyecto explora X desde Y para Z."
@@ -97,31 +176,39 @@ export function loglineDe(narrativa) {
   return t + '.';
 }
 
-// Genera los esqueletos de escena a partir de la estructura elegida.
-// Devuelve escenas SIN ids ni fuentes (eso lo pone el generador): segmento,
-// dur (reparto proporcional de la duración total), nota-guion con la función
-// narrativa y los apuntes de imagen y sonido por escena (Chion), y una toma
-// inicial con el plano recomendado por el beat.
+// Genera los esqueletos de escena. Si narrativa.escenas trae fichas
+// (constructor de escenas: lugar, cambio, emociones, diseño visual y
+// sonoro), la escaleta y el guion técnico nacen de esas decisiones; si no,
+// usa los beats de la estructura con sus recomendaciones por defecto.
+// Devuelve escenas SIN ids ni fuentes (eso lo pone el generador).
 export function escenasDe(narrativa, { durTotalSeg = 300 } = {}) {
   const est = ESTRUCTURAS[narrativa.estructura] || ESTRUCTURAS.sencilla;
+  const beats = est.beats;
   const protagonista = narrativa.personajes?.[0]?.nombre || '';
-  const pesoTotal = est.beats.reduce((n, b) => n + b[3], 0);
-  return est.beats.map(([titulo, funcion, plano, peso], i) => {
-    const dur = Math.max(10, Math.round((durTotalSeg * peso) / pesoTotal / 5) * 5);
-    const nota = [
-      `[${funcion}]`,
-      `Objetivo de la escena: … · Conflicto: … · ¿Qué cambia aquí?: …`,
-      `Sonido — ambiente: … · música: empática / anempática / sin música · ¿qué se escucha que aún no se ve?: …`,
-    ].join('\n');
+  const fichas = narrativa.escenas?.length ? narrativa.escenas : beats.map(() => ({}));
+  const pesoDe = (i) => (beats[i % beats.length] || [0, 0, 0, 1])[3] || 1;
+  const pesoTotal = fichas.reduce((n, _, i) => n + pesoDe(i), 0);
+  return fichas.map((f, i) => {
+    const [beatTitulo, funcion, planoBeat] = beats[i % beats.length] || ['Escena', 'Desarrollo de la historia', 'Plano Medio'];
+    const dur = f.dur || Math.max(10, Math.round((durTotalSeg * pesoDe(i)) / pesoTotal / 5) * 5);
+    const plano = f.encuadre ? planoPorEncuadre(f.encuadre) : planoBeat;
+    const ang = f.percepcion ? anguloPorPercepcion(f.percepcion) : null;
+    const linea2 = [
+      f.lugar && `Lugar: ${f.lugar}`,
+      (f.emoIni || f.emoFin) && `Emoción: ${f.emoIni || '…'} → ${f.emoFin || '…'}`,
+      `¿Qué cambia aquí?: ${f.cambio || '…'}`,
+    ].filter(Boolean).join(' · ');
+    const lineaImagen = `Imagen: ${f.encuadre ? `${f.encuadre} → ` : ''}${plano}${ang ? ` · ${f.percepcion} → ${ang[1]} (${ang[2]})` : ''}${f.mov ? ` · ${f.mov}` : ''}`;
+    const lineaSonido = `Sonido — voz: ${f.voz || '…'} · sonidos: ${f.sonidos || '…'} · música: ${f.musica || 'empática / anempática / sin música'} · se escucha sin verse: ${f.fueraCampo || '…'}`;
     return {
-      segmento: `${i + 1}. ${titulo}`,
+      segmento: `${i + 1}. ${f.titulo || beatTitulo}`,
       dur,
-      nota,
+      nota: [`[${funcion}]`, linea2, lineaImagen, lineaSonido].join('\n'),
       tomas: [{
-        plano,
-        mov: 'Fija',
-        audio: i === 0 ? 'Ambiente del lugar (establece el espacio)' : 'Ambiente + diálogo',
-        texto: protagonista && i === 0 ? `${funcion} — presentamos a ${protagonista}` : funcion,
+        plano: ang && ang[0] !== 'Neutral' ? `${plano} · ${ang[1]}` : plano,
+        mov: f.mov && f.mov !== 'Cámara fija' ? f.mov : 'Fija',
+        audio: [f.voz && f.voz !== 'Sin voz' ? f.voz : '', f.sonidos].filter(Boolean).join(' + ') || (i === 0 ? 'Ambiente del lugar (establece el espacio)' : 'Ambiente'),
+        texto: protagonista && i === 0 ? `${funcion} — presentamos a ${protagonista}` : (f.cambio || funcion),
         imagen: '',
       }],
     };

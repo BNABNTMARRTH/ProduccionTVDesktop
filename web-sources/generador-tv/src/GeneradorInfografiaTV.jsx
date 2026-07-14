@@ -10,7 +10,12 @@ import {
   LUZ_CATALOGO, LUZ_GRUPOS, SETUPS_ILUMINACION, SETUPS_EXTERIOR, RECOMENDADAS_POR_PLANTILLA, DIFICULTAD_ES,
   getSetup, instanciarElemento, instanciarSetup, posicionesParaLuces,
 } from "./iluminacion.js";
-import { TIPOS_PROYECTO, TIPOS_NO_NARRATIVOS, IMPACTOS, EMOCIONES, ESTRUCTURAS, loglineDe, escenasDe } from "./narrativa.js";
+import {
+  TIPOS_PROYECTO, TIPOS_NO_NARRATIVOS, IMPACTOS, EMOCIONES, ESTRUCTURAS,
+  ENCUADRES, PERCEPCIONES, MOVIMIENTOS_W, VOCES, MUSICAS,
+  MODALIDADES_CLIP, RELACION_MUSICA, PRESENCIAS_ARTISTA,
+  loglineDe, escenasDe, planoPorEncuadre, anguloPorPercepcion, alertasDe,
+} from "./narrativa.js";
 
 /* ----------------------------- Tokens / utilidades ----------------------------- */
 
@@ -1942,32 +1947,47 @@ function VistaSet({ cfg, setCfg }) {
 
 // Pestaña "Escaleta / Rundown": ¿qué pasa primero, qué pasa después y cuánto dura?
 // Solo la escaleta y la línea de tiempo.
-/* --------------------- Asistente narrativo (wizard MVP) ---------------------
-Recorrido: tipo → intención comunicativa → premisa asistida → personajes o
-sujetos → estructura y duración → resumen → genera cfg.narrativa + escaleta
-con guion técnico inicial. Las ramas especializadas (videoclip con canción,
-transmedia, validaciones completas) se activarán como módulos posteriores. */
+/* --------------------- Asistente narrativo (wizard global) ---------------------
+Recorrido completo del MVP: tipo → (canción, si es videoclip) → intención →
+premisa → personajes → estructura → escenas → imagen → sonido → recursos →
+generación de escaleta y guion técnico. La unidad central es la escena: en su
+ficha convergen narración, imagen, sonido y recursos. Se abre desde la
+pestaña Escaleta o automáticamente al crear un proyecto desde Inicio. */
+const TIPO_DESDE_PLANTILLA = { podcast: "podcast", noticiero: "estudio", entrevista: "entrevista", streaming: "estudio", multicamara: "estudio" };
+const TONOS = ["Ligero", "Serio", "Oscuro", "Poético", "Irónico", "Épico", "Íntimo", "Cálido"];
+
 function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
-  const PASOS = ["Tipo", "Intención", "Premisa", "Personajes", "Estructura", "Generar"];
   const [paso, setPaso] = useState(0);
   const [confirma, setConfirma] = useState(false);
   const [n, setN] = useState(() => ({
-    tipo: "", tema: "", mensaje: "", emocion: "", audiencia: "", impacto: "", cta: "", plataforma: "",
-    premisa: {}, personajes: [{ nombre: "", quiere: "", obstaculo: "", cambio: "" }],
-    estructura: "tresactos", durMin: 5,
+    tipo: TIPO_DESDE_PLANTILLA[cfg.plantilla] || "", tema: "", mensaje: "", emocion: "", audiencia: "", impacto: "", cta: "", plataforma: "",
+    tono: "", sinopsis: "",
+    premisa: {}, personajes: [{ nombre: "", quiere: "", obstaculo: "", cambio: "", necesita: "", teme: "", defecto: "" }],
+    estructura: "tresactos", durMin: 5, escenas: null, cancion: {}, produccion: {},
     ...(cfg.narrativa || {}),
   }));
   const up = (patch) => setN((x) => ({ ...x, ...patch }));
   const upPre = (k, v) => setN((x) => ({ ...x, premisa: { ...x.premisa, [k]: v } }));
   const upPersonaje = (i, k, v) => setN((x) => ({ ...x, personajes: x.personajes.map((p, j) => (j === i ? { ...p, [k]: v } : p)) }));
+  const upEscena = (i, k, v) => setN((x) => ({ ...x, escenas: (x.escenas || []).map((e, j) => (j === i ? { ...e, [k]: v } : e)) }));
+  const upCancion = (k, v) => setN((x) => ({ ...x, cancion: { ...x.cancion, [k]: v } }));
+  const upProd = (k, v) => setN((x) => ({ ...x, produccion: { ...x.produccion, [k]: v } }));
   const noNarr = TIPOS_NO_NARRATIVOS.includes(n.tipo);
   const logline = loglineDe(n);
-  const escenas = useMemo(() => escenasDe(n, { durTotalSeg: Math.max(1, n.durMin || 5) * 60 }), [n]);
+  const PASOS = ["Tipo", ...(n.tipo === "videoclip" ? ["Canción"] : []), "Intención", "Premisa", "Personajes", "Estructura", "Escenas", "Imagen", "Sonido", "Recursos", "Generar"];
+  const actual = PASOS[Math.min(paso, PASOS.length - 1)];
+  const escenasPrev = useMemo(() => escenasDe(n, { durTotalSeg: Math.max(1, n.durMin || 5) * 60 }), [n]);
+  const alertas = useMemo(() => alertasDe(n, { hayAudioCrew: (cfg.personal || []).some((p) => p.icon === "audio") }), [n, cfg.personal]);
 
   const siguiente = () => {
-    // Al pasar de premisa a personajes, el protagonista hereda la premisa.
-    if (paso === 2 && !noNarr && !n.personajes[0]?.nombre && n.premisa.quien) {
-      setN((x) => ({ ...x, personajes: [{ nombre: x.premisa.quien, quiere: x.premisa.quiere || "", obstaculo: x.premisa.obstaculo || "", cambio: "" }, ...x.personajes.slice(1)] }));
+    // De premisa a personajes: el protagonista hereda la premisa.
+    if (actual === "Premisa" && !noNarr && !n.personajes[0]?.nombre && n.premisa.quien) {
+      setN((x) => ({ ...x, personajes: [{ ...x.personajes[0], nombre: x.premisa.quien, quiere: x.premisa.quiere || "", obstaculo: x.premisa.obstaculo || "" }, ...x.personajes.slice(1)] }));
+    }
+    // De estructura a escenas: sembrar una ficha por beat (conserva lo capturado).
+    if (actual === "Estructura") {
+      const beats = (ESTRUCTURAS[n.estructura] || ESTRUCTURAS.sencilla).beats;
+      setN((x) => ({ ...x, escenas: beats.map((b, i) => ({ ...(x.escenas?.[i] || {}), titulo: x.escenas?.[i]?.titulo || b[0] })) }));
     }
     setPaso((p) => Math.min(PASOS.length - 1, p + 1));
   };
@@ -1976,7 +1996,7 @@ function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
     if ((cfg.escaleta || []).length && !confirma) { setConfirma(true); return; }
     setCfg((c) => {
       const cams = c.camaras || [];
-      const escaleta = escenas.map((e, i) => ({
+      const escaleta = escenasPrev.map((e, i) => ({
         id: uid(), segmento: e.segmento, dur: e.dur, nota: e.nota,
         fuente: cams.length ? cams[i % cams.length].id : (c.extras?.[0]?.id || ""),
         tomas: e.tomas.map((t) => ({ id: uid(), camId: cams[0]?.id || "", ...t })),
@@ -1998,16 +2018,34 @@ function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
   const chips = (lista, valor, onCh) => (
     <div className="flex flex-wrap gap-1.5">
       {lista.map((x) => (
-        <button key={x} onClick={() => onCh(x)} className="rounded-full border px-3 py-1 text-xs font-bold"
+        <button key={x} onClick={() => onCh(valor === x ? "" : x)} className="rounded-full border px-3 py-1 text-xs font-bold"
           style={valor === x ? { background: NAVY, color: "#fff", borderColor: NAVY } : { borderColor: "#C8D2DE", color: INK }}>{x}</button>
       ))}
     </div>
   );
+  const sel = (valor, onCh, opciones, vacio) => (
+    <select className={inp} style={inpStyle} value={valor || ""} onChange={(e) => onCh(e.target.value)}>
+      <option value="">{vacio || "—"}</option>
+      {opciones.map((o) => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+  const fichaEscena = (i) => {
+    const beats = (ESTRUCTURAS[n.estructura] || ESTRUCTURAS.sencilla).beats;
+    return beats[i % beats.length]?.[1] || "";
+  };
+  const cabeceraEscena = (e, i) => (
+    <div className="flex items-center gap-2">
+      <span className="rounded-md px-2 py-0.5 text-xs font-bold text-white" style={{ background: NAVY }}>{i + 1}</span>
+      <b className="text-sm">{e.titulo || `Escena ${i + 1}`}</b>
+      <small className="text-slate-400">{fichaEscena(i)}</small>
+    </div>
+  );
+  const sugerida = n.durMin <= 2 ? "sencilla" : n.durMin <= 6 ? "tresactos" : "harmon";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(9,20,35,.6)" }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center gap-3 px-5 py-3" style={{ background: NAVY }}>
+        <div className="flex flex-wrap items-center gap-2 px-5 py-3" style={{ background: NAVY }}>
           <span className="text-lg">✦</span>
           <b className="text-white">Asistente narrativo</b>
           <span className="flex-1" />
@@ -2015,11 +2053,11 @@ function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
             <span key={p} className="rounded-full px-2 py-0.5 text-[10px] font-bold"
               style={i === paso ? { background: "#FFD23F", color: "#15233D" } : { color: i < paso ? "#9DC1EC" : "#5B79A6" }}>{p}</span>
           ))}
-          <button onClick={onClose} className="ml-2 text-white/70 hover:text-white" aria-label="Cerrar asistente"><X size={17} /></button>
+          <button onClick={onClose} className="ml-1 text-white/70 hover:text-white" aria-label="Cerrar asistente"><X size={17} /></button>
         </div>
 
         <div className="flex flex-col gap-4 overflow-y-auto p-5" style={{ color: INK }}>
-          {paso === 0 && (<>
+          {actual === "Tipo" && (<>
             <p className="m-0 text-sm font-bold">¿Qué clase de proyecto vas a producir?</p>
             <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
               {TIPOS_PROYECTO.map((t) => (
@@ -2033,7 +2071,32 @@ function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
             </div>
           </>)}
 
-          {paso === 1 && (<>
+          {actual === "Canción" && (<>
+            <p className="m-0 text-sm font-bold">La canción aporta la estructura temporal del videoclip.</p>
+            <div className="grid grid-cols-2 gap-3">
+              {campo("Canción o referencia musical", n.cancion.ref, (v) => upCancion("ref", v), "Artista — título")}
+              <label className={lbl} style={lblStyle}>Duración (m:ss)
+                <input className={inp} style={inpStyle} value={n.cancion.durTxt || ""} placeholder="3:40"
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const m = v.match(/^(\d+):(\d{1,2})$/);
+                    const durSeg = m ? Number(m[1]) * 60 + Number(m[2]) : 0;
+                    upCancion("durTxt", v);
+                    if (durSeg) { upCancion("durSeg", durSeg); up({ durMin: Math.round((durSeg / 60) * 10) / 10 }); }
+                  }} />
+              </label>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {campo("BPM (opcional)", n.cancion.bpm, (v) => upCancion("bpm", v), "120")}
+              {campo("Secciones (intro, verso, coro…)", n.cancion.secciones, (v) => upCancion("secciones", v), "intro · verso · coro · puente · cierre")}
+            </div>
+            {campo("Golpes musicales importantes (puntos de sincronización)", n.cancion.golpes, (v) => upCancion("golpes", v), "0:42 entra el coro · 2:10 corte seco…")}
+            <label className={lbl} style={lblStyle}>Modalidad{chips(MODALIDADES_CLIP, n.cancion.modalidad, (v) => upCancion("modalidad", v))}</label>
+            <label className={lbl} style={lblStyle}>Relación entre música e imagen{chips(RELACION_MUSICA, n.cancion.relacion, (v) => upCancion("relacion", v))}</label>
+            <label className={lbl} style={lblStyle}>Presencia del artista{chips(PRESENCIAS_ARTISTA, n.cancion.presencia, (v) => upCancion("presencia", v))}</label>
+          </>)}
+
+          {actual === "Intención" && (<>
             <p className="m-0 text-sm font-bold">Intención comunicativa: ¿qué quieres provocar y en quién?</p>
             {campo("¿Cuál es el tema?", n.tema, (v) => up({ tema: v }), "De qué trata realmente el proyecto")}
             {campo("¿Qué debe comprender el espectador? (mensaje clave)", n.mensaje, (v) => up({ mensaje: v }), "", true)}
@@ -2046,8 +2109,8 @@ function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
             {campo("¿Qué debe hacer después de verlo? (llamada a la acción)", n.cta, (v) => up({ cta: v }))}
           </>)}
 
-          {paso === 2 && (<>
-            <p className="m-0 text-sm font-bold">Premisa asistida: completa la fórmula.</p>
+          {actual === "Premisa" && (<>
+            <p className="m-0 text-sm font-bold">Premisa y concepto: completa la fórmula.</p>
             {noNarr ? (<>
               <p className="m-0 text-xs text-slate-500">Este proyecto explora <b>[tema]</b> desde <b>[punto de vista]</b> para demostrar, cuestionar o comunicar <b>[idea central]</b>.</p>
               {campo("Explora… (tema)", n.premisa.quien, (v) => upPre("quien", v))}
@@ -2063,10 +2126,12 @@ function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
               {campo("Antes de… (consecuencia o límite)", n.premisa.limite, (v) => upPre("limite", v))}
             </>)}
             {logline && <p className="m-0 rounded-lg border p-3 text-sm italic" style={{ borderColor: "#C8D2DE", background: "#F8FAFC" }}>{logline}</p>}
+            <label className={lbl} style={lblStyle}>Tono{chips(TONOS, n.tono, (v) => up({ tono: v }))}</label>
+            {campo("Sinopsis corta (opcional)", n.sinopsis, (v) => up({ sinopsis: v }), "Resumen en 2 o 3 líneas", true)}
           </>)}
 
-          {paso === 3 && (<>
-            <p className="m-0 text-sm font-bold">{noNarr ? "Sujetos principales" : "Personajes: imperfectos y motivados generan identificación."}</p>
+          {actual === "Personajes" && (<>
+            <p className="m-0 text-sm font-bold">{noNarr ? "Sujetos principales: relación con el tema, punto de vista y acceso." : "Personajes: imperfectos y motivados generan identificación."}</p>
             {n.personajes.map((p, i) => (
               <div key={i} className="flex flex-col gap-2 rounded-xl border p-3" style={{ borderColor: "#C8D2DE" }}>
                 <div className="flex items-center justify-between">
@@ -2076,48 +2141,140 @@ function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
                 {campo("Nombre", p.nombre, (v) => upPersonaje(i, "nombre", v))}
                 <div className="grid grid-cols-3 gap-2">
                   {campo(noNarr ? "Relación con el tema" : "¿Qué quiere?", p.quiere, (v) => upPersonaje(i, "quiere", v))}
-                  {campo(noNarr ? "Punto de vista que representa" : "¿Qué se lo impide? / ¿qué teme?", p.obstaculo, (v) => upPersonaje(i, "obstaculo", v))}
+                  {campo(noNarr ? "Punto de vista que representa" : "¿Qué se lo impide?", p.obstaculo, (v) => upPersonaje(i, "obstaculo", v))}
                   {campo(noNarr ? "Acceso y riesgo ético" : "¿Cómo cambia?", p.cambio, (v) => upPersonaje(i, "cambio", v))}
                 </div>
+                {!noNarr && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {campo("¿Qué necesita sin saberlo?", p.necesita, (v) => upPersonaje(i, "necesita", v))}
+                    {campo("¿Qué teme perder?", p.teme, (v) => upPersonaje(i, "teme", v))}
+                    {campo("¿Qué defecto o contradicción tiene?", p.defecto, (v) => upPersonaje(i, "defecto", v))}
+                  </div>
+                )}
               </div>
             ))}
-            <button onClick={() => setN((x) => ({ ...x, personajes: [...x.personajes, { nombre: "", quiere: "", obstaculo: "", cambio: "" }] }))}
+            <button onClick={() => setN((x) => ({ ...x, personajes: [...x.personajes, { nombre: "", quiere: "", obstaculo: "", cambio: "", necesita: "", teme: "", defecto: "" }] }))}
               className={`${btn} self-start border`} style={{ borderColor: "#C8D2DE", color: NAVY }}><Plus size={15} /> Agregar {noNarr ? "sujeto" : "personaje"}</button>
           </>)}
 
-          {paso === 4 && (<>
+          {actual === "Estructura" && (<>
             <p className="m-0 text-sm font-bold">Estructura narrativa y duración objetivo.</p>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(ESTRUCTURAS).map(([id, e]) => (
                 <button key={id} onClick={() => up({ estructura: id })} className="flex flex-col items-start gap-1 rounded-xl border p-3 text-left"
                   style={n.estructura === id ? { borderColor: NAVY, background: "#EDF3FB", boxShadow: `0 0 0 1px ${NAVY}` } : { borderColor: "#C8D2DE" }}>
-                  <b className="text-sm">{e.nombre}</b>
+                  <b className="text-sm">{e.nombre}{id === sugerida ? " · sugerida para tu duración" : ""}</b>
                   <small className="text-slate-500">{e.detalle}</small>
                   <small className="font-bold text-slate-400">{e.beats.length} escenas: {e.beats.map((b) => b[0]).join(" · ")}</small>
                 </button>
               ))}
             </div>
             <label className={lbl} style={lblStyle}>Duración objetivo (minutos)
-              <input type="number" min="1" max="120" className={inp} style={{ ...inpStyle, width: 110 }} value={n.durMin}
+              <input type="number" min="1" max="120" step="0.5" className={inp} style={{ ...inpStyle, width: 110 }} value={n.durMin}
                 onChange={(e) => up({ durMin: Math.max(1, Number(e.target.value) || 1) })} />
             </label>
           </>)}
 
-          {paso === 5 && (<>
-            <p className="m-0 text-sm font-bold">Así quedará tu proyecto. Cada escena nace con función narrativa, guion por llenar, apuntes de sonido y una toma con el plano recomendado.</p>
+          {actual === "Escenas" && (<>
+            <p className="m-0 text-sm font-bold">Constructor de escenas — la pregunta clave: <i>¿qué cambia como resultado de cada escena?</i></p>
+            {(n.escenas || []).map((e, i) => (
+              <div key={i} className="flex flex-col gap-2 rounded-xl border p-3" style={{ borderColor: "#C8D2DE" }}>
+                {cabeceraEscena(e, i)}
+                <div className="grid grid-cols-2 gap-2">
+                  {campo("Título de la escena", e.titulo, (v) => upEscena(i, "titulo", v))}
+                  {campo("Lugar y momento", e.lugar, (v) => upEscena(i, "lugar", v), "Foro 2, día / calle, noche…")}
+                </div>
+                <label className={lbl} style={{ color: e.cambio ? "#5F7189" : "#B45309" }}>¿Qué cambia como resultado de esta escena?{!e.cambio && " (sin esto puede ser prescindible)"}
+                  <input className={inp} style={{ ...inpStyle, borderColor: e.cambio ? "#C8D2DE" : "#F0C36D" }} value={e.cambio || ""} onChange={(ev) => upEscena(i, "cambio", ev.target.value)} />
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <label className={lbl} style={lblStyle}>Emoción inicial{sel(e.emoIni, (v) => upEscena(i, "emoIni", v), EMOCIONES)}</label>
+                  <label className={lbl} style={lblStyle}>Emoción final{sel(e.emoFin, (v) => upEscena(i, "emoFin", v), EMOCIONES)}</label>
+                  <label className={lbl} style={lblStyle}>Duración (seg, opcional)
+                    <input type="number" min="5" className={inp} style={inpStyle} value={e.dur || ""} placeholder={String(escenasPrev[i]?.dur || "")}
+                      onChange={(ev) => upEscena(i, "dur", Number(ev.target.value) || 0)} />
+                  </label>
+                </div>
+              </div>
+            ))}
+          </>)}
+
+          {actual === "Imagen" && (<>
+            <p className="m-0 text-sm font-bold">Diseño visual: elige la intención y la app recomienda la técnica.</p>
+            {(n.escenas || []).map((e, i) => {
+              const ang = e.percepcion ? anguloPorPercepcion(e.percepcion) : null;
+              return (
+                <div key={i} className="flex flex-col gap-2 rounded-xl border p-3" style={{ borderColor: "#C8D2DE" }}>
+                  {cabeceraEscena(e, i)}
+                  <div className="grid grid-cols-3 gap-2">
+                    <label className={lbl} style={lblStyle}>¿Qué debe mostrar el encuadre?
+                      {sel(e.encuadre, (v) => upEscena(i, "encuadre", v), ENCUADRES.map((x) => x[0]))}
+                      {e.encuadre && <small className="font-bold normal-case" style={{ color: NAVY }}>→ {planoPorEncuadre(e.encuadre)}</small>}
+                    </label>
+                    <label className={lbl} style={lblStyle}>¿Cómo percibimos al sujeto?
+                      {sel(e.percepcion, (v) => upEscena(i, "percepcion", v), PERCEPCIONES.map((x) => x[0]))}
+                      {ang && <small className="font-bold normal-case" style={{ color: NAVY }}>→ {ang[1]}: {ang[2]}</small>}
+                    </label>
+                    <label className={lbl} style={lblStyle} title="Pregunta de validación: ¿qué nueva información revela el movimiento?">Movimiento
+                      {sel(e.mov, (v) => upEscena(i, "mov", v), MOVIMIENTOS_W)}
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
+          </>)}
+
+          {actual === "Sonido" && (<>
+            <p className="m-0 text-sm font-bold">Diseño sonoro por escena — el sonido transforma lo que se ve (valor añadido).</p>
+            {(n.escenas || []).map((e, i) => (
+              <div key={i} className="flex flex-col gap-2 rounded-xl border p-3" style={{ borderColor: "#C8D2DE" }}>
+                {cabeceraEscena(e, i)}
+                <div className="grid grid-cols-2 gap-2">
+                  <label className={lbl} style={lblStyle}>Voz y palabras{sel(e.voz, (v) => upEscena(i, "voz", v), VOCES)}</label>
+                  <label className={lbl} style={lblStyle}>Música{sel(e.musica, (v) => upEscena(i, "musica", v), MUSICAS)}</label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {campo("Sonidos (ambiente, acción, foley…)", e.sonidos, (v) => upEscena(i, "sonidos", v), "Tráfico lejano, pasos, lluvia en la ventana…")}
+                  {campo("¿Qué escucha el espectador que aún no puede ver?", e.fueraCampo, (v) => upEscena(i, "fueraCampo", v), "Fuera de campo: anticipa, amplía el espacio")}
+                </div>
+              </div>
+            ))}
+          </>)}
+
+          {actual === "Recursos" && (<>
+            <p className="m-0 text-sm font-bold">Producción y viabilidad: ¿se puede grabar tal como lo diseñaste?</p>
+            <div className="grid grid-cols-2 gap-3">
+              {campo("Jornadas de grabación", n.produccion.jornadas, (v) => upProd("jornadas", v), "2 días")}
+              {campo("Locaciones", n.produccion.locaciones, (v) => upProd("locaciones", v), "Foro 2 FCC, patio central…")}
+              {campo("Equipo especial (soportes, estabilización, ópticas)", n.produccion.equipo, (v) => upProd("equipo", v), "Slider, gimbal, grúa…")}
+              {campo("Formato de entrega", n.produccion.entrega, (v) => upProd("entrega", v), "MP4 1080p, DCP, vertical 9:16…")}
+            </div>
+            {campo("Permisos necesarios", n.produccion.permisos, (v) => upProd("permisos", v), "Locación, música, imagen de participantes…")}
+            {campo("Riesgos a considerar", n.produccion.riesgos, (v) => upProd("riesgos", v), "Nocturno, vía pública, menores de edad…", true)}
+            <div className="flex flex-col gap-1.5">
+              <b className="text-xs uppercase text-slate-500">Alertas del proyecto</b>
+              {alertas.length ? alertas.map((a, i) => (
+                <p key={i} className="m-0 rounded-lg border px-3 py-2 text-xs font-bold" style={{ borderColor: "#F0C36D", background: "#FEF7E6", color: "#8A5A00" }}>⚠ {a}</p>
+              )) : <p className="m-0 rounded-lg border px-3 py-2 text-xs font-bold" style={{ borderColor: "#9BD8AE", background: "#F0FAF3", color: "#1F7A3D" }}>✓ Sin alertas: las decisiones creativas y los recursos coinciden.</p>}
+            </div>
+          </>)}
+
+          {actual === "Generar" && (<>
+            <p className="m-0 text-sm font-bold">Así quedará tu proyecto: escaleta, guion por escena y guion técnico con las decisiones de imagen y sonido.</p>
             {logline && <p className="m-0 rounded-lg border p-3 text-sm italic" style={{ borderColor: "#C8D2DE", background: "#F8FAFC" }}>{logline}</p>}
             <div className="flex flex-col gap-1.5">
-              {escenas.map((e, i) => (
-                <div key={i} className="grid items-center gap-2 rounded-lg border px-3 py-2 text-sm" style={{ gridTemplateColumns: "auto 1fr auto auto", borderColor: "#C8D2DE" }}>
+              {escenasPrev.map((e, i) => (
+                <div key={i} className="grid items-center gap-2 rounded-lg border px-3 py-2 text-sm" style={{ gridTemplateColumns: "auto 1fr auto", borderColor: "#C8D2DE" }}>
                   <span className="rounded-md px-2 py-0.5 text-xs font-bold text-white" style={{ background: NAVY }}>{i + 1}</span>
-                  <span><b>{e.segmento.replace(/^\d+\.\s*/, "")}</b> <small className="text-slate-500">— {e.tomas[0].plano}</small></span>
+                  <span><b>{e.segmento.replace(/^\d+\.\s*/, "")}</b> <small className="text-slate-500">— {e.tomas[0].plano}{e.tomas[0].mov !== "Fija" ? ` · ${e.tomas[0].mov}` : ""}</small></span>
                   <small className="text-slate-500">{fmt(e.dur)}</small>
                 </div>
               ))}
             </div>
+            {alertas.length > 0 && <p className="m-0 text-xs font-bold" style={{ color: "#8A5A00" }}>⚠ {alertas.length} alerta{alertas.length === 1 ? "" : "s"} de producción pendiente{alertas.length === 1 ? "" : "s"} (paso Recursos).</p>}
             {confirma && (
               <p className="m-0 rounded-lg border px-3 py-2 text-sm font-bold" style={{ borderColor: "#E8B4B4", background: "#FDF2F2", color: "#B4232A" }}>
-                Ya existe una escaleta con {(cfg.escaleta || []).length} segmentos: se reemplazará por estas {escenas.length} escenas. ¿Continuar?
+                Ya existe una escaleta con {(cfg.escaleta || []).length} segmentos: se reemplazará por estas {escenasPrev.length} escenas. ¿Continuar?
               </p>
             )}
           </>)}
@@ -2127,8 +2284,8 @@ function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
           <button onClick={() => { setConfirma(false); setPaso((p) => Math.max(0, p - 1)); }} disabled={paso === 0}
             className={`${btn} border disabled:opacity-40`} style={{ borderColor: "#C8D2DE", color: INK }}>← Atrás</button>
           <span className="flex-1" />
-          {paso < PASOS.length - 1
-            ? <button onClick={siguiente} disabled={paso === 0 && !n.tipo} className={`${btn} text-white disabled:opacity-40`} style={{ background: NAVY }}>Siguiente →</button>
+          {actual !== "Generar"
+            ? <button onClick={siguiente} disabled={actual === "Tipo" && !n.tipo} className={`${btn} text-white disabled:opacity-40`} style={{ background: NAVY }}>Siguiente →</button>
             : <button onClick={generar} className={`${btn} text-white`} style={{ background: confirma ? "#B4232A" : "#1FA14E" }}>
                 {confirma ? "Sí, reemplazar y generar" : "✦ Generar escaleta y guion técnico"}
               </button>}
@@ -2147,6 +2304,15 @@ function VistaEscaleta({ cfg, setCfg }) {
   const bloques = useMemo(() => computeBloques(rows, byId), [rows, byId]);
   const [sub, setSub] = useState("escaleta");
   const [asistente, setAsistente] = useState(false);
+  // Proyecto creado desde Inicio con "desarrollar la narrativa": el asistente
+  // se abre solo al llegar y la bandera se consume para no repetirse.
+  useEffect(() => {
+    if (cfg.abrirAsistente && editable) {
+      setAsistente(true);
+      setCfg((c) => { const { abrirAsistente, ...resto } = c; return resto; });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfg.abrirAsistente]);
 
   const upSeg = (segId, patch) => setCfg((c) => ({ ...c, escaleta: c.escaleta.map((s) => (s.id === segId ? { ...s, ...patch } : s)) }));
   const upToma = (segId, tomaId, patch) => setCfg((c) => ({

@@ -33,6 +33,7 @@ const freshAnswers = () => ({
     talents: [{ name: '', tipo: 'conductor' }],
     crew: [...DEFAULT_CREW],
     includeCamOps: true,
+    narrativa: true,
 });
 
 export function createWizard({ onCreate }) {
@@ -152,7 +153,11 @@ export function createWizard({ onCreate }) {
               ${row('Locación', locationLabel)}
               ${row('Talentos', talents.length ? talents.map((t) => esc(t.name)).join(', ') : 'Micrófonos genéricos')}
               ${row('Crew', crew.join(' · ') || 'Básico')}
-            </div>`;
+            </div>
+            <label class="wizard-toggle">
+              <input type="checkbox" id="wz-narrativa" ${answers.narrativa ? 'checked' : ''}>
+              <span>Al crear, desarrollar la historia con el <strong>✦ Asistente narrativo</strong> (intención, premisa, escenas, imagen y sonido)</span>
+            </label>`;
         },
     };
 
@@ -212,10 +217,13 @@ export function createWizard({ onCreate }) {
                     talents: answers.talents.filter((t) => t.name.trim()),
                     crew: [...answers.crew],
                     includeCamOps: answers.includeCamOps,
+                    abrirAsistente: answers.narrativa,
                 };
                 close();
                 onCreate(profile);
             };
+            const narr = overlay.querySelector('#wz-narrativa');
+            if (narr) narr.onchange = (event) => { answers.narrativa = event.target.checked; };
         }
 
         if (key === 'tipo') {
