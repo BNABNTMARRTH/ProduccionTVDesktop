@@ -110,13 +110,8 @@ document.querySelector('#app').innerHTML = `
       </header>
       <nav class="ruta" id="ruta" hidden aria-label="Ruta de producción"></nav>
       <section class="home-view" id="home-view">
-        <div class="home-hero"><div><span class="eyebrow">ATJ · PRODUCCIÓN AUDIOVISUAL</span><h1>¿Qué vas a producir hoy?</h1><p>Crea un proyecto desde cero o comienza con una estructura técnica preparada.</p></div><button id="new-project-focus">＋ Nuevo proyecto</button></div>
+        <div class="home-hero"><div><span class="eyebrow">ATJ · PRODUCCIÓN AUDIOVISUAL</span><h1>¿Qué vas a producir hoy?</h1><p>Crea un proyecto nuevo y elige su modo en el asistente, o abre uno reciente.</p></div><button id="new-project-focus">＋ Nuevo proyecto</button></div>
         <div class="home-grid">
-          <div class="home-main">
-            <h2>Plantillas</h2>
-            <p class="template-hint">Cada plantilla abre el asistente con la base técnica ya sugerida.</p>
-            <div class="template-grid" id="template-grid"></div>
-          </div>
           <aside class="recent-panel"><div class="section-title"><h2>Proyectos recientes</h2><span id="project-count"></span></div><input id="project-search" class="project-search" type="search" placeholder="Buscar proyecto…" aria-label="Buscar proyecto por nombre"><div id="recent-projects"></div><button class="import-project" id="import-project" title="Abre un proyecto .ptv exportado desde otra computadora (también puedes soltarlo sobre la ventana)">⬆ Importar proyecto (.ptv)</button><input type="file" id="import-file" accept=".ptv,.json" hidden><button class="trash-link" id="open-trash" title="Los proyectos eliminados se pueden restaurar desde aquí">🗑 Ver papelera</button></aside>
         </div>
         <p class="home-credit">Hecha por <strong>Aldo Abiud Torres Juárez</strong>, alumno de la FCC, para las y los alumnos de la FCC.</p>
@@ -366,7 +361,7 @@ function renderRecent() {
         ? projects.filter((p) => (p.name || '').toLowerCase().includes(projectQuery))
         : projects;
     box.innerHTML = filtrados.length
-        ? filtrados.slice(0, projectQuery ? 30 : 8).map((p) => `
+        ? filtrados.slice(0, projectQuery ? 30 : 14).map((p) => `
             <article class="recent-item">
               <span class="recent-icon">${p.id === DEMO_PROJECT_ID ? '🎓' : templateCatalog.find((t) => t.id === p.template)?.icon || '◆'}</span>
               <span><strong>${p.name}</strong><small>${new Date(p.updatedAt).toLocaleString()}</small></span>
@@ -382,12 +377,6 @@ function renderRecent() {
     box.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => launchProjectWindow(b.dataset.open));
     box.querySelectorAll('[data-duplicate]').forEach((b) => b.onclick = () => duplicateProject(b.dataset.duplicate));
     box.querySelectorAll('[data-delete]').forEach((b) => b.onclick = () => requestDeleteProject(b.dataset.delete));
-}
-
-function renderTemplates() {
-    const box = document.querySelector('#template-grid');
-    box.innerHTML = templateCatalog.map((t) => `<button class="template-card" data-template="${t.id}"><span>${t.icon}</span><strong>${t.name}</strong><small>${t.detail}</small></button>`).join('');
-    box.querySelectorAll('[data-template]').forEach((button) => button.onclick = () => wizard.open(button.dataset.template));
 }
 
 /* ----------------------------- Vistas ----------------------------- */
@@ -582,7 +571,6 @@ window.addEventListener('message', async (event) => {
 
 frame.addEventListener('load', () => { loading.classList.add('hidden'); setTimeout(hydrateFrame, 80); });
 navButtons.forEach((button) => button.onclick = () => selectView(button.dataset.view));
-renderTemplates();
 renderRecent();
 
 document.querySelector('#new-project-focus').onclick = () => wizard.open();
@@ -840,7 +828,9 @@ async function initializeWindow() {
         // Asistente narrativo. Después, la apertura normal: Escaleta si hay
         // narrativa pendiente (ahí el generador despliega el asistente solo).
         const primerRecorrido = !localStorage.getItem(TOUR_KEY);
-        selectView(primerRecorrido ? 'infografias' : (project.cfg?.abrirAsistente ? 'escaleta' : 'infografias'), true);
+        // El asistente (narrativo o en vivo) se abre solo dentro del generador,
+        // sobre la vista por defecto; ya no navegamos a la Escaleta para hallarlo.
+        selectView('infografias', true);
         if (primerRecorrido) {
             localStorage.setItem(TOUR_KEY, '1');
             setTimeout(() => tour.start(), 450);

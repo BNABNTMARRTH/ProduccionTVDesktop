@@ -2799,16 +2799,8 @@ function VistaEscaleta({ cfg, setCfg }) {
   const total = rows.length ? rows[rows.length - 1].tout : 0;
   const bloques = useMemo(() => computeBloques(rows, byId), [rows, byId]);
   const [sub, setSub] = useState("escaleta");
-  const [asistente, setAsistente] = useState(false);
-  // Proyecto creado desde Inicio con "desarrollar la narrativa": el asistente
-  // se abre solo al llegar y la bandera se consume para no repetirse.
-  useEffect(() => {
-    if (cfg.abrirAsistente && editable) {
-      setAsistente(true);
-      setCfg((c) => { const { abrirAsistente, ...resto } = c; return resto; });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cfg.abrirAsistente]);
+  // El asistente (narrativo o en vivo) ya no vive aquí: se movió al nivel raíz
+  // del generador y se abre desde la barra o al crear el proyecto.
 
   const upSeg = (segId, patch) => setCfg((c) => ({ ...c, escaleta: c.escaleta.map((s) => (s.id === segId ? { ...s, ...patch } : s)) }));
   const upToma = (segId, tomaId, patch) => setCfg((c) => ({
@@ -2847,13 +2839,6 @@ function VistaEscaleta({ cfg, setCfg }) {
           {subTab("guion", narr ? "✎ Guion técnico" : "✎ Rundown técnico")}
           {subTab("storyboard", "▦ Storyboard")}
           {editable && (
-            <button onClick={() => setAsistente(true)} className="ml-2 rounded-md px-3 py-1.5 text-sm font-bold text-white"
-              title={narr
-                ? "Asistente narrativo: tipo, intención, premisa, personajes y estructura → genera escaleta y guion técnico"
-                : "Asistente de programa en vivo: tipo de programa y duración → genera la escaleta editorial por bloques"}
-              style={{ background: NAVY }}>{narr ? "✦ Asistente narrativo" : "▤ Asistente de programa en vivo"}</button>
-          )}
-          {editable && (
             <span className="ml-2">
               {narr ? (
                 <TarjetaAyuda id="escaleta-narr" titulo="Cómo escribir tu escaleta narrativa"
@@ -2877,12 +2862,6 @@ function VistaEscaleta({ cfg, setCfg }) {
         </div>
         {cfg.narrativa?.logline && (
           <p className="m-0 text-center text-sm italic text-slate-500">{cfg.narrativa.logline}</p>
-        )}
-        {asistente && (narr
-          ? <AsistenteNarrativo cfg={cfg} setCfg={setCfg} onClose={() => setAsistente(false)}
-              onGenerado={() => { setAsistente(false); setSub("guion"); }} />
-          : <AsistenteEnVivo cfg={cfg} setCfg={setCfg} onClose={() => setAsistente(false)}
-              onGenerado={() => { setAsistente(false); setSub("escaleta"); }} />
         )}
 
         {sub === "escaleta" && (<>
@@ -3574,6 +3553,9 @@ export default function GeneradorInfografiaTV() {
   const [proyectos, setProyectos] = useState([]);
   const [cargado, setCargado] = useState(false);
   const [copiado, setCopiado] = useState(false);
+  // El asistente (narrativo o en vivo) vive en la raíz para montarse sobre
+  // CUALQUIER vista, no dentro de la escaleta.
+  const [asistente, setAsistente] = useState(false);
 
   // Zoom de impresión calculado por contenido: la infografía entra completa
   // en una página A4 horizontal mientras siga legible; si quedaría demasiado
@@ -3662,6 +3644,16 @@ export default function GeneradorInfografiaTV() {
   useEffect(() => {
     window.parent.postMessage({ type: "producciontv:infografia-state", cfg }, "*");
   }, [cfg]);
+
+  // Al crear el proyecto desde Inicio (bandera cfg.abrirAsistente) el asistente
+  // se abre solo, sobre la vista actual. La bandera se consume una vez.
+  useEffect(() => {
+    if (cfg.abrirAsistente && !readonly) {
+      setAsistente(true);
+      setCfg((c) => { const { abrirAsistente, ...resto } = c; return resto; });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfg.abrirAsistente]);
 
   const persistProyectos = async (list) => {
     setProyectos(list);
@@ -3758,6 +3750,14 @@ export default function GeneradorInfografiaTV() {
           {!EMBEDDED && tab("set", Monitor, "Set")}
           {!EMBEDDED && tab("escaleta", Clapperboard, "Escaleta")}
         </div>
+        {!readonly && (
+          <button onClick={() => setAsistente(true)} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold text-white" style={{ background: "#1FA14E" }}
+            title={esNarrativo(cfg)
+              ? "Asistente narrativo: premisa, personajes, estructura y escenas → genera la escaleta"
+              : "Asistente de programa en vivo: tipo de programa, bloques y duración → genera la escaleta editorial"}>
+            {esNarrativo(cfg) ? "✦ Asistente narrativo" : "▤ Asistente en vivo"}
+          </button>
+        )}
         {!readonly && !EMBEDDED && (
           <button onClick={compartir} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold text-white"
             style={{ background: copiado ? "#16A34A" : "#2563EB" }}>
@@ -3787,6 +3787,11 @@ export default function GeneradorInfografiaTV() {
             En pantallas pequeñas desliza horizontalmente. En escritorio usa el menú Exportar para crear el proyecto, una imagen PNG o un PDF.
           </p>
         </div>
+      )}
+
+      {asistente && !readonly && (esNarrativo(cfg)
+        ? <AsistenteNarrativo cfg={cfg} setCfg={setCfg} onClose={() => setAsistente(false)} onGenerado={() => setAsistente(false)} />
+        : <AsistenteEnVivo cfg={cfg} setCfg={setCfg} onClose={() => setAsistente(false)} onGenerado={() => setAsistente(false)} />
       )}
     </div>
   );

@@ -36,10 +36,10 @@ const PASOS = [
   { view: 'exportar', target: '[data-view="exportar"]',
     titulo: 'Comparte tu trabajo',
     cuerpo: 'En <b>⇩ Exportar</b> armas el paquete final: PDF para imprimir, PNG o el proyecto <b>.ptv</b> para compartir con tu equipo o entregarlo.' },
-  { view: 'escaleta', target: null,
+  { view: 'infografias', target: null,
     titulo: '🎬 ¡A grabar!',
-    cuerpo: 'Tu primer paso: abre el <b>✦ Asistente narrativo</b> (arriba, en la escaleta) y empieza por tu mensaje y tu historia. ¿Quieres repetir este recorrido? Usa el botón <b>❔</b> del encabezado.',
-    fin: 'Empezar mi historia' },
+    cuerpo: 'Al crear un proyecto, el <b>asistente</b> (narrativo o de programa en vivo, según el modo) se abre solo para ayudarte a empezar; también puedes reabrirlo con su botón verde. ¿Quieres repetir este recorrido? Usa el botón <b>❔</b> del encabezado.',
+    fin: '¡Entendido!' },
 ];
 
 export function createTour({ selectView }) {
