@@ -168,7 +168,9 @@ export function createWizard({ onCreate }) {
             </div>
             <label class="wizard-toggle">
               <input type="checkbox" id="wz-narrativa" ${answers.narrativa ? 'checked' : ''}>
-              <span>Al crear, desarrollar la historia con el <strong>✦ Asistente narrativo</strong> (intención, premisa, escenas, imagen y sonido)</span>
+              <span>${esNarr
+                ? 'Al crear, desarrollar la historia con el <strong>✦ Asistente narrativo</strong> (intención, premisa, escenas, imagen y sonido)'
+                : 'Al crear, armar la escaleta con el <strong>▤ Asistente de programa en vivo</strong> (tipo de programa, bloques y duración)'}</span>
             </label>`;
         },
     };

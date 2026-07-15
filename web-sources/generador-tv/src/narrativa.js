@@ -200,9 +200,18 @@ export function escenasDe(narrativa, { durTotalSeg = 300 } = {}) {
     ].filter(Boolean).join(' · ');
     const lineaImagen = `Imagen: ${f.encuadre ? `${f.encuadre} → ` : ''}${plano}${ang ? ` · ${f.percepcion} → ${ang[1]} (${ang[2]})` : ''}${f.mov ? ` · ${f.mov}` : ''}`;
     const lineaSonido = `Sonido — voz: ${f.voz || '…'} · sonidos: ${f.sonidos || '…'} · música: ${f.musica || 'empática / anempática / sin música'} · se escucha sin verse: ${f.fueraCampo || '…'}`;
+    const personajes = (narrativa.personajes || []).map((p) => p.nombre).filter(Boolean).join(', ');
     return {
       segmento: `${i + 1}. ${f.titulo || beatTitulo}`,
       dur,
+      // Campos propios de la escaleta NARRATIVA (columnas escena, no señal):
+      // encabezado (INT/EXT · lugar · tiempo), acción, función, personajes,
+      // cambio. Editables después; aquí se siembran desde las fichas.
+      encabezado: f.lugar || '',
+      accion: f.accion || '',
+      funcion,
+      personajes,
+      cambio: f.cambio || '',
       nota: [`[${funcion}]`, linea2, lineaImagen, lineaSonido].join('\n'),
       tomas: [{
         plano: ang && ang[0] !== 'Neutral' ? `${plano} · ${ang[1]}` : plano,

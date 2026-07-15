@@ -16,6 +16,11 @@ import {
   MODALIDADES_CLIP, RELACION_MUSICA, PRESENCIAS_ARTISTA,
   loglineDe, escenasDe, planoPorEncuadre, anguloPorPercepcion, alertasDe, sincronizarPersonajes,
 } from "./narrativa.js";
+import { TIPOS_PROGRAMA, escaletaEnVivoDe } from "./envivo.js";
+
+// Modo del proyecto: 'live' (programa en vivo) o 'narrative' (por escenas y
+// planos). Los proyectos anteriores a los modos se leen como 'live'.
+const esNarrativo = (cfg) => cfg?.modo === "narrative";
 
 /* ----------------------------- Tokens / utilidades ----------------------------- */
 
@@ -2041,6 +2046,8 @@ function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
       const cams = c.camaras || [];
       const escaleta = escenasPrev.map((e, i) => ({
         id: uid(), segmento: e.segmento, dur: e.dur, nota: e.nota,
+        // Campos propios de la escaleta narrativa (columnas de escena).
+        encabezado: e.encabezado, accion: e.accion, funcion: e.funcion, personajes: e.personajes, cambio: e.cambio,
         fuente: cams.length ? cams[i % cams.length].id : (c.extras?.[0]?.id || ""),
         tomas: e.tomas.map((t) => ({ id: uid(), camId: cams[0]?.id || "", ...t })),
       }));
@@ -2340,8 +2347,206 @@ function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
   );
 }
 
+// Asistente de programa en vivo (modo live): arma una ESCALETA EDITORIAL por
+// bloques — qué contenido ocurre y su función dentro del programa. Las señales
+// al aire y los comandos técnicos se detallan después en el rundown técnico.
+function AsistenteEnVivo({ cfg, setCfg, onClose, onGenerado }) {
+  const [paso, setPaso] = useState(0);
+  const [confirma, setConfirma] = useState(false);
+  const [p, setP] = useState(() => ({ tipoPrograma: "", durMin: 30, enVivo: true, nombre: "", ...(cfg.programa || {}) }));
+  const up = (patch) => setP((x) => ({ ...x, ...patch }));
+  const PASOS = ["Tipo", "Programa", "Generar"];
+  const actual = PASOS[paso];
+  const preview = useMemo(
+    () => escaletaEnVivoDe(p.tipoPrograma || "noticiero", { durTotalSeg: Math.max(1, p.durMin || 30) * 60 }),
+    [p.tipoPrograma, p.durMin],
+  );
+  const total = preview.reduce((n, s) => n + s.dur, 0);
+
+  const generar = () => {
+    if ((cfg.escaleta || []).length && !confirma) { setConfirma(true); return; }
+    setCfg((c) => {
+      const cams = c.camaras || [];
+      const corteId = c.extras?.find((x) => x.esCorte)?.id || "";
+      const editorial = escaletaEnVivoDe(p.tipoPrograma || "noticiero", { durTotalSeg: Math.max(1, p.durMin || 30) * 60 });
+      const escaleta = editorial.map((s, i) => ({
+        id: uid(), segmento: s.segmento, dur: s.dur, bloque: s.bloque,
+        objetivo: s.objetivo, participantes: s.participantes, recursos: s.recursos,
+        // La fuente al aire por defecto pertenece al rundown técnico, no a la
+        // escaleta editorial: alterna cámaras y los cortes usan el extra de corte.
+        fuente: s.esCorte ? (corteId || cams[0]?.id || "") : (cams.length ? cams[i % cams.length].id : (c.extras?.[0]?.id || "")),
+        nota: "", tomas: [],
+      }));
+      return { ...c, programa: { tipoPrograma: p.tipoPrograma || "noticiero", durMin: p.durMin, enVivo: p.enVivo, nombre: p.nombre }, escaleta };
+    });
+    onGenerado();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(9,20,35,.6)" }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex flex-wrap items-center gap-2 px-5 py-3" style={{ background: NAVY }}>
+          <span className="text-lg">▤</span>
+          <b className="text-white">Asistente de programa en vivo</b>
+          <span className="flex-1" />
+          {PASOS.map((s, i) => (
+            <span key={s} className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+              style={i === paso ? { background: "#FFD23F", color: "#15233D" } : { color: i < paso ? "#9DC1EC" : "#5B79A6" }}>{s}</span>
+          ))}
+          <button onClick={onClose} className="ml-1 text-white/70 hover:text-white" aria-label="Cerrar asistente"><X size={17} /></button>
+        </div>
+
+        <div className="flex flex-col gap-4 overflow-y-auto p-5" style={{ color: INK }}>
+          {actual === "Tipo" && (<>
+            <p className="m-0 text-sm font-bold">¿Qué tipo de programa vas a producir?</p>
+            <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
+              {TIPOS_PROGRAMA.map((t) => (
+                <button key={t.id} onClick={() => up({ tipoPrograma: t.id })} className="flex flex-col items-start gap-0.5 rounded-xl border p-3 text-left"
+                  style={p.tipoPrograma === t.id ? { borderColor: NAVY, background: "#EDF3FB", boxShadow: `0 0 0 1px ${NAVY}` } : { borderColor: "#C8D2DE" }}>
+                  <span className="text-xl">{t.icono}</span>
+                  <b className="text-sm">{t.nombre}</b>
+                  <small className="text-slate-500">{t.detalle}</small>
+                </button>
+              ))}
+            </div>
+          </>)}
+
+          {actual === "Programa" && (<>
+            <p className="m-0 text-sm font-bold">Configuración del programa</p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1 text-xs font-bold uppercase" style={{ color: "#5F7189" }}>Nombre del programa
+                <input className={inp} style={inpStyle} value={p.nombre || ""} placeholder="Noticiero universitario" onChange={(e) => up({ nombre: e.target.value })} />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-bold uppercase" style={{ color: "#5F7189" }}>Duración objetivo (min)
+                <input type="number" min="1" max="180" className={inp} style={inpStyle} value={p.durMin} onChange={(e) => up({ durMin: Math.max(1, Number(e.target.value) || 1) })} />
+              </label>
+            </div>
+            <div className="flex gap-2">
+              {[["En vivo", true], ["Grabado como en vivo", false]].map(([lab, val]) => (
+                <button key={lab} onClick={() => up({ enVivo: val })} className="rounded-full border px-3 py-1 text-xs font-bold"
+                  style={p.enVivo === val ? { background: NAVY, color: "#fff", borderColor: NAVY } : { borderColor: "#C8D2DE", color: INK }}>{lab}</button>
+              ))}
+            </div>
+            <p className="m-0 text-xs text-slate-500">Vista previa: {preview.length} segmentos en {new Set(preview.map((s) => s.bloque)).size} bloques · {fmt(total)}.</p>
+          </>)}
+
+          {actual === "Generar" && (<>
+            <p className="m-0 text-sm font-bold">Así quedará tu escaleta editorial: contenido, orden y duración por bloques. La señal al aire y los comandos técnicos van después en el rundown.</p>
+            <div className="flex flex-col gap-1.5">
+              {preview.map((s, i) => (
+                <div key={i} className="grid items-center gap-2 rounded-lg border px-3 py-2 text-sm" style={{ gridTemplateColumns: "auto auto 1fr auto", borderColor: "#C8D2DE" }}>
+                  <span className="rounded-md px-2 py-0.5 text-xs font-bold text-white" style={{ background: s.esCorte ? "#F07F13" : NAVY }}>B{s.bloque}</span>
+                  <span className="text-xs font-bold text-slate-500">{i + 1}</span>
+                  <span><b>{s.segmento}</b> <small className="text-slate-500">— {s.objetivo}</small></span>
+                  <small className="text-slate-500">{fmt(s.dur)}</small>
+                </div>
+              ))}
+            </div>
+            {confirma && (
+              <p className="m-0 rounded-lg border px-3 py-2 text-sm font-bold" style={{ borderColor: "#E8B4B4", background: "#FDF2F2", color: "#B4232A" }}>
+                Ya existe una escaleta con {(cfg.escaleta || []).length} segmentos: se reemplazará por estos {preview.length}. ¿Continuar?
+              </p>
+            )}
+          </>)}
+        </div>
+
+        <div className="flex items-center gap-2 border-t px-5 py-3" style={{ borderColor: "#E2E8F0" }}>
+          <button onClick={() => { setConfirma(false); setPaso((x) => Math.max(0, x - 1)); }} disabled={paso === 0}
+            className={`${btn} border disabled:opacity-40`} style={{ borderColor: "#C8D2DE", color: INK }}>← Atrás</button>
+          <span className="flex-1" />
+          {actual !== "Generar"
+            ? <button onClick={() => setPaso((x) => Math.min(PASOS.length - 1, x + 1))} disabled={actual === "Tipo" && !p.tipoPrograma} className={`${btn} text-white disabled:opacity-40`} style={{ background: NAVY }}>Siguiente →</button>
+            : <button onClick={generar} className={`${btn} text-white`} style={{ background: confirma ? "#B4232A" : "#1FA14E" }}>
+                {confirma ? "Sí, reemplazar y generar" : "▤ Generar escaleta editorial"}
+              </button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Escaleta EDITABLE y consciente del modo. En vivo: columnas EDITORIALES
+// (bloque, objetivo, participantes, recursos). En narrativo: columnas de ESCENA
+// (encabezado, acción, función, personajes, cambio). La fuente al aire y los
+// comandos técnicos NO viven aquí: van en el rundown / guion técnico.
+function EscaletaEditor({ cfg, setCfg, rows, editable }) {
+  const narr = esNarrativo(cfg);
+  const up = (id, patch) => setCfg((c) => ({ ...c, escaleta: c.escaleta.map((s) => (s.id === id ? { ...s, ...patch } : s)) }));
+  const del = (id) => setCfg((c) => ({ ...c, escaleta: c.escaleta.filter((s) => s.id !== id) }), { commit: true });
+  const move = (i, dir) => setCfg((c) => {
+    const j = i + dir; if (j < 0 || j >= c.escaleta.length) return c;
+    const e = [...c.escaleta]; [e[i], e[j]] = [e[j], e[i]]; return { ...c, escaleta: e };
+  }, { commit: true });
+  const add = () => setCfg((c) => {
+    const nuevo = narr
+      ? { id: uid(), segmento: `Escena ${c.escaleta.length + 1}`, dur: 60, encabezado: "", accion: "", funcion: "", personajes: "", cambio: "", nota: "", tomas: [] }
+      : { id: uid(), segmento: "Nuevo segmento", dur: 60, bloque: c.escaleta[c.escaleta.length - 1]?.bloque || 1, objetivo: "", participantes: "", recursos: "", fuente: c.camaras?.[0]?.id || c.extras?.[0]?.id || "", nota: "", tomas: [] };
+    return { ...c, escaleta: [...c.escaleta, nuevo] };
+  }, { commit: true });
+  const setDur = (id, txt) => {
+    const m = String(txt).match(/^(\d+):(\d{1,2})$/);
+    const s = m ? Number(m[1]) * 60 + Number(m[2]) : Number(txt);
+    if (Number.isFinite(s) && s >= 0) up(id, { dur: Math.round(s) });
+  };
+
+  const cols = narr
+    ? "44px 34px minmax(130px,1.1fr) minmax(150px,1.5fr) minmax(120px,1fr) minmax(110px,1fr) minmax(130px,1.2fr) 58px 66px"
+    : "30px 46px minmax(120px,1.1fr) minmax(150px,1.4fr) minmax(110px,1fr) minmax(120px,1fr) 50px 50px 58px 66px";
+  const heads = narr
+    ? ["SEC", "ESC", "ENCABEZADO", "ACCIÓN PRINCIPAL", "FUNCIÓN NARRATIVA", "PERSONAJES", "CAMBIO", "DUR", ""]
+    : ["#", "BLOQUE", "SEGMENTO", "OBJETIVO", "PARTICIPANTES", "RECURSOS", "IN", "OUT", "DUR", ""];
+  const ei = "w-full rounded border px-1.5 py-1 text-xs";
+  const eiS = { borderColor: "#D5DDE7", color: INK };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="grid gap-1 text-[10px] font-bold uppercase text-slate-500" style={{ gridTemplateColumns: cols }}>
+        {heads.map((h, i) => <span key={i} className={i >= heads.length - 2 ? "text-center" : ""}>{h}</span>)}
+      </div>
+      {rows.map((r, i) => (
+        <div key={r.id} className="grid items-center gap-1" style={{ gridTemplateColumns: cols }}>
+          {narr ? (<>
+            <input className={ei} style={eiS} disabled={!editable} value={r.secuencia ?? ""} placeholder="1" onChange={(e) => up(r.id, { secuencia: e.target.value })} />
+            <span className="text-center text-xs font-bold text-slate-500">{r.idx}</span>
+            <input className={ei} style={eiS} disabled={!editable} value={r.encabezado ?? ""} placeholder="INT. LUGAR – DÍA" onChange={(e) => up(r.id, { encabezado: e.target.value })} />
+            <input className={ei} style={eiS} disabled={!editable} value={r.accion ?? ""} placeholder="¿Qué ocurre?" onChange={(e) => up(r.id, { accion: e.target.value })} />
+            <input className={ei} style={eiS} disabled={!editable} value={r.funcion ?? ""} placeholder="Función en la historia" onChange={(e) => up(r.id, { funcion: e.target.value })} />
+            <input className={ei} style={eiS} disabled={!editable} value={r.personajes ?? ""} placeholder="Personajes" onChange={(e) => up(r.id, { personajes: e.target.value })} />
+            <input className={ei} style={eiS} disabled={!editable} value={r.cambio ?? ""} placeholder="¿Qué cambia?" onChange={(e) => up(r.id, { cambio: e.target.value })} />
+          </>) : (<>
+            <span className="text-center text-xs font-bold text-slate-500">{r.idx}</span>
+            <input className={ei} style={eiS} disabled={!editable} value={r.bloque ?? ""} placeholder="1" onChange={(e) => up(r.id, { bloque: e.target.value })} />
+            <input className={ei} style={eiS} disabled={!editable} value={r.segmento ?? ""} placeholder="Segmento" onChange={(e) => up(r.id, { segmento: e.target.value })} />
+            <input className={ei} style={eiS} disabled={!editable} value={r.objetivo ?? ""} placeholder="Objetivo editorial" onChange={(e) => up(r.id, { objetivo: e.target.value })} />
+            <input className={ei} style={eiS} disabled={!editable} value={r.participantes ?? ""} placeholder="Participantes" onChange={(e) => up(r.id, { participantes: e.target.value })} />
+            <input className={ei} style={eiS} disabled={!editable} value={r.recursos ?? ""} placeholder="Recursos previstos" onChange={(e) => up(r.id, { recursos: e.target.value })} />
+            <span className="text-center text-[11px] text-slate-500">{fmt(r.tin)}</span>
+            <span className="text-center text-[11px] text-slate-500">{fmt(r.tout)}</span>
+          </>)}
+          <input className={`${ei} text-center`} style={eiS} disabled={!editable} defaultValue={fmt(r.dur)} key={`dur-${r.id}-${r.dur}`}
+            onBlur={(e) => setDur(r.id, e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} />
+          {editable ? (
+            <div className="flex items-center justify-end gap-0.5">
+              <button onClick={() => move(i, -1)} disabled={i === 0} className="text-slate-400 hover:text-slate-700 disabled:opacity-30" title="Subir"><ChevronUp size={14} /></button>
+              <button onClick={() => move(i, 1)} disabled={i === rows.length - 1} className="text-slate-400 hover:text-slate-700 disabled:opacity-30" title="Bajar"><ChevronDown size={14} /></button>
+              <button onClick={() => del(r.id)} className="text-slate-400 hover:text-red-600" title="Eliminar"><Trash2 size={14} /></button>
+            </div>
+          ) : <span />}
+        </div>
+      ))}
+      {!rows.length && <p className="text-sm text-slate-500">La escaleta está vacía.{editable ? " Agrega un segmento o usa el asistente." : ""}</p>}
+      {editable && (
+        <button onClick={add} className={`${btn} self-start border`} style={{ borderColor: "#C8D2DE", color: NAVY }}>
+          <Plus size={15} /> {narr ? "Agregar escena" : "Agregar segmento"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function VistaEscaleta({ cfg, setCfg }) {
   const editable = typeof setCfg === "function";
+  const narr = esNarrativo(cfg);
   const fuentes = useMemo(() => computeFuentes(cfg), [cfg]);
   const byId = useMemo(() => Object.fromEntries(fuentes.map((f) => [f.id, f])), [fuentes]);
   const rows = useMemo(() => computeRows(cfg), [cfg]);
@@ -2392,46 +2597,65 @@ function VistaEscaleta({ cfg, setCfg }) {
     <div className="scrollwrap overflow-auto px-2 py-4">
       <div className="vista-foco mx-auto flex flex-col gap-3 bg-white shadow-lg" style={{ width: 1240, maxWidth: "100%", padding: 16, borderRadius: 8 }}>
         <div className="no-print mx-auto flex items-center gap-1 rounded-lg p-1" style={{ background: "#E2E8F0" }}>
-          {subTab("escaleta", "≡ Escaleta")}
-          {subTab("guion", "✎ Guion técnico")}
+          {subTab("escaleta", narr ? "≡ Escaleta" : "≡ Escaleta editorial")}
+          {subTab("guion", narr ? "✎ Guion técnico" : "✎ Rundown técnico")}
           {subTab("storyboard", "▦ Storyboard")}
           {editable && (
             <button onClick={() => setAsistente(true)} className="ml-2 rounded-md px-3 py-1.5 text-sm font-bold text-white"
-              title="Wizard narrativo: tipo, intención, premisa, personajes y estructura → genera escaleta y guion técnico"
-              style={{ background: NAVY }}>✦ Asistente narrativo</button>
+              title={narr
+                ? "Asistente narrativo: tipo, intención, premisa, personajes y estructura → genera escaleta y guion técnico"
+                : "Asistente de programa en vivo: tipo de programa y duración → genera la escaleta editorial por bloques"}
+              style={{ background: NAVY }}>{narr ? "✦ Asistente narrativo" : "▤ Asistente de programa en vivo"}</button>
           )}
           {editable && (
             <span className="ml-2">
-              <TarjetaAyuda id="escaleta" titulo="Cómo escribir tu escaleta"
-                pasos={[
-                  "<b>✦ Asistente narrativo</b> arma premisa, personajes, estructura y escenas por ti — el mejor punto de partida.",
-                  "<b>Escaleta</b>: el orden, la duración y la fuente de cada segmento al aire.",
-                  "<b>Guion técnico</b>: desglosa cada segmento en tomas (cámara, plano, movimiento, audio y texto).",
-                  "<b>Storyboard</b>: la vista visual de cada toma con su imagen y notas.",
-                  "La duración total y las alertas se recalculan solas mientras editas.",
-                ]} />
+              {narr ? (
+                <TarjetaAyuda id="escaleta-narr" titulo="Cómo escribir tu escaleta narrativa"
+                  pasos={[
+                    "<b>✦ Asistente narrativo</b> arma premisa, personajes, estructura y escenas por ti — el mejor punto de partida.",
+                    "<b>Escaleta</b>: qué ocurre en cada escena y cómo avanza la historia (encabezado, acción, función, cambio). Sin cámaras ni lentes: eso va en el guion técnico.",
+                    "<b>Guion técnico</b>: desglosa cada escena en planos (tamaño, ángulo, movimiento, sonido).",
+                    "<b>Storyboard</b>: la vista visual de cada plano con su imagen y notas.",
+                  ]} />
+              ) : (
+                <TarjetaAyuda id="escaleta-live" titulo="Cómo escribir tu escaleta editorial"
+                  pasos={[
+                    "<b>▤ Asistente de programa en vivo</b> arma la escaleta editorial por bloques según el tipo de programa y su duración.",
+                    "<b>Escaleta editorial</b>: qué contenido ocurre en cada bloque y su función (objetivo, participantes, recursos). La señal al aire NO va aquí.",
+                    "<b>Rundown técnico</b>: la parte técnica — cada segmento se desglosa en cues (cámara al aire, audio, gráficos, instrucción).",
+                    "La duración total, IN y OUT se recalculan solos mientras editas.",
+                  ]} />
+              )}
             </span>
           )}
         </div>
         {cfg.narrativa?.logline && (
           <p className="m-0 text-center text-sm italic text-slate-500">{cfg.narrativa.logline}</p>
         )}
-        {asistente && (
-          <AsistenteNarrativo cfg={cfg} setCfg={setCfg} onClose={() => setAsistente(false)}
-            onGenerado={() => { setAsistente(false); setSub("guion"); }} />
+        {asistente && (narr
+          ? <AsistenteNarrativo cfg={cfg} setCfg={setCfg} onClose={() => setAsistente(false)}
+              onGenerado={() => { setAsistente(false); setSub("guion"); }} />
+          : <AsistenteEnVivo cfg={cfg} setCfg={setCfg} onClose={() => setAsistente(false)}
+              onGenerado={() => { setAsistente(false); setSub("escaleta"); }} />
         )}
 
         {sub === "escaleta" && (<>
-          <Box title={`Escaleta / Rundown — ${fmt(total)}`}>
-            <Escaleta rows={rows} byId={byId} total={total} />
+          <Box title={narr ? `Escaleta narrativa — ${rows.length} escena${rows.length === 1 ? "" : "s"} · ${fmt(total)}` : `Escaleta editorial — ${fmt(total)}`}>
+            {editable
+              ? <EscaletaEditor cfg={cfg} setCfg={setCfg} rows={rows} editable={editable} />
+              : <Escaleta rows={rows} byId={byId} total={total} />}
           </Box>
-          <Box title={`Línea de tiempo — ${fmt(total)}`}>
-            <Timeline rows={rows} byId={byId} total={total} bloques={bloques} />
-          </Box>
+          {!narr && (
+            <Box title={`Línea de tiempo — ${fmt(total)}`}>
+              <Timeline rows={rows} byId={byId} total={total} bloques={bloques} />
+            </Box>
+          )}
         </>)}
 
         {sub === "guion" && (
-          <Box title={`Guion técnico — ${totalTomas} toma${totalTomas === 1 ? "" : "s"} en ${rows.length} segmentos`}>
+          <Box title={narr
+            ? `Guion técnico — ${totalTomas} plano${totalTomas === 1 ? "" : "s"} en ${rows.length} escena${rows.length === 1 ? "" : "s"}`
+            : `Rundown técnico — ${totalTomas} cue${totalTomas === 1 ? "" : "s"} en ${rows.length} segmento${rows.length === 1 ? "" : "s"}`}>
             <datalist id="gt-planos">{PLANOS.map((p) => <option key={p} value={p} />)}</datalist>
             <datalist id="gt-movs">{MOVIMIENTOS.map((m) => <option key={m} value={m} />)}</datalist>
             {rows.map((s) => {
@@ -2450,7 +2674,7 @@ function VistaEscaleta({ cfg, setCfg }) {
                       value={s.nota || ""} onChange={(e) => upSeg(s.id, { nota: e.target.value })} />
                     {(s.tomas || []).length > 0 && (
                       <div className="grid gap-1 text-xs font-bold uppercase text-slate-500" style={{ gridTemplateColumns: gtCols }}>
-                        <span>#</span><span>Cámara</span><span>Plano</span><span>Movimiento</span><span>Audio</span><span>Texto / diálogo</span><span />
+                        <span>#</span><span>{narr ? "Cámara" : "Al aire"}</span><span>{narr ? "Plano" : "Encuadre"}</span><span>Movimiento</span><span>Audio</span><span>{narr ? "Texto / diálogo" : "Instrucción"}</span><span />
                       </div>
                     )}
                     {(s.tomas || []).map((t, i) => (
@@ -2476,7 +2700,7 @@ function VistaEscaleta({ cfg, setCfg }) {
                     ))}
                     {editable && (
                       <button onClick={() => addToma(s.id)} className={`${btn} self-start border`} style={{ borderColor: "#C8D2DE", color: NAVY }}>
-                        <Plus size={15} /> Agregar toma
+                        <Plus size={15} /> {narr ? "Agregar plano" : "Agregar cue"}
                       </button>
                     )}
                   </div>

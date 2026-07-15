@@ -11,6 +11,7 @@ import {
   getSetup, instanciarSetup, instanciarElemento, posicionesParaLuces,
 } from '../web-sources/generador-tv/src/iluminacion.js';
 import { ESTRUCTURAS, loglineDe, escenasDe, alertasDe, planoPorEncuadre, anguloPorPercepcion, sincronizarPersonajes } from '../web-sources/generador-tv/src/narrativa.js';
+import { escaletaEnVivoDe, TIPOS_PROGRAMA } from '../web-sources/generador-tv/src/envivo.js';
 
 test('makeTemplate produce el esquema v3 con sets, talentos y mics asignados', () => {
   const cfg = makeTemplate('entrevista', {
@@ -213,6 +214,49 @@ test('sincronizarPersonajes reusa el talento placeholder y agrega el resto como 
   assert.ok(out.personal.some((r) => r.rol === 'Luis · Invitado(a)'));
   // No muta el cfg original
   assert.equal(cfg.talentos.length, 1);
+});
+
+test('escaletaEnVivoDe arma una escaleta EDITORIAL por bloques (objetivo/participantes/recursos)', () => {
+  const esc = escaletaEnVivoDe('noticiero', { durTotalSeg: 1800 });
+  assert.ok(esc.length >= 8, 'el noticiero trae varios segmentos');
+  // Campos editoriales presentes, y NADA de "fuente al aire" (eso es del rundown)
+  esc.forEach((s) => {
+    assert.ok(s.segmento && s.objetivo && s.bloque >= 1, 'cada segmento tiene título, objetivo y bloque');
+    assert.equal('fuente' in s, false, 'la escaleta editorial no lleva fuente al aire');
+    assert.ok(s.dur >= 10);
+  });
+  // Reparte para acercarse al objetivo (30 min)
+  const total = esc.reduce((n, s) => n + s.dur, 0);
+  assert.ok(Math.abs(total - 1800) <= esc.length * 5, `total ${total} lejos de 1800`);
+  // Los segmentos de duración fija la conservan (cortinilla de entrada = 30s)
+  assert.equal(esc[0].dur, 30, 'la cortinilla de entrada mantiene su duración fija');
+  // Hay más de un bloque
+  assert.ok(new Set(esc.map((s) => s.bloque)).size > 1, 'el programa se divide en bloques');
+});
+
+test('todos los tipos de programa en vivo generan escaletas válidas', () => {
+  TIPOS_PROGRAMA.forEach((t) => {
+    const esc = escaletaEnVivoDe(t.id, { durTotalSeg: 1200 });
+    assert.ok(esc.length >= 3, `${t.id} genera segmentos`);
+    esc.forEach((s) => assert.ok(s.segmento && s.dur >= 10, `${t.id}: segmento válido`));
+  });
+});
+
+test('escenasDe emite los campos de la escaleta narrativa (encabezado/acción/función/cambio)', () => {
+  const n = {
+    estructura: 'sencilla',
+    personajes: [{ nombre: 'Ana' }, { nombre: 'Luis' }],
+    escenas: [
+      { titulo: 'La calle', lugar: 'EXT. CALLE – NOCHE', cambio: 'Ana se siente vigilada' },
+      {}, {},
+    ],
+  };
+  const esc = escenasDe(n, { durTotalSeg: 180 });
+  assert.equal(esc[0].encabezado, 'EXT. CALLE – NOCHE');
+  assert.equal(esc[0].cambio, 'Ana se siente vigilada');
+  assert.equal(esc[0].personajes, 'Ana, Luis', 'personajes de la escena = reparto');
+  assert.ok(esc[0].funcion && esc[0].funcion.length > 3, 'cada escena trae su función narrativa');
+  assert.equal('fuente' in esc[0], false, 'la escaleta narrativa no lleva fuente al aire');
 });
 
 test('la técnica se recomienda desde la intención (manual audiovisual)', () => {
