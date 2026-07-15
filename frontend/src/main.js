@@ -257,7 +257,9 @@ function scheduleSave() {
 async function createProject(profile) {
     const name = profile.name || `Proyecto ${new Date().toLocaleDateString()}`;
     const template = profile.template || 'vacio';
-    const cfg = makeTemplate(template, { ...profile, projectName: name, company: profile.company || 'ATJ Producciones' });
+    // El wizard único ya construye el proyecto completo (escaleta/rundown y
+    // narrativa/programa) con la lógica compartida; si no, se arma la base.
+    const cfg = profile.cfg || makeTemplate(template, { ...profile, projectName: name, company: profile.company || 'ATJ Producciones' });
     const project = {
         id: uid('project'), name, template,
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
@@ -828,13 +830,17 @@ async function initializeWindow() {
         // Asistente narrativo. Después, la apertura normal: Escaleta si hay
         // narrativa pendiente (ahí el generador despliega el asistente solo).
         const primerRecorrido = !localStorage.getItem(TOUR_KEY);
-        // El asistente (narrativo o en vivo) se abre solo dentro del generador,
-        // sobre la vista por defecto; ya no navegamos a la Escaleta para hallarlo.
-        selectView('infografias', true);
+        // El wizard único ya armó el proyecto: se aterriza en la escaleta/rundown
+        // (bandera cfg.abrirEnEscaleta, de un solo uso). El recorrido guiado, si
+        // es la primera vez, tiene prioridad y arranca en la vista por defecto.
+        const abrirEscaleta = !!latestInfografia?.abrirEnEscaleta;
+        if (abrirEscaleta) { latestInfografia = { ...latestInfografia }; delete latestInfografia.abrirEnEscaleta; }
+        selectView(!primerRecorrido && abrirEscaleta ? 'escaleta' : 'infografias', true);
         if (primerRecorrido) {
             localStorage.setItem(TOUR_KEY, '1');
             setTimeout(() => tour.start(), 450);
         }
+        if (abrirEscaleta) scheduleSave();
         return;
     }
 

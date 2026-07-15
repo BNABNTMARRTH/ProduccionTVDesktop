@@ -14,9 +14,9 @@ import {
   TIPOS_PROYECTO, TIPOS_NO_NARRATIVOS, IMPACTOS, EMOCIONES, ESTRUCTURAS,
   ENCUADRES, PERCEPCIONES, MOVIMIENTOS_W, VOCES, MUSICAS,
   MODALIDADES_CLIP, RELACION_MUSICA, PRESENCIAS_ARTISTA,
-  loglineDe, escenasDe, planoPorEncuadre, anguloPorPercepcion, alertasDe, sincronizarPersonajes,
+  loglineDe, escenasDe, planoPorEncuadre, anguloPorPercepcion, alertasDe, sincronizarPersonajes, construirProyectoNarrativo,
 } from "./narrativa.js";
-import { TIPOS_PROGRAMA, escaletaEnVivoDe } from "./envivo.js";
+import { TIPOS_PROGRAMA, escaletaEnVivoDe, construirEscaletaEnVivo } from "./envivo.js";
 
 // Modo del proyecto: 'live' (programa en vivo) o 'narrative' (por escenas y
 // planos). Los proyectos anteriores a los modos se leen como 'live'.
@@ -2042,19 +2042,7 @@ function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
 
   const generar = () => {
     if ((cfg.escaleta || []).length && !confirma) { setConfirma(true); return; }
-    setCfg((c) => {
-      const cams = c.camaras || [];
-      const escaleta = escenasPrev.map((e, i) => ({
-        id: uid(), segmento: e.segmento, dur: e.dur, nota: e.nota,
-        // Campos propios de la escaleta narrativa (columnas de escena).
-        encabezado: e.encabezado, accion: e.accion, funcion: e.funcion, personajes: e.personajes, cambio: e.cambio,
-        fuente: cams.length ? cams[i % cams.length].id : (c.extras?.[0]?.id || ""),
-        tomas: e.tomas.map((t) => ({ id: uid(), camId: cams[0]?.id || "", ...t })),
-      }));
-      // Los personajes son los talentos del proyecto: mic y personal automáticos.
-      const gente = sincronizarPersonajes(c, n.personajes);
-      return { ...c, ...gente, narrativa: { ...n, logline }, escaleta };
-    });
+    setCfg((c) => construirProyectoNarrativo(c, n));
     onGenerado();
   };
 
@@ -2365,20 +2353,7 @@ function AsistenteEnVivo({ cfg, setCfg, onClose, onGenerado }) {
 
   const generar = () => {
     if ((cfg.escaleta || []).length && !confirma) { setConfirma(true); return; }
-    setCfg((c) => {
-      const cams = c.camaras || [];
-      const corteId = c.extras?.find((x) => x.esCorte)?.id || "";
-      const editorial = escaletaEnVivoDe(p.tipoPrograma || "noticiero", { durTotalSeg: Math.max(1, p.durMin || 30) * 60 });
-      const escaleta = editorial.map((s, i) => ({
-        id: uid(), segmento: s.segmento, dur: s.dur, bloque: s.bloque,
-        objetivo: s.objetivo, participantes: s.participantes, recursos: s.recursos,
-        // La fuente al aire por defecto pertenece al rundown técnico, no a la
-        // escaleta editorial: alterna cámaras y los cortes usan el extra de corte.
-        fuente: s.esCorte ? (corteId || cams[0]?.id || "") : (cams.length ? cams[i % cams.length].id : (c.extras?.[0]?.id || "")),
-        nota: "", tomas: [],
-      }));
-      return { ...c, programa: { tipoPrograma: p.tipoPrograma || "noticiero", durMin: p.durMin, enVivo: p.enVivo, nombre: p.nombre }, escaleta };
-    });
+    setCfg((c) => construirEscaletaEnVivo(c, p));
     onGenerado();
   };
 

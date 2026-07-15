@@ -114,3 +114,20 @@ export function escaletaEnVivoDe(tipoId, { durTotalSeg = 1800 } = {}) {
     esCorte: !!s.esCorte,
   }));
 }
+
+// Construye el proyecto en vivo completo: escaleta editorial con ids y fuentes.
+// Lo usan por igual el Asistente de programa en vivo (React) y el wizard único
+// de Inicio.
+export function construirEscaletaEnVivo(cfg, p) {
+  const gen = (pre) => `${pre}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  const cams = cfg.camaras || [];
+  const corteId = cfg.extras?.find((x) => x.esCorte)?.id || '';
+  const editorial = escaletaEnVivoDe(p.tipoPrograma || 'noticiero', { durTotalSeg: Math.max(1, p.durMin || 30) * 60 });
+  const escaleta = editorial.map((s, i) => ({
+    id: gen('seg'), segmento: s.segmento, dur: s.dur, bloque: s.bloque,
+    objetivo: s.objetivo, participantes: s.participantes, recursos: s.recursos,
+    fuente: s.esCorte ? (corteId || cams[0]?.id || '') : (cams.length ? cams[i % cams.length].id : (cfg.extras?.[0]?.id || '')),
+    nota: '', tomas: [],
+  }));
+  return { ...cfg, programa: { tipoPrograma: p.tipoPrograma || 'noticiero', durMin: p.durMin, enVivo: p.enVivo, nombre: p.nombre }, escaleta };
+}

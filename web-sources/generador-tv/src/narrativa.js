@@ -266,3 +266,22 @@ export function sincronizarPersonajes(cfg, personajes) {
 
   return { talentos, microfonos, personal };
 }
+
+// Construye el proyecto narrativo completo a partir de un cfg base (plantilla) y
+// las respuestas del asistente `n`: escaleta con campos de escena + tomas,
+// logline y personajes→talentos. Lo usan por igual el Asistente narrativo
+// (React) y el wizard único de Inicio, para no duplicar la generación.
+export function construirProyectoNarrativo(cfg, n) {
+  const gen = (p) => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  const logline = loglineDe(n);
+  const escenas = escenasDe(n, { durTotalSeg: Math.max(1, n.durMin || 5) * 60 });
+  const cams = cfg.camaras || [];
+  const escaleta = escenas.map((e, i) => ({
+    id: gen('seg'), segmento: e.segmento, dur: e.dur, nota: e.nota,
+    encabezado: e.encabezado, accion: e.accion, funcion: e.funcion, personajes: e.personajes, cambio: e.cambio,
+    fuente: cams.length ? cams[i % cams.length].id : (cfg.extras?.[0]?.id || ''),
+    tomas: e.tomas.map((t) => ({ id: gen('toma'), camId: cams[0]?.id || '', ...t })),
+  }));
+  const gente = sincronizarPersonajes(cfg, n.personajes);
+  return { ...cfg, ...gente, narrativa: { ...n, logline }, escaleta };
+}

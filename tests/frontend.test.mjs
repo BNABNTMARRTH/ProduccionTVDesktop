@@ -10,8 +10,8 @@ import {
   LUZ_CATALOGO, SETUPS_ILUMINACION, SETUPS_EXTERIOR, RECOMENDADAS_POR_PLANTILLA,
   getSetup, instanciarSetup, instanciarElemento, posicionesParaLuces,
 } from '../web-sources/generador-tv/src/iluminacion.js';
-import { ESTRUCTURAS, loglineDe, escenasDe, alertasDe, planoPorEncuadre, anguloPorPercepcion, sincronizarPersonajes } from '../web-sources/generador-tv/src/narrativa.js';
-import { escaletaEnVivoDe, TIPOS_PROGRAMA } from '../web-sources/generador-tv/src/envivo.js';
+import { ESTRUCTURAS, loglineDe, escenasDe, alertasDe, planoPorEncuadre, anguloPorPercepcion, sincronizarPersonajes, construirProyectoNarrativo } from '../web-sources/generador-tv/src/narrativa.js';
+import { escaletaEnVivoDe, TIPOS_PROGRAMA, construirEscaletaEnVivo } from '../web-sources/generador-tv/src/envivo.js';
 
 test('makeTemplate produce el esquema v3 con sets, talentos y mics asignados', () => {
   const cfg = makeTemplate('entrevista', {
@@ -257,6 +257,36 @@ test('escenasDe emite los campos de la escaleta narrativa (encabezado/acción/fu
   assert.equal(esc[0].personajes, 'Ana, Luis', 'personajes de la escena = reparto');
   assert.ok(esc[0].funcion && esc[0].funcion.length > 3, 'cada escena trae su función narrativa');
   assert.equal('fuente' in esc[0], false, 'la escaleta narrativa no lleva fuente al aire');
+});
+
+test('construirProyectoNarrativo arma escaleta + logline + talentos desde un cfg base', () => {
+  const cfg = {
+    camaras: [{ id: 'c1', nombre: 'CAM 1' }, { id: 'c2', nombre: 'CAM 2' }],
+    talentos: [{ id: 't1', nombre: 'Conductor(a)', tipo: 'conductor' }],
+    microfonos: [{ id: 'm1', nombre: 'Mic 1', micTipo: 'solapa', asignadoA: 'tal:t1' }],
+    personal: [{ id: 'p1', rol: 'Conductor(a)', icon: 'conductor' }],
+    extras: [],
+  };
+  const n = { tipo: 'ficcion', estructura: 'sencilla', durMin: 3,
+    premisa: { quien: 'Ana', quiere: 'volver a casa', obstaculo: 'la tormenta' },
+    personajes: [{ nombre: 'Ana' }] };
+  const out = construirProyectoNarrativo(cfg, n);
+  assert.ok(out.escaleta.length >= 3, 'genera escaleta de escenas');
+  assert.ok(out.escaleta.every((s) => s.id && s.funcion && 'encabezado' in s), 'cada escena trae id y campos narrativos');
+  assert.match(out.narrativa.logline, /^Esta es la historia de Ana/);
+  assert.ok(out.talentos.some((t) => t.nombre === 'Ana'), 'el personaje se vuelve talento');
+});
+
+test('construirEscaletaEnVivo arma la escaleta editorial y guarda cfg.programa', () => {
+  const cfg = { camaras: [{ id: 'c1', nombre: 'CAM 1' }], talentos: [], microfonos: [], personal: [],
+    extras: [{ id: 'x1', nombre: 'COMERCIALES', esCorte: true }] };
+  const out = construirEscaletaEnVivo(cfg, { tipoPrograma: 'noticiero', durMin: 30, enVivo: true, nombre: 'Noti U' });
+  assert.equal(out.programa.tipoPrograma, 'noticiero');
+  assert.equal(out.programa.nombre, 'Noti U');
+  assert.ok(out.escaleta.length >= 8 && out.escaleta.every((s) => s.id && s.objetivo && s.bloque >= 1));
+  // Un segmento de corte usa la fuente de corte
+  const corte = out.escaleta.find((s) => /corte/i.test(s.segmento));
+  if (corte) assert.equal(corte.fuente, 'x1');
 });
 
 test('la técnica se recomienda desde la intención (manual audiovisual)', () => {
