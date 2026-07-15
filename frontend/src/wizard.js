@@ -2,17 +2,19 @@
 // el perfil del proyecto (plantilla, identidad, cámaras, locación y crew) y
 // se lo entregan al shell. Quienes salen a cuadro se capturan una sola vez,
 // como personajes del Asistente narrativo (que los vuelve talentos).
-import { templateCatalog, templateDefaults, CREW_CATALOG, DEFAULT_CREW } from './templates.js';
+import { templateCatalog, narrativeCatalog, templateDefaults, CREW_CATALOG, DEFAULT_CREW } from './templates.js';
 import { esc } from './constants.js';
 
-const STEPS = ['tipo', 'identidad', 'tecnica', 'resumen'];
+const STEPS = ['modo', 'tipo', 'identidad', 'tecnica', 'resumen'];
 const STEP_TITLES = {
+    modo: '¿Cómo se realizará tu producción?',
     tipo: '¿Qué quieres producir hoy?',
     identidad: '¿Cómo se llama tu producción?',
     tecnica: 'Configuración técnica y crew',
     resumen: 'Tu plantilla está lista',
 };
 const STEP_HINTS = {
+    modo: '¿Tu producción se realizará siguiendo un reloj continuo, o se grabará por escenas y planos? Podrás afinar todo después.',
     tipo: 'Elige el formato y el asistente preparará una base técnica a tu medida.',
     identidad: 'Estos datos aparecen en la infografía y en los exportados.',
     tecnica: 'Cámaras, locación y roles de operación. Quienes salen a cuadro se definen después, en el Asistente narrativo.',
@@ -20,6 +22,8 @@ const STEP_HINTS = {
 };
 
 const freshAnswers = () => ({
+    modo: '',
+    narrativeTipo: '',
     template: '',
     name: '',
     company: '',
@@ -45,8 +49,11 @@ export function createWizard({ onCreate }) {
         answers = freshAnswers();
         step = 0;
         if (presetTemplate) {
+            // Las plantillas de la pantalla de Inicio son de programa en vivo:
+            // fijan el modo y saltan directo a la identidad.
+            answers.modo = 'live';
             applyTemplate(presetTemplate);
-            step = 1;
+            step = STEPS.indexOf('identidad');
         }
         overlay = document.createElement('div');
         overlay.className = 'wizard-overlay';
@@ -78,13 +85,32 @@ export function createWizard({ onCreate }) {
     /* ------------------------- Render por paso ------------------------- */
 
     const stepBody = {
-        tipo: () => `
+        modo: () => `
+            <div class="wizard-mode-grid">
+              <button class="wizard-mode ${answers.modo === 'live' ? 'selected' : ''}" data-modo="live">
+                <span class="wizard-mode-ico">🔴</span>
+                <strong>Programa en vivo / grabado como en vivo</strong>
+                <small>Reloj continuo, controlado por bloques, segmentos, cámaras, micrófonos, gráficos, fuentes y señales al aire.</small>
+                <em>Noticiero · Podcast multicámara · Talk show · Mesa de análisis · Entrevista de estudio · Evento · Streaming · Sesión musical</em>
+              </button>
+              <button class="wizard-mode ${answers.modo === 'narrative' ? 'selected' : ''}" data-modo="narrative">
+                <span class="wizard-mode-ico">🎬</span>
+                <strong>Producción narrativa</strong>
+                <small>Se construye por secuencias, escenas y planos; normalmente se graba fuera de orden y se organiza después en el montaje.</small>
+                <em>Película · Cortometraje · Videoclip · Documental · Publicidad · Stop motion · Institucional · Experimental</em>
+              </button>
+            </div>`,
+        tipo: () => {
+            const cat = answers.modo === 'narrative' ? narrativeCatalog : templateCatalog;
+            const sel = answers.modo === 'narrative' ? answers.narrativeTipo : answers.template;
+            return `
             <div class="wizard-type-grid">
-              ${templateCatalog.map((t) => `
-                <button class="wizard-type ${answers.template === t.id ? 'selected' : ''}" data-type="${t.id}">
+              ${cat.map((t) => `
+                <button class="wizard-type ${sel === t.id ? 'selected' : ''}" data-type="${t.id}">
                   <span>${t.icon}</span><strong>${t.name}</strong><small>${t.detail}</small>
                 </button>`).join('')}
-            </div>`,
+            </div>`;
+        },
         identidad: () => `
             <div class="wizard-form">
               <label>Nombre de la producción<input id="wz-name" placeholder="Ej. Noticiero universitario" value="${esc(answers.name)}"></label>
@@ -120,13 +146,19 @@ export function createWizard({ onCreate }) {
               </label>
             </div>`,
         resumen: () => {
+            const esNarr = answers.modo === 'narrative';
             const template = templateCatalog.find((t) => t.id === answers.template);
+            const tipoNarr = narrativeCatalog.find((t) => t.id === answers.narrativeTipo);
+            const formato = esNarr
+                ? `${tipoNarr?.icon || '🎬'} ${esc(tipoNarr?.name || 'Producción narrativa')}`
+                : `${template?.icon || '◆'} ${esc(template?.name || 'Proyecto')}`;
             const crew = answers.crew.map((id) => CREW_CATALOG.find((r) => r.id === id)?.rol).filter(Boolean);
             const locationLabel = { int: 'Interior (estudio)', ext: 'Exterior', mixta: 'Mixta' }[answers.location];
             const row = (label, value) => `<div class="wizard-summary-row"><span>${label}</span><strong>${value}</strong></div>`;
             return `
             <div class="wizard-summary">
-              ${row('Formato', `${template?.icon || '◆'} ${esc(template?.name || 'Proyecto')}`)}
+              ${row('Modo', esNarr ? '🎬 Producción narrativa' : '🔴 Programa en vivo')}
+              ${row('Formato', formato)}
               ${row('Nombre', esc(answers.name.trim()) || '<em>Se asignará automáticamente</em>')}
               ${row('Productora', esc(answers.company.trim()) || 'ATJ Producciones')}
               ${row('Cámaras', `${answers.cams}${answers.includeCamOps && answers.cams ? ' · con operadores' : ''}`)}
@@ -156,11 +188,18 @@ export function createWizard({ onCreate }) {
               ${step > 0 ? '<button id="wz-back">← Atrás</button>' : '<span></span>'}
               ${last
                 ? '<button id="wz-create" class="wizard-primary">Crear proyecto ✦</button>'
-                : `<button id="wz-next" class="wizard-primary" ${key === 'tipo' && !answers.template ? 'disabled' : ''}>Siguiente →</button>`}
+                : `<button id="wz-next" class="wizard-primary" ${nextBloqueado(key) ? 'disabled' : ''}>Siguiente →</button>`}
             </div>
           </div>`;
         bind(key, last);
         overlay.querySelector('.wizard-body input:not([type=file]):not([type=color])')?.focus();
+    }
+
+    // Un paso de elección obligatoria bloquea "Siguiente" hasta elegir.
+    function nextBloqueado(key) {
+        if (key === 'modo') return !answers.modo;
+        if (key === 'tipo') return answers.modo === 'narrative' ? !answers.narrativeTipo : !answers.template;
+        return false;
     }
 
     /* ------------------------- Eventos por paso ------------------------- */
@@ -182,6 +221,8 @@ export function createWizard({ onCreate }) {
         if (last) {
             overlay.querySelector('#wz-create').onclick = () => {
                 const profile = {
+                    modo: answers.modo || 'live',
+                    narrativeTipo: answers.narrativeTipo,
                     template: answers.template || 'vacio',
                     name: answers.name.trim(),
                     company: answers.company.trim(),
@@ -201,10 +242,25 @@ export function createWizard({ onCreate }) {
             if (narr) narr.onchange = (event) => { answers.narrativa = event.target.checked; };
         }
 
+        if (key === 'modo') {
+            overlay.querySelectorAll('[data-modo]').forEach((button) => button.onclick = () => {
+                answers.modo = button.dataset.modo;
+                // La narrativa se graba por escenas: al menos una cámara y el
+                // Asistente narrativo activado por defecto.
+                if (answers.modo === 'narrative') { answers.cams = Math.max(1, answers.cams); answers.narrativa = true; }
+                step = STEPS.indexOf('tipo');
+                render();
+            });
+        }
         if (key === 'tipo') {
             overlay.querySelectorAll('[data-type]').forEach((button) => button.onclick = () => {
-                applyTemplate(button.dataset.type);
-                step = 1;
+                if (answers.modo === 'narrative') {
+                    answers.narrativeTipo = button.dataset.type;
+                    answers.template = 'vacio'; // base técnica mínima; la historia la arma el asistente
+                } else {
+                    applyTemplate(button.dataset.type);
+                }
+                step = STEPS.indexOf('identidad');
                 render();
             });
         }

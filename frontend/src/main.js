@@ -3,7 +3,7 @@ import html2canvas from 'html2canvas';
 import appIcon from './assets/images/atj-icon-small.png';
 import { DeleteProjectFile, DeleteTrashFile, FocusLauncher, GetLaunchContext, ListTrashFiles, LoadAllProjects, LoadProjectFile, OpenProjectWindow, Print, ReadTrashFile, SaveBase64File, SaveProjectFile, SaveTextFile } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
-import { templateCatalog, makeTemplate, diagramFromConfig, infografiaFromDiagram, uid } from './templates.js';
+import { templateCatalog, makeTemplate, diagramFromConfig, infografiaFromDiagram, uid, PROJECT_MODES, normalizeMode } from './templates.js';
 import { createProductionView } from './production.js';
 import { createWizard } from './wizard.js';
 import { createTour } from './tour.js';
@@ -52,6 +52,9 @@ function proyectoDesdeBundle(data, { conservarId = true } = {}) {
     } else {
         return null;
     }
+    // Migración: los proyectos anteriores a los modos se interpretan como
+    // "programa en vivo" (el flujo original de circuito cerrado). No destructivo.
+    if (cfg && !cfg.modo) cfg.modo = 'live';
     return {
         id: (conservarId && meta?.id) || uid('project'),
         name: String(meta?.name || cfg.titulo || 'Proyecto importado').trim() || 'Proyecto importado',
@@ -98,6 +101,7 @@ document.querySelector('#app').innerHTML = `
           <button data-view="exportar" title="Arma el documento: formato, secciones y orden (⌘7)">⇩ Exportar</button>
         </nav>
         <div class="header-actions">
+          <span class="mode-chip" id="mode-chip" title="Modo del proyecto. Se elige al crearlo y define las herramientas disponibles."></span>
           <span class="save-status" id="save-status">Guardado local</span>
           <button class="offline-badge" id="active-name" title="Ir a Inicio: proyectos y plantillas">Guardado local</button>
           <button id="tour-btn" title="Recorrido guiado: cómo usar la app paso a paso">❔</button>
@@ -176,22 +180,53 @@ Guía el flujo preproducción → producción marcando lo que el proyecto ya
 tiene; clic en un paso lleva a su pestaña. Los dos últimos hitos se marcan
 al usar Producción y Exportar (cfg.ensayado / cfg.exportado). */
 
+// Cada paso: [etiqueta, vista, ¿listo?, ayuda, soloLive]. Los pasos soloLive
+// (Ensayo) no aparecen en producción narrativa.
 const RUTA_PASOS = [
     ['Historia', 'escaleta', (cfg) => !!cfg?.narrativa, 'Premisa, personajes y estructura — genera todo con el ✦ Asistente narrativo'],
     ['Guion técnico', 'escaleta', (cfg) => (cfg?.escaleta || []).some((s) => (s.tomas || []).length), 'Desglosa cada escena en tomas: plano, movimiento y audio'],
     ['Set', 'set', (cfg) => (cfg?.sets || []).some((s) => (s.muebles || []).length || s.iluminacion || Object.keys(s.setLayout?.pos || {}).length), 'Monta el estudio: mobiliario, iluminación y posiciones'],
     ['Señal', 'diagrama', (cfg, diagram) => (diagram?.edges || []).length > 0, 'Cablea la ruta de video y audio en el diagrama'],
-    ['Ensayo', 'production', (cfg) => !!cfg?.ensayado, 'Corre la escaleta en Producción: cronómetro, tally y teleprompter'],
+    ['Ensayo', 'production', (cfg) => !!cfg?.ensayado, 'Corre la escaleta en Producción: cronómetro, tally y teleprompter', true],
     ['Exportar', 'exportar', (cfg) => !!cfg?.exportado, 'Genera el paquete final: PDF, PNG o proyecto .ptv'],
 ];
 const ruta = document.querySelector('#ruta');
 
+// Navegación diferenciada por modo. En narrativo se renombran algunas pestañas
+// (el mismo generador cambia de función) y se oculta Producción (solo de vivo).
+const ORIG_TAB = Object.fromEntries(navButtons.map((b) => [b.dataset.view, b.textContent]));
+const NAV_ETIQUETAS = { narrative: { set: '▦ Locaciones', escaleta: '≡ Historia', diagrama: '⌁ Escena' } };
+const NAV_OCULTAS = { narrative: ['production'] };
+const RUTA_ETIQUETAS = { narrative: { Set: 'Locaciones', 'Señal': 'Escena' } };
+
+function renderModo() {
+    if (!shell.classList.contains('project-window')) return;
+    const modo = normalizeMode(latestInfografia?.modo);
+    const chip = document.querySelector('#mode-chip');
+    if (chip) {
+        chip.textContent = PROJECT_MODES[modo].chip;
+        chip.classList.toggle('narrative', modo === 'narrative');
+    }
+    const etiquetas = NAV_ETIQUETAS[modo] || {};
+    const ocultas = NAV_OCULTAS[modo] || [];
+    navButtons.forEach((b) => {
+        const v = b.dataset.view;
+        b.textContent = etiquetas[v] ?? ORIG_TAB[v];
+        b.hidden = ocultas.includes(v);
+    });
+}
+
 function renderRuta() {
     if (!shell.classList.contains('project-window')) { ruta.hidden = true; return; }
+    renderModo();
     ruta.hidden = header.hidden;
-    ruta.innerHTML = RUTA_PASOS.map(([label, view, listo, hint], i) => `
+    const modo = normalizeMode(latestInfografia?.modo);
+    const rot = RUTA_ETIQUETAS[modo] || {};
+    ruta.innerHTML = RUTA_PASOS
+        .filter(([, , , , soloLive]) => !(soloLive && modo === 'narrative'))
+        .map(([label, view, listo, hint], i) => `
         <button data-ruta="${view}" class="${listo(latestInfografia, latestDiagram) ? 'done' : ''}" title="${hint}">
-          ${listo(latestInfografia, latestDiagram) ? '✓' : i + 1} ${label}
+          ${listo(latestInfografia, latestDiagram) ? '✓' : i + 1} ${rot[label] || label}
         </button>`).join('<span class="ruta-sep">›</span>');
     ruta.querySelectorAll('[data-ruta]').forEach((b) => b.onclick = () => selectView(b.dataset.ruta));
 }

@@ -5,7 +5,7 @@
 // Cubre plantillas/migración de datos y el catálogo de iluminación.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeTemplate, infografiaFromDiagram, templateDefaults, SCHEMA_VERSION } from '../frontend/src/templates.js';
+import { makeTemplate, infografiaFromDiagram, templateDefaults, SCHEMA_VERSION, normalizeMode } from '../frontend/src/templates.js';
 import {
   LUZ_CATALOGO, SETUPS_ILUMINACION, SETUPS_EXTERIOR, RECOMENDADAS_POR_PLANTILLA,
   getSetup, instanciarSetup, instanciarElemento, posicionesParaLuces,
@@ -33,6 +33,22 @@ test('makeTemplate produce el esquema v3 con sets, talentos y mics asignados', (
   // sugerencias del asistente listas para que el generador las aplique
   assert.equal(cfg.iluminacionSugerida, 'three_point_lighting');
   assert.deepEqual(cfg.mueblesSugeridos, ['sillon1', 'sillon2']);
+});
+
+test('el modo por defecto es "live" y solo "narrative" se conserva (migración)', () => {
+  assert.equal(normalizeMode(undefined), 'live', 'proyecto viejo sin modo → live');
+  assert.equal(normalizeMode('live'), 'live');
+  assert.equal(normalizeMode('narrative'), 'narrative');
+  assert.equal(normalizeMode('cualquier-cosa'), 'live', 'valor inválido → live');
+});
+
+test('makeTemplate estampa el modo; en narrativo siembra el tipo del asistente', () => {
+  const vivo = makeTemplate('noticiero', {});
+  assert.equal(vivo.modo, 'live', 'sin modo explícito, un programa es en vivo');
+  assert.equal(vivo.narrativa, undefined, 'el modo vivo no siembra narrativa');
+  const narr = makeTemplate('vacio', { modo: 'narrative', narrativeTipo: 'videoclip' });
+  assert.equal(narr.modo, 'narrative');
+  assert.equal(narr.narrativa.tipo, 'videoclip', 'el tipo elegido llega al Asistente narrativo');
 });
 
 test('makeTemplate en exterior marca el set sin mesa y mics inalámbricos', () => {

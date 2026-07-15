@@ -93,6 +93,21 @@ button:focus-visible,input:focus-visible{outline:2px solid #58a8ff;outline-offse
 .set-live-note{margin:10px 0 0;color:#9db1cc;font-size:11px;text-align:center}.validation-summary{margin:7px 0 14px;color:#9db1cc;font-size:11px}.checks-list{display:flex;flex-direction:column;gap:7px;max-height:65vh;overflow:auto}.check{display:flex;align-items:flex-start;gap:8px;border:1px solid #39495f;background:#122137;border-radius:8px;padding:8px;font-size:11px;color:#aebdd2}.check span{width:18px;height:18px;flex:none;display:grid;place-items:center;border-radius:50%;font-weight:800}.check.error span{background:#7a292d;color:#ffc2c4}.check.warn span{background:#725817;color:#ffe294}.check.info span{background:#1a4e81;color:#b8dcff}.check.ok span{background:#1d673c;color:#c7ffda}.production-empty{height:100%;display:grid;place-content:center;text-align:center;color:#8194ae}.production-empty h1{color:#fff}
 .desktop-shell.focus-mode .workspace-header,.desktop-shell.focus-mode .ruta{display:none}.desktop-shell.focus-mode .frame-wrap{margin:0;border-radius:0;border:0}
 .desktop-shell.launcher-window .workspace{background:#0c1727}
+/* Chip de modo del proyecto + navegación diferenciada */
+.header-actions .mode-chip{font-size:10px;font-weight:800;letter-spacing:.5px;color:#bfe0ff;background:#0f2c4a;border:1px solid #24567f;border-radius:999px;padding:5px 9px;white-space:nowrap}
+.header-actions .mode-chip.narrative{color:#ffd9a8;background:#3a2410;border-color:#7a531f}
+.header-actions .mode-chip:empty{display:none}
+.header-tabs button[hidden]{display:none}
+/* Selector de modo del asistente (dos tarjetas grandes) */
+.wizard-mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.wizard-mode{display:flex;flex-direction:column;gap:7px;text-align:left;border:1px solid #2d4564;background:#12233c;color:#e9f1fc;border-radius:14px;padding:18px;cursor:pointer}
+.wizard-mode:hover{border-color:#58a8ff}
+.wizard-mode.selected{border-color:#58a8ff;background:#17365e;box-shadow:0 0 0 1px #58a8ff}
+.wizard-mode-ico{font-size:30px;line-height:1}
+.wizard-mode strong{font-size:15px}
+.wizard-mode small{color:#9db1cc;font-size:12px;line-height:1.45}
+.wizard-mode em{color:#6f86a6;font-size:11px;font-style:normal}
+@media(max-width:640px){.wizard-mode-grid{grid-template-columns:1fr}}
 /* Recorrido guiado (coach marks de primera vez) */
 .tour-overlay{position:fixed;inset:0;z-index:3000}
 .tour-overlay.dim{background:rgba(8,15,30,.55)}

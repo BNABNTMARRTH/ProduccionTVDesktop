@@ -24,6 +24,26 @@ export const templateCatalog = [
     { id: 'multicamara', icon: '▦', name: 'Evento multicámara', detail: '5 cámaras · 4 micrófonos · cobertura' },
 ];
 
+// Tipos de producción narrativa. Los `id` coinciden con TIPOS_PROYECTO del
+// generador (narrativa.js), así que al sembrarlos en cfg.narrativa.tipo el
+// Asistente narrativo arranca ya con el tipo elegido.
+export const narrativeCatalog = [
+    { id: 'ficcion', icon: '🎬', name: 'Película / Cortometraje', detail: 'Ficción por escenas y planos' },
+    { id: 'videoclip', icon: '🎵', name: 'Videoclip', detail: 'La canción da la estructura temporal' },
+    { id: 'documental', icon: '🎥', name: 'Documental', detail: 'Sujetos reales, evidencia y punto de vista' },
+    { id: 'publicidad', icon: '📢', name: 'Publicidad narrativa', detail: 'Persuadir en poco tiempo' },
+    { id: 'stopmotion', icon: '🧸', name: 'Stop motion', detail: 'Animación cuadro por cuadro' },
+    { id: 'experimental', icon: '🌀', name: 'Experimental', detail: 'Pieza sensorial o no lineal' },
+];
+
+// Modo de proyecto: 'live' (programa en vivo / grabado como en vivo, el flujo
+// original de circuito cerrado) o 'narrative' (producción por escenas y planos).
+export const PROJECT_MODES = {
+    live: { label: 'Programa en vivo', chip: 'MODO · PROGRAMA EN VIVO' },
+    narrative: { label: 'Producción narrativa', chip: 'MODO · PRODUCCIÓN NARRATIVA' },
+};
+export const normalizeMode = (modo) => (modo === 'narrative' ? 'narrative' : 'live');
+
 // Roles de crew disponibles en el asistente. Los `icon` deben existir en el
 // catálogo ICONS del generador de infografías (React compilado).
 export const CREW_CATALOG = [
@@ -161,8 +181,14 @@ export function makeTemplate(kind, profile = {}) {
     }
     const subtitulo = profile.subtitle
         || (profile.location ? `Plan de producción · ${LOCATION_LABELS[profile.location] || ''}` : 'Plan de producción audiovisual');
+    const modo = profile.modo === 'narrative' ? 'narrative' : 'live';
     return {
         schema: SCHEMA_VERSION,
+        // Modo del proyecto: gobierna la navegación del shell (vivo vs narrativo).
+        modo,
+        // En narrativo, se siembra el tipo elegido para que el Asistente
+        // narrativo arranque ya con él (salta su primer paso).
+        ...(modo === 'narrative' && profile.narrativeTipo ? { narrativa: { tipo: profile.narrativeTipo } } : {}),
         // Plantilla de origen: la usa el panel de iluminación del generador
         // para recomendar configuraciones según el tipo de producción.
         plantilla: kind,
