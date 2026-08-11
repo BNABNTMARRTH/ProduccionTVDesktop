@@ -8,7 +8,7 @@ import {
 import LZString from "lz-string";
 import {
   LUZ_CATALOGO, LUZ_GRUPOS, SETUPS_ILUMINACION, SETUPS_EXTERIOR, RECOMENDADAS_POR_PLANTILLA, DIFICULTAD_ES,
-  getSetup, instanciarElemento, instanciarSetup, posicionesParaLuces,
+  getSetup, instanciarElemento, instanciarSetup,
 } from "./iluminacion.js";
 import {
   TIPOS_PROYECTO, TIPOS_NO_NARRATIVOS, IMPACTOS, EMOCIONES, ESTRUCTURAS,
@@ -33,6 +33,7 @@ import {
 import { NAVY, INK, PREVIEW_COLOR, AIR_COLOR, PALETTE } from "./theme.js";
 import { inp, inpStyle, btn, SecTitle } from "./ui.jsx";
 import { GlyphLuz, LuzIcon, GlyphMueble, MuebleIcon } from "./glifos.jsx";
+import { setNuevo, setActivoDe, upSetPor, posMuebleDefault, reacomodoDe } from "./sets.js";
 import { AsistenteNarrativo } from "./AsistenteNarrativo.jsx";
 import { AsistenteEnVivo } from "./AsistenteEnVivo.jsx";
 
@@ -260,12 +261,6 @@ const BLANCO = () => ({
 });
 
 
-const setNuevo = (n = 1) => ({
-  id: `set-${uid()}`, nombre: n === 1 ? "Set principal" : `Set ${n}`,
-  locacion: "int", mesaVisible: true,
-  setLayout: { pos: {}, rot: {} }, iluminacion: null, muebles: [],
-});
-
 // Normaliza y MIGRA proyectos viejos al modelo actual:
 // - cfg.talentos: antes los micrófonos hacían de talentos en el plano; ahora
 //   conductor(a)s e invitad(o)as son entes propios y el micrófono se les asigna
@@ -345,24 +340,6 @@ const normalizeCfg = (cfg) => {
   delete c.iluminacion;
   c.schema = 3;
   return c;
-};
-
-// Set actualmente seleccionado (siempre existe tras normalizeCfg).
-const setActivoDe = (cfg) => (cfg.sets || []).find((s) => s.id === cfg.setActivo) || (cfg.sets || [])[0] || setNuevo(1);
-
-// Aplica un parche funcional a un set por id dentro de un updater de setCfg.
-const upSetPor = (c, setId, fn) => ({ ...c, sets: (c.sets || []).map((s) => (s.id === setId ? fn(s) : s)) });
-
-// Posición inicial (y de reacomodo) del mueble n en el lienzo.
-const posMuebleDefault = (n) => ({ x: 335 + (n % 4) * 85, y: 330 + Math.floor(n / 4) * 75 });
-
-// "Reacomodar automáticamente": regresa mesa/talentos/cámaras a sus posiciones
-// derivadas y recoloca luces y muebles en sus posiciones típicas (las luces y
-// muebles no tienen default en el lienzo: sin esto caerían al centro).
-const reacomodoDe = (s) => {
-  const pos = posicionesParaLuces(s.iluminacion?.luces);
-  (s.muebles || []).forEach((m, i) => { pos[`mue:${m.id}`] = posMuebleDefault(i); });
-  return { ...s, setLayout: { pos, rot: {} } };
 };
 
 
