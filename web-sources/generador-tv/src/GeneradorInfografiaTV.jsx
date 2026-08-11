@@ -31,7 +31,7 @@ import {
   analizarEscaleta, generarCSV, generarEDL,
 } from "./escaleta.js";
 import { NAVY, INK, PREVIEW_COLOR, AIR_COLOR, PALETTE } from "./theme.js";
-import { inp, inpStyle, btn } from "./ui.js";
+import { inp, inpStyle, btn, SecTitle } from "./ui.jsx";
 import { AsistenteNarrativo } from "./AsistenteNarrativo.jsx";
 import { AsistenteEnVivo } from "./AsistenteEnVivo.jsx";
 
@@ -491,11 +491,6 @@ const LuzIcon = ({ forma, color, size = 15 }) => (
   <svg width={size} height={size} viewBox="-14 -14 28 28" style={{ flex: "0 0 auto", display: "block" }}>
     <GlyphLuz forma={forma} color={color} />
   </svg>
-);
-
-// Título de sección dentro de los paneles de la pestaña Set.
-const SecTitle = ({ children }) => (
-  <div className="text-xs font-bold uppercase" style={{ color: "#8A97A8", letterSpacing: 1 }}>{children}</div>
 );
 
 // Icono de un mueble para la galería y las tarjetas (escala compartida: un

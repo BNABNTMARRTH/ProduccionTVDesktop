@@ -8,7 +8,7 @@ import {
 } from "./narrativa.js";
 import { TIPO_DESDE_PLANTILLA, TONOS } from "./catalogos.js";
 import { NAVY, INK } from "./theme.js";
-import { inp, inpStyle, btn } from "./ui.js";
+import { inp, inpStyle, btn } from "./ui.jsx";
 import { fmt } from "./util.js";
 
 /* --------------------- Asistente narrativo (wizard global) ---------------------

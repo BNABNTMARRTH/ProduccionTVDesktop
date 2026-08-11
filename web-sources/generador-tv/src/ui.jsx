@@ -6,3 +6,8 @@ import { INK } from "./theme.js";
 export const inp = "w-full rounded-md border px-2 py-1.5 text-sm";
 export const inpStyle = { borderColor: "#C8D2DE", color: INK };
 export const btn = "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-semibold";
+
+// Título de sección dentro de los paneles (pestaña Set y similares).
+export const SecTitle = ({ children }) => (
+  <div className="text-xs font-bold uppercase" style={{ color: "#8A97A8", letterSpacing: 1 }}>{children}</div>
+);

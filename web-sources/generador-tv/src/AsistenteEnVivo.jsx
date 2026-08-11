@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { X } from "lucide-react";
 import { TIPOS_PROGRAMA, escaletaEnVivoDe, construirEscaletaEnVivo } from "./envivo.js";
 import { NAVY, INK } from "./theme.js";
-import { inp, inpStyle, btn } from "./ui.js";
+import { inp, inpStyle, btn } from "./ui.jsx";
 import { fmt } from "./util.js";
 
 // Asistente de programa en vivo (modo live): arma una ESCALETA EDITORIAL por
