@@ -3,7 +3,7 @@
 // de ayuda "?". Viven aparte para que los componentes separados a otros
 // archivos usen las mismas piezas sin duplicarlas.
 import React, { useState } from "react";
-import { INK, NAVY } from "./theme.js";
+import { INK, NAVY, PALETTE } from "./theme.js";
 
 export const inp = "w-full rounded-md border px-2 py-1.5 text-sm";
 export const inpStyle = { borderColor: "#C8D2DE", color: INK };
@@ -54,5 +54,32 @@ export function TarjetaAyuda({ id, titulo, pasos }) {
         </div>
       )}
     </>
+  );
+}
+
+// Tarjeta plegable con encabezado (paneles del editor).
+export function Card({ title, children, open = true }) {
+  return (
+    <details open={open} className="rounded-xl border bg-white overflow-hidden" style={{ borderColor: "#C8D2DE" }}>
+      <summary className="cond cursor-pointer select-none font-bold uppercase text-white"
+        style={{ background: NAVY, padding: "7px 12px", fontSize: 15, letterSpacing: 1, listStyle: "none" }}>{title}</summary>
+      <div className="p-3 flex flex-col gap-3">{children}</div>
+    </details>
+  );
+}
+
+
+// Paleta de colores en botoncitos redondos (color de cámara/fuente).
+export function Swatches({ value, onChange }) {
+  return (
+    <div className="flex gap-1.5 flex-wrap">
+      {PALETTE.map((c) => (
+        <button key={c} onClick={() => onChange(c)} aria-label={c}
+          className="rounded-full" style={{
+            width: 18, height: 18, background: c,
+            outline: value === c ? `2px solid ${INK}` : "1px solid rgba(0,0,0,.15)", outlineOffset: 2,
+          }} />
+      ))}
+    </div>
   );
 }

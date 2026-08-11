@@ -28,7 +28,8 @@ import {
   analizarEscaleta, generarCSV, generarEDL,
 } from "./escaleta.js";
 import { NAVY, INK, PREVIEW_COLOR, AIR_COLOR, PALETTE } from "./theme.js";
-import { inp, inpStyle, btn, SecTitle, Box, TarjetaAyuda } from "./ui.jsx";
+import { inp, inpStyle, btn, SecTitle, Box, TarjetaAyuda, Card, Swatches } from "./ui.jsx";
+import { useReorder } from "./hooks.js";
 import { GlyphLuz, GlyphMueble, MuebleIcon } from "./glifos.jsx";
 import { setNuevo, setActivoDe, upSetPor, posMuebleDefault, reacomodoDe } from "./sets.js";
 import { ICONS } from "./iconos.jsx";
@@ -1195,58 +1196,6 @@ function VistaEscaleta({ cfg, setCfg }) {
 }
 
 /* ----------------------------- Editor ----------------------------- */
-
-function Card({ title, children, open = true }) {
-  return (
-    <details open={open} className="rounded-xl border bg-white overflow-hidden" style={{ borderColor: "#C8D2DE" }}>
-      <summary className="cond cursor-pointer select-none font-bold uppercase text-white"
-        style={{ background: NAVY, padding: "7px 12px", fontSize: 15, letterSpacing: 1, listStyle: "none" }}>{title}</summary>
-      <div className="p-3 flex flex-col gap-3">{children}</div>
-    </details>
-  );
-}
-
-
-/* ----------------------------- Arrastrar y soltar ----------------------------- */
-
-// Hook reutilizable para reordenar listas con arrastrar y soltar (HTML5 DnD).
-// `source(i)` se aplica al "asa" que se arrastra; `target(i)` a la zona donde se suelta.
-function useReorder(onReorder) {
-  const [dragIdx, setDragIdx] = useState(null);
-  const [overIdx, setOverIdx] = useState(null);
-  const source = (i) => ({
-    draggable: true,
-    onDragStart: (e) => {
-      setDragIdx(i);
-      e.dataTransfer.effectAllowed = "move";
-      try { e.dataTransfer.setData("text/plain", String(i)); } catch {}
-    },
-    onDragEnd: () => { setDragIdx(null); setOverIdx(null); },
-  });
-  const target = (i) => ({
-    onDragOver: (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (overIdx !== i) setOverIdx(i); },
-    onDrop: (e) => {
-      e.preventDefault();
-      if (dragIdx != null && dragIdx !== i) onReorder(dragIdx, i);
-      setDragIdx(null); setOverIdx(null);
-    },
-  });
-  return { dragIdx, overIdx, source, target };
-}
-
-function Swatches({ value, onChange }) {
-  return (
-    <div className="flex gap-1.5 flex-wrap">
-      {PALETTE.map((c) => (
-        <button key={c} onClick={() => onChange(c)} aria-label={c}
-          className="rounded-full" style={{
-            width: 18, height: 18, background: c,
-            outline: value === c ? `2px solid ${INK}` : "1px solid rgba(0,0,0,.15)", outlineOffset: 2,
-          }} />
-      ))}
-    </div>
-  );
-}
 
 function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
   const [nombreProy, setNombreProy] = useState("");
