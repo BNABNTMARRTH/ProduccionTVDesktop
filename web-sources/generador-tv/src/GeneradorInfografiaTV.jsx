@@ -31,6 +31,7 @@ import {
   analizarEscaleta, generarCSV, generarEDL,
 } from "./escaleta.js";
 import { NAVY, INK, PREVIEW_COLOR, AIR_COLOR, PALETTE } from "./theme.js";
+import { inp, inpStyle, btn } from "./ui.js";
 
 // Modo del proyecto: 'live' (programa en vivo) o 'narrative' (por escenas y
 // planos). Los proyectos anteriores a los modos se leen como 'live'.
@@ -2738,9 +2739,6 @@ function Card({ title, children, open = true }) {
   );
 }
 
-const inp = "w-full rounded-md border px-2 py-1.5 text-sm";
-const inpStyle = { borderColor: "#C8D2DE", color: INK };
-const btn = "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-semibold";
 
 /* ----------------------------- Arrastrar y soltar ----------------------------- */
 
