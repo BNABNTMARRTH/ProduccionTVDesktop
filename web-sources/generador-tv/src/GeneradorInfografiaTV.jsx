@@ -30,6 +30,7 @@ import {
   computeFuentes, computeRows, computeBloques,
   analizarEscaleta, generarCSV, generarEDL,
 } from "./escaleta.js";
+import { NAVY, INK, PREVIEW_COLOR, AIR_COLOR, PALETTE } from "./theme.js";
 
 // Modo del proyecto: 'live' (programa en vivo) o 'narrative' (por escenas y
 // planos). Los proyectos anteriores a los modos se leen como 'live'.
@@ -37,11 +38,6 @@ const esNarrativo = (cfg) => cfg?.modo === "narrative";
 
 /* ----------------------------- Tokens / utilidades ----------------------------- */
 
-const NAVY = "#16365F";
-const INK = "#15233D";
-const PREVIEW_COLOR = "#7C3AED";
-const AIR_COLOR = "#D92B2B";
-const PALETTE = ["#1D6FD1", "#1FA14E", "#F07F13", "#8B5CF6", "#E0312F", "#0E9F9E", "#D1268F", "#4F46E5"];
 const SET_CANVAS_DEFAULTS = {
   showLabels: false,
   showGuides: false,
