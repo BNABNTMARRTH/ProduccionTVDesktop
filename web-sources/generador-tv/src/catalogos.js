@@ -54,3 +54,71 @@ export const CUE_ESTADO = Object.fromEntries(CUE_ESTADOS.map((e) => [e.id, e]));
 
 // Transiciones disponibles entre cues/tomas.
 export const TRANSICIONES = ["Corte", "Disolvencia", "Fade in", "Fade out", "Wipe", "Stinger"];
+
+// Fuentes comunes para alta rápida en la escaleta (color e indicador de si es un corte).
+export const CATALOGO_FUENTES = [
+  { nombre: "COMERCIALES", color: "#F3C513", esCorte: true },
+  { nombre: "VTR / VIDEO", color: "#64748B", esCorte: false },
+  { nombre: "GRÁFICOS / GFX", color: "#0E9F9E", esCorte: false },
+  { nombre: "REMOTO / VIDEOLLAMADA", color: "#8B5CF6", esCorte: false },
+  { nombre: "DRON", color: "#1D6FD1", esCorte: false },
+  { nombre: "CÁMARA EXTERNA", color: "#1FA14E", esCorte: false },
+  { nombre: "PLAYBACK / MÚSICA", color: "#D1268F", esCorte: false },
+  { nombre: "PRESENTACIÓN / SLIDES", color: "#F07F13", esCorte: false },
+];
+
+// Secciones de la infografía (orden y abrir/cerrar son configurables por el usuario).
+export const SECCIONES_INFO = [
+  { id: "estudio", label: "Set / Estudio" },
+  { id: "flujo", label: "Flujo de producción" },
+  { id: "escaleta", label: "Escaleta / Rundown" },
+  { id: "monitores", label: "Monitores en cabina" },
+  { id: "personal", label: "Personal de operación" },
+  { id: "timeline", label: "Línea de tiempo" },
+  { id: "leyenda", label: "Leyenda" },
+];
+// "flujo", "monitores" y "leyenda" ahora viven fuera (Set y Escaleta tienen pestaña
+// propia). Siguen siendo ids válidos en datos guardados para no romper proyectos
+// viejos; solo dejan de renderizarse en la hoja.
+export const SECCIONES_DEPRECADAS = ["flujo", "monitores", "leyenda"];
+export const SECCIONES_IDS = SECCIONES_INFO.map((s) => s.id);
+export const seccionesDefault = () => SECCIONES_INFO.map((s) => ({ id: s.id, abierto: true }));
+
+// Roles del personal de operación y el nombre (texto) de su icono.
+export const CATALOGO_ROLES = [
+  { rol: "Director de cámaras", icon: "director" },
+  { rol: "Operador de switcher", icon: "switcher" },
+  { rol: "Operador de audio", icon: "audio" },
+  { rol: "Operador de gráficos", icon: "graficos" },
+  { rol: "Operador de playback", icon: "playback" },
+  { rol: "Conductor(a)", icon: "conductor" },
+  { rol: "Floor manager", icon: "floor" },
+  { rol: "Iluminador", icon: "luces" },
+  { rol: "Productor", icon: "productor" },
+  { rol: "Continuista / Script", icon: "script" },
+];
+
+// Mobiliario del set. cap = plazas para talentos; "mitad" ayuda a dibujar la manija
+// de giro. (Ojo: hoy también existe una copia en tools/shared/sheets.js; al unificar
+// el dibujo del plano —Fase 1— esa hoja debería leer desde aquí.)
+export const MUEBLES_CATALOGO = {
+  podio:   { es: "Atril / podio",      cap: 1, mitad: 17 },
+  sillon1: { es: "Sillón individual",  cap: 1, mitad: 24 },
+  sillon2: { es: "Sofá de 2 plazas",   cap: 2, mitad: 38 },
+  sillon3: { es: "Sofá de 3 plazas",   cap: 3, mitad: 52 },
+  silla:   { es: "Silla",              cap: 1, mitad: 12 },
+  banco:   { es: "Banco alto",         cap: 1, mitad: 11 },
+};
+// Dónde se sienta cada ocupante, relativo al centro del mueble (antes de girar).
+export const MUEBLE_ASIENTOS = {
+  podio: [{ x: 0, y: -26 }],
+  sillon1: [{ x: 0, y: 0 }],
+  sillon2: [{ x: -19, y: 0 }, { x: 19, y: 0 }],
+  sillon3: [{ x: -33, y: 0 }, { x: 0, y: 0 }, { x: 33, y: 0 }],
+  silla: [{ x: 0, y: 0 }],
+  banco: [{ x: 0, y: 0 }],
+};
+
+// Asistente narrativo: mapeo de plantilla → tipo, y tonos sugeridos.
+export const TIPO_DESDE_PLANTILLA = { podcast: "podcast", noticiero: "estudio", entrevista: "entrevista", streaming: "estudio", multicamara: "estudio" };
+export const TONOS = ["Ligero", "Serio", "Oscuro", "Poético", "Irónico", "Épico", "Íntimo", "Cálido"];

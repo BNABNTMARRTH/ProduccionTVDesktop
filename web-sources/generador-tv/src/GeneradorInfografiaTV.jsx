@@ -20,6 +20,8 @@ import { TIPOS_PROGRAMA, escaletaEnVivoDe, construirEscaletaEnVivo } from "./env
 import {
   PLANOS, MOVIMIENTOS, MIC_TIPOS, MIC_TIPO_CORTO,
   CUE_TIPOS, CUE_TIPO, CUE_ESTADOS, CUE_ESTADO, TRANSICIONES,
+  CATALOGO_FUENTES, SECCIONES_INFO, SECCIONES_DEPRECADAS, SECCIONES_IDS, seccionesDefault,
+  CATALOGO_ROLES, MUEBLES_CATALOGO, MUEBLE_ASIENTOS, TIPO_DESDE_PLANTILLA, TONOS,
 } from "./catalogos.js";
 
 // Modo del proyecto: 'live' (programa en vivo) o 'narrative' (por escenas y
@@ -58,35 +60,6 @@ const leerImagenStoryboard = (file) => new Promise((resolve, reject) => {
   img.src = url;
 });
 
-// Fuentes comunes para alta rápida (además de las cámaras)
-const CATALOGO_FUENTES = [
-  { nombre: "COMERCIALES", color: "#F3C513", esCorte: true },
-  { nombre: "VTR / VIDEO", color: "#64748B", esCorte: false },
-  { nombre: "GRÁFICOS / GFX", color: "#0E9F9E", esCorte: false },
-  { nombre: "REMOTO / VIDEOLLAMADA", color: "#8B5CF6", esCorte: false },
-  { nombre: "DRON", color: "#1D6FD1", esCorte: false },
-  { nombre: "CÁMARA EXTERNA", color: "#1FA14E", esCorte: false },
-  { nombre: "PLAYBACK / MÚSICA", color: "#D1268F", esCorte: false },
-  { nombre: "PRESENTACIÓN / SLIDES", color: "#F07F13", esCorte: false },
-];
-
-// Secciones de la infografía (orden y abrir/cerrar son configurables por el usuario)
-const SECCIONES_INFO = [
-  { id: "estudio", label: "Set / Estudio" },
-  { id: "flujo", label: "Flujo de producción" },
-  { id: "escaleta", label: "Escaleta / Rundown" },
-  { id: "monitores", label: "Monitores en cabina" },
-  { id: "personal", label: "Personal de operación" },
-  { id: "timeline", label: "Línea de tiempo" },
-  { id: "leyenda", label: "Leyenda" },
-];
-// Secciones retiradas de la vista Infografía: "flujo" y "monitores" y "leyenda"
-// ahora viven fuera (Set y Escaleta tienen pestaña propia). Siguen siendo ids
-// válidos en los datos guardados para no romper proyectos viejos; solo dejan
-// de renderizarse en la hoja.
-const SECCIONES_DEPRECADAS = ["flujo", "monitores", "leyenda"];
-const SECCIONES_IDS = SECCIONES_INFO.map((s) => s.id);
-const seccionesDefault = () => SECCIONES_INFO.map((s) => ({ id: s.id, abierto: true }));
 
 // Normaliza el orden/estado de secciones: conserva el orden guardado, agrega las
 // que falten al final y descarta ids desconocidos (compatibilidad con proyectos viejos).
@@ -279,18 +252,6 @@ const ICONS = {
   productor: Users, script: Pencil, custom: User,
 };
 
-const CATALOGO_ROLES = [
-  { rol: "Director de cámaras", icon: "director" },
-  { rol: "Operador de switcher", icon: "switcher" },
-  { rol: "Operador de audio", icon: "audio" },
-  { rol: "Operador de gráficos", icon: "graficos" },
-  { rol: "Operador de playback", icon: "playback" },
-  { rol: "Conductor(a)", icon: "conductor" },
-  { rol: "Floor manager", icon: "floor" },
-  { rol: "Iluminador", icon: "luces" },
-  { rol: "Productor", icon: "productor" },
-  { rol: "Continuista / Script", icon: "script" },
-];
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -502,25 +463,6 @@ const setActivoDe = (cfg) => (cfg.sets || []).find((s) => s.id === cfg.setActivo
 // Aplica un parche funcional a un set por id dentro de un updater de setCfg.
 const upSetPor = (c, setId, fn) => ({ ...c, sets: (c.sets || []).map((s) => (s.id === setId ? fn(s) : s)) });
 
-// Mobiliario disponible en el set. cap = plazas para talentos; los glifos
-// se dibujan mirando hacia el frente del set (abajo) y giran con su manija.
-const MUEBLES_CATALOGO = {
-  podio:   { es: "Atril / podio",      cap: 1, mitad: 17 },
-  sillon1: { es: "Sillón individual",  cap: 1, mitad: 24 },
-  sillon2: { es: "Sofá de 2 plazas",   cap: 2, mitad: 38 },
-  sillon3: { es: "Sofá de 3 plazas",   cap: 3, mitad: 52 },
-  silla:   { es: "Silla",              cap: 1, mitad: 12 },
-  banco:   { es: "Banco alto",         cap: 1, mitad: 11 },
-};
-// Dónde se sienta cada ocupante, relativo al centro del mueble (antes de girar).
-const MUEBLE_ASIENTOS = {
-  podio: [{ x: 0, y: -26 }],
-  sillon1: [{ x: 0, y: 0 }],
-  sillon2: [{ x: -19, y: 0 }, { x: 19, y: 0 }],
-  sillon3: [{ x: -33, y: 0 }, { x: 0, y: 0 }, { x: 33, y: 0 }],
-  silla: [{ x: 0, y: 0 }],
-  banco: [{ x: 0, y: 0 }],
-};
 // Posición inicial (y de reacomodo) del mueble n en el lienzo.
 const posMuebleDefault = (n) => ({ x: 335 + (n % 4) * 85, y: 330 + Math.floor(n / 4) * 75 });
 
@@ -1979,8 +1921,6 @@ premisa → personajes → estructura → escenas → imagen → sonido → recu
 generación de escaleta y guion técnico. La unidad central es la escena: en su
 ficha convergen narración, imagen, sonido y recursos. Se abre desde la
 pestaña Escaleta o automáticamente al crear un proyecto desde Inicio. */
-const TIPO_DESDE_PLANTILLA = { podcast: "podcast", noticiero: "estudio", entrevista: "entrevista", streaming: "estudio", multicamara: "estudio" };
-const TONOS = ["Ligero", "Serio", "Oscuro", "Poético", "Irónico", "Épico", "Íntimo", "Cálido"];
 
 function AsistenteNarrativo({ cfg, setCfg, onClose, onGenerado }) {
   // Si el tipo ya viene resuelto (plantilla de Inicio o narrativa previa),
