@@ -17,6 +17,10 @@ import {
   loglineDe, escenasDe, planoPorEncuadre, anguloPorPercepcion, alertasDe, sincronizarPersonajes, construirProyectoNarrativo,
 } from "./narrativa.js";
 import { TIPOS_PROGRAMA, escaletaEnVivoDe, construirEscaletaEnVivo } from "./envivo.js";
+import {
+  PLANOS, MOVIMIENTOS, MIC_TIPOS, MIC_TIPO_CORTO,
+  CUE_TIPOS, CUE_TIPO, CUE_ESTADOS, CUE_ESTADO, TRANSICIONES,
+} from "./catalogos.js";
 
 // Modo del proyecto: 'live' (programa en vivo) o 'narrative' (por escenas y
 // planos). Los proyectos anteriores a los modos se leen como 'live'.
@@ -33,22 +37,6 @@ const SET_CANVAS_DEFAULTS = {
   showLabels: false,
   showGuides: false,
 };
-
-const PLANOS = [
-  "Gran Plano General", "Plano General", "Plano Entero", "Plano Conjunto",
-  "Plano Americano", "Plano Medio", "Plano Medio Corto",
-  "Plano Medio Izquierdo", "Plano Medio Derecho",
-  "Primer Plano", "Primerísimo Primer Plano", "Plano Detalle", "Insert",
-  "Two Shot", "Over the Shoulder",
-  "Plano Cenital", "Plano Nadir", "Plano Picado", "Plano Contrapicado", "Plano Holandés",
-  "Plano Subjetivo (POV)", "Plano Recurso (B-Roll)", "Plano Secuencia",
-];
-
-// Movimientos de cámara para el guion técnico (datalist: se puede escribir otro).
-const MOVIMIENTOS = [
-  "Fija", "Paneo izquierda", "Paneo derecha", "Tilt up", "Tilt down",
-  "Zoom in", "Zoom out", "Dolly in", "Dolly out", "Travelling", "A mano", "Grúa",
-];
 
 // Reduce una imagen a un cuadro de storyboard ligero (JPEG de 480px de ancho):
 // las imágenes viven en base64 dentro del proyecto y sin esta reducción
@@ -420,14 +408,6 @@ const BLANCO = () => ({
   secciones: seccionesDefault(),
 });
 
-// Tipos de micrófono disponibles y a qué se pueden asignar.
-const MIC_TIPOS = [
-  { id: "dinamico", label: "Dinámico (de mano)", asigna: "talento" },
-  { id: "solapa", label: "Solapa (lavalier)", asigna: "talento" },
-  { id: "shotgun", label: "Shotgun (en cámara)", asigna: "camara" },
-  { id: "boom", label: "Boom (perchado en el set)", asigna: "set" },
-];
-const MIC_TIPO_CORTO = { dinamico: "dinámico", solapa: "solapa", shotgun: "shotgun", boom: "boom" };
 
 const setNuevo = (n = 1) => ({
   id: `set-${uid()}`, nombre: n === 1 ? "Set principal" : `Set ${n}`,
@@ -2524,26 +2504,6 @@ El rundown descompone cada segmento editorial en cues técnicos: una acción
 concreta (cámara al aire, cambio de audio, gráfico, VTR, comercial…) con su
 duración, estado y color por tipo. Es la capa técnica del modo en vivo. */
 
-const CUE_TIPOS = [
-  { id: "camara", label: "Cámara", color: "#1D6FD1" },
-  { id: "grafico", label: "Gráfico", color: "#EAB308" },
-  { id: "audio", label: "Audio", color: "#1FA14E" },
-  { id: "vtr", label: "VTR / Playback", color: "#8B5CF6" },
-  { id: "comercial", label: "Comercial", color: "#F07F13" },
-  { id: "cortinilla", label: "Cortinilla", color: "#DB2777" },
-  { id: "instruccion", label: "Instrucción", color: "#64748B" },
-];
-const CUE_TIPO = Object.fromEntries(CUE_TIPOS.map((t) => [t.id, t]));
-const CUE_ESTADOS = [
-  { id: "borrador", label: "Borrador", icon: "○", color: "#94A3B8" },
-  { id: "preparacion", label: "En preparación", icon: "◐", color: "#D97706" },
-  { id: "listo", label: "Listo", icon: "✓", color: "#1FA14E" },
-  { id: "ejecutado", label: "Ejecutado", icon: "●", color: "#2563EB" },
-  { id: "revision", label: "Revisión", icon: "!", color: "#DC2626" },
-  { id: "omitido", label: "Omitido", icon: "✕", color: "#9CA3AF" },
-];
-const CUE_ESTADO = Object.fromEntries(CUE_ESTADOS.map((e) => [e.id, e]));
-const TRANSICIONES = ["Corte", "Disolvencia", "Fade in", "Fade out", "Wipe", "Stinger"];
 const parseMMSS = (txt) => {
   const m = String(txt).match(/^(\d+):(\d{1,2})$/);
   const s = m ? Number(m[1]) * 60 + Number(m[2]) : Number(txt);
