@@ -91,6 +91,21 @@ document.querySelector('#app').innerHTML = `
   <div class="desktop-shell">
     <nav class="rail" id="rail" aria-label="Herramientas">
       <img class="rail-logo" src="${appIcon}" alt="">
+      <div class="rail-group" id="rail-home" hidden>
+        <button data-accion="proyectos" class="active" title="Todos tus proyectos">
+          <span class="ic">${icono('proyecto', 26)}</span><em>Proyectos</em>
+        </button>
+        <button data-accion="nuevo" title="Crear un proyecto nuevo con el asistente">
+          <span class="ic">${icono('nuevo', 26)}</span><em>Nuevo</em>
+        </button>
+        <button id="import-project" title="Abre un proyecto .ptv exportado desde otra computadora (también puedes soltarlo sobre la ventana)">
+          <span class="ic">${icono('importar', 26)}</span><em>Importar</em>
+        </button>
+        <button id="open-trash" title="Los proyectos eliminados se pueden restaurar desde aquí">
+          <span class="ic">${icono('papelera', 26)}</span><em>Papelera</em>
+        </button>
+      </div>
+      <div class="rail-group" id="rail-tools">
       ${[
         ['infografias', 'Infografías', 'La hoja completa: set, escaleta, personal y branding (⌘1)'],
         ['set', 'Set', 'Espacio físico, mobiliario e iluminación (⌘2)'],
@@ -103,6 +118,7 @@ document.querySelector('#app').innerHTML = `
       <button data-view="${vista}" title="${ayuda}">
         <span class="ic">${icono(vista, 26)}</span><em>${etiqueta}</em>
       </button>`).join('')}
+      </div>
     </nav>
     <main class="workspace">
       <header class="workspace-header" id="workspace-header">
@@ -116,10 +132,20 @@ document.querySelector('#app').innerHTML = `
       </header>
       <nav class="ruta" id="ruta" hidden aria-label="Ruta de producción"></nav>
       <section class="home-view" id="home-view">
-        <div class="home-hero"><div><span class="eyebrow">ATJ · PRODUCCIÓN AUDIOVISUAL</span><h1>¿Qué vas a producir hoy?</h1><p>Crea un proyecto nuevo y elige su modo en el asistente, o abre uno reciente.</p></div><button id="new-project-focus">＋ Nuevo proyecto</button></div>
-        <div class="home-grid">
-          <aside class="recent-panel"><div class="section-title"><h2>Proyectos recientes</h2><span id="project-count"></span></div><input id="project-search" class="project-search" type="search" placeholder="Buscar proyecto…" aria-label="Buscar proyecto por nombre"><div id="recent-projects"></div><button class="import-project" id="import-project" title="Abre un proyecto .ptv exportado desde otra computadora (también puedes soltarlo sobre la ventana)">⬆ Importar proyecto (.ptv)</button><input type="file" id="import-file" accept=".ptv,.json" hidden><button class="trash-link" id="open-trash" title="Los proyectos eliminados se pueden restaurar desde aquí">🗑 Ver papelera</button></aside>
+        <div class="home-top">
+          <div>
+            <span class="eyebrow">ATJ · PRODUCCIÓN AUDIOVISUAL</span>
+            <h1>Tus proyectos</h1>
+            <p class="home-sub"><span id="project-count"></span><span id="home-sub-text"></span></p>
+          </div>
+          <div class="home-tools">
+            <input id="project-search" class="project-search" type="search" placeholder="Buscar proyecto…" aria-label="Buscar proyecto por nombre">
+            <button id="new-project-focus">${icono('nuevo', 17)} Nuevo proyecto</button>
+          </div>
         </div>
+        <div id="continue-slot"></div>
+        <div class="proj-grid" id="recent-projects"></div>
+        <input type="file" id="import-file" accept=".ptv,.json" hidden>
         <p class="home-credit">Hecha por <strong>Aldo Abiud Torres Juárez</strong>, alumno de la FCC, para las y los alumnos de la FCC.</p>
       </section>
 
@@ -157,6 +183,8 @@ const homeView = document.querySelector('#home-view');
 const productionView = document.querySelector('#production-view');
 const header = document.querySelector('#workspace-header');
 const rail = document.querySelector('#rail');
+const railTools = document.querySelector('#rail-tools');
+const railHome = document.querySelector('#rail-home');
 const loading = document.querySelector('#loading');
 const navButtons = [...document.querySelectorAll('[data-view]')];
 const toast = document.querySelector('#export-toast');
@@ -360,33 +388,119 @@ function importProjectFromText(text, { launch = true } = {}) {
 
 let projectQuery = '';
 
+// Miniatura de un proyecto: su plano cenital REAL, dibujado por el mismo
+// renderizador que usan las hojas imprimibles (window.PTVSheets), así la
+// tarjeta muestra el trabajo del alumno y no un icono genérico.
+function miniPlano(cfg) {
+    try {
+        return (cfg && window.PTVSheets?.planoSvg?.(cfg)) || '';
+    } catch (e) {
+        return '';
+    }
+}
+
+const durTexto = (seg) => `${Math.floor(seg / 60)}:${String(Math.round(seg % 60)).padStart(2, '0')}`;
+
+// Resumen de una línea: lo que distingue a un proyecto de otro de un vistazo.
+function resumenProyecto(p) {
+    const cfg = p.cfg || {};
+    const partes = [];
+    const total = (cfg.escaleta || []).reduce((a, seg) => a + (seg.dur || 0), 0);
+    if (normalizeMode(cfg.modo) === 'narrative') {
+        const escenas = (cfg.escaleta || []).length;
+        if (escenas) partes.push(`${escenas} escena${escenas === 1 ? '' : 's'}`);
+    } else {
+        const cams = (cfg.camaras || []).length;
+        if (cams) partes.push(`${cams} cámara${cams === 1 ? '' : 's'}`);
+    }
+    if (total) partes.push(durTexto(total));
+    const sets = (cfg.sets || []).length;
+    if (sets > 1) partes.push(`${sets} sets`);
+    return partes.join(' · ');
+}
+
+// Fecha en lenguaje de todos los días: "Hoy, 11:20" pesa menos que una fecha larga.
+function fechaCorta(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const soloDia = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+    const dias = Math.round((soloDia(new Date()) - soloDia(d)) / 86400000);
+    const hora = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    if (dias === 0) return `Hoy, ${hora}`;
+    if (dias === 1) return `Ayer, ${hora}`;
+    if (dias < 7) return `Hace ${dias} días`;
+    return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+}
+
+const chipModo = (p) => {
+    const modo = normalizeMode(p.cfg?.modo);
+    return `<span class="proj-badge ${modo}">${PROJECT_MODES[modo].chip}</span>`;
+};
+
+const accionesProyecto = (p) => `
+  <button data-duplicate="${p.id}" title="Duplicar proyecto">${icono('proyecto', 15)}</button>
+  ${pendingDeleteId === p.id
+      ? `<button data-delete="${p.id}" class="confirm-delete">¿Eliminar?</button>`
+      : `<button data-delete="${p.id}" title="Eliminar proyecto">${icono('papelera', 15)}</button>`}`;
+
 function renderRecent() {
     const box = document.querySelector('#recent-projects');
+    const slot = document.querySelector('#continue-slot');
     const cerca = projects.length >= MAX_PROJECTS - 10;
     const count = document.querySelector('#project-count');
-    count.textContent = cerca ? `${projects.length} / ${MAX_PROJECTS} ⚠` : `${projects.length}`;
+    count.textContent = cerca ? `${projects.length} / ${MAX_PROJECTS} ⚠` : `${projects.length} proyecto${projects.length === 1 ? '' : 's'}`;
     count.title = cerca ? `Cerca del tope de ${MAX_PROJECTS} proyectos: exporta o elimina los que ya no uses` : '';
     document.querySelector('#active-name').textContent = activeProject?.name || 'Guardado local';
     const filtrados = projectQuery
         ? projects.filter((p) => (p.name || '').toLowerCase().includes(projectQuery))
         : projects;
+    document.querySelector('#home-sub-text').textContent = projects.length
+        ? ` · último cambio ${fechaCorta(projects[0].updatedAt).toLowerCase()}`
+        : '';
+
+    // Tarjeta "Continuar": el proyecto más reciente, en grande. Es lo primero
+    // que se busca al abrir la app, y llena el ancho de la pantalla.
+    const seguir = !projectQuery && projects[0];
+    slot.innerHTML = seguir ? `
+        <article class="continue-card">
+          <div class="proj-thumb">${miniPlano(seguir.cfg)}</div>
+          <div class="continue-body">
+            <span class="continue-eyebrow">Seguir donde te quedaste</span>
+            <h2>${seguir.name}</h2>
+            <p>${[chipModo(seguir), resumenProyecto(seguir)].filter(Boolean).join(' ')}</p>
+            <small>${fechaCorta(seguir.updatedAt)}</small>
+            <button class="continue-go" data-open="${seguir.id}">Continuar</button>
+          </div>
+        </article>` : '';
+
     box.innerHTML = filtrados.length
-        ? filtrados.slice(0, projectQuery ? 30 : 14).map((p) => `
-            <article class="recent-item">
-              <span class="recent-icon">${p.id === DEMO_PROJECT_ID ? '🎓' : templateCatalog.find((t) => t.id === p.template)?.icon || '◆'}</span>
-              <span><strong>${p.name}</strong><small>${new Date(p.updatedAt).toLocaleString()}</small></span>
-              <div>
-                <button data-open="${p.id}">Abrir</button>
-                <button data-duplicate="${p.id}" title="Duplicar">⧉</button>
-                ${pendingDeleteId === p.id
-                    ? `<button data-delete="${p.id}" class="confirm-delete">¿Eliminar?</button>`
-                    : `<button data-delete="${p.id}" title="Eliminar">×</button>`}
+        ? filtrados.filter((p) => p.id !== seguir?.id).slice(0, projectQuery ? 30 : 14).map((p) => `
+            <article class="proj-card">
+              <div class="proj-thumb" data-open="${p.id}" role="button" tabindex="0" title="Abrir ${p.name}">
+                ${miniPlano(p.cfg)}
+                ${p.id === DEMO_PROJECT_ID ? '<span class="proj-tag">Tutorial</span>' : ''}
+              </div>
+              <div class="proj-meta">
+                <strong title="${p.name}">${p.name}</strong>
+                <small>${fechaCorta(p.updatedAt)}${resumenProyecto(p) ? ` · ${resumenProyecto(p)}` : ''}</small>
+              </div>
+              <div class="proj-foot">
+                ${chipModo(p)}
+                <span class="proj-acts">${accionesProyecto(p)}</span>
               </div>
             </article>`).join('')
-        : `<div class="empty-projects">${projectQuery ? `Sin resultados para “${projectQuery}”.` : 'Todavía no hay proyectos.<br>Elige una plantilla para comenzar.'}</div>`;
-    box.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => launchProjectWindow(b.dataset.open));
-    box.querySelectorAll('[data-duplicate]').forEach((b) => b.onclick = () => duplicateProject(b.dataset.duplicate));
-    box.querySelectorAll('[data-delete]').forEach((b) => b.onclick = () => requestDeleteProject(b.dataset.delete));
+        : `<div class="empty-projects">${projectQuery
+              ? `Sin resultados para “${projectQuery}”.`
+              : 'Todavía no hay proyectos.<br>Crea el primero con <b>＋ Nuevo proyecto</b>.'}</div>`;
+
+    [slot, box].forEach((zona) => {
+        zona.querySelectorAll('[data-open]').forEach((b) => {
+            b.onclick = () => launchProjectWindow(b.dataset.open);
+            b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); launchProjectWindow(b.dataset.open); } };
+        });
+        zona.querySelectorAll('[data-duplicate]').forEach((b) => b.onclick = () => duplicateProject(b.dataset.duplicate));
+        zona.querySelectorAll('[data-delete]').forEach((b) => b.onclick = () => requestDeleteProject(b.dataset.delete));
+    });
 }
 
 /* ----------------------------- Vistas ----------------------------- */
@@ -417,7 +531,11 @@ function selectView(view, forceReload = false) {
     // Las pestañas viven en el header: visible siempre, salvo en Inicio
     // (el lanzador es solo la pantalla de inicio).
     header.hidden = view === 'home';
-    rail.hidden = view === 'home';
+    // La barra lateral acompaña siempre: en Inicio muestra las acciones del
+    // lanzador (proyectos, nuevo, importar, papelera) y dentro de un proyecto,
+    // las herramientas.
+    railHome.hidden = view !== 'home';
+    railTools.hidden = view === 'home';
     renderRuta();
     frameWrap.hidden = !isTool;
     if (view === 'home') { renderRecent(); return; }
@@ -585,6 +703,7 @@ navButtons.forEach((button) => button.onclick = () => selectView(button.dataset.
 renderRecent();
 
 document.querySelector('#new-project-focus').onclick = () => wizard.open();
+document.querySelector('[data-accion="nuevo"]').onclick = () => wizard.open();
 // El nombre del proyecto en el header funciona como la pestaña Archivo de
 // Word: desde una ventana de proyecto trae al frente la ventana ORIGINAL de
 // inicio (el lanzador) — no una copia local; si ya se cerró, Go abre una nueva.
