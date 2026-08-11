@@ -12,6 +12,10 @@ import { uid } from "./util.js";
 
 // Normaliza el orden/estado de secciones: conserva el orden guardado, agrega las
 // que falten al final y descarta ids desconocidos (compatibilidad con proyectos viejos).
+// Modo del proyecto: 'live' (programa en vivo) o 'narrative' (por escenas y
+// planos). Los proyectos anteriores a los modos se leen como 'live'.
+export const esNarrativo = (cfg) => cfg?.modo === "narrative";
+
 export const normSecciones = (arr) => {
   const valid = Array.isArray(arr) ? arr.filter((s) => SECCIONES_IDS.includes(s.id)) : [];
   const seen = new Set(valid.map((s) => s.id));
