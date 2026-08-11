@@ -23,6 +23,9 @@ import {
   CATALOGO_FUENTES, SECCIONES_INFO, SECCIONES_DEPRECADAS, SECCIONES_IDS, seccionesDefault,
   CATALOGO_ROLES, MUEBLES_CATALOGO, MUEBLE_ASIENTOS, TIPO_DESDE_PLANTILLA, TONOS,
 } from "./catalogos.js";
+import {
+  reorder, toTC, csvCell, uid, fmt, parseDur, textOn, trunc, slug,
+} from "./util.js";
 
 // Modo del proyecto: 'live' (programa en vivo) o 'narrative' (por escenas y
 // planos). Los proyectos anteriores a los modos se leen como 'live'.
@@ -70,13 +73,6 @@ const normSecciones = (arr) => {
   return [...valid.map((s) => ({ id: s.id, abierto: s.abierto !== false })), ...missing];
 };
 
-// Mueve un elemento de un índice a otro (para arrastrar y soltar)
-const reorder = (list, from, to) => {
-  const copy = [...list];
-  const [moved] = copy.splice(from, 1);
-  copy.splice(to, 0, moved);
-  return copy;
-};
 
 /* ----------------------------- Análisis de tiempos ----------------------------- */
 
@@ -110,20 +106,6 @@ function analizarEscaleta(cfg) {
 
 /* ----------------------------- Exportar EDL / CSV ----------------------------- */
 
-// Convierte segundos a timecode HH:MM:SS:FF (frames a 0; fps solo informativo)
-const toTC = (s) => {
-  s = Math.max(0, Math.round(s || 0));
-  const hh = Math.floor(s / 3600);
-  const mm = Math.floor((s % 3600) / 60);
-  const ss = s % 60;
-  const p = (n) => String(n).padStart(2, "0");
-  return `${p(hh)}:${p(mm)}:${p(ss)}:00`;
-};
-
-const csvCell = (v) => {
-  const s = String(v ?? "");
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-};
 
 function generarCSV(cfg) {
   const fuentes = computeFuentes(cfg);
@@ -183,7 +165,6 @@ function descargarArchivo(nombre, contenido, mime = "text/plain") {
   } catch (e) { console.error("No se pudo descargar:", e); }
 }
 
-const slug = (s) => (s || "proyecto").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 40) || "proyecto";
 
 /* ----------------------------- Compartir por URL ----------------------------- */
 
@@ -253,36 +234,6 @@ const ICONS = {
 };
 
 
-const uid = () => Math.random().toString(36).slice(2, 9);
-
-const fmt = (s) => {
-  s = Math.max(0, Math.round(s || 0));
-  const m = Math.floor(s / 60), ss = s % 60;
-  return `${String(m).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
-};
-
-const parseDur = (t) => {
-  if (t == null) return null;
-  t = String(t).trim();
-  if (!t) return null;
-  if (t.includes(":")) {
-    const p = t.split(":").map((n) => parseInt(n, 10));
-    if (p.some(isNaN)) return null;
-    return p.reduce((a, n) => a * 60 + n, 0);
-  }
-  const n = parseInt(t, 10);
-  return isNaN(n) ? null : n;
-};
-
-const textOn = (hex) => {
-  try {
-    const h = hex.replace("#", "");
-    const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
-    return 0.299 * r + 0.587 * g + 0.114 * b > 165 ? "#1A2433" : "#FFFFFF";
-  } catch { return "#FFFFFF"; }
-};
-
-const trunc = (s, n) => (s && s.length > n ? s.slice(0, n - 1) + "…" : s || "");
 
 /* ----------------------------- Datos de ejemplo ----------------------------- */
 
