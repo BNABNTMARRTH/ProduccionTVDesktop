@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
-  Camera, Monitor, Play, User, Users, Headphones, SlidersHorizontal, Volume2, Mic,
-  Lightbulb, Clapperboard, Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Save, FolderOpen,
+  Camera, Monitor, User, Mic, Clapperboard, Plus, Trash2,
+  ChevronUp, ChevronDown, ChevronRight, Save, FolderOpen,
   FilePlus, Eye, Pencil, X, GripVertical, Search, StickyNote, Undo2, Redo2,
   ZoomIn, ZoomOut, Share2, Link2, Check, Download, AlertTriangle, Info
 } from "lucide-react";
@@ -31,6 +31,8 @@ import { NAVY, INK, PREVIEW_COLOR, AIR_COLOR, PALETTE } from "./theme.js";
 import { inp, inpStyle, btn, SecTitle, Box, TarjetaAyuda } from "./ui.jsx";
 import { GlyphLuz, GlyphMueble, MuebleIcon } from "./glifos.jsx";
 import { setNuevo, setActivoDe, upSetPor, posMuebleDefault, reacomodoDe } from "./sets.js";
+import { ICONS } from "./iconos.jsx";
+import { PersonalGrid } from "./PersonalGrid.jsx";
 import { EstudioCenital } from "./EstudioCenital.jsx";
 import { PanelIluminacion } from "./PanelIluminacion.jsx";
 import { AsistenteNarrativo } from "./AsistenteNarrativo.jsx";
@@ -165,12 +167,6 @@ function useHistory(inicial) {
 
   return { cfg: hist.present, setCfg, undo, redo, reset, canUndo: hist.past.length > 0, canRedo: hist.future.length > 0 };
 }
-
-const ICONS = {
-  director: Headphones, switcher: SlidersHorizontal, audio: Volume2, graficos: Monitor,
-  playback: Play, conductor: Mic, floor: Clapperboard, luces: Lightbulb,
-  productor: Users, script: Pencil, custom: User,
-};
 
 
 
@@ -589,35 +585,6 @@ function SeccionPanel({ titulo, abierto, controls, onToggle, onUp, onDown, canUp
         )}
       </div>
       {abierto && <div className="p-3">{children}</div>}
-    </div>
-  );
-}
-
-function PersonalGrid({ cfg, cams }) {
-  return (
-    <div className="flex flex-wrap gap-3">
-      {cfg.personal.map((p) => {
-        const Ic = ICONS[p.icon] || User;
-        return (
-          <div key={p.id} className="flex flex-col items-center text-center" style={{ width: 92 }}>
-            <span className="flex items-center justify-center rounded-full" style={{ width: 42, height: 42, background: NAVY }}>
-              <Ic size={20} color="#fff" />
-            </span>
-            <span className="font-bold uppercase" style={{ fontSize: 9.5, color: INK, marginTop: 4, lineHeight: 1.15 }}>{p.rol}</span>
-          </div>
-        );
-      })}
-      {cfg.includeCamOps && cams.map((c) => (
-        <div key={c.id} className="flex flex-col items-center text-center" style={{ width: 92 }}>
-          <span className="relative flex items-center justify-center rounded-full" style={{ width: 42, height: 42, background: "#22344E" }}>
-            <Camera size={20} color="#fff" />
-            <span className="absolute flex items-center justify-center rounded-full font-bold"
-              style={{ top: -4, right: -4, width: 17, height: 17, background: c.color, color: textOn(c.color), fontSize: 10, border: "2px solid #fff" }}>{c.num}</span>
-          </span>
-          <span className="font-bold uppercase" style={{ fontSize: 9.5, color: INK, marginTop: 4, lineHeight: 1.15 }}>Cámara {c.num}</span>
-          <span style={{ fontSize: 8.5, color: "#5B6B82", lineHeight: 1.1 }}>{trunc(c.plano, 24)}</span>
-        </div>
-      ))}
     </div>
   );
 }
