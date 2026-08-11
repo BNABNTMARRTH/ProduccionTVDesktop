@@ -1,6 +1,7 @@
 import './style.css';
 import html2canvas from 'html2canvas';
 import appIcon from './assets/images/atj-icon-small.png';
+import { icono } from './iconos.js';
 import { DeleteProjectFile, DeleteTrashFile, FocusLauncher, GetLaunchContext, ListTrashFiles, LoadAllProjects, LoadProjectFile, OpenProjectWindow, Print, ReadTrashFile, SaveBase64File, SaveProjectFile, SaveTextFile } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 import { templateCatalog, makeTemplate, diagramFromConfig, infografiaFromDiagram, uid, PROJECT_MODES, normalizeMode } from './templates.js';
@@ -88,24 +89,29 @@ const showWelcome = !localStorage.getItem(WELCOME_KEY);
 
 document.querySelector('#app').innerHTML = `
   <div class="desktop-shell">
+    <nav class="rail" id="rail" aria-label="Herramientas">
+      <img class="rail-logo" src="${appIcon}" alt="">
+      ${[
+        ['infografias', 'Infografías', 'La hoja completa: set, escaleta, personal y branding (⌘1)'],
+        ['set', 'Set', 'Espacio físico, mobiliario e iluminación (⌘2)'],
+        ['escaleta', 'Escaleta', 'Rundown, guion técnico y storyboard (⌘3)'],
+        ['diagrama', 'Diagrama', 'Diseña y valida la ruta de señal (⌘4)'],
+        ['production', 'Producción', 'En vivo: cronómetro, tally y teleprompter (⌘5)'],
+        ['guias', 'Guías', 'Hojas imprimibles para llenar a mano (⌘6)'],
+        ['exportar', 'Exportar', 'Arma el documento: formato, secciones y orden (⌘7)'],
+      ].map(([vista, etiqueta, ayuda]) => `
+      <button data-view="${vista}" title="${ayuda}">
+        <span class="ic">${icono(vista, 26)}</span><em>${etiqueta}</em>
+      </button>`).join('')}
+    </nav>
     <main class="workspace">
       <header class="workspace-header" id="workspace-header">
-        <img class="header-logo" src="${appIcon}" alt="">
-        <nav class="header-tabs" aria-label="Navegación">
-          <button data-view="infografias" title="La hoja completa: set, escaleta, personal y branding (⌘1)">▤ Infografías</button>
-          <button data-view="set" title="Espacio físico, mobiliario e iluminación (⌘2)">▦ Set</button>
-          <button data-view="escaleta" title="Rundown, guion técnico y storyboard (⌘3)">≡ Escaleta</button>
-          <button data-view="diagrama" title="Diseña y valida la ruta de señal (⌘4)">⌁ Diagrama</button>
-          <button data-view="production" title="En vivo: cronómetro, tally y teleprompter (⌘5)">● Producción</button>
-          <button data-view="guias" title="Hojas imprimibles para llenar a mano (⌘6)">⎙ Guías</button>
-          <button data-view="exportar" title="Arma el documento: formato, secciones y orden (⌘7)">⇩ Exportar</button>
-        </nav>
+        <button class="offline-badge" id="active-name" title="Ir a Inicio: proyectos y plantillas">Guardado local</button>
+        <span class="mode-chip" id="mode-chip" title="Modo del proyecto. Se elige al crearlo y define las herramientas disponibles."></span>
         <div class="header-actions">
-          <span class="mode-chip" id="mode-chip" title="Modo del proyecto. Se elige al crearlo y define las herramientas disponibles."></span>
           <span class="save-status" id="save-status">Guardado local</span>
-          <button class="offline-badge" id="active-name" title="Ir a Inicio: proyectos y plantillas">Guardado local</button>
-          <button id="tour-btn" title="Recorrido guiado: cómo usar la app paso a paso">❔</button>
-          <button id="focus-mode" title="Modo pantalla completa">⛶</button>
+          <button id="tour-btn" title="Recorrido guiado: cómo usar la app paso a paso">${icono('ayuda', 17)}</button>
+          <button id="focus-mode" title="Modo pantalla completa">${icono('pantalla', 17)}</button>
         </div>
       </header>
       <nav class="ruta" id="ruta" hidden aria-label="Ruta de producción"></nav>
@@ -150,6 +156,7 @@ const frameWrap = document.querySelector('#frame-wrap');
 const homeView = document.querySelector('#home-view');
 const productionView = document.querySelector('#production-view');
 const header = document.querySelector('#workspace-header');
+const rail = document.querySelector('#rail');
 const loading = document.querySelector('#loading');
 const navButtons = [...document.querySelectorAll('[data-view]')];
 const toast = document.querySelector('#export-toast');
@@ -189,8 +196,9 @@ const ruta = document.querySelector('#ruta');
 
 // Navegación diferenciada por modo. En narrativo se renombran algunas pestañas
 // (el mismo generador cambia de función) y se oculta Producción (solo de vivo).
-const ORIG_TAB = Object.fromEntries(navButtons.map((b) => [b.dataset.view, b.textContent]));
-const NAV_ETIQUETAS = { narrative: { set: '▦ Locaciones', escaleta: '≡ Historia', diagrama: '⌁ Escena' } };
+const etiquetaDe = (b) => b.querySelector('em');
+const ORIG_TAB = Object.fromEntries(navButtons.map((b) => [b.dataset.view, etiquetaDe(b).textContent]));
+const NAV_ETIQUETAS = { narrative: { set: 'Locaciones', escaleta: 'Historia', diagrama: 'Escena' } };
 const NAV_OCULTAS = { narrative: ['production'] };
 const RUTA_ETIQUETAS = { narrative: { Set: 'Locaciones', 'Señal': 'Escena' } };
 
@@ -206,7 +214,7 @@ function renderModo() {
     const ocultas = NAV_OCULTAS[modo] || [];
     navButtons.forEach((b) => {
         const v = b.dataset.view;
-        b.textContent = etiquetas[v] ?? ORIG_TAB[v];
+        etiquetaDe(b).textContent = etiquetas[v] ?? ORIG_TAB[v];
         b.hidden = ocultas.includes(v);
     });
 }
@@ -409,6 +417,7 @@ function selectView(view, forceReload = false) {
     // Las pestañas viven en el header: visible siempre, salvo en Inicio
     // (el lanzador es solo la pantalla de inicio).
     header.hidden = view === 'home';
+    rail.hidden = view === 'home';
     renderRuta();
     frameWrap.hidden = !isTool;
     if (view === 'home') { renderRecent(); return; }

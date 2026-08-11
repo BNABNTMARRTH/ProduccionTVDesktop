@@ -2,17 +2,25 @@
 *{box-sizing:border-box}
 html,body,#app{width:100%;height:100%;margin:0;overflow:hidden}
 button{font:inherit}
-.desktop-shell{display:flex;flex-direction:column;height:100%;background:#091423}
+.desktop-shell{display:flex;height:100%;background:#091423}
 .workspace{min-width:0;min-height:0;flex:1;display:flex;flex-direction:column;background:#0c1727}
 /* El atributo hidden debe ganar aunque el elemento tenga display propio */
 .workspace-header[hidden],.frame-wrap[hidden],.home-view[hidden],.production-view[hidden]{display:none!important}
-.workspace-header{height:54px;flex:none;display:flex;align-items:center;gap:14px;padding:0 14px;background:#0e1c2f;border-bottom:1px solid #233751}
-.header-logo{width:30px;height:30px;object-fit:cover;border-radius:8px;box-shadow:0 4px 12px #0005}
-.header-tabs{flex:1;min-width:0;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
-.header-tabs::-webkit-scrollbar{display:none}
-.header-tabs button{border:1px solid transparent;background:transparent;color:#aebdd2;border-radius:9px;padding:8px 13px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;transition:.15s ease}
-.header-tabs button:hover{color:#fff;background:#12243b}
-.header-tabs button.active{color:#fff;background:#17365e;border-color:#2f5c91}
+.workspace-header{height:52px;flex:none;display:flex;align-items:center;gap:10px;padding:0 14px;background:#0e1c2f;border-bottom:1px solid #233751}
+/* Barra lateral de herramientas: un icono grande por herramienta con una sola
+   palabra debajo (rediseño 2026-08-11). Sustituye a las pestañas de texto. */
+.rail{flex:none;width:86px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 8px 14px;background:#08111e;border-right:1px solid #1c2c42;overflow-y:auto;scrollbar-width:none}
+.rail[hidden]{display:none!important}
+.rail::-webkit-scrollbar{display:none}
+.rail-logo{width:34px;height:34px;flex:none;object-fit:cover;border-radius:10px;margin-bottom:9px;box-shadow:0 4px 12px #0006}
+.rail button{width:100%;flex:none;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 2px 6px;border:0;border-radius:13px;background:transparent;color:#8aa3c4;cursor:pointer;transition:.15s ease}
+.rail button[hidden]{display:none}
+.rail button .ic{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:#122741;color:#8fc2ff;transition:.15s ease}
+.rail button em{font-style:normal;font-size:9.5px;font-weight:700;line-height:1.15;text-align:center}
+.rail button:hover{color:#fff}
+.rail button:hover .ic{background:#1a3557;color:#bcdcff}
+.rail button.active{color:#fff;background:rgba(29,111,209,.12)}
+.rail button.active .ic{background:linear-gradient(150deg,#2e7bda,#16406f);color:#fff;box-shadow:0 5px 14px rgba(29,111,209,.45)}
 .save-status{color:#7186a3;font-size:11px;font-weight:700;white-space:nowrap}
 /* Ruta de producción: preproducción → producción, lo cumplido en verde */
 .ruta{flex:none;display:flex;align-items:center;justify-content:center;gap:6px;padding:5px 14px;background:#0b1828;border-bottom:1px solid #1d3049;overflow-x:auto;scrollbar-width:none}
@@ -22,8 +30,8 @@ button{font:inherit}
 .ruta button:hover{color:#fff;background:#122a44}
 .ruta button.done{color:#7be3a4;border-color:#1d5c38;background:#0f2b1d}
 .ruta-sep{color:#3a5273;font-size:10px}
-.header-actions{display:flex;align-items:center;gap:10px}.header-actions .offline-badge{font-size:10px;font-weight:700;color:#72df99;background:#113522;border:1px solid #205d38;border-radius:999px;padding:5px 9px;cursor:pointer}.header-actions .offline-badge:hover{background:#17492e;border-color:#2f8a52;color:#9ff0b9}
-.header-actions button{border:1px solid #314b6b;background:#142943;color:#dce8f8;border-radius:8px;padding:7px 10px;cursor:pointer}.header-actions button:hover{background:#1b385d}
+.header-actions{margin-left:auto;display:flex;align-items:center;gap:10px}.workspace-header .offline-badge{font-size:10px;font-weight:700;color:#72df99;background:#113522;border:1px solid #205d38;border-radius:999px;padding:5px 9px;cursor:pointer}.workspace-header .offline-badge:hover{background:#17492e;border-color:#2f8a52;color:#9ff0b9}
+.header-actions button{display:grid;place-items:center;border:1px solid #314b6b;background:#142943;color:#dce8f8;border-radius:9px;padding:6px;cursor:pointer}.header-actions button:hover{background:#1b385d}
 .export-toast{position:absolute;z-index:30;right:24px;bottom:22px;max-width:360px;padding:10px 14px;border:1px solid #2b7146;border-radius:10px;background:#123c27;color:#9ff0b9;font-size:12px;font-weight:700;box-shadow:0 14px 34px #0007;opacity:0;transform:translateY(10px);pointer-events:none;transition:.18s}.export-toast.show{opacity:1;transform:none}.export-toast.error{border-color:#873f42;background:#4d2023;color:#ffc1c3}
 .frame-wrap{position:relative;min-height:0;flex:1;margin:12px;border:1px solid #2a3e58;border-radius:12px;overflow:hidden;background:#0e1a2b;box-shadow:0 12px 32px #0005}
 iframe{display:block;width:100%;height:100%;border:0;background:#0e1a2b}
@@ -91,13 +99,12 @@ button:focus-visible,input:focus-visible{outline:2px solid #58a8ff;outline-offse
 .set-live{background:#fff;border-radius:10px;padding:6px;border:1px solid #2b405d}
 .set-live svg{width:100%;display:block}
 .set-live-note{margin:10px 0 0;color:#9db1cc;font-size:11px;text-align:center}.validation-summary{margin:7px 0 14px;color:#9db1cc;font-size:11px}.checks-list{display:flex;flex-direction:column;gap:7px;max-height:65vh;overflow:auto}.check{display:flex;align-items:flex-start;gap:8px;border:1px solid #39495f;background:#122137;border-radius:8px;padding:8px;font-size:11px;color:#aebdd2}.check span{width:18px;height:18px;flex:none;display:grid;place-items:center;border-radius:50%;font-weight:800}.check.error span{background:#7a292d;color:#ffc2c4}.check.warn span{background:#725817;color:#ffe294}.check.info span{background:#1a4e81;color:#b8dcff}.check.ok span{background:#1d673c;color:#c7ffda}.production-empty{height:100%;display:grid;place-content:center;text-align:center;color:#8194ae}.production-empty h1{color:#fff}
-.desktop-shell.focus-mode .workspace-header,.desktop-shell.focus-mode .ruta{display:none}.desktop-shell.focus-mode .frame-wrap{margin:0;border-radius:0;border:0}
+.desktop-shell.focus-mode .workspace-header,.desktop-shell.focus-mode .ruta,.desktop-shell.focus-mode .rail{display:none}.desktop-shell.focus-mode .frame-wrap{margin:0;border-radius:0;border:0}
 .desktop-shell.launcher-window .workspace{background:#0c1727}
 /* Chip de modo del proyecto + navegación diferenciada */
-.header-actions .mode-chip{font-size:10px;font-weight:800;letter-spacing:.5px;color:#bfe0ff;background:#0f2c4a;border:1px solid #24567f;border-radius:999px;padding:5px 9px;white-space:nowrap}
-.header-actions .mode-chip.narrative{color:#ffd9a8;background:#3a2410;border-color:#7a531f}
-.header-actions .mode-chip:empty{display:none}
-.header-tabs button[hidden]{display:none}
+.workspace-header .mode-chip{font-size:10px;font-weight:800;letter-spacing:.5px;color:#bfe0ff;background:#0f2c4a;border:1px solid #24567f;border-radius:999px;padding:5px 9px;white-space:nowrap}
+.workspace-header .mode-chip.narrative{color:#ffd9a8;background:#3a2410;border-color:#7a531f}
+.workspace-header .mode-chip:empty{display:none}
 /* Selector de modo del asistente (dos tarjetas grandes) */
 .wizard-mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .wizard-mode{display:flex;flex-direction:column;gap:7px;text-align:left;border:1px solid #2d4564;background:#12233c;color:#e9f1fc;border-radius:14px;padding:18px;cursor:pointer}
@@ -187,11 +194,12 @@ button:focus-visible,input:focus-visible{outline:2px solid #58a8ff;outline-offse
 .wizard-nav .wizard-primary{border-color:#4f89c8;background:#1d6fd1;color:#fff}.wizard-nav .wizard-primary:hover{background:#2d83e6}.wizard-nav .wizard-primary:disabled{opacity:.4;cursor:default}
 @media(max-width:760px){.wizard-type-grid,.wizard-segment{grid-template-columns:repeat(2,1fr)}}
 .welcome-overlay{position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:24px;background:rgba(3,10,20,.78);backdrop-filter:blur(14px);transition:opacity .18s ease}.welcome-overlay.closing{opacity:0;pointer-events:none}.welcome-card{width:min(520px,calc(100vw - 48px));display:flex;flex-direction:column;align-items:center;text-align:center;padding:36px;border:1px solid #34577e;border-radius:24px;background:radial-gradient(circle at 50% 0,#1a3c65,#0d1b2e 55%);box-shadow:0 30px 90px #000b}.welcome-card img{width:104px;height:104px;object-fit:cover;border-radius:25px;margin-bottom:22px;box-shadow:0 18px 42px #0008}.welcome-card h1{margin:9px 0 10px;font-size:30px}.welcome-card p{max-width:410px;margin:0;color:#aebfd4;font-size:15px;line-height:1.65}.welcome-card p strong{color:#fff}.welcome-card button{margin-top:26px;min-width:160px;border:1px solid #65afff;border-radius:10px;padding:11px 20px;background:#1d6fd1;color:#fff;font-weight:800;cursor:pointer}.welcome-card button:hover{background:#2d83e6}
+@media(max-width:1000px){.rail{width:60px}.rail button em{display:none}.rail button .ic{width:36px;height:36px}}
 @media(max-width:1150px){.save-status{display:none}.home-grid{grid-template-columns:1fr}.recent-panel{order:-1}.production-layout{grid-template-columns:1fr}}
 /* Contenedor donde se montan los documentos multipágina antes de imprimir */
 #print-host{display:none}
 @media print{
-  .workspace-header,.ruta{display:none!important}
+  .workspace-header,.ruta,.rail{display:none!important}
   .desktop-shell{display:block!important;background:#fff!important}
   .workspace{display:block!important;background:#fff!important}
   .frame-wrap{position:fixed!important;inset:0!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:#fff!important}
