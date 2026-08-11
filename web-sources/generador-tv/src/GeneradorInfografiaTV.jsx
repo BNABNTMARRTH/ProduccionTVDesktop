@@ -3,7 +3,7 @@ import {
   Camera, Monitor, User, Mic, Clapperboard, Plus, Trash2,
   ChevronUp, ChevronDown, ChevronRight, Save, FolderOpen,
   FilePlus, Eye, Pencil, X, GripVertical, Search, StickyNote, Undo2, Redo2,
-  ZoomIn, ZoomOut, Share2, Link2, Check, Download, AlertTriangle, Info
+  ZoomIn, ZoomOut, Share2, Link2, Check, Download
 } from "lucide-react";
 import LZString from "lz-string";
 import { getSetup, instanciarSetup } from "./iluminacion.js";
@@ -31,6 +31,7 @@ import { NAVY, INK, PREVIEW_COLOR, AIR_COLOR, PALETTE } from "./theme.js";
 import { inp, inpStyle, btn, SecTitle, Box, TarjetaAyuda, Card, Swatches } from "./ui.jsx";
 import { useReorder } from "./hooks.js";
 import { EMBEDDED, descargarArchivo } from "./puente.js";
+import { AnalisisTiempos } from "./AnalisisTiempos.jsx";
 import { GlyphLuz, GlyphMueble, MuebleIcon } from "./glifos.jsx";
 import { setNuevo, setActivoDe, upSetPor, posMuebleDefault, reacomodoDe } from "./sets.js";
 import { ICONS } from "./iconos.jsx";
@@ -1608,59 +1609,6 @@ function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
 }
 
 /* ----------------------------- App ----------------------------- */
-
-/* ----------------------------- Análisis (UI) ----------------------------- */
-
-function Metric({ label, value }) {
-  return (
-    <div className="rounded-lg" style={{ background: "#EEF2F7", padding: "8px 10px" }}>
-      <div className="text-xs font-semibold uppercase" style={{ color: "#64748B" }}>{label}</div>
-      <div className="cond font-bold" style={{ fontSize: 22, color: NAVY }}>{value}</div>
-    </div>
-  );
-}
-
-function AnalisisTiempos({ cfg }) {
-  const a = analizarEscaleta(cfg);
-  const estilo = (t) =>
-    t === "error" ? { bg: "#FDECEC", fg: "#A12A2A", bd: "#F3C0C0", Ic: AlertTriangle }
-    : t === "warn" ? { bg: "#FEF6E6", fg: "#8A5A00", bd: "#F3DCA6", Ic: AlertTriangle }
-    : { bg: "#EAF2FB", fg: "#1C4E86", bd: "#C5DBF3", Ic: Info };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <Metric label="Duración total" value={fmt(a.total)} />
-        <Metric label="Contenido neto" value={fmt(a.durContenido)} />
-        <Metric label={`Cortes (${a.nCortes})`} value={fmt(a.durCortes)} />
-        <Metric label="Segmentos" value={String(a.segCount)} />
-      </div>
-      <p className="text-sm" style={{ color: INK }}>
-        Esta escaleta suma <b>{fmt(a.total)}</b>
-        {a.nCortes > 0
-          ? <>, con {a.nCortes} corte{a.nCortes > 1 ? "s" : ""} ({fmt(a.durCortes)}). Programa neto de contenido: <b>{fmt(a.durContenido)}</b>.</>
-          : "."}
-      </p>
-      {a.avisos.length === 0 ? (
-        <div className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: "#1A7A4A" }}>
-          <Check size={16} /> Sin avisos: los tiempos se ven equilibrados.
-        </div>
-      ) : (
-        <div className="flex flex-col gap-1">
-          {a.avisos.map((av, i) => {
-            const e = estilo(av.tipo);
-            return (
-              <div key={i} className="flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-sm"
-                style={{ background: e.bg, color: e.fg, borderColor: e.bd }}>
-                <e.Ic size={15} style={{ marginTop: 1, flexShrink: 0 }} /> <span>{av.msg}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function GeneradorInfografiaTV() {
   const compartido = useMemo(() => leerProyectoCompartido(), []);
