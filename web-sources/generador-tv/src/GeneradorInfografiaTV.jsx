@@ -30,6 +30,7 @@ import {
 import { NAVY, INK, PREVIEW_COLOR, AIR_COLOR, PALETTE } from "./theme.js";
 import { inp, inpStyle, btn, SecTitle, Box, TarjetaAyuda, Card, Swatches } from "./ui.jsx";
 import { useReorder } from "./hooks.js";
+import { EMBEDDED, descargarArchivo } from "./puente.js";
 import { GlyphLuz, GlyphMueble, MuebleIcon } from "./glifos.jsx";
 import { setNuevo, setActivoDe, upSetPor, posMuebleDefault, reacomodoDe } from "./sets.js";
 import { ICONS } from "./iconos.jsx";
@@ -76,32 +77,6 @@ const normSecciones = (arr) => {
   return [...valid.map((s) => ({ id: s.id, abierto: s.abierto !== false })), ...missing];
 };
 
-
-
-// ¿Corre dentro de la app de escritorio (iframe del shell de Producción TV)?
-const EMBEDDED = typeof window !== "undefined" && window.parent !== window;
-
-// Descarga un archivo de texto generado en el navegador
-function descargarArchivo(nombre, contenido, mime = "text/plain") {
-  try {
-    if (EMBEDDED) {
-      // Las descargas blob no funcionan en el WebView: el shell guarda con diálogo nativo.
-      window.parent.postMessage({ type: "producciontv:save-file", filename: nombre, content: contenido, mime }, "*");
-      return;
-    }
-    if (window.webkit?.messageHandlers?.download) {
-      window.webkit.messageHandlers.download.postMessage({ nombre, contenido, mime });
-      return;
-    }
-    const blob = new Blob([contenido], { type: `${mime};charset=utf-8` });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = nombre;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
-  } catch (e) { console.error("No se pudo descargar:", e); }
-}
 
 
 /* ----------------------------- Compartir por URL ----------------------------- */
