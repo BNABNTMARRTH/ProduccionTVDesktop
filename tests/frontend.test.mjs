@@ -11,7 +11,7 @@ import {
   getSetup, instanciarSetup, instanciarElemento, posicionesParaLuces,
 } from '../web-sources/generador-tv/src/iluminacion.js';
 import { ESTRUCTURAS, loglineDe, escenasDe, alertasDe, planoPorEncuadre, anguloPorPercepcion, sincronizarPersonajes, construirProyectoNarrativo } from '../web-sources/generador-tv/src/narrativa.js';
-import { revisar, escalaDePlano } from '../web-sources/generador-tv/src/sugerencias.js';
+import { revisar, escalaDePlano, NIVELES } from '../web-sources/generador-tv/src/sugerencias.js';
 import { escaletaEnVivoDe, TIPOS_PROGRAMA, construirEscaletaEnVivo } from '../web-sources/generador-tv/src/envivo.js';
 
 test('makeTemplate produce el esquema v3 con sets, talentos y mics asignados', () => {
@@ -314,11 +314,11 @@ test('se avisa cuando un plano cerrado dura más que uno abierto', () => {
     { id: 'e1', segmento: '1. Llega al taller', dur: 6, tomas: [{ plano: 'Plano General' }] },
     { id: 'e2', segmento: '2. Duda', dur: 12, tomas: [{ plano: 'Primer Plano' }] },
   ] };
-  const avisos = revisar(cfg);
+  const avisos = revisar(cfg).filter((a) => a.regla === 'ritmo-planos');
   assert.equal(avisos.length, 1);
-  assert.equal(avisos[0].regla, 'ritmo-planos');
-  assert.match(avisos[0].mensaje, /Primer Plano/);
-  assert.match(avisos[0].mensaje, /Plano General/);
+  assert.equal(avisos[0].nivel, 'precaucion');
+  assert.match(avisos[0].motivo, /Primer Plano/);
+  assert.match(avisos[0].motivo, /Plano General/);
   assert.match(avisos[0].porque, /ojo, junto al cerebro/);
 });
 
@@ -335,12 +335,94 @@ test('la regla también aplica a los cues del rundown en vivo', () => {
     { id: 'c1', texto: 'Abre en set', plano: 'Plano General', dur: 5 },
     { id: 'c2', texto: 'Conductor presenta', plano: 'Primer Plano', dur: 25 },
   ] }] };
-  const avisos = revisar(cfg);
+  const avisos = revisar(cfg).filter((a) => a.regla === 'ritmo-planos');
   assert.equal(avisos.length, 1);
-  assert.equal(avisos[0].donde, 'cue');
+  assert.match(avisos[0].motivo, /El cue/);
 });
 
 test('sin planos escritos o sin proyecto, las sugerencias callan', () => {
   assert.deepEqual(revisar({ escaleta: [{ id: 'x', dur: 10, tomas: [{}] }] }), []);
   assert.deepEqual(revisar({}), []);
+});
+
+/* --------------------- Sugerencias: el resto de las reglas del autor --------------------- */
+
+const proyectoNarrativo = () => ({
+  modo: 'narrative', microfonos: [], camaras: [{ id: 'c1', nombre: 'CAM 1', plano: 'Plano Medio' }],
+  escaleta: [
+    { id: 'e1', segmento: '1. Llega', dur: 6, encabezado: 'EXT. Calle - Día', personajes: 'Ana', cambio: 'Decide entrar', tomas: [{ plano: 'Plano General', audio: 'Ambiente' }] },
+    { id: 'e2', segmento: '2. Duda', dur: 12, encabezado: 'INT. Taller - Día', personajes: 'Ana', cambio: '', tomas: [{ plano: 'Primer Plano', audio: 'Voz de Ana + música triste' }] },
+    { id: 'e3', segmento: '3. Manos', dur: 5, encabezado: 'INT. Taller - Día', personajes: 'Ana', cambio: '', tomas: [{ plano: 'Primer Plano', audio: 'Voz' }] },
+  ],
+});
+
+const proyectoEnVivo = () => ({
+  modo: 'live', programa: { tipoPrograma: 'noticiero', durMin: 30 },
+  camaras: [
+    { id: 'c1', nombre: 'CAM 1', plano: 'Plano Medio' },
+    { id: 'c2', nombre: 'CAM 2', plano: 'Plano Medio' },
+  ],
+  microfonos: [{ id: 'm1' }], personal: [{ id: 'p1', rol: 'Operador de audio' }],
+  escaleta: [
+    { id: 'b1', segmento: 'Entrada', dur: 600, cues: [
+      { id: 'q1', tipo: 'camara', texto: 'Abre en set', plano: 'Plano General', dur: 20 },
+      { id: 'q2', tipo: 'vtr', texto: 'Lanzar nota', dur: 90 },
+    ] },
+    { id: 'b2', segmento: 'Nota', dur: 1380, cues: [
+      { id: 'q3', tipo: 'camara', texto: 'Conductor cierra', plano: 'Primer Plano', dur: 60 },
+    ] },
+  ],
+});
+
+const reglasDe = (cfg) => revisar(cfg).map((a) => a.regla);
+
+test('cada aviso trae nivel, problema, motivo, acción y el porqué', () => {
+  const avisos = revisar(proyectoNarrativo());
+  assert.ok(avisos.length > 0);
+  avisos.forEach((a) => {
+    assert.ok(NIVELES[a.nivel], `nivel válido: ${a.nivel}`);
+    ['problema', 'motivo', 'accion', 'porque'].forEach((campo) => {
+      assert.ok(String(a[campo] || '').trim(), `${a.regla} trae ${campo}`);
+    });
+  });
+});
+
+test('narrativo: detecta audio, cambio, música sobre voz, int/ext y falta de recursos', () => {
+  const reglas = reglasDe(proyectoNarrativo());
+  ['dialogo-sin-audio', 'escena-sin-cambio', 'musica-sobre-dialogo', 'salto-int-ext', 'sin-planos-recurso']
+    .forEach((r) => assert.ok(reglas.includes(r), `falta la regla ${r}`));
+});
+
+test('en vivo: duración contra objetivo, encuadres repetidos, responsable del corte y retorno del video', () => {
+  const reglas = reglasDe(proyectoEnVivo());
+  ['duracion-objetivo', 'camaras-mismo-encuadre', 'sin-responsable-corte', 'vtr-sin-retorno']
+    .forEach((r) => assert.ok(reglas.includes(r), `falta la regla ${r}`));
+  const dur = revisar(proyectoEnVivo()).find((a) => a.regla === 'duracion-objetivo');
+  assert.equal(dur.nivel, 'error', 'pasarse de la duración en vivo es error, no sugerencia');
+  assert.match(dur.problema, /3 min/);
+});
+
+test('los avisos llegan ordenados: primero los errores', () => {
+  const avisos = revisar(proyectoEnVivo());
+  const ordenes = avisos.map((a) => NIVELES[a.nivel].orden);
+  assert.deepEqual(ordenes, [...ordenes].sort((a, b) => a - b));
+});
+
+test('cinco planos cerrados seguidos piden un plano que ubique', () => {
+  const cfg = { modo: 'narrative', escaleta: Array.from({ length: 5 }, (_, i) => ({
+    id: `e${i}`, segmento: `${i + 1}`, dur: 4, tomas: [{ plano: 'Primer Plano' }],
+  })) };
+  assert.ok(reglasDe(cfg).includes('planos-cerrados-seguidos'));
+});
+
+test('un proyecto bien armado no recibe avisos', () => {
+  const cfg = {
+    modo: 'live', camaras: [{ id: 'c1', nombre: 'CAM 1', plano: 'Plano General' }, { id: 'c2', nombre: 'CAM 2', plano: 'Primer Plano' }],
+    microfonos: [{ id: 'm1' }], personal: [{ id: 'p1', rol: 'Director de cámaras' }],
+    escaleta: [{ id: 'b1', segmento: 'Bloque', dur: 60, cues: [
+      { id: 'q1', tipo: 'camara', texto: 'General', plano: 'Plano General', dur: 20 },
+      { id: 'q2', tipo: 'camara', texto: 'Detalle', plano: 'Plano Detalle', dur: 5 },
+    ] }],
+  };
+  assert.deepEqual(revisar(cfg), []);
 });
