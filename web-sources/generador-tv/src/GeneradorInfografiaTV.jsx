@@ -4,11 +4,12 @@ import {
 } from "lucide-react";
 import LZString from "lz-string";
 import { uid, slug } from "./util.js";
-import { NAVY } from "./theme.js";
+import { INK, NAVY } from "./theme.js";
 import { EMBEDDED } from "./puente.js";
 import { VistaEscaleta } from "./VistaEscaleta.jsx";
 import { Infografia } from "./Infografia.jsx";
 import { Editor } from "./Editor.jsx";
+import { PanelSugerencias } from "./PanelSugerencias.jsx";
 import { DEMO, normalizeCfg, esNarrativo } from "./proyecto.js";
 import { VistaSet } from "./VistaSet.jsx";
 
@@ -89,6 +90,8 @@ export default function GeneradorInfografiaTV() {
   const [proyectos, setProyectos] = useState([]);
   const [cargado, setCargado] = useState(false);
   const [copiado, setCopiado] = useState(false);
+  // Las sugerencias solo aparecen cuando se piden con el botón 💡.
+  const [sugerencias, setSugerencias] = useState(false);
   // Zoom de impresión calculado por contenido: la infografía entra completa
   // en una página A4 horizontal mientras siga legible; si quedaría demasiado
   // chica, se ajusta solo al ancho y fluye a varias páginas. (Antes era un
@@ -272,6 +275,14 @@ export default function GeneradorInfografiaTV() {
           {!EMBEDDED && tab("set", Monitor, "Set")}
           {!EMBEDDED && tab("escaleta", Clapperboard, "Escaleta")}
         </div>
+        <button onClick={() => setSugerencias((v) => !v)}
+          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold"
+          title="Revisa tu proyecto y explica qué convendría ajustar. No cambia nada por su cuenta."
+          style={sugerencias
+            ? { background: "#1FA14E", color: "#fff" }
+            : { background: "#fff", color: INK, border: "1px solid #C8D2DE" }}>
+          💡 Sugerencias
+        </button>
         {!readonly && !EMBEDDED && (
           <button onClick={compartir} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold text-white"
             style={{ background: copiado ? "#16A34A" : "#2563EB" }}>
@@ -302,6 +313,7 @@ export default function GeneradorInfografiaTV() {
           </p>
         </div>
       )}
+      {sugerencias && <PanelSugerencias cfg={cfg} onClose={() => setSugerencias(false)} />}
     </div>
   );
 }

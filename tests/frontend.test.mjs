@@ -11,6 +11,7 @@ import {
   getSetup, instanciarSetup, instanciarElemento, posicionesParaLuces,
 } from '../web-sources/generador-tv/src/iluminacion.js';
 import { ESTRUCTURAS, loglineDe, escenasDe, alertasDe, planoPorEncuadre, anguloPorPercepcion, sincronizarPersonajes, construirProyectoNarrativo } from '../web-sources/generador-tv/src/narrativa.js';
+import { revisar, escalaDePlano } from '../web-sources/generador-tv/src/sugerencias.js';
 import { escaletaEnVivoDe, TIPOS_PROGRAMA, construirEscaletaEnVivo } from '../web-sources/generador-tv/src/envivo.js';
 
 test('makeTemplate produce el esquema v3 con sets, talentos y mics asignados', () => {
@@ -294,4 +295,52 @@ test('la técnica se recomienda desde la intención (manual audiovisual)', () =>
   assert.equal(planoPorEncuadre('Mostrar contexto'), 'Gran Plano General');
   assert.equal(anguloPorPercepcion('Poderoso')[1], 'Contrapicado');
   assert.ok(anguloPorPercepcion('Aislado')[2].length > 10, 'toda percepción explica su efecto');
+});
+
+/* --------------------- Sugerencias: ritmo según el tamaño del plano ---------------------
+Criterio del autor: un plano cerrado debe durar menos que uno abierto, porque el
+ojo y el cerebro tardan más en leer las dimensiones y objetos de un plano general. */
+
+test('escalaDePlano distingue el tamaño del plano aunque el texto venga sucio', () => {
+  assert.equal(escalaDePlano('Plano General · Picado'), 5, 'el ángulo pegado no estorba');
+  assert.equal(escalaDePlano('plano medio corto'), 2, 'no se confunde con Plano Medio');
+  assert.equal(escalaDePlano('Plano Medio'), 3);
+  assert.equal(escalaDePlano('primerisimo primer plano'), 1, 'sin acentos también');
+  assert.equal(escalaDePlano('Plano Holandés'), null, 'un ángulo no define el tamaño');
+});
+
+test('se avisa cuando un plano cerrado dura más que uno abierto', () => {
+  const cfg = { escaleta: [
+    { id: 'e1', segmento: '1. Llega al taller', dur: 6, tomas: [{ plano: 'Plano General' }] },
+    { id: 'e2', segmento: '2. Duda', dur: 12, tomas: [{ plano: 'Primer Plano' }] },
+  ] };
+  const avisos = revisar(cfg);
+  assert.equal(avisos.length, 1);
+  assert.equal(avisos[0].regla, 'ritmo-planos');
+  assert.match(avisos[0].mensaje, /Primer Plano/);
+  assert.match(avisos[0].mensaje, /Plano General/);
+  assert.match(avisos[0].porque, /ojo, junto al cerebro/);
+});
+
+test('un proyecto bien resuelto no recibe avisos', () => {
+  const cfg = { escaleta: [
+    { id: 'e1', segmento: '1. Llega', dur: 12, tomas: [{ plano: 'Plano General' }] },
+    { id: 'e2', segmento: '2. Duda', dur: 4, tomas: [{ plano: 'Primer Plano' }] },
+  ] };
+  assert.deepEqual(revisar(cfg), []);
+});
+
+test('la regla también aplica a los cues del rundown en vivo', () => {
+  const cfg = { escaleta: [{ id: 'b1', segmento: 'Entrada', cues: [
+    { id: 'c1', texto: 'Abre en set', plano: 'Plano General', dur: 5 },
+    { id: 'c2', texto: 'Conductor presenta', plano: 'Primer Plano', dur: 25 },
+  ] }] };
+  const avisos = revisar(cfg);
+  assert.equal(avisos.length, 1);
+  assert.equal(avisos[0].donde, 'cue');
+});
+
+test('sin planos escritos o sin proyecto, las sugerencias callan', () => {
+  assert.deepEqual(revisar({ escaleta: [{ id: 'x', dur: 10, tomas: [{}] }] }), []);
+  assert.deepEqual(revisar({}), []);
 });
