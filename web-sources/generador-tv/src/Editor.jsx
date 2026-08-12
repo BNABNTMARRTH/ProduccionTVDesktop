@@ -140,7 +140,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
       <Card title="Narrativa / Brief" open={!!cfg.narrativa}>
         {cfg.narrativa ? (<>
           <p className="m-0 text-xs text-slate-500">
-            Generado con el ✦ Asistente narrativo (pestaña Escaleta) — {TIPOS_PROYECTO.find((t) => t.id === cfg.narrativa.tipo)?.nombre || cfg.narrativa.tipo}
+            {TIPOS_PROYECTO.find((t) => t.id === cfg.narrativa.tipo)?.nombre || cfg.narrativa.tipo}
             {cfg.narrativa.impacto ? ` · ${cfg.narrativa.impacto}` : ""}{cfg.narrativa.emocion ? ` · ${cfg.narrativa.emocion}` : ""}
           </p>
           <label className="text-xs font-bold uppercase text-slate-500">Logline
@@ -163,8 +163,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
           </label>
         </>) : (
           <p className="m-0 text-sm text-slate-500">
-            Todavía no hay brief: ábrelo con el botón <b>✦ Asistente narrativo</b> de la pestaña Escaleta
-            (tipo de proyecto → intención → premisa → personajes → estructura → escaleta y guion técnico generados).
+            Todavía no hay brief. Aquí vivirán la premisa, el tono y los personajes de tu proyecto.
           </p>
         )}
       </Card>

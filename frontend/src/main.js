@@ -6,7 +6,7 @@ import { DeleteProjectFile, DeleteTrashFile, FocusLauncher, GetLaunchContext, Li
 import { EventsOn } from '../wailsjs/runtime/runtime';
 import { templateCatalog, makeTemplate, diagramFromConfig, infografiaFromDiagram, uid, PROJECT_MODES, normalizeMode } from './templates.js';
 import { createProductionView } from './production.js';
-import { createWizard } from './wizard.js';
+import { createNuevoProyecto } from './nuevo-proyecto.js';
 import { createTour } from './tour.js';
 import { DEMO_PROJECT_ID, makeDemoProject } from './demo.js';
 import { MAX_PROJECTS, STORAGE_KEYS, esc } from './constants.js';
@@ -213,7 +213,7 @@ al usar Producción y Exportar (cfg.ensayado / cfg.exportado). */
 // Cada paso: [etiqueta, vista, ¿listo?, ayuda, soloLive]. Los pasos soloLive
 // (Ensayo) no aparecen en producción narrativa.
 const RUTA_PASOS = [
-    ['Historia', 'escaleta', (cfg) => !!cfg?.narrativa, 'Premisa, personajes y estructura — genera todo con el ✦ Asistente narrativo'],
+    ['Historia', 'escaleta', (cfg) => !!cfg?.narrativa, 'Premisa, personajes y estructura de tu historia'],
     ['Guion técnico', 'escaleta', (cfg) => (cfg?.escaleta || []).some((s) => (s.tomas || []).length), 'Desglosa cada escena en tomas: plano, movimiento y audio'],
     ['Set', 'set', (cfg) => (cfg?.sets || []).some((s) => (s.muebles || []).length || s.iluminacion || Object.keys(s.setLayout?.pos || {}).length), 'Monta el estudio: mobiliario, iluminación y posiciones'],
     ['Señal', 'diagrama', (cfg, diagram) => (diagram?.edges || []).length > 0, 'Cablea la ruta de video y audio en el diagrama'],
@@ -293,9 +293,13 @@ function scheduleSave() {
 async function createProject(profile) {
     const name = profile.name || `Proyecto ${new Date().toLocaleDateString()}`;
     const template = profile.template || 'vacio';
-    // El wizard único ya construye el proyecto completo (escaleta/rundown y
-    // narrativa/programa) con la lógica compartida; si no, se arma la base.
-    const cfg = profile.cfg || makeTemplate(template, { ...profile, projectName: name, company: profile.company || 'ATJ Producciones' });
+    // Base mínima y editable (ver nuevo-proyecto.js): cámaras, un talento y la
+    // escaleta vacía. El proyecto abre directo en Escaleta, que es donde se
+    // trabaja; nada queda decidido de antemano.
+    const cfg = profile.cfg || {
+        ...makeTemplate(template, { ...profile, projectName: name, company: profile.company || 'ATJ Producciones' }),
+        abrirEnEscaleta: true,
+    };
     const project = {
         id: uid('project'), name, template,
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
@@ -505,7 +509,7 @@ function renderRecent() {
 
 /* ----------------------------- Vistas ----------------------------- */
 
-const wizard = createWizard({ onCreate: createProject });
+const nuevoProyecto = createNuevoProyecto({ onCreate: createProject });
 
 const production = createProductionView({
     container: productionView,
@@ -702,8 +706,8 @@ frame.addEventListener('load', () => { loading.classList.add('hidden'); setTimeo
 navButtons.forEach((button) => button.onclick = () => selectView(button.dataset.view));
 renderRecent();
 
-document.querySelector('#new-project-focus').onclick = () => wizard.open();
-document.querySelector('[data-accion="nuevo"]').onclick = () => wizard.open();
+document.querySelector('#new-project-focus').onclick = () => nuevoProyecto.open();
+document.querySelector('[data-accion="nuevo"]').onclick = () => nuevoProyecto.open();
 // El nombre del proyecto en el header funciona como la pestaña Archivo de
 // Word: desde una ventana de proyecto trae al frente la ventana ORIGINAL de
 // inicio (el lanzador) — no una copia local; si ya se cerró, Go abre una nueva.
@@ -836,7 +840,7 @@ const closeWelcome = () => {
     welcomeOverlay.classList.add('closing');
     setTimeout(() => welcomeOverlay.remove(), 180);
     // Tras la bienvenida, el lanzador entra directo al asistente de producción.
-    if (shell.classList.contains('launcher-window')) wizard.open();
+    if (shell.classList.contains('launcher-window')) nuevoProyecto.open();
 };
 if (welcomeOverlay) {
     document.querySelector('#welcome-close').onclick = closeWelcome;
@@ -846,7 +850,7 @@ if (welcomeOverlay) {
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
         if (welcomeOverlay && document.body.contains(welcomeOverlay)) { closeWelcome(); return; }
-        if (wizard.isOpen()) { wizard.close(); return; }
+        if (nuevoProyecto.isOpen()) { nuevoProyecto.close(); return; }
         shell.classList.remove('focus-mode');
     }
     if (!(event.metaKey || event.ctrlKey)) return;
@@ -953,12 +957,10 @@ async function initializeWindow() {
         shell.classList.add('project-window');
         if (welcomeOverlay && document.body.contains(welcomeOverlay)) welcomeOverlay.remove();
         renderRecent();
-        // La primera ventana de proyecto arranca con el recorrido guiado (que
-        // conduce la navegación), sobre Infografías para no chocar con el
-        // Asistente narrativo. Después, la apertura normal: Escaleta si hay
-        // narrativa pendiente (ahí el generador despliega el asistente solo).
+        // La primera ventana de proyecto arranca con el recorrido guiado, que
+        // conduce la navegación desde Infografías.
         const primerRecorrido = !localStorage.getItem(TOUR_KEY);
-        // El wizard único ya armó el proyecto: se aterriza en la escaleta/rundown
+        // Los proyectos nuevos aterrizan en la escaleta/rundown
         // (bandera cfg.abrirEnEscaleta, de un solo uso). El recorrido guiado, si
         // es la primera vez, tiene prioridad y arranca en la vista por defecto.
         const abrirEscaleta = !!latestInfografia?.abrirEnEscaleta;
@@ -996,7 +998,7 @@ async function initializeWindow() {
     }
     // El programa inicia preguntando qué se va a producir hoy (saltable con Esc
     // o "Ir a mis proyectos"). Si la bienvenida está visible, se abre al cerrarla.
-    if (!showWelcome) wizard.open();
+    if (!showWelcome) nuevoProyecto.open();
 }
 
 selectView('home');

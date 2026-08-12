@@ -26,7 +26,7 @@ export const templateCatalog = [
 
 // Tipos de producción narrativa. Los `id` coinciden con TIPOS_PROYECTO del
 // generador (narrativa.js), así que al sembrarlos en cfg.narrativa.tipo el
-// Asistente narrativo arranca ya con el tipo elegido.
+// Se guarda el tipo narrativo elegido, si viene.
 export const narrativeCatalog = [
     { id: 'ficcion', icon: '🎬', name: 'Película / Cortometraje', detail: 'Ficción por escenas y planos' },
     { id: 'videoclip', icon: '🎵', name: 'Videoclip', detail: 'La canción da la estructura temporal' },
@@ -186,17 +186,14 @@ export function makeTemplate(kind, profile = {}) {
         schema: SCHEMA_VERSION,
         // Modo del proyecto: gobierna la navegación del shell (vivo vs narrativo).
         modo,
-        // En narrativo, se siembra el tipo elegido para que el Asistente
-        // narrativo arranque ya con él (salta su primer paso).
+        // En narrativo se guarda el tipo elegido (ficción, videoclip…) si viene;
+        // el brief del editor lo muestra y las sugerencias lo usarán.
         ...(modo === 'narrative' && profile.narrativeTipo ? { narrativa: { tipo: profile.narrativeTipo } } : {}),
         // Plantilla de origen: la usa el panel de iluminación del generador
         // para recomendar configuraciones según el tipo de producción.
         plantilla: kind,
         iluminacionSugerida: ILUMINACION_SUGERIDA[kind] || null,
         mueblesSugeridos: MUEBLES_SUGERIDOS[kind] || null,
-        // Marcado desde el asistente de Inicio: el proyecto abre en Escaleta
-        // con el Asistente narrativo desplegado (la bandera se consume ahí).
-        ...(profile.abrirAsistente ? { abrirAsistente: true } : {}),
         titulo: `${spec.title} – ${profile.projectName || 'NUEVO PROYECTO'}`,
         subtitulo,
         organizacion: profile.company || 'ATJ PRODUCCIONES',

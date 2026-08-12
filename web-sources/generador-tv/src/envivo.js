@@ -1,4 +1,4 @@
-// Lógica pura del Asistente de programa en vivo (modo live). Genera una
+// Lógica pura del modo en vivo: reparto de bloques por duración. Genera una
 // ESCALETA EDITORIAL: qué contenido ocurre en cada bloque y su función dentro
 // del programa (segmento, objetivo, participantes, recursos previstos). Las
 // cámaras, cambios de señal y comandos técnicos NO van aquí — pertenecen al
@@ -116,8 +116,8 @@ export function escaletaEnVivoDe(tipoId, { durTotalSeg = 1800 } = {}) {
 }
 
 // Construye el proyecto en vivo completo: escaleta editorial con ids y fuentes.
-// Lo usan por igual el Asistente de programa en vivo (React) y el wizard único
-// de Inicio.
+// Queda como materia prima para las sugerencias del editor (antes lo usaban el
+// asistente en vivo y el wizard de Inicio, retirados en 2026-08-11).
 export function construirEscaletaEnVivo(cfg, p) {
   const gen = (pre) => `${pre}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   const cams = cfg.camaras || [];

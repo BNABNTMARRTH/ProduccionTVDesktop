@@ -1,4 +1,5 @@
-// Catálogo narrativo del Asistente de producción audiovisual.
+// Catálogo narrativo: el manual de diseño audiovisual convertido en datos.
+// No dibuja nada; alimenta las sugerencias del editor.
 // Fundamentos: manual de storytelling (premisa, personajes imperfectos,
 // estructuras: sencilla / tres actos / círculo de Dan Harmon / libre),
 // manual de diseño audiovisual (el plano se elige por la información que
@@ -269,8 +270,8 @@ export function sincronizarPersonajes(cfg, personajes) {
 
 // Construye el proyecto narrativo completo a partir de un cfg base (plantilla) y
 // las respuestas del asistente `n`: escaleta con campos de escena + tomas,
-// logline y personajes→talentos. Lo usan por igual el Asistente narrativo
-// (React) y el wizard único de Inicio, para no duplicar la generación.
+// logline y personajes→talentos. Queda como materia prima para las sugerencias
+// (el wizard y el asistente que lo usaban se retiraron en 2026-08-11).
 export function construirProyectoNarrativo(cfg, n) {
   const gen = (p) => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   const logline = loglineDe(n);

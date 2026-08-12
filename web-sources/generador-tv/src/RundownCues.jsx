@@ -140,7 +140,7 @@ export function RundownCues({ cfg, setCfg, rows, fuentes, editable, onOpenEscale
           </div>
         );
       })}
-      {!rows.length && <p className="text-sm text-slate-500">La escaleta está vacía: usa el <b>▤ Asistente de programa en vivo</b> o agrega segmentos en la escaleta editorial.</p>}
+      {!rows.length && <p className="text-sm text-slate-500">La escaleta está vacía: agrega segmentos en la escaleta editorial y aquí desglosas cada uno en cues técnicos.</p>}
       {sel && (() => {
         const seg = (cfg.escaleta || []).find((x) => x.id === sel.segId);
         const cue = seg?.tomas?.find((t) => t.id === sel.tomaId);

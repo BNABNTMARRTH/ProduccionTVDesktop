@@ -85,7 +85,7 @@ export function VistaEscaleta({ cfg, setCfg }) {
               {narr ? (
                 <TarjetaAyuda id="escaleta-narr" titulo="Cómo escribir tu escaleta narrativa"
                   pasos={[
-                    "<b>✦ Asistente narrativo</b> arma premisa, personajes, estructura y escenas por ti — el mejor punto de partida.",
+                    "Empieza por lo que pasa: agrega una escena con <b>＋ Agregar escena</b> y descríbela. Puedes agregar, borrar y reordenar cuando quieras.",
                     "<b>Escaleta</b>: qué ocurre en cada escena y cómo avanza la historia (encabezado, acción, función, cambio). Sin cámaras ni lentes: eso va en el guion técnico.",
                     "<b>Guion técnico</b>: desglosa cada escena en planos (tamaño, ángulo, movimiento, sonido).",
                     "<b>Storyboard</b>: la vista visual de cada plano con su imagen y notas.",
@@ -93,7 +93,7 @@ export function VistaEscaleta({ cfg, setCfg }) {
               ) : (
                 <TarjetaAyuda id="escaleta-live" titulo="Cómo escribir tu escaleta editorial"
                   pasos={[
-                    "<b>▤ Asistente de programa en vivo</b> arma la escaleta editorial por bloques según el tipo de programa y su duración.",
+                    "Empieza por los bloques: agrega uno con <b>＋ Agregar segmento</b> y escribe qué contenido va ahí. Puedes agregar, borrar y reordenar cuando quieras.",
                     "<b>Escaleta editorial</b>: qué contenido ocurre en cada bloque y su función (objetivo, participantes, recursos). La señal al aire NO va aquí.",
                     "<b>Rundown técnico</b>: la parte técnica — cada segmento se desglosa en cues (cámara al aire, audio, gráficos, instrucción).",
                     "La duración total, IN y OUT se recalculan solos mientras editas.",

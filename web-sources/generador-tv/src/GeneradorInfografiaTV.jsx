@@ -11,8 +11,6 @@ import { Infografia } from "./Infografia.jsx";
 import { Editor } from "./Editor.jsx";
 import { DEMO, normalizeCfg, esNarrativo } from "./proyecto.js";
 import { VistaSet } from "./VistaSet.jsx";
-import { AsistenteNarrativo } from "./AsistenteNarrativo.jsx";
-import { AsistenteEnVivo } from "./AsistenteEnVivo.jsx";
 
 /* ----------------------------- Tokens / utilidades ----------------------------- */
 
@@ -91,10 +89,6 @@ export default function GeneradorInfografiaTV() {
   const [proyectos, setProyectos] = useState([]);
   const [cargado, setCargado] = useState(false);
   const [copiado, setCopiado] = useState(false);
-  // El asistente (narrativo o en vivo) vive en la raíz para montarse sobre
-  // CUALQUIER vista, no dentro de la escaleta.
-  const [asistente, setAsistente] = useState(false);
-
   // Zoom de impresión calculado por contenido: la infografía entra completa
   // en una página A4 horizontal mientras siga legible; si quedaría demasiado
   // chica, se ajusta solo al ancho y fluye a varias páginas. (Antes era un
@@ -182,16 +176,6 @@ export default function GeneradorInfografiaTV() {
   useEffect(() => {
     window.parent.postMessage({ type: "producciontv:infografia-state", cfg }, "*");
   }, [cfg]);
-
-  // Al crear el proyecto desde Inicio (bandera cfg.abrirAsistente) el asistente
-  // se abre solo, sobre la vista actual. La bandera se consume una vez.
-  useEffect(() => {
-    if (cfg.abrirAsistente && !readonly) {
-      setAsistente(true);
-      setCfg((c) => { const { abrirAsistente, ...resto } = c; return resto; });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cfg.abrirAsistente]);
 
   const persistProyectos = async (list) => {
     setProyectos(list);
@@ -288,14 +272,6 @@ export default function GeneradorInfografiaTV() {
           {!EMBEDDED && tab("set", Monitor, "Set")}
           {!EMBEDDED && tab("escaleta", Clapperboard, "Escaleta")}
         </div>
-        {!readonly && (
-          <button onClick={() => setAsistente(true)} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold text-white" style={{ background: "#1FA14E" }}
-            title={esNarrativo(cfg)
-              ? "Asistente narrativo: premisa, personajes, estructura y escenas → genera la escaleta"
-              : "Asistente de programa en vivo: tipo de programa, bloques y duración → genera la escaleta editorial"}>
-            {esNarrativo(cfg) ? "✦ Asistente narrativo" : "▤ Asistente en vivo"}
-          </button>
-        )}
         {!readonly && !EMBEDDED && (
           <button onClick={compartir} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold text-white"
             style={{ background: copiado ? "#16A34A" : "#2563EB" }}>
@@ -325,11 +301,6 @@ export default function GeneradorInfografiaTV() {
             En pantallas pequeñas desliza horizontalmente. En escritorio usa el menú Exportar para crear el proyecto, una imagen PNG o un PDF.
           </p>
         </div>
-      )}
-
-      {asistente && !readonly && (esNarrativo(cfg)
-        ? <AsistenteNarrativo cfg={cfg} setCfg={setCfg} onClose={() => setAsistente(false)} onGenerado={() => setAsistente(false)} />
-        : <AsistenteEnVivo cfg={cfg} setCfg={setCfg} onClose={() => setAsistente(false)} onGenerado={() => setAsistente(false)} />
       )}
     </div>
   );

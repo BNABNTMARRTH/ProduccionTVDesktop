@@ -17,7 +17,7 @@ const PASOS = [
     cuerpo: 'Cada icono es una herramienta (o usa <b>⌘1–⌘7</b>). El icono encendido es donde estás. El nombre del proyecto, arriba a la izquierda, te regresa a Inicio.' },
   { view: 'escaleta', target: '[data-view="escaleta"]',
     titulo: '1 · El mensaje y la historia',
-    cuerpo: 'Toda producción empieza por el <b>porqué</b>. En <b>≡ Escaleta</b>, el <b>✦ Asistente narrativo</b> te lleva de la idea a la escaleta: define tu mensaje y tu premisa, crea tus personajes, elige una estructura y genera las escenas por ti.' },
+    cuerpo: 'Toda producción empieza por el <b>porqué</b>. En <b>≡ Escaleta</b> escribes qué pasa y en qué orden: agrega los bloques o escenas que necesites, con la duración de cada uno. Puedes agregar, borrar y reordenar en cualquier momento.' },
   { view: 'escaleta', target: '[data-view="escaleta"]',
     titulo: '2 · Ángulos y planos',
     cuerpo: 'En el <b>Guion técnico</b> decides, toma por toma, el plano y el ángulo de cámara. El asistente los recomienda según tu intención: <b>primer plano</b> para la emoción, <b>gran plano general</b> para el contexto, <b>contrapicado</b> para dar poder…' },
