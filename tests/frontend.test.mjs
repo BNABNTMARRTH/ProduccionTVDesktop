@@ -12,6 +12,7 @@ import {
 } from '../web-sources/generador-tv/src/iluminacion.js';
 import { ESTRUCTURAS, loglineDe, escenasDe, alertasDe, planoPorEncuadre, anguloPorPercepcion, sincronizarPersonajes, construirProyectoNarrativo } from '../web-sources/generador-tv/src/narrativa.js';
 import { revisar, escalaDePlano, NIVELES } from '../web-sources/generador-tv/src/sugerencias.js';
+import { objetivoDe } from '../web-sources/generador-tv/src/proyecto.js';
 import { escaletaEnVivoDe, TIPOS_PROGRAMA, construirEscaletaEnVivo } from '../web-sources/generador-tv/src/envivo.js';
 
 test('makeTemplate produce el esquema v3 con sets, talentos y mics asignados', () => {
@@ -425,4 +426,33 @@ test('un proyecto bien armado no recibe avisos', () => {
     ] }],
   };
   assert.deepEqual(revisar(cfg), []);
+});
+
+/* --------------------- Duración objetivo del proyecto --------------------- */
+
+test('la duración objetivo se lee del proyecto y respeta a los proyectos viejos', () => {
+  assert.equal(objetivoDe({ duracionObjetivoMin: 12 }), 12);
+  assert.equal(objetivoDe({ programa: { durMin: 30 } }), 30, 'proyectos del asistente en vivo retirado');
+  assert.equal(objetivoDe({ duracionObjetivoMin: 8, programa: { durMin: 30 } }), 8, 'manda el campo nuevo');
+  assert.equal(objetivoDe({}), 0, 'sin objetivo definido');
+  assert.equal(objetivoDe(), 0);
+});
+
+test('con duración objetivo, el aviso aparece en cualquier modo', () => {
+  const base = (extra) => ({
+    escaleta: [{ id: 's1', segmento: 'Único', dur: 400 }],
+    ...extra,
+  });
+  assert.deepEqual(revisar(base({})), [], 'sin objetivo no hay nada que comparar');
+
+  const sobra = revisar(base({ duracionObjetivoMin: 5 })).find((a) => a.regla === 'duracion-objetivo');
+  assert.equal(sobra.nivel, 'error');
+  assert.match(sobra.problema, /Te pasas/);
+
+  const falta = revisar(base({ duracionObjetivoMin: 10 })).find((a) => a.regla === 'duracion-objetivo');
+  assert.equal(falta.nivel, 'precaucion');
+  assert.match(falta.problema, /Te faltan/);
+
+  const justo = revisar(base({ duracionObjetivoMin: 7 })).find((a) => a.regla === 'duracion-objetivo');
+  assert.equal(justo, undefined, 'a menos de 30 s del objetivo no molesta');
 });

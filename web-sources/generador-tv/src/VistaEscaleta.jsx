@@ -3,6 +3,7 @@ import { Camera, Plus, Trash2 } from "lucide-react";
 import { MOVIMIENTOS, PLANOS } from "./catalogos.js";
 import { computeBloques, computeFuentes, computeRows } from "./escaleta.js";
 import { EscaletaEditor } from "./EscaletaEditor.jsx";
+import { MetaDuracion } from "./MetaDuracion.jsx";
 import { Escaleta, Timeline } from "./EscaletaVistas.jsx";
 import { RundownCues } from "./RundownCues.jsx";
 import { esNarrativo } from "./proyecto.js";
@@ -102,6 +103,8 @@ export function VistaEscaleta({ cfg, setCfg }) {
             </span>
           )}
         </div>
+        <MetaDuracion cfg={cfg} setCfg={setCfg} total={total} editable={editable} />
+
         {cfg.narrativa?.logline && (
           <p className="m-0 text-center text-sm italic text-slate-500">{cfg.narrativa.logline}</p>
         )}

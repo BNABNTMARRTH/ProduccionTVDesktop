@@ -12,6 +12,8 @@
 //
 // Son funciones PURAS: reciben el proyecto (cfg) y devuelven datos.
 
+import { objetivoDe } from './proyecto.js';
+
 export const NIVELES = {
   error: { etiqueta: 'Error', orden: 0 },
   precaucion: { etiqueta: 'Precaución', orden: 1 },
@@ -232,7 +234,7 @@ export function saltosInteriorExterior(cfg) {
 // «La escaleta tiene una duración de 30 minutos, pero los segmentos suman 33.
 // Necesitas recortar tres minutos.»
 export function duracionContraObjetivo(cfg) {
-  const objetivoMin = cfg?.programa?.durMin;
+  const objetivoMin = objetivoDe(cfg);
   if (!objetivoMin) return [];
   const objetivo = objetivoMin * 60;
   const suma = segmentosDe(cfg).reduce((n, s) => n + (s.dur || 0), 0);

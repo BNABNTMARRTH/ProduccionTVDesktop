@@ -14,6 +14,11 @@ import { uid } from "./util.js";
 // que falten al final y descarta ids desconocidos (compatibilidad con proyectos viejos).
 // Modo del proyecto: 'live' (programa en vivo) o 'narrative' (por escenas y
 // planos). Los proyectos anteriores a los modos se leen como 'live'.
+// Duración OBJETIVO del proyecto, en minutos (0 = sin definir). Los proyectos
+// hechos con el asistente en vivo (retirado) la guardaban en programa.durMin:
+// se sigue leyendo para no perderla.
+export const objetivoDe = (cfg) => Number(cfg?.duracionObjetivoMin || cfg?.programa?.durMin || 0) || 0;
+
 export const esNarrativo = (cfg) => cfg?.modo === "narrative";
 
 export const normSecciones = (arr) => {
