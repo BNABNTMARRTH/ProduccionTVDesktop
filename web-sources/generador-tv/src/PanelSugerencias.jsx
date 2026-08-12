@@ -11,10 +11,20 @@ const COLOR = {
   recomendacion: { fondo: "rgba(88,168,255,.14)", texto: "#8FC2FF", borde: "rgba(88,168,255,.40)" },
 };
 
-export function PanelSugerencias({ cfg, onClose }) {
+export function PanelSugerencias({ cfg, setCfg, onClose }) {
   const todos = useMemo(() => revisar(cfg), [cfg]);
   const [ignorados, setIgnorados] = useState(() => new Set());
   const [abierto, setAbierto] = useState(null);
+  const [hecho, setHecho] = useState(null); // último arreglo aplicado
+  const editable = typeof setCfg === "function";
+
+  // Corregir es MECÁNICO y deshacible: el arreglo entra al historial del
+  // generador, así que ⌘Z lo revierte como cualquier otra edición.
+  const corregir = (a) => {
+    setCfg(a.arreglo.aplicar, { commit: true });
+    setHecho(a.arreglo.etiqueta);
+    setTimeout(() => setHecho(null), 4000);
+  };
   const avisos = todos.filter((a) => !ignorados.has(a.id));
 
   const cuenta = ["error", "precaucion", "recomendacion"]
@@ -68,6 +78,14 @@ export function PanelSugerencias({ cfg, onClose }) {
               <b style={{ color: "#8DF0B4" }}>Qué hacer: </b>{a.accion}
             </p>
             <div className="flex flex-wrap gap-1.5">
+              {a.arreglo && editable && (
+                <button onClick={() => corregir(a)}
+                  className="rounded-md px-2 py-1 text-xs font-bold"
+                  title="Hace el cambio por ti. Puedes deshacerlo con ⌘Z."
+                  style={{ border: "none", background: "#1FA14E", color: "#fff", cursor: "pointer" }}>
+                  ✓ {a.arreglo.etiqueta}
+                </button>
+              )}
               <button onClick={() => setAbierto(abierto === a.id ? null : a.id)}
                 className="rounded-md px-2 py-1 text-xs font-bold"
                 style={{ border: "1px solid #31547B", background: "transparent", color: "#8FC2FF", cursor: "pointer" }}>
@@ -90,7 +108,9 @@ export function PanelSugerencias({ cfg, onClose }) {
       </div>
 
       <p className="m-0 px-4 pb-3.5 text-xs" style={{ color: "#7D93B3", borderTop: "1px solid #22364F", paddingTop: 10 }}>
-        Son ayudas, no reglas. Si rompes una a propósito, la app te deja.
+        {hecho
+          ? <span style={{ color: "#8DF0B4", fontWeight: 700 }}>Listo: {hecho.toLowerCase()}. Si no era lo que querías, deshaz con ⌘Z.</span>
+          : "Son ayudas, no reglas. Si rompes una a propósito, la app te deja."}
       </p>
     </div>
   );

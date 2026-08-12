@@ -313,7 +313,7 @@ export default function GeneradorInfografiaTV() {
           </p>
         </div>
       )}
-      {sugerencias && <PanelSugerencias cfg={cfg} onClose={() => setSugerencias(false)} />}
+      {sugerencias && <PanelSugerencias cfg={cfg} setCfg={readonly ? undefined : setCfg} onClose={() => setSugerencias(false)} />}
     </div>
   );
 }

@@ -13,6 +13,7 @@
 // Son funciones PURAS: reciben el proyecto (cfg) y devuelven datos.
 
 import { objetivoDe } from './proyecto.js';
+import { uid } from './util.js';
 
 export const NIVELES = {
   error: { etiqueta: 'Error', orden: 0 },
@@ -90,6 +91,12 @@ export function unidadesConPlano(cfg) {
   return unidades.filter((u) => u.escala != null);
 }
 
+/* --------------------- Correcciones automáticas ---------------------
+Un aviso puede traer `arreglo`: una función PURA que recibe el proyecto y
+devuelve el proyecto corregido. Solo se ofrece en lo MECÁNICO —agregar la pieza
+que falta— nunca en lo creativo: qué recortar, cómo repartir los encuadres o
+qué cambia en una escena lo decide el autor. Todo arreglo es deshacible con
+⌘Z, porque pasa por el historial del generador. */
 const aviso = (o) => ({ modulo: 'escaleta', ...o });
 
 /* ============================ REGLAS DE IMAGEN ============================ */
@@ -177,6 +184,17 @@ export function dialogoSinAudio(cfg) {
   if (!conPersonajes.length || (cfg?.microfonos || []).length > 0) return [];
   return [aviso({
     id: 'dialogo-sin-audio', regla: 'dialogo-sin-audio', nivel: 'precaucion', modulo: 'set',
+    arreglo: {
+      etiqueta: 'Poner un micrófono de solapa a cada talento',
+      aplicar: (cfg2) => {
+        const talentos = cfg2.talentos || [];
+        const nuevos = (talentos.length ? talentos : [{ id: '', nombre: 'Talento' }]).map((t, i) => ({
+          id: uid(), nombre: `Mic ${i + 1}${t.nombre ? ` · ${t.nombre}` : ''}`,
+          conexion: 'Inalámbrico', micTipo: 'solapa', asignadoA: t.id ? `tal:${t.id}` : '',
+        }));
+        return { ...cfg2, microfonos: [...(cfg2.microfonos || []), ...nuevos] };
+      },
+    },
     problema: 'Hay diálogo pero no hay fuente de audio',
     motivo: `${conPersonajes.length} escena${conPersonajes.length === 1 ? '' : 's'} con personajes en cuadro y el proyecto no tiene ningún micrófono.`,
     accion: 'Agrega un micrófono de solapa por personaje, o un boom si se mueven (Editar → Talentos y micrófonos).',
@@ -281,6 +299,13 @@ export function sinResponsableDeCorte(cfg) {
   if (/director de camaras|realizador|switcher/.test(roles)) return [];
   return [aviso({
     id: 'sin-realizador', regla: 'sin-responsable-corte', nivel: 'precaucion', modulo: 'personal',
+    arreglo: {
+      etiqueta: 'Agregar “Director de cámaras” al equipo',
+      aplicar: (cfg2) => ({
+        ...cfg2,
+        personal: [...(cfg2.personal || []), { id: uid(), rol: 'Director de cámaras', icon: 'director' }],
+      }),
+    },
     problema: 'Nadie autoriza los cambios de cámara',
     motivo: 'En el equipo no hay director de cámaras ni operador de switcher.',
     accion: 'Agrega el rol en Editar → Personal y define en la escaleta quién canta los cortes.',
@@ -298,12 +323,31 @@ export function vtrSinRetorno(cfg) {
       if (!['vtr', 'comercial'].includes(c.tipo)) return;
       const siguiente = cues[j + 1];
       if (!siguiente || !['camara', 'instruccion'].includes(siguiente.tipo)) {
-        sueltos.push({ ref: `${i + 1}.${j + 1}`, texto: c.texto || (c.tipo === 'vtr' ? 'VTR' : 'Comercial') });
+        sueltos.push({ ref: `${i + 1}.${j + 1}`, texto: c.texto || (c.tipo === 'vtr' ? 'VTR' : 'Comercial'), segId: seg.id, pos: j });
       }
     });
   });
   return sueltos.slice(0, 3).map((s) => aviso({
     id: `retorno-${s.ref}`, regla: 'vtr-sin-retorno', nivel: 'precaucion',
+    arreglo: {
+      etiqueta: 'Agregar el cue de retorno',
+      aplicar: (cfg2) => ({
+        ...cfg2,
+        escaleta: (cfg2.escaleta || []).map((seg) => (seg.id !== s.segId ? seg : {
+          ...seg,
+          cues: [
+            ...(seg.cues || []).slice(0, s.pos + 1),
+            {
+              id: uid(), tipo: 'camara', dur: 10, transicion: 'Corte',
+              alAire: (cfg2.camaras || [])[0]?.id || '', previo: (cfg2.camaras || [])[1]?.id || '',
+              audio: '', grafico: '', plano: '', estado: 'borrador',
+              texto: 'Retorno a conductor',
+            },
+            ...(seg.cues || []).slice(s.pos + 1),
+          ],
+        })),
+      }),
+    },
     problema: 'El video no tiene retorno',
     motivo: `Después del cue ${s.ref} («${s.texto}») no hay una cámara ni una instrucción que indique a dónde volver.`,
     accion: 'Agrega un cue de cámara justo después, con el conductor listo y la indicación de retorno.',

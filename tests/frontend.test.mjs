@@ -456,3 +456,59 @@ test('con duración objetivo, el aviso aparece en cualquier modo', () => {
   const justo = revisar(base({ duracionObjetivoMin: 7 })).find((a) => a.regla === 'duracion-objetivo');
   assert.equal(justo, undefined, 'a menos de 30 s del objetivo no molesta');
 });
+
+/* --------------------- Correcciones automáticas: solo lo mecánico --------------------- */
+
+const proyectoConHuecos = () => ({
+  modo: 'live',
+  talentos: [{ id: 't1', nombre: 'Ana' }, { id: 't2', nombre: 'Beto' }],
+  microfonos: [], personal: [{ id: 'p1', rol: 'Operador de audio' }],
+  camaras: [{ id: 'c1', nombre: 'CAM 1', plano: 'Plano General' }, { id: 'c2', nombre: 'CAM 2', plano: 'Primer Plano' }],
+  escaleta: [{ id: 'b1', segmento: 'Entrada', dur: 120, personajes: 'Ana', cues: [
+    { id: 'q1', tipo: 'camara', texto: 'Abre', plano: 'Plano General', dur: 20 },
+    { id: 'q2', tipo: 'vtr', texto: 'Lanzar nota', dur: 90 },
+  ] }],
+});
+
+test('solo las reglas mecánicas ofrecen corregir automáticamente', () => {
+  const conArreglo = revisar(proyectoConHuecos()).filter((a) => a.arreglo).map((a) => a.regla).sort();
+  assert.deepEqual(conArreglo, ['dialogo-sin-audio', 'sin-responsable-corte', 'vtr-sin-retorno']);
+  // Lo creativo (qué recortar, cómo repartir encuadres, qué cambia en la escena)
+  // NUNCA se corrige solo: lo decide el autor.
+  const creativas = ['ritmo-planos', 'duracion-objetivo', 'camaras-mismo-encuadre', 'escena-sin-cambio',
+    'planos-cerrados-seguidos', 'sin-planos-recurso', 'musica-sobre-dialogo', 'salto-int-ext'];
+  const cfgCreativo = { ...proyectoConHuecos(), duracionObjetivoMin: 1 };
+  revisar(cfgCreativo).filter((a) => creativas.includes(a.regla))
+    .forEach((a) => assert.equal(a.arreglo, undefined, `${a.regla} no debe corregirse sola`));
+});
+
+test('el arreglo del video sin retorno inserta el cue en su lugar y no toca nada más', () => {
+  const cfg = proyectoConHuecos();
+  const aviso = revisar(cfg).find((a) => a.regla === 'vtr-sin-retorno');
+  const nuevo = aviso.arreglo.aplicar(cfg);
+  const cues = nuevo.escaleta[0].cues;
+  assert.equal(cues.length, 3);
+  assert.equal(cues[1].tipo, 'vtr', 'el video sigue donde estaba');
+  assert.equal(cues[2].texto, 'Retorno a conductor');
+  assert.equal(cues[2].alAire, 'c1', 'sale por la primera cámara');
+  assert.equal(cfg.escaleta[0].cues.length, 2, 'el proyecto original no se modifica');
+  assert.ok(!revisar(nuevo).some((a) => a.regla === 'vtr-sin-retorno'), 'el aviso desaparece');
+});
+
+test('el arreglo del responsable agrega el rol sin borrar el equipo', () => {
+  const cfg = proyectoConHuecos();
+  const nuevo = revisar(cfg).find((a) => a.regla === 'sin-responsable-corte').arreglo.aplicar(cfg);
+  assert.equal(nuevo.personal.length, 2);
+  assert.equal(nuevo.personal[1].rol, 'Director de cámaras');
+  assert.ok(!revisar(nuevo).some((a) => a.regla === 'sin-responsable-corte'));
+});
+
+test('el arreglo del audio pone un micrófono de solapa por talento, ya asignado', () => {
+  const cfg = proyectoConHuecos();
+  const nuevo = revisar(cfg).find((a) => a.regla === 'dialogo-sin-audio').arreglo.aplicar(cfg);
+  assert.equal(nuevo.microfonos.length, 2);
+  assert.equal(nuevo.microfonos[0].micTipo, 'solapa');
+  assert.equal(nuevo.microfonos[0].asignadoA, 'tal:t1');
+  assert.match(nuevo.microfonos[1].nombre, /Beto/);
+  assert.ok(!revisar(nuevo).some((a) => a.regla === 'dialogo-sin-audio'));
+});
