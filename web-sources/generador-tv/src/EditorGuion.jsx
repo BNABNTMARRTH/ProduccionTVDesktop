@@ -21,7 +21,7 @@ import {
 import { objetivoDe } from "./proyecto.js";
 import { TarjetaAyuda } from "./ui.jsx";
 import { INK, NAVY } from "./theme.js";
-import { fmt, uid } from "./util.js";
+import { fmt, parseDur, uid } from "./util.js";
 
 const PAPEL = { background: "#fff", color: "#12212f", fontFamily: '"Courier New", Courier, monospace' };
 
@@ -33,6 +33,7 @@ export function EditorGuion({ cfg, setCfg }) {
   const objetivoMin = objetivoDe(cfg);
   const [foco, setFoco] = useState(null);          // id del bloque a enfocar
   const [sugiere, setSugiere] = useState(null);    // {bloqueId, opciones}
+  const [activa, setActiva] = useState(null);      // escena donde está el cursor
   const areas = useRef({});
 
   // Enfoca el bloque recién creado y coloca el cursor al final.
@@ -133,7 +134,8 @@ export function EditorGuion({ cfg, setCfg }) {
 
   return (
     <div className="scrollwrap overflow-auto px-2 py-4" style={{ background: "#E9EDF3" }}>
-      <div className="mx-auto grid gap-4 xl:grid-cols-[250px_minmax(0,1fr)]" style={{ maxWidth: 1180 }}>
+      <div className="mx-auto grid gap-4 xl:grid-cols-[250px_minmax(0,1fr)] 2xl:grid-cols-[250px_minmax(0,900px)_minmax(340px,1fr)]"
+        style={{ maxWidth: "100%" }}>
       {/* Índice de escenas: solo aparece cuando hay ancho para él. Antes ese
           espacio se quedaba vacío a los lados de la página. */}
       <aside className="no-print hidden xl:block">
@@ -205,6 +207,7 @@ export function EditorGuion({ cfg, setCfg }) {
               <input
                 value={esc.encabezado || ""}
                 disabled={!editable}
+                onFocus={() => setActiva(esc.id)}
                 onChange={(e) => upEscena(esc.id, { encabezado: e.target.value.toUpperCase() })}
                 onBlur={(e) => upEscena(esc.id, { encabezado: normalizarEncabezado(e.target.value) })}
                 placeholder="INT. LUGAR – DÍA"
@@ -234,7 +237,7 @@ export function EditorGuion({ cfg, setCfg }) {
                     placeholder={t.nombre}
                     onChange={(e) => { acomoda(e.target); escribe(esc, b, t.mayus ? e.target.value.toUpperCase() : e.target.value); }}
                     onKeyDown={(e) => teclas(e, esc, b)}
-                    onFocus={(e) => acomoda(e.target)}
+                    onFocus={(e) => { acomoda(e.target); setActiva(esc.id); }}
                     className="w-full resize-none border-0 bg-transparent outline-none"
                     style={{
                       fontFamily: PAPEL.fontFamily, fontSize: 14.5, lineHeight: 1.5,
@@ -291,6 +294,41 @@ export function EditorGuion({ cfg, setCfg }) {
         )}
       </div>
       </div>
+
+      {/* Datos de la escena donde está el cursor. Son los mismos campos de la
+          escaleta: aquí se llenan sin salir del guion, y llenan el espacio que
+          antes se quedaba vacío en pantallas grandes. */}
+      <aside className="no-print hidden 2xl:block">
+        {(() => {
+          const esc = escenas.find((e) => e.id === activa) || escenas[0];
+          if (!esc) return null;
+          const i = escenas.indexOf(esc);
+          const campo = (etiqueta, valor, alPoner, placeholder) => (
+            <label className="block text-xs font-bold uppercase" style={{ color: "#8A97A8", letterSpacing: 0.6 }}>
+              {etiqueta}
+              <input value={valor || ""} disabled={!editable} placeholder={placeholder}
+                onChange={(e) => alPoner(e.target.value)}
+                className="mt-1 w-full rounded-md border px-2 py-1.5 text-sm font-normal normal-case"
+                style={{ borderColor: "#C8D2DE", color: INK, fontFamily: "system-ui, sans-serif" }} />
+            </label>
+          );
+          return (
+            <div className="sticky top-2 flex flex-col gap-3 rounded-xl p-3" style={{ background: "#fff", border: "1px solid #C8D2DE" }}>
+              <div className="text-xs font-bold uppercase" style={{ color: NAVY, letterSpacing: 1 }}>
+                Escena {i + 1}
+              </div>
+              {campo("Nombre del bloque", esc.segmento, (v) => upEscena(esc.id, { segmento: v }), "1. Presente")}
+              {campo("Duración", fmt(esc.dur || 0), (v) => upEscena(esc.id, { dur: parseDur(v) }), "01:00")}
+              {campo("Función en la historia", esc.funcion, (v) => upEscena(esc.id, { funcion: v }), "Presenta el mundo")}
+              {campo("¿Qué cambia aquí?", esc.cambio, (v) => upEscena(esc.id, { cambio: v }), "Lo que ya no vuelve a ser igual")}
+              {campo("Personajes", esc.personajes, (v) => upEscena(esc.id, { personajes: v }), "Doña Rosa, Marco")}
+              <p className="m-0 text-xs" style={{ color: "#93a1b3", lineHeight: 1.45 }}>
+                Son los mismos campos de la escaleta: lo que escribas aquí aparece allá.
+              </p>
+            </div>
+          );
+        })()}
+      </aside>
       </div>
     </div>
   );

@@ -113,7 +113,8 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
   const delRol = (id) => setCfg((c) => ({ ...c, personal: c.personal.filter((p) => p.id !== id) }));
 
   return (
-    <div className="mx-auto grid grid-cols-1 items-start gap-3 px-3 py-4 xl:grid-cols-2" style={{ maxWidth: 1600 }}>
+    <div className="grid items-start gap-3 px-3 py-4"
+      style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 520px), 1fr))" }}>
       {/* Proyectos (solo versión web: en la app de escritorio los proyectos los maneja el shell) */}
       {ver('perfil') && !EMBEDDED && (
       <Card title="Proyectos" open={false}>

@@ -87,7 +87,7 @@ export function VistaSet({ cfg, setCfg }) {
 
   return (
     <div className="scrollwrap overflow-auto px-2 py-4">
-      <div className="vista-foco mx-auto flex flex-col gap-3 bg-white shadow-lg" style={{ width: "100%", maxWidth: 1500, padding: 16, borderRadius: 8 }}>
+      <div className="vista-foco mx-auto flex flex-col gap-3 bg-white shadow-lg" style={{ width: "100%", padding: 16, borderRadius: 8 }}>
         <Box title={`Set / Estudio — planta física${sets.length > 1 ? ` (${sets.length} sets)` : ""}`}>
           {editable && (
             <div className="no-print flex flex-wrap items-center gap-1.5" style={{ marginBottom: 8 }}>

@@ -17,12 +17,14 @@
   .toolbar button{margin-left:auto;border:1px solid #4f89c8;background:#1d6fd1;color:#fff;border-radius:8px;padding:8px 16px;font-weight:800;font-size:13px;cursor:pointer}
   .toolbar button:hover{background:#2d83e6}
   .toolbar .hint{font-size:11px;color:#a9c6e8}
-  .sheets{display:flex;flex-direction:column;align-items:center;gap:22px;padding:24px 16px 60px}
+  /* Las hojas se acomodan en tantas columnas como quepan: en una pantalla
+     grande se ven varias a la vez en vez de una sola con aire a los lados. */
+  .sheets{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,820px),1fr));justify-items:center;align-items:start;gap:22px;padding:24px 16px 60px}
   .empty{margin-top:80px;text-align:center;color:#a9b8c9;font-size:14px;line-height:1.7}
   @media print{
     body{background:#fff}
     .toolbar{display:none!important}
-    .sheets{padding:0;gap:0;display:block}
+    .sheets{padding:0;gap:0;display:block}   /* al imprimir, una por página */
     .sheet{width:auto;min-height:auto;box-shadow:none;border-radius:0;padding:10mm 12mm;page-break-after:always}
     .sheet:last-child{page-break-after:auto}
   }
