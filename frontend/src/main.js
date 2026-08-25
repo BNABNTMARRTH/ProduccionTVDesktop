@@ -95,7 +95,7 @@ const ETAPAS = [
       secciones: [['perfil', 'Datos y mensaje']] },
     { id: 'guion', n: '2', etiqueta: 'Guion', icono: 'guion',
       ayuda: 'Qué pasa, en qué orden y cómo se ve cada toma (⌘2)',
-      secciones: [['escaleta', 'Escaleta y guion técnico']] },
+      secciones: [['guionLiterario', 'Guion literario', 'narrative'], ['escaleta', 'Escaleta y guion técnico'], ['tiempos', 'Tiempos']] },
     { id: 'necesidades', n: '3', etiqueta: 'Necesidades', icono: 'necesidades',
       ayuda: 'Todo lo que hay que conseguir: gente y equipo (⌘3)',
       secciones: [['necesidades', 'Personas y equipo'], ['diagrama', 'Ruta de señal']] },
@@ -115,7 +115,11 @@ const ETAPA_DE_VISTA = Object.fromEntries(
     ETAPAS.flatMap((e) => e.secciones.map(([vista]) => [vista, e.id])),
 );
 const etapaPorId = (id) => ETAPAS.find((e) => e.id === id);
-const primeraVista = (etapa) => etapa.secciones[0][0];
+// Secciones que aplican al modo del proyecto (el tercer elemento las limita a
+// uno solo: el guion literario es de proyectos narrativos, no de un programa
+// en vivo, donde la escaleta son bloques y no escenas).
+const seccionesDe = (etapa, modo) => (etapa?.secciones || []).filter(([, , soloModo]) => !soloModo || soloModo === modo);
+const primeraVista = (etapa, modo) => (seccionesDe(etapa, modo)[0] || etapa.secciones[0])[0];
 
 /* ----------------------------- Estructura ----------------------------- */
 
@@ -197,6 +201,8 @@ const toolInfo = {
     infografias: { title: 'Infografía del proyecto', description: 'La hoja completa: set, escaleta, personal y branding', src: './tools/infografias/index.html', mode: 'vista' },
     perfil: { title: 'Perfil del proyecto', description: 'Quién habla, qué dice y a quién: datos generales, mensaje e intención', src: './tools/infografias/index.html', mode: 'perfil' },
     necesidades: { title: 'Necesidades', description: 'Qué hace falta conseguir: talentos, personal, cámaras y micrófonos', src: './tools/infografias/index.html', mode: 'necesidades' },
+    guionLiterario: { title: 'Guion literario', description: 'El guion en su forma tradicional: encabezado, acción, personaje y diálogo', src: './tools/infografias/index.html', mode: 'guion' },
+    tiempos: { title: 'Tiempos y salida a edición', description: 'Rundown con duraciones, análisis de tiempos y exportación EDL/CSV', src: './tools/infografias/index.html', mode: 'tiempos' },
     set: { title: 'Set', description: '¿Qué hay en el espacio físico y quién lo opera?', src: './tools/infografias/index.html', mode: 'set' },
     escaleta: { title: 'Escaleta / Rundown', description: '¿Qué pasa primero, qué pasa después y cuánto dura cada bloque?', src: './tools/infografias/index.html', mode: 'escaleta' },
     diagrama: { title: 'Diagrama de señal', description: 'Diseña y valida el flujo de video, audio y streaming', src: './tools/diagrama/index.html' },
@@ -285,11 +291,12 @@ function renderNav() {
     const etapa = etapaPorId(etapaActiva());
     railButtons.forEach((b) => b.classList.toggle('active', b.dataset.etapa === etapa?.id));
     // Una sola sección: no hay nada que elegir, la barra sobra.
-    if (!etapa || etapa.secciones.length < 2 || header.hidden) { secciones.hidden = true; return; }
     const modo = normalizeMode(latestInfografia?.modo);
+    const lista = seccionesDe(etapa, modo);
+    if (!etapa || lista.length < 2 || header.hidden) { secciones.hidden = true; return; }
     const rot = SECCION_ETIQUETAS[modo] || {};
     secciones.hidden = false;
-    secciones.innerHTML = etapa.secciones.map(([vista, etiqueta]) => `
+    secciones.innerHTML = lista.map(([vista, etiqueta]) => `
         <button data-seccion="${vista}" class="${vista === activeView ? 'active' : ''}">
           ${rot[vista] || etiqueta}
         </button>`).join('');
@@ -740,7 +747,7 @@ window.addEventListener('message', async (event) => {
 frame.addEventListener('load', () => { loading.classList.add('hidden'); setTimeout(hydrateFrame, 80); });
 railButtons.forEach((button) => button.onclick = () => {
     const etapa = etapaPorId(button.dataset.etapa);
-    if (etapa) selectView(ultimaSeccion[etapa.id] || primeraVista(etapa));
+    if (etapa) selectView(ultimaSeccion[etapa.id] || primeraVista(etapa, normalizeMode(latestInfografia?.modo)));
 });
 renderRecent();
 
@@ -896,7 +903,7 @@ document.addEventListener('keydown', (event) => {
     // ⌘1–⌘6: una etapa por número, en el orden de la barra lateral.
     const atajo = ETAPAS[Number(event.key) - 1];
     if (atajo && event.key >= '1' && event.key <= '6') {
-        selectView(ultimaSeccion[atajo.id] || primeraVista(atajo));
+        selectView(ultimaSeccion[atajo.id] || primeraVista(atajo, normalizeMode(latestInfografia?.modo)));
     }
 });
 

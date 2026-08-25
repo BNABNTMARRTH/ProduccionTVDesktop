@@ -7,16 +7,18 @@ import { uid, slug } from "./util.js";
 import { INK, NAVY } from "./theme.js";
 import { EMBEDDED } from "./puente.js";
 
-// Modos que entiende el puente con el escritorio. Los tres últimos son ETAPAS:
-// el editor completo filtrado a las tarjetas de esa etapa.
-const GRUPOS = ["perfil", "necesidades", "tiempos"];
-const MODOS = ["editar", "vista", "set", "escaleta", ...GRUPOS];
 import { VistaEscaleta } from "./VistaEscaleta.jsx";
 import { Infografia } from "./Infografia.jsx";
 import { Editor } from "./Editor.jsx";
+import { EditorGuion } from "./EditorGuion.jsx";
 import { PanelSugerencias } from "./PanelSugerencias.jsx";
 import { DEMO, normalizeCfg, esNarrativo } from "./proyecto.js";
 import { VistaSet } from "./VistaSet.jsx";
+
+// Modos que entiende el puente con el escritorio. Los tres últimos son ETAPAS:
+// el editor completo filtrado a las tarjetas de esa etapa.
+const GRUPOS = ["perfil", "necesidades", "tiempos"];
+const MODOS = ["editar", "vista", "set", "escaleta", "guion", ...GRUPOS];
 
 /* ----------------------------- Tokens / utilidades ----------------------------- */
 
@@ -313,6 +315,8 @@ export default function GeneradorInfografiaTV() {
           grupo={modo === "editar" ? "todo" : modo} />
       ) : modo === "set" ? (
         <VistaSet cfg={cfg} setCfg={readonly ? undefined : setCfg} />
+      ) : modo === "guion" ? (
+        <EditorGuion cfg={cfg} setCfg={readonly ? undefined : setCfg} />
       ) : modo === "escaleta" ? (
         <VistaEscaleta cfg={cfg} setCfg={readonly ? undefined : setCfg} />
       ) : (

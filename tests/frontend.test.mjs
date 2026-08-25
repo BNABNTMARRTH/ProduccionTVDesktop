@@ -14,6 +14,10 @@ import { ESTRUCTURAS, loglineDe, escenasDe, alertasDe, planoPorEncuadre, anguloP
 import { revisar, escalaDePlano, NIVELES } from '../web-sources/generador-tv/src/sugerencias.js';
 import { objetivoDe } from '../web-sources/generador-tv/src/proyecto.js';
 import { escaletaEnVivoDe, TIPOS_PROGRAMA, construirEscaletaEnVivo } from '../web-sources/generador-tv/src/envivo.js';
+import {
+  TIPOS, TIPO_SIGUIENTE, siguienteEnRotacion, bloqueNuevo, renglonesDe, medidasDe,
+  normalizarEncabezado, esEncabezadoValido, personajesDe, guionATexto,
+} from '../web-sources/generador-tv/src/guion.js';
 
 test('makeTemplate produce el esquema v3 con sets, talentos y mics asignados', () => {
   const cfg = makeTemplate('entrevista', {
@@ -511,4 +515,67 @@ test('el arreglo del audio pone un micrófono de solapa por talento, ya asignado
   assert.equal(nuevo.microfonos[0].asignadoA, 'tal:t1');
   assert.match(nuevo.microfonos[1].nombre, /Beto/);
   assert.ok(!revisar(nuevo).some((a) => a.regla === 'dialogo-sin-audio'));
+});
+
+
+/* ---------------------- Guion literario (formato tradicional) ---------------------- */
+
+test('el Enter encadena los tipos como en un guion de verdad', () => {
+  // Tras el nombre del personaje SIEMPRE viene lo que dice; tras el diálogo,
+  // se vuelve a la acción. Eso es lo que hace que escribir sea rápido.
+  assert.equal(TIPO_SIGUIENTE.personaje, 'dialogo');
+  assert.equal(TIPO_SIGUIENTE.parentesis, 'dialogo');
+  assert.equal(TIPO_SIGUIENTE.dialogo, 'accion');
+  assert.equal(TIPO_SIGUIENTE.accion, 'accion');
+});
+
+test('el Tab rota entre los cinco tipos y vuelve al principio', () => {
+  const vistos = [];
+  let t = 'accion';
+  for (let i = 0; i < 5; i++) { vistos.push(t); t = siguienteEnRotacion(t); }
+  assert.deepEqual(vistos, ['accion', 'personaje', 'parentesis', 'dialogo', 'transicion']);
+  assert.equal(t, 'accion');
+});
+
+test('los encabezados de escena se normalizan al formato del oficio', () => {
+  assert.equal(normalizarEncabezado('int. mercado república - día'), 'INT. MERCADO REPÚBLICA - DÍA');
+  assert.equal(normalizarEncabezado('ext casa de ana – noche'), 'EXT. CASA DE ANA – NOCHE');
+  assert.equal(normalizarEncabezado(''), '');
+  assert.ok(esEncabezadoValido('INT. COCINA - DÍA'));
+  assert.ok(!esEncabezadoValido('la cocina de Ana'));
+});
+
+test('una página de guion equivale a un minuto de pantalla', () => {
+  // 55 renglones = 1 página = 60 segundos. Un bloque de acción de una línea
+  // ocupa 2 renglones (su línea más el aire de arriba).
+  const escena = { encabezado: 'INT. MERCADO - DÍA', guion: Array.from({ length: 26 }, () => bloqueNuevo('accion', 'Ana camina.')) };
+  const m = medidasDe([escena]);
+  assert.equal(m.renglones, 26 * 2 + 2);
+  assert.ok(Math.abs(m.segundos - 59) <= 2, `segundos calculados: ${m.segundos}`);
+});
+
+test('el diálogo se pega a su personaje y la acción respira', () => {
+  assert.equal(renglonesDe(bloqueNuevo('dialogo', 'Hola.')), 1);
+  assert.equal(renglonesDe(bloqueNuevo('accion', 'Hola.')), 2);
+  // Un diálogo largo se parte según el ancho de su columna (35 caracteres).
+  assert.equal(renglonesDe(bloqueNuevo('dialogo', 'x'.repeat(70))), 2);
+});
+
+test('los personajes para autocompletar salen del guion y de los talentos', () => {
+  const cfg = {
+    talentos: [{ nombre: 'Doña Rosa' }],
+    escaleta: [{ guion: [bloqueNuevo('personaje', 'ana'), bloqueNuevo('dialogo', 'Hola'), bloqueNuevo('personaje', 'ANA')] }],
+  };
+  assert.deepEqual(personajesDe(cfg), ['ANA', 'DOÑA ROSA']);
+});
+
+test('el guion se exporta como texto con la sangría del formato', () => {
+  const txt = guionATexto([{
+    encabezado: 'int. mercado - día',
+    guion: [bloqueNuevo('accion', 'Ana abre la cortina.'), bloqueNuevo('personaje', 'ana'), bloqueNuevo('dialogo', 'Ya abrimos.')],
+  }]);
+  assert.ok(txt.includes('1. INT. MERCADO - DÍA'));
+  assert.ok(txt.includes('Ana abre la cortina.'));
+  assert.ok(txt.includes(' '.repeat(22) + 'ANA'));
+  assert.ok(txt.includes(' '.repeat(11) + 'Ya abrimos.'));
 });

@@ -68,6 +68,15 @@
   .person div{min-width:0}
   .person strong{display:block;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .person small{font-size:9.5px;color:#5b6b82;text-transform:uppercase;font-weight:700;letter-spacing:.5px}
+  /* Guion literario: formato tradicional, Courier y sangrías del oficio. */
+  .gl{font-family:"Courier New",Courier,monospace;font-size:12px;line-height:1.5;color:#12212f}
+  .gl .esc{font-weight:700;margin:16px 0 8px;letter-spacing:.4px}
+  .gl .esc:first-child{margin-top:4px}
+  .gl .acc{margin:0 0 9px}
+  .gl .per{margin:9px 0 0 37%;font-weight:700}
+  .gl .par{margin:0 0 0 31%;font-style:italic;width:38%}
+  .gl .dia{margin:0 0 0 22%;width:52%}
+  .gl .tra{margin:9px 0 9px;text-align:right;color:#4a5a70}
   .cat2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#16365F;border-bottom:2px solid #16365F;padding-bottom:3px;margin:14px 0 8px}
 </style>
 </head>
@@ -111,6 +120,7 @@
     { id: 'set', label: 'Sets (planos cenitales)', on: true },
     { id: 'iluminacion', label: 'Iluminación', on: true },
     { id: 'llamado', label: 'Hoja de llamado', on: true },
+    { id: 'guion', label: 'Guion literario', on: true },
     { id: 'escaleta', label: 'Escaleta', on: true },
     { id: 'timeline', label: 'Línea de tiempo', on: true },
     { id: 'diagrama', label: 'Diagrama técnico', on: true },
@@ -336,6 +346,29 @@
       <div class="people">${[...people, ...camOps].join('') || '<p>Sin personal definido.</p>'}</div>`;
   }
 
+  // GUION LITERARIO en su forma tradicional. Se arma con las mismas escenas de
+  // la escaleta (encabezado + cuerpo). Si el proyecto no tiene guion escrito no
+  // se imprime ninguna página: no se rellena con humo.
+  function pagsGuion() {
+    const escenas = (cfg.escaleta || []).filter((e) => (e.guion || []).some((b) => String(b.texto || '').trim()));
+    if (!escenas.length) return [];
+    const CLASE = { accion: 'acc', personaje: 'per', parentesis: 'par', dialogo: 'dia', transicion: 'tra' };
+    const cuerpo = escenas.map((e, i) => {
+      const enc = esc(String(e.encabezado || `ESCENA ${i + 1}`).toUpperCase());
+      const bloques = (e.guion || []).filter((b) => String(b.texto || '').trim()).map((b) => {
+        const cls = CLASE[b.tipo] || 'acc';
+        const txt = esc(b.texto).replace(/\n/g, '<br>');
+        const contenido = (b.tipo === 'personaje' || b.tipo === 'transicion') ? txt.toUpperCase() : txt;
+        return `<p class="${cls}">${b.tipo === 'parentesis' ? '(' + contenido + ')' : contenido}</p>`;
+      }).join('');
+      return `<div class="esc">${i + 1}. ${enc}</div>${bloques}`;
+    }).join('');
+    return [{
+      name: 'guion-literario',
+      html: `${pgHead('Guion literario', 'El guion en su forma tradicional')}<div class="gl">${cuerpo}</div>`,
+    }];
+  }
+
   /* --------------------------- Composición --------------------------- */
 
   // Devuelve la lista de páginas [{name, html, fillable}] según secciones y orden.
@@ -346,6 +379,7 @@
       if (s.id === 'set') pages.push(...pagsSet());
       if (s.id === 'iluminacion') pages.push(...pagsIluminacion());
       if (s.id === 'llamado') pages.push({ name: 'hoja-de-llamado', html: S.llamado(cfg, projectName), fillable: true });
+      if (s.id === 'guion') pages.push(...pagsGuion());
       if (s.id === 'escaleta') pages.push({ name: 'escaleta', html: pagEscaleta() });
       if (s.id === 'timeline') pages.push({ name: 'linea-de-tiempo', html: pagTimeline() });
       if (s.id === 'diagrama') pages.push({ name: 'diagrama-tecnico', html: pagDiagrama() });
