@@ -113,7 +113,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
   const delRol = (id) => setCfg((c) => ({ ...c, personal: c.personal.filter((p) => p.id !== id) }));
 
   return (
-    <div className="mx-auto flex flex-col gap-3 px-3 py-4" style={{ maxWidth: 880 }}>
+    <div className="mx-auto grid grid-cols-1 items-start gap-3 px-3 py-4 xl:grid-cols-2" style={{ maxWidth: 1600 }}>
       {/* Proyectos (solo versión web: en la app de escritorio los proyectos los maneja el shell) */}
       {ver('perfil') && !EMBEDDED && (
       <Card title="Proyectos" open={false}>
@@ -239,7 +239,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
 
       {/* Cámaras */}
       {ver('necesidades') && (
-      <Card title={`Cámaras y planos (${cfg.camaras.length})`}>
+      <Card title={`Cámaras y planos (${cfg.camaras.length})`} className="xl:col-span-2">
         <datalist id="planos">{PLANOS.map((p) => <option key={p} value={p} />)}</datalist>
         {cfg.camaras.map((c, i) => (
           <div key={c.id} {...dndCam.target(i)}
@@ -296,7 +296,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
       </Card>)}
 
       {ver('necesidades') && (
-      <Card title={`Micrófonos (${(cfg.microfonos || []).length})`} open={false}>
+      <Card title={`Micrófonos (${(cfg.microfonos || []).length})`} open={false} className="xl:col-span-2">
         {(cfg.microfonos || []).map((m) => {
           const micTipo = m.micTipo || "dinamico";
           return (
@@ -361,7 +361,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
 
       {/* Escaleta */}
       {ver('tiempos') && (
-      <Card title={`Escaleta / Rundown — total ${fmt(total)}`}>
+      <Card title={`Escaleta / Rundown — total ${fmt(total)}`} className="xl:col-span-2">
         <p className="text-xs text-slate-500" style={{ marginTop: -6 }}>Duración en MM:SS (ej. 01:10). IN/OUT y la línea de tiempo se calculan solos.</p>
 
         <div className="relative">
@@ -423,7 +423,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
 
       {/* Análisis de tiempos */}
       {ver('tiempos') && (
-      <Card title="Análisis de tiempos">
+      <Card title="Análisis de tiempos" className="xl:col-span-2">
         <AnalisisTiempos cfg={cfg} />
       </Card>)}
 
@@ -450,11 +450,11 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
       {ver('necesidades') && (
       <Card title="Flujo de producción" open={false}>
         <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: INK }}>
-          <input type="checkbox" checked={cfg.flujo.preview} onChange={(e) => up({ flujo: { ...cfg.flujo, preview: e.target.checked } })} />
+          <input type="checkbox" checked={(cfg.flujo || {}).preview !== false} onChange={(e) => up({ flujo: { ...(cfg.flujo || {}), preview: e.target.checked } })} />
           Incluir monitor PREVIEW
         </label>
         <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: INK }}>
-          <input type="checkbox" checked={cfg.flujo.playback} onChange={(e) => up({ flujo: { ...cfg.flujo, playback: e.target.checked } })} />
+          <input type="checkbox" checked={(cfg.flujo || {}).playback !== false} onChange={(e) => up({ flujo: { ...(cfg.flujo || {}), playback: e.target.checked } })} />
           Incluir playback de comerciales / cortinillas
         </label>
         <p className="text-xs text-slate-500">Las cámaras del flujo y los monitores de cabina se generan automáticamente desde la sección de cámaras.</p>
@@ -462,7 +462,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
 
       {/* Personal */}
       {ver('necesidades') && (
-      <Card title={`Personal de operación (${cfg.personal.length}${cfg.includeCamOps ? ` + ${cfg.camaras.length} cam.` : ""})`}>
+      <Card title={`Personal de operación (${cfg.personal.length}${cfg.includeCamOps ? ` + ${cfg.camaras.length} cam.` : ""})`} className="xl:col-span-2">
         <div className="flex flex-wrap gap-1.5">
           {cfg.personal.map((p) => {
             const Ic = ICONS[p.icon] || User;

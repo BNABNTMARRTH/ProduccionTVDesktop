@@ -12,7 +12,7 @@ import {
 } from '../web-sources/generador-tv/src/iluminacion.js';
 import { ESTRUCTURAS, loglineDe, escenasDe, alertasDe, planoPorEncuadre, anguloPorPercepcion, sincronizarPersonajes, construirProyectoNarrativo } from '../web-sources/generador-tv/src/narrativa.js';
 import { revisar, escalaDePlano, NIVELES } from '../web-sources/generador-tv/src/sugerencias.js';
-import { objetivoDe } from '../web-sources/generador-tv/src/proyecto.js';
+import { objetivoDe, normalizeCfg } from '../web-sources/generador-tv/src/proyecto.js';
 import { escaletaEnVivoDe, TIPOS_PROGRAMA, construirEscaletaEnVivo } from '../web-sources/generador-tv/src/envivo.js';
 import {
   TIPOS, TIPO_SIGUIENTE, siguienteEnRotacion, bloqueNuevo, renglonesDe, medidasDe,
@@ -578,4 +578,14 @@ test('el guion se exporta como texto con la sangría del formato', () => {
   assert.ok(txt.includes('Ana abre la cortina.'));
   assert.ok(txt.includes(' '.repeat(22) + 'ANA'));
   assert.ok(txt.includes(' '.repeat(11) + 'Ya abrimos.'));
+});
+
+
+test('un proyecto sin `flujo` no tumba la pantalla: normalizeCfg lo repone', () => {
+  // Un .ptv viejo (o hecho a mano) puede no traer el campo. La tarjeta de Flujo
+  // lo leía directo y dejaba la etapa en blanco.
+  const cfg = normalizeCfg({ titulo: 'Viejo', escaleta: [], camaras: [], microfonos: [] });
+  assert.deepEqual(cfg.flujo, { preview: true, playback: true });
+  // Y si el proyecto ya trae valores, se respetan.
+  assert.deepEqual(normalizeCfg({ flujo: { preview: false, playback: true } }).flujo, { preview: false, playback: true });
 });

@@ -126,11 +126,48 @@ export function EditorGuion({ cfg, setCfg }) {
   const totalMin = medidas.segundos / 60;
   const desfase = objetivoMin ? totalMin - objetivoMin : 0;
 
+  const irA = (id) => {
+    const el = document.getElementById(`esc-${id}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className="scrollwrap overflow-auto px-2 py-4" style={{ background: "#E9EDF3" }}>
+      <div className="mx-auto grid gap-4 xl:grid-cols-[250px_minmax(0,1fr)]" style={{ maxWidth: 1180 }}>
+      {/* Índice de escenas: solo aparece cuando hay ancho para él. Antes ese
+          espacio se quedaba vacío a los lados de la página. */}
+      <aside className="no-print hidden xl:block">
+        <div className="sticky top-2 rounded-xl p-3" style={{ background: "#fff", border: "1px solid #C8D2DE" }}>
+          <div className="mb-2 text-xs font-bold uppercase" style={{ color: "#8A97A8", letterSpacing: 1 }}>
+            Escenas ({escenas.length})
+          </div>
+          <div className="flex flex-col gap-1">
+            {escenas.map((e, i) => (
+              <button key={e.id} type="button" onClick={() => irA(e.id)}
+                className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs"
+                style={{ color: INK, background: "transparent" }}>
+                <b style={{ color: "#93a1b3", minWidth: 14 }}>{i + 1}</b>
+                <span className="flex-1" style={{ lineHeight: 1.35 }}>
+                  {e.encabezado || <em style={{ color: "#93a1b3" }}>Sin encabezado</em>}
+                </span>
+                <span style={{ color: "#93a1b3" }}>{fmt(e.dur || 0)}</span>
+              </button>
+            ))}
+            {!escenas.length && <p className="m-0 text-xs" style={{ color: "#93a1b3" }}>Todavía no hay escenas.</p>}
+          </div>
+          {editable && (
+            <button type="button" onClick={() => agregarEscena(escenas[escenas.length - 1]?.id)}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-bold"
+              style={{ background: "#EEF3F9", color: NAVY }}>
+              <Plus size={13} /> Escena al final
+            </button>
+          )}
+        </div>
+      </aside>
+      <div>
       {/* Barra de estado: páginas, minutos y comparación con la duración objetivo */}
-      <div className="no-print mx-auto mb-3 flex flex-wrap items-center gap-3 rounded-xl px-4 py-2.5"
-        style={{ maxWidth: 820, background: "#fff", border: "1px solid #C8D2DE" }}>
+      <div className="no-print mb-3 flex flex-wrap items-center gap-3 rounded-xl px-4 py-2.5"
+        style={{ background: "#fff", border: "1px solid #C8D2DE" }}>
         <b className="cond text-sm font-bold uppercase" style={{ color: NAVY, letterSpacing: 1 }}>Guion literario</b>
         <span className="text-xs" style={{ color: "#5b6b82" }}>
           {medidas.paginas.toFixed(1)} páginas · ≈ {fmt(medidas.segundos)} en pantalla
@@ -153,7 +190,7 @@ export function EditorGuion({ cfg, setCfg }) {
       </div>
 
       {/* La página */}
-      <div className="mx-auto rounded-xl px-10 py-8 shadow-sm" style={{ ...PAPEL, maxWidth: 820, border: "1px solid #C8D2DE" }}>
+      <div className="rounded-xl px-10 py-8 shadow-sm" style={{ ...PAPEL, border: "1px solid #C8D2DE" }}>
         {!escenas.length && (
           <p className="m-0 text-center text-sm" style={{ color: "#7c8a9c" }}>
             Todavía no hay escenas. Empieza la primera aquí abajo.
@@ -161,7 +198,7 @@ export function EditorGuion({ cfg, setCfg }) {
         )}
 
         {escenas.map((esc, i) => (
-          <section key={esc.id} className="mb-7">
+          <section key={esc.id} id={`esc-${esc.id}`} className="mb-7" style={{ scrollMarginTop: 12 }}>
             {/* Encabezado de escena */}
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold" style={{ color: "#93a1b3", minWidth: 22 }}>{i + 1}</span>
@@ -252,6 +289,8 @@ export function EditorGuion({ cfg, setCfg }) {
             <Plus size={15} /> Empezar la primera escena
           </button>
         )}
+      </div>
+      </div>
       </div>
     </div>
   );

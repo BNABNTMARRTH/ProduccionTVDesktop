@@ -58,9 +58,9 @@ export function TarjetaAyuda({ id, titulo, pasos }) {
 }
 
 // Tarjeta plegable con encabezado (paneles del editor).
-export function Card({ title, children, open = true }) {
+export function Card({ title, children, open = true, className = "" }) {
   return (
-    <details open={open} className="rounded-xl border bg-white overflow-hidden" style={{ borderColor: "#C8D2DE" }}>
+    <details open={open} className={`rounded-xl border bg-white overflow-hidden h-fit ${className}`} style={{ borderColor: "#C8D2DE" }}>
       <summary className="cond cursor-pointer select-none font-bold uppercase text-white"
         style={{ background: NAVY, padding: "7px 12px", fontSize: 15, letterSpacing: 1, listStyle: "none" }}>{title}</summary>
       <div className="p-3 flex flex-col gap-3">{children}</div>

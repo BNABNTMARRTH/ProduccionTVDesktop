@@ -76,7 +76,7 @@ export function VistaEscaleta({ cfg, setCfg }) {
 
   return (
     <div className="scrollwrap overflow-auto px-2 py-4">
-      <div className="vista-foco mx-auto flex flex-col gap-3 bg-white shadow-lg" style={{ width: 1240, maxWidth: "100%", padding: 16, borderRadius: 8 }}>
+      <div className="vista-foco mx-auto flex flex-col gap-3 bg-white shadow-lg" style={{ width: "100%", maxWidth: 1500, padding: 16, borderRadius: 8 }}>
         <div className="no-print mx-auto flex items-center gap-1 rounded-lg p-1" style={{ background: "#E2E8F0" }}>
           {subTab("escaleta", narr ? "≡ Escaleta" : "≡ Escaleta editorial")}
           {subTab("guion", narr ? "✎ Guion técnico" : "✎ Rundown técnico")}
