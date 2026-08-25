@@ -83,6 +83,40 @@ let hydrationTimer;
 let pendingDeleteId = null;
 let pendingDeleteTimer;
 
+/* ------------------------------- ETAPAS -------------------------------
+El proyecto se recorre por ETAPAS de producción, no por herramientas
+(reorganización 2026-08-24). La barra lateral muestra las etapas; cuando una
+etapa tiene más de una sección, aparece la barra de secciones bajo el
+encabezado. Cada vista pertenece a UNA sola etapa, para que siempre se sepa
+dónde está uno. */
+const ETAPAS = [
+    { id: 'perfil', n: '1', etiqueta: 'Perfil', icono: 'perfil',
+      ayuda: 'Quién habla, qué dice y a quién (⌘1)',
+      secciones: [['perfil', 'Datos y mensaje']] },
+    { id: 'guion', n: '2', etiqueta: 'Guion', icono: 'guion',
+      ayuda: 'Qué pasa, en qué orden y cómo se ve cada toma (⌘2)',
+      secciones: [['escaleta', 'Escaleta y guion técnico']] },
+    { id: 'necesidades', n: '3', etiqueta: 'Necesidades', icono: 'necesidades',
+      ayuda: 'Todo lo que hay que conseguir: gente y equipo (⌘3)',
+      secciones: [['necesidades', 'Personas y equipo'], ['diagrama', 'Ruta de señal']] },
+    { id: 'planeacion', n: '4', etiqueta: 'Planeación', icono: 'planeacion',
+      ayuda: 'Cómo se organiza el rodaje: plano del set y hojas de trabajo (⌘4)',
+      secciones: [['set', 'Plano del set'], ['guias', 'Hojas imprimibles']] },
+    { id: 'salida', etiqueta: 'Documentos', icono: 'salida',
+      ayuda: 'El resultado: infografía y paquete de entrega (⌘5)',
+      secciones: [['infografias', 'Infografía'], ['exportar', 'Exportar']] },
+    { id: 'ensayo', etiqueta: 'Ensayo', icono: 'ensayo', soloVivo: true,
+      ayuda: 'En vivo: cronómetro, tally y teleprompter (⌘6)',
+      secciones: [['production', 'En vivo']] },
+];
+
+// Vista -> etapa a la que pertenece (se calcula una vez).
+const ETAPA_DE_VISTA = Object.fromEntries(
+    ETAPAS.flatMap((e) => e.secciones.map(([vista]) => [vista, e.id])),
+);
+const etapaPorId = (id) => ETAPAS.find((e) => e.id === id);
+const primeraVista = (etapa) => etapa.secciones[0][0];
+
 /* ----------------------------- Estructura ----------------------------- */
 
 const showWelcome = !localStorage.getItem(WELCOME_KEY);
@@ -106,17 +140,9 @@ document.querySelector('#app').innerHTML = `
         </button>
       </div>
       <div class="rail-group" id="rail-tools">
-      ${[
-        ['infografias', 'Infografías', 'La hoja completa: set, escaleta, personal y branding (⌘1)'],
-        ['set', 'Set', 'Espacio físico, mobiliario e iluminación (⌘2)'],
-        ['escaleta', 'Escaleta', 'Rundown, guion técnico y storyboard (⌘3)'],
-        ['diagrama', 'Diagrama', 'Diseña y valida la ruta de señal (⌘4)'],
-        ['production', 'Producción', 'En vivo: cronómetro, tally y teleprompter (⌘5)'],
-        ['guias', 'Guías', 'Hojas imprimibles para llenar a mano (⌘6)'],
-        ['exportar', 'Exportar', 'Arma el documento: formato, secciones y orden (⌘7)'],
-      ].map(([vista, etiqueta, ayuda]) => `
-      <button data-view="${vista}" title="${ayuda}">
-        <span class="ic">${icono(vista, 26)}</span><em>${etiqueta}</em>
+      ${ETAPAS.map((e, i) => `${e.id === 'salida' ? '<div class="rail-sep"></div>' : ''}
+      <button data-etapa="${e.id}" title="${e.ayuda}">
+        <span class="ic">${icono(e.icono, 26)}${e.n ? `<b class="rail-num">${e.n}</b>` : ''}</span><em>${e.etiqueta}</em>
       </button>`).join('')}
       </div>
     </nav>
@@ -130,7 +156,7 @@ document.querySelector('#app').innerHTML = `
           <button id="focus-mode" title="Modo pantalla completa">${icono('pantalla', 17)}</button>
         </div>
       </header>
-      <nav class="ruta" id="ruta" hidden aria-label="Ruta de producción"></nav>
+      <nav class="secciones" id="secciones" hidden aria-label="Secciones de la etapa"></nav>
       <section class="home-view" id="home-view">
         <div class="home-top">
           <div>
@@ -165,10 +191,12 @@ document.querySelector('#app').innerHTML = `
     </div>
   </div>` : ''}`;
 
-// set y escaleta son vistas enfocadas del mismo generador: cambia el `mode`
-// que se envía al hidratar, no el iframe.
+// perfil, necesidades, set y escaleta son vistas enfocadas del MISMO generador:
+// cambia el `mode` que se envía al hidratar, no el iframe.
 const toolInfo = {
-    infografias: { title: 'Generador de infografías', description: 'La hoja completa: set, escaleta, personal y branding', src: './tools/infografias/index.html' },
+    infografias: { title: 'Infografía del proyecto', description: 'La hoja completa: set, escaleta, personal y branding', src: './tools/infografias/index.html', mode: 'vista' },
+    perfil: { title: 'Perfil del proyecto', description: 'Quién habla, qué dice y a quién: datos generales, mensaje e intención', src: './tools/infografias/index.html', mode: 'perfil' },
+    necesidades: { title: 'Necesidades', description: 'Qué hace falta conseguir: talentos, personal, cámaras y micrófonos', src: './tools/infografias/index.html', mode: 'necesidades' },
     set: { title: 'Set', description: '¿Qué hay en el espacio físico y quién lo opera?', src: './tools/infografias/index.html', mode: 'set' },
     escaleta: { title: 'Escaleta / Rundown', description: '¿Qué pasa primero, qué pasa después y cuánto dura cada bloque?', src: './tools/infografias/index.html', mode: 'escaleta' },
     diagrama: { title: 'Diagrama de señal', description: 'Diseña y valida el flujo de video, audio y streaming', src: './tools/diagrama/index.html' },
@@ -186,7 +214,7 @@ const rail = document.querySelector('#rail');
 const railTools = document.querySelector('#rail-tools');
 const railHome = document.querySelector('#rail-home');
 const loading = document.querySelector('#loading');
-const navButtons = [...document.querySelectorAll('[data-view]')];
+const railButtons = [...document.querySelectorAll('[data-etapa]')];
 const toast = document.querySelector('#export-toast');
 let toastTimer;
 
@@ -205,30 +233,35 @@ function persistProjects() {
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
 }
 
-/* ------------------------- Ruta de producción -------------------------
-Guía el flujo preproducción → producción marcando lo que el proyecto ya
-tiene; clic en un paso lleva a su pestaña. Los dos últimos hitos se marcan
-al usar Producción y Exportar (cfg.ensayado / cfg.exportado). */
+/* --------------------------- Navegación por etapas ---------------------------
+La barra lateral son las ETAPAS del proyecto. Bajo el encabezado aparecen las
+SECCIONES de la etapa activa, y solo cuando esa etapa tiene más de una (si tiene
+una sola, la barra estorbaría). Cada etapa recuerda en qué sección la dejaste.
+Sustituye a la antigua franja "ruta", que repetía con otros nombres lo mismo que
+la barra lateral. */
 
-// Cada paso: [etiqueta, vista, ¿listo?, ayuda, soloLive]. Los pasos soloLive
-// (Ensayo) no aparecen en producción narrativa.
-const RUTA_PASOS = [
-    ['Historia', 'escaleta', (cfg) => !!cfg?.narrativa, 'Premisa, personajes y estructura de tu historia'],
-    ['Guion técnico', 'escaleta', (cfg) => (cfg?.escaleta || []).some((s) => (s.tomas || []).length), 'Desglosa cada escena en tomas: plano, movimiento y audio'],
-    ['Set', 'set', (cfg) => (cfg?.sets || []).some((s) => (s.muebles || []).length || s.iluminacion || Object.keys(s.setLayout?.pos || {}).length), 'Monta el estudio: mobiliario, iluminación y posiciones'],
-    ['Señal', 'diagrama', (cfg, diagram) => (diagram?.edges || []).length > 0, 'Cablea la ruta de video y audio en el diagrama'],
-    ['Ensayo', 'production', (cfg) => !!cfg?.ensayado, 'Corre la escaleta en Producción: cronómetro, tally y teleprompter', true],
-    ['Exportar', 'exportar', (cfg) => !!cfg?.exportado, 'Genera el paquete final: PDF, PNG o proyecto .ptv'],
-];
-const ruta = document.querySelector('#ruta');
+const secciones = document.querySelector('#secciones');
 
-// Navegación diferenciada por modo. En narrativo se renombran algunas pestañas
-// (el mismo generador cambia de función) y se oculta Producción (solo de vivo).
-const etiquetaDe = (b) => b.querySelector('em');
-const ORIG_TAB = Object.fromEntries(navButtons.map((b) => [b.dataset.view, etiquetaDe(b).textContent]));
-const NAV_ETIQUETAS = { narrative: { set: 'Locaciones', escaleta: 'Historia', diagrama: 'Escena' } };
-const NAV_OCULTAS = { narrative: ['production'] };
-const RUTA_ETIQUETAS = { narrative: { Set: 'Locaciones', 'Señal': 'Escena' } };
+// Señales REALES de que una etapa ya tiene lo suyo. No se inventa avance: una
+// etapa sin señal medible simplemente no se marca.
+const ETAPA_LISTA = {
+    perfil: (cfg) => !!(cfg?.narrativa || cfg?.duracionObjetivoMin),
+    guion: (cfg) => (cfg?.escaleta || []).some((seg) => (seg.tomas || []).length),
+    necesidades: (cfg, diagram) => (diagram?.edges || []).length > 0,
+    planeacion: (cfg) => (cfg?.sets || []).some((x) => (x.muebles || []).length || x.iluminacion || Object.keys(x.setLayout?.pos || {}).length),
+    salida: (cfg) => !!cfg?.exportado,
+    ensayo: (cfg) => !!cfg?.ensayado,
+};
+
+// Diferencias por modo: en narrativo el ensayo en vivo no aplica y algunas
+// secciones cambian de nombre (la misma herramienta cambia de función).
+const ETAPAS_OCULTAS = { narrative: ['ensayo'] };
+const SECCION_ETIQUETAS = { narrative: { set: 'Plano de la locación', escaleta: 'Historia y guion', diagrama: 'Escena' } };
+
+// Última sección visitada de cada etapa, para volver donde uno la dejó.
+const ultimaSeccion = {};
+
+const etapaActiva = () => ETAPA_DE_VISTA[activeView] || null;
 
 function renderModo() {
     if (!shell.classList.contains('project-window')) return;
@@ -238,28 +271,31 @@ function renderModo() {
         chip.textContent = PROJECT_MODES[modo].chip;
         chip.classList.toggle('narrative', modo === 'narrative');
     }
-    const etiquetas = NAV_ETIQUETAS[modo] || {};
-    const ocultas = NAV_OCULTAS[modo] || [];
-    navButtons.forEach((b) => {
-        const v = b.dataset.view;
-        etiquetaDe(b).textContent = etiquetas[v] ?? ORIG_TAB[v];
-        b.hidden = ocultas.includes(v);
+    const ocultas = ETAPAS_OCULTAS[modo] || [];
+    railButtons.forEach((b) => {
+        const etapa = etapaPorId(b.dataset.etapa);
+        b.hidden = ocultas.includes(b.dataset.etapa) || (etapa?.soloVivo && modo === 'narrative');
+        b.classList.toggle('done', !!ETAPA_LISTA[b.dataset.etapa]?.(latestInfografia, latestDiagram));
     });
 }
 
-function renderRuta() {
-    if (!shell.classList.contains('project-window')) { ruta.hidden = true; return; }
+function renderNav() {
+    if (!shell.classList.contains('project-window')) { secciones.hidden = true; return; }
     renderModo();
-    ruta.hidden = header.hidden;
+    const etapa = etapaPorId(etapaActiva());
+    railButtons.forEach((b) => b.classList.toggle('active', b.dataset.etapa === etapa?.id));
+    // Una sola sección: no hay nada que elegir, la barra sobra.
+    if (!etapa || etapa.secciones.length < 2 || header.hidden) { secciones.hidden = true; return; }
     const modo = normalizeMode(latestInfografia?.modo);
-    const rot = RUTA_ETIQUETAS[modo] || {};
-    ruta.innerHTML = RUTA_PASOS
-        .filter(([, , , , soloLive]) => !(soloLive && modo === 'narrative'))
-        .map(([label, view, listo, hint], i) => `
-        <button data-ruta="${view}" class="${listo(latestInfografia, latestDiagram) ? 'done' : ''}" title="${hint}">
-          ${listo(latestInfografia, latestDiagram) ? '✓' : i + 1} ${rot[label] || label}
-        </button>`).join('<span class="ruta-sep">›</span>');
-    ruta.querySelectorAll('[data-ruta]').forEach((b) => b.onclick = () => selectView(b.dataset.ruta));
+    const rot = SECCION_ETIQUETAS[modo] || {};
+    secciones.hidden = false;
+    secciones.innerHTML = etapa.secciones.map(([vista, etiqueta]) => `
+        <button data-seccion="${vista}" class="${vista === activeView ? 'active' : ''}">
+          ${rot[vista] || etiqueta}
+        </button>`).join('');
+    secciones.querySelectorAll('[data-seccion]').forEach((b) => {
+        b.onclick = () => selectView(b.dataset.seccion);
+    });
 }
 
 // Marca un hito de la ruta (ensayado/exportado) la primera vez que ocurre.
@@ -270,7 +306,7 @@ function marcaHito(campo) {
 }
 
 function scheduleSave() {
-    renderRuta();
+    renderNav();
     document.querySelector('#save-status').textContent = 'Guardando…';
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
@@ -528,7 +564,7 @@ function selectView(view, forceReload = false) {
     activeView = view;
     acceptFrameState = false;
     clearTimeout(hydrationTimer);
-    navButtons.forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+    if (ETAPA_DE_VISTA[view]) ultimaSeccion[ETAPA_DE_VISTA[view]] = view;
     const isTool = !!toolInfo[view];
     homeView.hidden = view !== 'home';
     productionView.hidden = view !== 'production';
@@ -540,7 +576,7 @@ function selectView(view, forceReload = false) {
     // las herramientas.
     railHome.hidden = view !== 'home';
     railTools.hidden = view === 'home';
-    renderRuta();
+    renderNav();
     frameWrap.hidden = !isTool;
     if (view === 'home') { renderRecent(); return; }
     if (view === 'production') { production.render(); return; }
@@ -561,7 +597,7 @@ function hydrateFrame() {
     const hydratedView = activeView;
     const sendState = () => {
         if (activeView !== hydratedView) return;
-        if (hydratedView === 'infografias' || hydratedView === 'set' || hydratedView === 'escaleta') {
+        if (toolInfo[hydratedView]?.src.includes('/infografias/')) {
             frame.contentWindow.postMessage({ type: 'producciontv:load-infografia', cfg: latestInfografia, mode: toolInfo[hydratedView].mode || 'editar' }, '*');
         }
         if (hydratedView === 'diagrama') frame.contentWindow.postMessage({ type: 'producciontv:hydrate-diagram', state: latestDiagram, cfg: latestInfografia }, '*');
@@ -703,7 +739,10 @@ window.addEventListener('message', async (event) => {
 /* ----------------------------- Eventos generales ----------------------------- */
 
 frame.addEventListener('load', () => { loading.classList.add('hidden'); setTimeout(hydrateFrame, 80); });
-navButtons.forEach((button) => button.onclick = () => selectView(button.dataset.view));
+railButtons.forEach((button) => button.onclick = () => {
+    const etapa = etapaPorId(button.dataset.etapa);
+    if (etapa) selectView(ultimaSeccion[etapa.id] || primeraVista(etapa));
+});
 renderRecent();
 
 document.querySelector('#new-project-focus').onclick = () => nuevoProyecto.open();
@@ -855,13 +894,11 @@ document.addEventListener('keydown', (event) => {
     }
     if (!(event.metaKey || event.ctrlKey)) return;
     if (event.key.toLowerCase() === 's') { event.preventDefault(); flushSaveNow(); return; }
-    if (event.key === '1') selectView('infografias');
-    if (event.key === '2') selectView('set');
-    if (event.key === '3') selectView('escaleta');
-    if (event.key === '4') selectView('diagrama');
-    if (event.key === '5') selectView('production');
-    if (event.key === '6') selectView('guias');
-    if (event.key === '7') selectView('exportar');
+    // ⌘1–⌘6: una etapa por número, en el orden de la barra lateral.
+    const atajo = ETAPAS[Number(event.key) - 1];
+    if (atajo && event.key >= '1' && event.key <= '6') {
+        selectView(ultimaSeccion[atajo.id] || primeraVista(atajo));
+    }
 });
 
 // El lanzador refleja los cambios hechos desde las ventanas de proyecto.
@@ -958,14 +995,14 @@ async function initializeWindow() {
         if (welcomeOverlay && document.body.contains(welcomeOverlay)) welcomeOverlay.remove();
         renderRecent();
         // La primera ventana de proyecto arranca con el recorrido guiado, que
-        // conduce la navegación desde Infografías.
+        // conduce la navegación desde la etapa 1 (Perfil).
         const primerRecorrido = !localStorage.getItem(TOUR_KEY);
         // Los proyectos nuevos aterrizan en la escaleta/rundown
         // (bandera cfg.abrirEnEscaleta, de un solo uso). El recorrido guiado, si
         // es la primera vez, tiene prioridad y arranca en la vista por defecto.
         const abrirEscaleta = !!latestInfografia?.abrirEnEscaleta;
         if (abrirEscaleta) { latestInfografia = { ...latestInfografia }; delete latestInfografia.abrirEnEscaleta; }
-        selectView(!primerRecorrido && abrirEscaleta ? 'escaleta' : 'infografias', true);
+        selectView(!primerRecorrido && abrirEscaleta ? 'escaleta' : 'perfil', true);
         if (primerRecorrido) {
             localStorage.setItem(TOUR_KEY, '1');
             setTimeout(() => tour.start(), 450);

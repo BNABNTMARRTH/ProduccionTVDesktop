@@ -25,6 +25,14 @@ const TRAZOS = {
   // Exportar: sacar el documento de la app.
   exportar: '<path d="M12 3.5v11m0 0l-4-4m4 4l4-4M4.5 16.5v2a2 2 0 002 2h11a2 2 0 002-2v-2"/>',
 
+  // --- Etapas del flujo de producción (reorganización 2026-08-24) ---
+  // Perfil: la ficha de identidad del proyecto (quién habla y a quién).
+  perfil: '<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><circle cx="9" cy="10" r="2.2"/><path d="M5.8 16.5c.5-1.7 1.7-2.6 3.2-2.6s2.7.9 3.2 2.6M15 9.5h3.2M15 13h3.2"/>',
+  // Necesidades: la lista de lo que hay que conseguir, con sus palomas.
+  necesidades: '<path d="M8 4.5h8a1.5 1.5 0 011.5 1.5v14A1.5 1.5 0 0116 21.5H8A1.5 1.5 0 016.5 20V6A1.5 1.5 0 018 4.5z"/><path d="M9.5 4.5V3h5v1.5M9.3 9.5l1.2 1.2 2.2-2.4M9.3 15l1.2 1.2 2.2-2.4"/>',
+  // Planeación: el calendario del rodaje.
+  planeacion: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3.5v3M16 3.5v3M8 14h3M8 17h6"/>',
+
   // --- Piezas de Inicio (se usan al rediseñar el lanzador) ---
   proyecto: '<path d="M3 9.5h18v9.5a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 19z"/><path d="M3.6 9.5l1.2-4.3 17 2.2-.5 2.1"/><path d="M8.6 9.2L7.4 5.4M13.6 9.9l-1.2-3.8"/>',
   nuevo: '<path d="M12 5.5v13M5.5 12h13"/>',
@@ -37,6 +45,11 @@ const TRAZOS = {
 
 // Nombres alternativos: el resto de la app llama 'production' a la pestaña En vivo.
 TRAZOS.production = TRAZOS.produccion;
+// Etapas que reutilizan un icono ya existente en lugar de duplicar el dibujo:
+// el guion ES la escaleta, la salida ES exportar y el ensayo ES el aire.
+TRAZOS.guion = TRAZOS.escaleta;
+TRAZOS.salida = TRAZOS.exportar;
+TRAZOS.ensayo = TRAZOS.produccion;
 
 export const NOMBRES_ICONOS = Object.keys(TRAZOS);
 

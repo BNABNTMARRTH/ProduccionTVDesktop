@@ -6,30 +6,49 @@ button{font:inherit}
 .workspace{min-width:0;min-height:0;flex:1;display:flex;flex-direction:column;background:#0c1727}
 /* El atributo hidden debe ganar aunque el elemento tenga display propio */
 .workspace-header[hidden],.frame-wrap[hidden],.home-view[hidden],.production-view[hidden]{display:none!important}
-.workspace-header{height:52px;flex:none;display:flex;align-items:center;gap:10px;padding:0 14px;background:#0e1c2f;border-bottom:1px solid #233751}
+.workspace-header{height:54px;flex:none;display:flex;align-items:center;gap:10px;padding:0 16px;background:rgba(13,26,44,.72);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border-bottom:1px solid rgba(146,183,232,.13)}
 /* Barra lateral de herramientas: un icono grande por herramienta con una sola
    palabra debajo (rediseño 2026-08-11). Sustituye a las pestañas de texto. */
-.rail{flex:none;width:86px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 8px 14px;background:#08111e;border-right:1px solid #1c2c42;overflow-y:auto;scrollbar-width:none}
+/* La barra es un MATERIAL translúcido, no una pared opaca: el fondo de la app
+   se transparenta a través de ella y le da profundidad sin ocupar más espacio. */
+.rail{position:relative;flex:none;width:96px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 9px 14px;background:rgba(7,15,27,.74);-webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%);border-right:1px solid rgba(146,183,232,.13);overflow-y:auto;scrollbar-width:none}
+/* Filo superior claro: la luz que atrapa el borde del material. */
+.rail::after{content:"";position:absolute;inset:0 0 auto 0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.09),transparent);pointer-events:none}
 .rail[hidden]{display:none!important}
 .rail::-webkit-scrollbar{display:none}
 .rail-logo{width:34px;height:34px;flex:none;object-fit:cover;border-radius:10px;margin-bottom:9px;box-shadow:0 4px 12px #0006}
-.rail button{width:100%;flex:none;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 2px 6px;border:0;border-radius:13px;background:transparent;color:#8aa3c4;cursor:pointer;transition:.15s ease}
+.rail button{position:relative;width:78px;flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:9px 2px 7px;border:0;border-radius:15px;background:transparent;color:#65799a;cursor:pointer;transition:transform .11s cubic-bezier(.2,.7,.3,1),background .16s ease,color .16s ease}
 .rail button[hidden]{display:none}
-.rail button .ic{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:#122741;color:#8fc2ff;transition:.15s ease}
-.rail button em{font-style:normal;font-size:9.5px;font-weight:700;line-height:1.15;text-align:center}
-.rail button:hover{color:#fff}
-.rail button:hover .ic{background:#1a3557;color:#bcdcff}
-.rail button.active{color:#fff;background:rgba(29,111,209,.12)}
-.rail button.active .ic{background:linear-gradient(150deg,#2e7bda,#16406f);color:#fff;box-shadow:0 5px 14px rgba(29,111,209,.45)}
+.rail button .ic{position:relative;width:40px;height:40px;display:grid;place-items:center;border-radius:13px;color:#9cc6f7;background:linear-gradient(170deg,#16293f,#101e31);box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 4px 10px -6px #000;transition:transform .11s cubic-bezier(.2,.7,.3,1),background .16s ease,color .16s ease,box-shadow .16s ease}
+/* Número de etapa: dice en qué orden va, sin gastar una línea de texto. */
+.rail-num{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-size:9.5px;font-weight:700;font-style:normal;background:#0b1626;color:#65799a;box-shadow:0 0 0 1px rgba(146,183,232,.22)}
+.rail button.active .rail-num{color:#cfe4ff;box-shadow:0 0 0 1px rgba(76,155,255,.5)}
+/* Etapa cumplida: paloma verde en la esquina del icono. */
+.rail button.done .rail-num{color:#7be3a4;box-shadow:0 0 0 1px rgba(123,227,164,.45)}
+
+.rail-sep{width:44px;height:1px;background:rgba(146,183,232,.13);margin:9px 0 8px;flex:none}
+/* El espaciado entre letras cambia con el tamaño: en texto chico separa,
+   en títulos grandes junta. Un solo valor para todo siempre falla en algún lado. */
+.rail button em{font-style:normal;font-size:10px;font-weight:700;line-height:1.15;letter-spacing:.02em;text-align:center}
+.rail button:hover{color:#93a9c8}
+.rail button:hover .ic{color:#c4defd}
+.rail button.active{color:#fff;background:rgba(76,155,255,.10)}
+.rail button.active .ic{background:linear-gradient(160deg,#3d8ef0,#17457f);color:#fff;box-shadow:0 1px 0 rgba(255,255,255,.28) inset,0 8px 18px -8px rgba(76,155,255,.85)}
+/* Respuesta al TOCAR, no al soltar: es lo que hace que se sienta viva. */
+.rail button:active{transform:scale(.965)}
+.rail button:focus-visible{outline:2px solid #4c9bff;outline-offset:2px}
 .save-status{color:#7186a3;font-size:11px;font-weight:700;white-space:nowrap}
 /* Ruta de producción: preproducción → producción, lo cumplido en verde */
-.ruta{flex:none;display:flex;align-items:center;justify-content:center;gap:6px;padding:5px 14px;background:#0b1828;border-bottom:1px solid #1d3049;overflow-x:auto;scrollbar-width:none}
-.ruta::-webkit-scrollbar{display:none}
-.ruta[hidden]{display:none}
-.ruta button{border:1px solid transparent;background:transparent;color:#7d93b3;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
-.ruta button:hover{color:#fff;background:#122a44}
-.ruta button.done{color:#7be3a4;border-color:#1d5c38;background:#0f2b1d}
-.ruta-sep{color:#3a5273;font-size:10px}
+/* Secciones de la etapa activa. Solo aparece cuando la etapa tiene más de una:
+   una barra con un solo botón no es una elección, es ruido. */
+.secciones{flex:none;display:flex;align-items:center;gap:4px;padding:7px 14px;background:rgba(11,24,40,.72);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid rgba(146,183,232,.13);overflow-x:auto;scrollbar-width:none}
+.secciones::-webkit-scrollbar{display:none}
+.secciones[hidden]{display:none}
+.secciones button{border:0;background:rgba(146,183,232,.07);box-shadow:0 0 0 1px rgba(146,183,232,.13) inset;color:#93a9c8;border-radius:999px;padding:6px 13px;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:transform .11s cubic-bezier(.2,.7,.3,1),background .16s ease,color .16s ease}
+.secciones button:hover{color:#e9f0fa;background:rgba(146,183,232,.13)}
+.secciones button.active{color:#fff;background:linear-gradient(160deg,#3d8ef0,#1a4d92);box-shadow:0 1px 0 rgba(255,255,255,.22) inset,0 6px 14px -8px rgba(76,155,255,.9)}
+.secciones button:active{transform:scale(.965)}
+.secciones button:focus-visible{outline:2px solid #4c9bff;outline-offset:2px}
 .header-actions{margin-left:auto;display:flex;align-items:center;gap:10px}.workspace-header .offline-badge{font-size:10px;font-weight:700;color:#72df99;background:#113522;border:1px solid #205d38;border-radius:999px;padding:5px 9px;cursor:pointer}.workspace-header .offline-badge:hover{background:#17492e;border-color:#2f8a52;color:#9ff0b9}
 .header-actions button{display:grid;place-items:center;border:1px solid #314b6b;background:#142943;color:#dce8f8;border-radius:9px;padding:6px;cursor:pointer}.header-actions button:hover{background:#1b385d}
 .export-toast{position:absolute;z-index:30;right:24px;bottom:22px;max-width:360px;padding:10px 14px;border:1px solid #2b7146;border-radius:10px;background:#123c27;color:#9ff0b9;font-size:12px;font-weight:700;box-shadow:0 14px 34px #0007;opacity:0;transform:translateY(10px);pointer-events:none;transition:.18s}.export-toast.show{opacity:1;transform:none}.export-toast.error{border-color:#873f42;background:#4d2023;color:#ffc1c3}
@@ -136,7 +155,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #58a8ff;outline-offse
 .set-live{background:#fff;border-radius:10px;padding:6px;border:1px solid #2b405d}
 .set-live svg{width:100%;display:block}
 .set-live-note{margin:10px 0 0;color:#9db1cc;font-size:11px;text-align:center}.validation-summary{margin:7px 0 14px;color:#9db1cc;font-size:11px}.checks-list{display:flex;flex-direction:column;gap:7px;max-height:65vh;overflow:auto}.check{display:flex;align-items:flex-start;gap:8px;border:1px solid #39495f;background:#122137;border-radius:8px;padding:8px;font-size:11px;color:#aebdd2}.check span{width:18px;height:18px;flex:none;display:grid;place-items:center;border-radius:50%;font-weight:800}.check.error span{background:#7a292d;color:#ffc2c4}.check.warn span{background:#725817;color:#ffe294}.check.info span{background:#1a4e81;color:#b8dcff}.check.ok span{background:#1d673c;color:#c7ffda}.production-empty{height:100%;display:grid;place-content:center;text-align:center;color:#8194ae}.production-empty h1{color:#fff}
-.desktop-shell.focus-mode .workspace-header,.desktop-shell.focus-mode .ruta,.desktop-shell.focus-mode .rail{display:none}.desktop-shell.focus-mode .frame-wrap{margin:0;border-radius:0;border:0}
+.desktop-shell.focus-mode .workspace-header,.desktop-shell.focus-mode .secciones,.desktop-shell.focus-mode .rail{display:none}.desktop-shell.focus-mode .frame-wrap{margin:0;border-radius:0;border:0}
 .desktop-shell.launcher-window .workspace{background:#0c1727}
 /* Chip de modo del proyecto + navegación diferenciada */
 .workspace-header .mode-chip{font-size:10px;font-weight:800;letter-spacing:.5px;color:#bfe0ff;background:#0f2c4a;border:1px solid #24567f;border-radius:999px;padding:5px 9px;white-space:nowrap}
@@ -189,7 +208,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #58a8ff;outline-offse
 /* Contenedor donde se montan los documentos multipágina antes de imprimir */
 #print-host{display:none}
 @media print{
-  .workspace-header,.ruta,.rail{display:none!important}
+  .workspace-header,.secciones,.rail{display:none!important}
   .desktop-shell{display:block!important;background:#fff!important}
   .workspace{display:block!important;background:#fff!important}
   .frame-wrap{position:fixed!important;inset:0!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:#fff!important}
@@ -206,3 +225,32 @@ button:focus-visible,input:focus-visible{outline:2px solid #58a8ff;outline-offse
   html.printing-document #print-host section:last-of-type{page-break-after:auto}
 }
 @page{size:letter;margin:8mm}
+
+
+/* ===================== ACABADO (2026-08-24) =====================
+Tres reglas que la app no tenía y que se notan en cada clic:
+1) todo lo que se puede tocar se hunde al TOCARLO (no al soltarlo);
+2) el foco de teclado siempre se ve;
+3) se respeta a quien pidió menos movimiento, menos transparencia o más
+   contraste en su Mac (Configuración → Accesibilidad → Pantalla).
+================================================================= */
+button:active,.header-actions button:active,.op:active{transform:scale(.97)}
+button{transition:transform .11s cubic-bezier(.2,.7,.3,1),background .16s ease,color .16s ease,box-shadow .16s ease}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #4c9bff;outline-offset:2px}
+/* Al arrastrar, el cursor dice que algo está agarrado. */
+[draggable="true"]:active,.dragging{cursor:grabbing}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  button:active{transform:none}
+}
+@media (prefers-reduced-transparency:reduce){
+  .rail{background:#080f1b;-webkit-backdrop-filter:none;backdrop-filter:none}
+  .workspace-header{background:#0d1a2c;-webkit-backdrop-filter:none;backdrop-filter:none}
+  .secciones{background:#0b1828;-webkit-backdrop-filter:none;backdrop-filter:none}
+}
+@media (prefers-contrast:more){
+  .rail,.workspace-header,.secciones{border-color:rgba(178,209,245,.4)}
+  .rail button{color:#a3b7d4}
+  .secciones button{color:#c3d4ea;box-shadow:0 0 0 1px rgba(178,209,245,.4) inset}
+}

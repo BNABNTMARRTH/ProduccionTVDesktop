@@ -18,7 +18,11 @@ import { fmt, parseDur, reorder, slug, textOn, trunc, uid } from "./util.js";
 // Panel de EDICIÓN del proyecto (columna izquierda): identidad y marca, fuentes
 // (cámaras y extras), talentos y micrófonos, equipo humano, escaleta y
 // exportaciones. Cada bloque es una tarjeta plegable.
-export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
+// `grupo` es la ETAPA que se está viendo (reorganización 2026-08-24): el mismo
+// editor muestra solo las tarjetas de esa etapa. 'todo' las muestra todas, que
+// es como funcionaba antes y como sigue funcionando la versión web.
+export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grupo = "todo" }) {
+  const ver = (g) => grupo === "todo" || grupo === g;
   const [nombreProy, setNombreProy] = useState("");
   const [rolCustom, setRolCustom] = useState("");
   const [busqueda, setBusqueda] = useState("");
@@ -109,7 +113,8 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
   return (
     <div className="mx-auto flex flex-col gap-3 px-3 py-4" style={{ maxWidth: 880 }}>
       {/* Proyectos (solo versión web: en la app de escritorio los proyectos los maneja el shell) */}
-      {!EMBEDDED && <Card title="Proyectos" open={false}>
+      {ver('perfil') && !EMBEDDED && (
+      <Card title="Proyectos" open={false}>
         <div className="flex flex-wrap gap-2">
           <button className={btn} style={{ background: "#E9EDF3", color: INK }} onClick={() => setCfg(normalizeCfg(BLANCO()))}><FilePlus size={15} /> Nuevo (en blanco)</button>
           <button className={btn} style={{ background: "#E9EDF3", color: INK }} onClick={() => setCfg(normalizeCfg(DEMO()))}><FolderOpen size={15} /> Cargar ejemplo UASLP</button>
@@ -134,9 +139,10 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
           </div>
         )}
         <p className="text-xs text-slate-500">Los proyectos se guardan en este navegador y tu trabajo actual se autoguarda automáticamente.</p>
-      </Card>}
+      </Card>)}
 
       {/* Datos generales */}
+      {ver('perfil') && (
       <Card title="Narrativa / Brief" open={!!cfg.narrativa}>
         {cfg.narrativa ? (<>
           <p className="m-0 text-xs text-slate-500">
@@ -166,7 +172,8 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
             Todavía no hay brief. Aquí vivirán la premisa, el tono y los personajes de tu proyecto.
           </p>
         )}
-      </Card>
+      </Card>)}
+      {ver('perfil') && (
       <Card title="Datos generales">
         <label className="text-xs font-bold uppercase text-slate-500">Título principal
           <input className={inp} style={inpStyle} value={cfg.titulo} onChange={(e) => up({ titulo: e.target.value })} />
@@ -195,9 +202,10 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
           </label>
           {cfg.branding?.logoDataUrl && <button className={btn} style={{ background: "#E9EDF3", color: INK }} onClick={() => setCfg((c) => ({ ...c, branding: { ...(c.branding || {}), logoDataUrl: "" } }))}>Quitar logotipo</button>}
         </div>
-      </Card>
+      </Card>)}
 
       {/* Cámaras */}
+      {ver('necesidades') && (
       <Card title={`Cámaras y planos (${cfg.camaras.length})`}>
         <datalist id="planos">{PLANOS.map((p) => <option key={p} value={p} />)}</datalist>
         {cfg.camaras.map((c, i) => (
@@ -228,9 +236,10 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
         <button className={`${btn} text-white self-start`} style={{ background: NAVY }} onClick={addCam} disabled={cfg.camaras.length >= 8}>
           <Plus size={15} /> Agregar cámara {cfg.camaras.length >= 8 ? "(máx. 8)" : ""}
         </button>
-      </Card>
+      </Card>)}
 
       {/* Talentos: conductores e invitados, entes propios en el plano del set */}
+      {ver('necesidades') && (
       <Card title={`Talentos — conductores e invitados (${(cfg.talentos || []).length})`}>
         {(cfg.talentos || []).map((t) => {
           const micsT = (cfg.microfonos || []).filter((m) => m.asignadoA === `tal:${t.id}`);
@@ -251,8 +260,9 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
         })}
         <button className={`${btn} text-white self-start`} style={{ background: NAVY }} onClick={addTal}><Plus size={15} /> Agregar talento</button>
         <p className="text-xs text-slate-500">El micrófono se les asigna en la sección Micrófonos (solapa, dinámico…). Sus posiciones se arrastran en la pestaña Set.</p>
-      </Card>
+      </Card>)}
 
+      {ver('necesidades') && (
       <Card title={`Micrófonos (${(cfg.microfonos || []).length})`} open={false}>
         {(cfg.microfonos || []).map((m) => {
           const micTipo = m.micTipo || "dinamico";
@@ -283,9 +293,10 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
         })}
         <button className={`${btn} text-white self-start`} style={{ background: "#1FA14E" }} onClick={addMic}><Plus size={15} /> Agregar micrófono</button>
         <p className="text-xs text-slate-500">Boom = perchado con posición propia en el set · Shotgun = montado en una cámara · Solapa y dinámico = los porta un talento.</p>
-      </Card>
+      </Card>)}
 
       {/* Otras fuentes */}
+      {ver('necesidades') && (
       <Card title="Otras fuentes (comerciales, VTR, gráficos…)" open={false}>
         {cfg.extras.map((x) => (
           <div key={x.id} className="rounded-lg border p-2 flex flex-col gap-2" style={{ borderColor: "#DDE4EC" }}>
@@ -313,9 +324,10 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
           </div>
         </div>
         <button className={`${btn} self-start`} style={{ background: "#E9EDF3", color: INK }} onClick={addExtra}><Plus size={15} /> Agregar fuente en blanco</button>
-      </Card>
+      </Card>)}
 
       {/* Escaleta */}
+      {ver('tiempos') && (
       <Card title={`Escaleta / Rundown — total ${fmt(total)}`}>
         <p className="text-xs text-slate-500" style={{ marginTop: -6 }}>Duración en MM:SS (ej. 01:10). IN/OUT y la línea de tiempo se calculan solos.</p>
 
@@ -374,14 +386,16 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
           <p className="text-sm text-slate-400 text-center" style={{ padding: 8 }}>Ningún segmento coincide con “{busqueda}”.</p>
         )}
         <button className={`${btn} text-white self-start`} style={{ background: NAVY }} onClick={addSeg}><Plus size={15} /> Agregar segmento</button>
-      </Card>
+      </Card>)}
 
       {/* Análisis de tiempos */}
+      {ver('tiempos') && (
       <Card title="Análisis de tiempos">
         <AnalisisTiempos cfg={cfg} />
-      </Card>
+      </Card>)}
 
       {/* Exportar */}
+      {ver('tiempos') && (
       <Card title="Exportar para edición de video" open={false}>
         <p className="text-xs text-slate-500" style={{ marginTop: -6 }}>
           Lleva la escaleta a tu editor. El <b>EDL</b> crea cortes en la línea de tiempo (DaVinci Resolve / Premiere / Avid).
@@ -397,9 +411,10 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
             <Download size={15} /> Descargar CSV
           </button>
         </div>
-      </Card>
+      </Card>)}
 
       {/* Flujo */}
+      {ver('necesidades') && (
       <Card title="Flujo de producción" open={false}>
         <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: INK }}>
           <input type="checkbox" checked={cfg.flujo.preview} onChange={(e) => up({ flujo: { ...cfg.flujo, preview: e.target.checked } })} />
@@ -410,9 +425,10 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
           Incluir playback de comerciales / cortinillas
         </label>
         <p className="text-xs text-slate-500">Las cámaras del flujo y los monitores de cabina se generan automáticamente desde la sección de cámaras.</p>
-      </Card>
+      </Card>)}
 
       {/* Personal */}
+      {ver('necesidades') && (
       <Card title={`Personal de operación (${cfg.personal.length}${cfg.includeCamOps ? ` + ${cfg.camaras.length} cam.` : ""})`}>
         <div className="flex flex-wrap gap-1.5">
           {cfg.personal.map((p) => {
@@ -447,7 +463,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar }) {
           <input type="checkbox" checked={cfg.includeCamOps} onChange={(e) => up({ includeCamOps: e.target.checked })} />
           Incluir operadores de cámara automáticamente (uno por cámara)
         </label>
-      </Card>
+      </Card>)}
     </div>
   );
 }

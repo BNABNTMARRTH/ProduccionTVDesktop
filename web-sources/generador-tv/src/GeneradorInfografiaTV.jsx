@@ -6,6 +6,11 @@ import LZString from "lz-string";
 import { uid, slug } from "./util.js";
 import { INK, NAVY } from "./theme.js";
 import { EMBEDDED } from "./puente.js";
+
+// Modos que entiende el puente con el escritorio. Los tres últimos son ETAPAS:
+// el editor completo filtrado a las tarjetas de esa etapa.
+const GRUPOS = ["perfil", "necesidades", "tiempos"];
+const MODOS = ["editar", "vista", "set", "escaleta", ...GRUPOS];
 import { VistaEscaleta } from "./VistaEscaleta.jsx";
 import { Infografia } from "./Infografia.jsx";
 import { Editor } from "./Editor.jsx";
@@ -154,6 +159,8 @@ export default function GeneradorInfografiaTV() {
   }, [readonly, undo, redo]);
 
   // Puente con el contenedor de escritorio: estado, proyectos y modos de operación.
+  // Desde 2026-08-24 el escritorio pide ETAPAS ('perfil', 'necesidades',
+  // 'tiempos'): el mismo editor mostrando solo las tarjetas de esa etapa.
   useEffect(() => {
     const handler = (event) => {
       if (event.data?.type === "producciontv:request-project") {
@@ -168,7 +175,7 @@ export default function GeneradorInfografiaTV() {
         reset(normalizeCfg(event.data.cfg));
         setModo(event.data.mode || "editar");
       }
-      if (event.data?.type === "producciontv:set-mode" && ["editar", "vista", "set", "escaleta"].includes(event.data.mode)) {
+      if (event.data?.type === "producciontv:set-mode" && MODOS.includes(event.data.mode)) {
         setModo(event.data.mode);
       }
     };
@@ -267,14 +274,16 @@ export default function GeneradorInfografiaTV() {
             {iconBtn(redo, !canRedo, "Rehacer (Ctrl+Shift+Z)", Redo2)}
           </div>
         )}
-        <div className="mode-tabs flex gap-1 rounded-lg p-1" style={{ background: "rgba(255,255,255,.12)" }}>
+        {/* Dentro del escritorio manda la barra de etapas; estas pestañas solo
+            tienen sentido en la versión web, que no la tiene. */}
+        {!EMBEDDED && <div className="mode-tabs flex gap-1 rounded-lg p-1" style={{ background: "rgba(255,255,255,.12)" }}>
           {/* En la app de escritorio Set y Escaleta tienen pestaña propia en la
               barra lateral; en la web (PWA) se muestran aquí. */}
           {!readonly && tab("editar", Pencil, "Editar")}
           {tab("vista", Eye, "Infografía")}
           {!EMBEDDED && tab("set", Monitor, "Set")}
           {!EMBEDDED && tab("escaleta", Clapperboard, "Escaleta")}
-        </div>
+        </div>}
         <button onClick={() => setSugerencias((v) => !v)}
           className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold"
           title="Revisa tu proyecto y explica qué convendría ajustar. No cambia nada por su cuenta."
@@ -299,8 +308,9 @@ export default function GeneradorInfografiaTV() {
         </div>
       )}
 
-      {modo === "editar" && !readonly ? (
-        <Editor cfg={cfg} setCfg={setCfg} proyectos={proyectos} guardar={guardar} cargar={cargar} eliminar={eliminar} />
+      {(modo === "editar" || GRUPOS.includes(modo)) && !readonly ? (
+        <Editor cfg={cfg} setCfg={setCfg} proyectos={proyectos} guardar={guardar} cargar={cargar} eliminar={eliminar}
+          grupo={modo === "editar" ? "todo" : modo} />
       ) : modo === "set" ? (
         <VistaSet cfg={cfg} setCfg={readonly ? undefined : setCfg} />
       ) : modo === "escaleta" ? (
