@@ -17,6 +17,7 @@ import { escaletaEnVivoDe, TIPOS_PROGRAMA, construirEscaletaEnVivo } from '../we
 import {
   TIPOS, TIPO_SIGUIENTE, siguienteEnRotacion, bloqueNuevo, renglonesDe, medidasDe,
   normalizarEncabezado, esEncabezadoValido, personajesDe, guionATexto,
+  MARCADORES, aplicarMarca, quitarMarca, trozosMarcados, moverMarcas,
 } from '../web-sources/generador-tv/src/guion.js';
 
 test('makeTemplate produce el esquema v3 con sets, talentos y mics asignados', () => {
@@ -588,4 +589,52 @@ test('un proyecto sin `flujo` no tumba la pantalla: normalizeCfg lo repone', () 
   assert.deepEqual(cfg.flujo, { preview: true, playback: true });
   // Y si el proyecto ya trae valores, se respetan.
   assert.deepEqual(normalizeCfg({ flujo: { preview: false, playback: true } }).flujo, { preview: false, playback: true });
+});
+
+
+/* -------------------------- Marcatextos del guion -------------------------- */
+
+test('hay cuatro marcadores y cada uno trae color de fondo y de tinta', () => {
+  assert.deepEqual(Object.keys(MARCADORES), ['verde', 'amarillo', 'naranja', 'rojo']);
+  Object.values(MARCADORES).forEach((m) => {
+    assert.match(m.color, /^#[0-9A-F]{6}$/i);
+    assert.match(m.tinta, /^#[0-9A-F]{6}$/i);
+  });
+});
+
+test('un marcador encima de otro lo recorta, no se encima', () => {
+  let m = aplicarMarca([], 5, 10, 'amarillo');
+  m = aplicarMarca(m, 8, 14, 'verde');
+  assert.deepEqual(m, [{ ini: 5, fin: 8, color: 'amarillo' }, { ini: 8, fin: 14, color: 'verde' }]);
+});
+
+test('dos marcas pegadas del mismo color se unen en una', () => {
+  let m = aplicarMarca([], 0, 5, 'rojo');
+  m = aplicarMarca(m, 5, 9, 'rojo');
+  assert.deepEqual(m, [{ ini: 0, fin: 9, color: 'rojo' }]);
+});
+
+test('borrar en medio de una marca la parte en dos', () => {
+  const m = quitarMarca([{ ini: 0, fin: 20, color: 'verde' }], 8, 12);
+  assert.deepEqual(m, [{ ini: 0, fin: 8, color: 'verde' }, { ini: 12, fin: 20, color: 'verde' }]);
+});
+
+test('el texto se parte en trozos con y sin color, sin perder ni un carácter', () => {
+  const texto = '0123456789ABCDEFG';
+  const m = aplicarMarca([], 5, 10, 'naranja');
+  const trozos = trozosMarcados(texto, m);
+  assert.equal(trozos.map((t) => t.texto).join(''), texto);
+  assert.deepEqual(trozos.find((t) => t.color === 'naranja'), { texto: '56789', color: 'naranja' });
+});
+
+test('escribir antes de una marca la recorre: el resaltado no se despega', () => {
+  const m = [{ ini: 10, fin: 15, color: 'amarillo' }];
+  assert.deepEqual(moverMarcas(m, 3, 4), [{ ini: 14, fin: 19, color: 'amarillo' }]);   // se escribieron 4 letras
+  assert.deepEqual(moverMarcas(m, 3, -2), [{ ini: 8, fin: 13, color: 'amarillo' }]);   // se borraron 2
+  // Si se borra TODO lo marcado, la marca desaparece en vez de quedar al revés.
+  assert.deepEqual(moverMarcas([{ ini: 4, fin: 6, color: 'rojo' }], 0, -10), []);
+});
+
+test('un texto sin marcas devuelve un solo trozo sin color', () => {
+  assert.deepEqual(trozosMarcados('Hola', []), [{ texto: 'Hola', color: null }]);
 });

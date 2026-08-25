@@ -351,6 +351,24 @@
   // GUION LITERARIO en su forma tradicional. Se arma con las mismas escenas de
   // la escaleta (encabezado + cuerpo). Si el proyecto no tiene guion escrito no
   // se imprime ninguna página: no se rellena con humo.
+  // Colores del marcatextos del guion (espejo de MARCADORES en guion.js). Lo
+  // que el autor marcó en pantalla también sale impreso.
+  const MARCAS_COLOR = { verde: '#B8FF3C', amarillo: '#FFF25C', naranja: '#FFB03A', rojo: '#FF7A7A' };
+  function pintado(b) {
+    const t = String(b.texto || '');
+    const marcas = (b.marcas || []).slice().sort((x, y) => x.ini - y.ini);
+    if (!marcas.length) return esc(t);
+    let out = '', i = 0;
+    marcas.forEach((m) => {
+      const ini = Math.max(0, m.ini), fin = Math.min(t.length, m.fin);
+      if (fin <= ini) return;
+      if (ini > i) out += esc(t.slice(i, ini));
+      out += `<span style="background:${MARCAS_COLOR[m.color] || '#FFF25C'}">${esc(t.slice(ini, fin))}</span>`;
+      i = Math.max(i, fin);
+    });
+    return out + esc(t.slice(i));
+  }
+
   function pagsGuion() {
     const escenas = (cfg.escaleta || []).filter((e) => (e.guion || []).some((b) => String(b.texto || '').trim()));
     if (!escenas.length) return [];
@@ -359,7 +377,7 @@
       const enc = esc(String(e.encabezado || `ESCENA ${i + 1}`).toUpperCase());
       const bloques = (e.guion || []).filter((b) => String(b.texto || '').trim()).map((b) => {
         const cls = CLASE[b.tipo] || 'acc';
-        const txt = esc(b.texto).replace(/\n/g, '<br>');
+        const txt = pintado(b).replace(/\n/g, '<br>');
         const contenido = (b.tipo === 'personaje' || b.tipo === 'transicion') ? txt.toUpperCase() : txt;
         return `<p class="${cls}">${b.tipo === 'parentesis' ? '(' + contenido + ')' : contenido}</p>`;
       }).join('');

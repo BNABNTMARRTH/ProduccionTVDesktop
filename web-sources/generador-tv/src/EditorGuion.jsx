@@ -17,6 +17,7 @@ import { Plus, Trash2 } from "lucide-react";
 import {
   TIPOS, ORDEN_TIPOS, TIPO_SIGUIENTE, siguienteEnRotacion, bloqueNuevo, guionDe,
   medidasDe, normalizarEncabezado, personajesDe,
+  MARCADORES, aplicarMarca, quitarMarca, trozosMarcados, moverMarcas,
 } from "./guion.js";
 import { objetivoDe } from "./proyecto.js";
 import { TarjetaAyuda } from "./ui.jsx";
@@ -24,6 +25,23 @@ import { INK, NAVY } from "./theme.js";
 import { fmt, parseDur, uid } from "./util.js";
 
 const PAPEL = { background: "#fff", color: "#12212f", fontFamily: '"Courier New", Courier, monospace' };
+
+// Los estilos que DEBEN ser idénticos en el área de escritura y en la capa del
+// marcatextos: si uno solo cambia, el resaltado se desalinea de las letras.
+const tipografia = (bloque, t) => ({
+  fontFamily: PAPEL.fontFamily,
+  fontSize: 14.5,
+  lineHeight: 1.5,
+  letterSpacing: 0,
+  textAlign: t.align,
+  textTransform: t.mayus ? "uppercase" : "none",
+  fontStyle: bloque.tipo === "parentesis" ? "italic" : "normal",
+  color: bloque.tipo === "transicion" ? "#5b6b82" : INK,
+  padding: bloque.tipo === "dialogo" || bloque.tipo === "parentesis" ? "0" : "6px 0 0",
+  border: 0,
+  margin: 0,
+  display: "block",
+});
 
 export function EditorGuion({ cfg, setCfg }) {
   const editable = typeof setCfg === "function";
@@ -34,6 +52,7 @@ export function EditorGuion({ cfg, setCfg }) {
   const [foco, setFoco] = useState(null);          // id del bloque a enfocar
   const [sugiere, setSugiere] = useState(null);    // {bloqueId, opciones}
   const [activa, setActiva] = useState(null);      // escena donde está el cursor
+  const [enfocado, setEnfocado] = useState(null);  // {escenaId, bloqueId} donde está el cursor
   const areas = useRef({});
 
   // Enfoca el bloque recién creado y coloca el cursor al final.
@@ -95,6 +114,25 @@ export function EditorGuion({ cfg, setCfg }) {
   // dentro de una página de guion).
   const acomoda = (el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
 
+  // Marcatextos: pinta lo seleccionado; si no hay selección, el bloque entero.
+  const marcar = (color) => {
+    if (!enfocado || !editable) return;
+    const el = areas.current[enfocado.bloqueId];
+    if (!el) return;
+    const escena = escenas.find((e) => e.id === enfocado.escenaId);
+    const bloque = guionDe(escena).find((b) => b.id === enfocado.bloqueId);
+    if (!bloque) return;
+    const haySeleccion = el.selectionEnd > el.selectionStart;
+    const ini = haySeleccion ? el.selectionStart : 0;
+    const fin = haySeleccion ? el.selectionEnd : bloque.texto.length;
+    const marcas = color
+      ? aplicarMarca(bloque.marcas || [], ini, fin, color)
+      : quitarMarca(bloque.marcas || [], ini, fin);
+    upBloque(escena.id, bloque.id, { marcas });
+    el.focus();
+    el.setSelectionRange(ini, fin);
+  };
+
   const teclas = (ev, esc, bloque) => {
     if (!editable) return;
     if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); agregarEscena(esc.id); return; }
@@ -115,7 +153,13 @@ export function EditorGuion({ cfg, setCfg }) {
   };
 
   const escribe = (esc, bloque, valor) => {
-    upBloque(esc.id, bloque.id, { texto: valor });
+    // Las marcas viven en posiciones del texto: si se escribe o borra antes de
+    // una, hay que recorrerla o el resaltado se despega de la palabra.
+    const viejo = bloque.texto || "";
+    let corte = 0;
+    while (corte < viejo.length && corte < valor.length && viejo[corte] === valor[corte]) corte++;
+    const marcas = moverMarcas(bloque.marcas || [], corte, valor.length - viejo.length);
+    upBloque(esc.id, bloque.id, { texto: valor, marcas });
     // Autocompletado de personajes: solo mientras se escribe el nombre.
     if (bloque.tipo === "personaje" && valor.trim()) {
       const busca = valor.trim().toUpperCase();
@@ -182,6 +226,23 @@ export function EditorGuion({ cfg, setCfg }) {
           </span>
         )}
         <span className="flex-1" />
+        {editable && (
+          <div className="flex items-center gap-1.5" title="Selecciona texto y elige un color. Sin selección, marca el bloque completo.">
+            <span className="text-xs font-bold uppercase" style={{ color: "#8A97A8", letterSpacing: .6 }}>Marcar</span>
+            {Object.entries(MARCADORES).map(([id, m]) => (
+              <button key={id} type="button" title={m.nombre}
+                onMouseDown={(e) => e.preventDefault()} onClick={() => marcar(id)}
+                className="h-6 w-6 rounded-md"
+                style={{ background: m.color, border: "1px solid rgba(0,0,0,.18)" }} />
+            ))}
+            <button type="button" title="Quitar el marcador"
+              onMouseDown={(e) => e.preventDefault()} onClick={() => marcar(null)}
+              className="h-6 rounded-md px-2 text-xs font-bold"
+              style={{ background: "#EEF3F9", color: "#5b6b82", border: "1px solid #C8D2DE" }}>
+              Quitar
+            </button>
+          </div>
+        )}
         <TarjetaAyuda id="guion-literario" titulo="Cómo se escribe aquí" pasos={[
           "Escribe y da <b>Enter</b>: la app pasa sola al bloque que toca. Después de un <b>PERSONAJE</b> siempre viene su <b>diálogo</b>.",
           "¿Necesitas otro tipo de bloque? <b>Tab</b> lo cambia: acción → personaje → paréntesis → diálogo → transición.",
@@ -229,6 +290,17 @@ export function EditorGuion({ cfg, setCfg }) {
               const t = TIPOS[b.tipo] || TIPOS.accion;
               return (
                 <div key={b.id} style={{ position: "relative", marginLeft: `${t.sangria}%`, width: `${t.ancho}%` }}>
+                  {/* Capa del marcatextos: una copia EXACTA del texto, con el
+                      color de fondo en los trozos marcados. Va detrás del área
+                      de escritura, que es transparente, así que el resaltado
+                      queda justo debajo de las mismas letras. */}
+                  {(b.marcas || []).length > 0 && (
+                    <div aria-hidden="true" style={{ ...tipografia(b, t), position: "absolute", inset: 0, color: "transparent", pointerEvents: "none", whiteSpace: "pre-wrap", overflowWrap: "break-word" }}>
+                      {trozosMarcados(b.texto, b.marcas).map((tr, i) => (
+                        <span key={i} style={tr.color ? { background: MARCADORES[tr.color].color, borderRadius: 2 } : undefined}>{tr.texto}</span>
+                      ))}
+                    </div>
+                  )}
                   <textarea
                     ref={(el) => { areas.current[b.id] = el; acomoda(el); }}
                     rows={1}
@@ -237,22 +309,17 @@ export function EditorGuion({ cfg, setCfg }) {
                     placeholder={t.nombre}
                     onChange={(e) => { acomoda(e.target); escribe(esc, b, t.mayus ? e.target.value.toUpperCase() : e.target.value); }}
                     onKeyDown={(e) => teclas(e, esc, b)}
-                    onFocus={(e) => { acomoda(e.target); setActiva(esc.id); }}
+                    onFocus={(e) => { acomoda(e.target); setActiva(esc.id); setEnfocado({ escenaId: esc.id, bloqueId: b.id }); }}
                     className="w-full resize-none border-0 bg-transparent outline-none"
-                    style={{
-                      fontFamily: PAPEL.fontFamily, fontSize: 14.5, lineHeight: 1.5,
-                      textAlign: t.align, textTransform: t.mayus ? "uppercase" : "none",
-                      color: b.tipo === "transicion" ? "#5b6b82" : INK,
-                      padding: b.tipo === "dialogo" || b.tipo === "parentesis" ? "0" : "6px 0 0",
-                      fontStyle: b.tipo === "parentesis" ? "italic" : "normal",
-                      overflow: "hidden",
-                    }}
+                    style={{ ...tipografia(b, t), position: "relative", background: "transparent", overflow: "hidden" }}
                   />
                   {/* Etiqueta del tipo, solo en el bloque enfocado */}
+                  {/* Etiqueta del tipo: cada uno con su color, porque en gris
+                      claro se perdían y no se distinguía acción de diálogo. */}
                   <span className="no-print" style={{
-                    position: "absolute", left: -68, top: 8, fontSize: 9, fontWeight: 700,
-                    letterSpacing: 0.6, textTransform: "uppercase", color: "#b6c0cd",
-                    fontFamily: "system-ui, sans-serif", pointerEvents: "none",
+                    position: "absolute", left: -74, top: 8, fontSize: 9.5, fontWeight: 800,
+                    letterSpacing: 0.7, textTransform: "uppercase", color: t.color,
+                    fontFamily: "system-ui, sans-serif", pointerEvents: "none", opacity: .95,
                   }}>{t.nombre}</span>
 
                   {sugiere?.bloqueId === b.id && (

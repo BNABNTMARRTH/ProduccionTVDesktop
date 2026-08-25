@@ -15,11 +15,11 @@
 // imprimir. La regla de oro del oficio: 1 página ≈ 1 minuto de pantalla.
 
 export const TIPOS = {
-  accion: { nombre: 'Acción', sangria: 0, ancho: 100, caja: 61, mayus: false, align: 'left' },
-  personaje: { nombre: 'Personaje', sangria: 37, ancho: 63, caja: 38, mayus: true, align: 'left' },
-  parentesis: { nombre: 'Paréntesis', sangria: 31, ancho: 69, caja: 25, mayus: false, align: 'left' },
-  dialogo: { nombre: 'Diálogo', sangria: 22, ancho: 62, caja: 35, mayus: false, align: 'left' },
-  transicion: { nombre: 'Transición', sangria: 0, ancho: 100, caja: 61, mayus: true, align: 'right' },
+  accion: { nombre: 'Acción', sangria: 0, ancho: 100, caja: 61, mayus: false, align: 'left', color: '#2E7D5B' },
+  personaje: { nombre: 'Personaje', sangria: 37, ancho: 63, caja: 38, mayus: true, align: 'left', color: '#1D6FD1' },
+  parentesis: { nombre: 'Paréntesis', sangria: 31, ancho: 69, caja: 25, mayus: false, align: 'left', color: '#8A5CD6' },
+  dialogo: { nombre: 'Diálogo', sangria: 22, ancho: 62, caja: 35, mayus: false, align: 'left', color: '#B4232A' },
+  transicion: { nombre: 'Transición', sangria: 0, ancho: 100, caja: 61, mayus: true, align: 'right', color: '#B36A00' },
 };
 
 export const ORDEN_TIPOS = ['accion', 'personaje', 'parentesis', 'dialogo', 'transicion'];
@@ -114,4 +114,75 @@ export function guionATexto(escenas) {
     }).join('\n');
     return `${i + 1}. ${enc}\n\n${cuerpo}`;
   }).join('\n\n');
+}
+
+
+/* ----------------------------- MARCATEXTOS -----------------------------
+Cuatro colores de marcador sobre el texto del guion, como en papel. Cada marca
+es un rango {ini, fin, color} sobre el texto del bloque; se guardan en
+`bloque.marcas`. Se trabajan como rangos y no como HTML para que el texto del
+guion siga siendo texto plano: así se sigue contando páginas, exportando e
+imprimiendo sin depender del formato de la marca. */
+
+export const MARCADORES = {
+  verde:    { nombre: 'Verde',    color: '#B8FF3C', tinta: '#1B3A00' },
+  amarillo: { nombre: 'Amarillo', color: '#FFF25C', tinta: '#3A3200' },
+  naranja:  { nombre: 'Naranja',  color: '#FFB03A', tinta: '#40230A' },
+  rojo:     { nombre: 'Rojo',     color: '#FF7A7A', tinta: '#440C0C' },
+};
+
+const ordenar = (marcas) => [...marcas].sort((a, b) => a.ini - b.ini);
+
+// Quita del listado todo lo que caiga dentro de [ini, fin): las marcas que
+// cruzan el borde se recortan, las que quedan partidas en dos se parten.
+export function quitarMarca(marcas, ini, fin) {
+  if (fin <= ini) return ordenar(marcas || []);
+  const fuera = [];
+  (marcas || []).forEach((m) => {
+    if (m.fin <= ini || m.ini >= fin) { fuera.push(m); return; }   // no se tocan
+    if (m.ini < ini) fuera.push({ ...m, fin: ini });               // pedazo de la izquierda
+    if (m.fin > fin) fuera.push({ ...m, ini: fin });               // pedazo de la derecha
+  });
+  return ordenar(fuera).filter((m) => m.fin > m.ini);
+}
+
+// Pinta [ini, fin) con un color: primero limpia lo que hubiera debajo (un
+// marcador tapa al anterior) y luego une las marcas pegadas del mismo color.
+export function aplicarMarca(marcas, ini, fin, color) {
+  if (fin <= ini || !MARCADORES[color]) return ordenar(marcas || []);
+  const lista = ordenar([...quitarMarca(marcas, ini, fin), { ini, fin, color }]);
+  const unidas = [];
+  lista.forEach((m) => {
+    const ult = unidas[unidas.length - 1];
+    if (ult && ult.color === m.color && ult.fin >= m.ini) ult.fin = Math.max(ult.fin, m.fin);
+    else unidas.push({ ...m });
+  });
+  return unidas;
+}
+
+// Parte el texto en trozos para dibujarlo: [{texto, color|null}, …].
+export function trozosMarcados(texto, marcas) {
+  const t = String(texto ?? '');
+  const lista = ordenar(marcas || []).filter((m) => m.ini < t.length && m.fin > 0);
+  const trozos = [];
+  let i = 0;
+  lista.forEach((m) => {
+    const ini = Math.max(0, m.ini), fin = Math.min(t.length, m.fin);
+    if (ini > i) trozos.push({ texto: t.slice(i, ini), color: null });
+    if (fin > ini) trozos.push({ texto: t.slice(ini, fin), color: m.color });
+    i = Math.max(i, fin);
+  });
+  if (i < t.length) trozos.push({ texto: t.slice(i), color: null });
+  return trozos.length ? trozos : [{ texto: t, color: null }];
+}
+
+// Al editar el texto hay que mover las marcas: si se escribe o se borra antes
+// de una marca, la marca se recorre. Sin esto el resaltado se despega del texto.
+export function moverMarcas(marcas, pos, delta) {
+  if (!delta) return ordenar(marcas || []);
+  return ordenar((marcas || []).map((m) => {
+    const ini = m.ini >= pos ? m.ini + delta : m.ini;
+    const fin = m.fin > pos ? m.fin + delta : m.fin;
+    return { ...m, ini: Math.max(0, ini), fin: Math.max(0, fin) };
+  })).filter((m) => m.fin > m.ini);
 }
