@@ -41,7 +41,7 @@ export function VistaEscaleta({ cfg, setCfg }) {
   const rows = useMemo(() => computeRows(cfg), [cfg]);
   const total = rows.length ? rows[rows.length - 1].tout : 0;
   const bloques = useMemo(() => computeBloques(rows, byId), [rows, byId]);
-  const [sub, setSub] = useState("escaleta");
+  const [sub, setSub] = useState(esNarrativo(cfg) ? "guion" : "escaleta");
   // El asistente (narrativo o en vivo) ya no vive aquí: se movió al nivel raíz
   // del generador y se abre desde la barra o al crear el proyecto.
 
@@ -78,7 +78,7 @@ export function VistaEscaleta({ cfg, setCfg }) {
     <div className="scrollwrap overflow-auto px-2 py-4">
       <div className="vista-foco mx-auto flex flex-col gap-3 bg-white shadow-lg" style={{ width: "100%", padding: 16, borderRadius: 8 }}>
         <div className="no-print mx-auto flex items-center gap-1 rounded-lg p-1" style={{ background: "#E2E8F0" }}>
-          {subTab("escaleta", narr ? "≡ Escaleta" : "≡ Escaleta editorial")}
+          {!narr && subTab("escaleta", "≡ Escaleta editorial")}
           {subTab("guion", narr ? "✎ Guion técnico" : "✎ Rundown técnico")}
           {subTab("storyboard", "▦ Storyboard")}
           {editable && (
@@ -86,10 +86,10 @@ export function VistaEscaleta({ cfg, setCfg }) {
               {narr ? (
                 <TarjetaAyuda id="escaleta-narr" titulo="Cómo escribir tu escaleta narrativa"
                   pasos={[
-                    "Empieza por lo que pasa: agrega una escena con <b>＋ Agregar escena</b> y descríbela. Puedes agregar, borrar y reordenar cuando quieras.",
-                    "<b>Escaleta</b>: qué ocurre en cada escena y cómo avanza la historia (encabezado, acción, función, cambio). Sin cámaras ni lentes: eso va en el guion técnico.",
-                    "<b>Guion técnico</b>: desglosa cada escena en planos (tamaño, ángulo, movimiento, sonido).",
+                    "Las escenas se escriben en <b>Guion literario</b> (la sección anterior): ahí van encabezado, acción y diálogos. Aquí se desglosan.",
+                    "<b>Guion técnico</b>: cada escena se parte en planos — tamaño, ángulo, movimiento y sonido.",
                     "<b>Storyboard</b>: la vista visual de cada plano con su imagen y notas.",
+                    "La duración de cada escena se ajusta en el guion literario o en la barra de arriba.",
                   ]} />
               ) : (
                 <TarjetaAyuda id="escaleta-live" titulo="Cómo escribir tu escaleta editorial"
@@ -109,7 +109,7 @@ export function VistaEscaleta({ cfg, setCfg }) {
           <p className="m-0 text-center text-sm italic text-slate-500">{cfg.narrativa.logline}</p>
         )}
 
-        {sub === "escaleta" && (<>
+        {sub === "escaleta" && !narr && (<>
           <Box title={narr ? `Escaleta narrativa — ${rows.length} escena${rows.length === 1 ? "" : "s"} · ${fmt(total)}` : `Escaleta editorial — ${fmt(total)}`}>
             {editable
               ? <EscaletaEditor cfg={cfg} setCfg={setCfg} rows={rows} editable={editable} />
@@ -178,7 +178,7 @@ export function VistaEscaleta({ cfg, setCfg }) {
                 </div>
               );
             })}
-            {narr && !rows.length && <p className="text-sm text-slate-500">La escaleta está vacía: agrega escenas en la pestaña Escaleta.</p>}
+            {narr && !rows.length && <p className="text-sm text-slate-500">Todavía no hay escenas: escríbelas en <b>Guion literario</b> y aquí las desglosas en planos.</p>}
           </Box>
         )}
 

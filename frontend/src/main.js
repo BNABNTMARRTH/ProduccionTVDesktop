@@ -262,7 +262,7 @@ const ETAPA_LISTA = {
 // Diferencias por modo: en narrativo el ensayo en vivo no aplica y algunas
 // secciones cambian de nombre (la misma herramienta cambia de función).
 const ETAPAS_OCULTAS = { narrative: ['ensayo'] };
-const SECCION_ETIQUETAS = { narrative: { set: 'Plano de la locación', escaleta: 'Historia y guion', diagrama: 'Escena' } };
+const SECCION_ETIQUETAS = { narrative: { set: 'Plano de la locación', escaleta: 'Guion técnico y storyboard', diagrama: 'Escena' } };
 
 // Última sección visitada de cada etapa, para volver donde uno la dejó.
 const ultimaSeccion = {};
