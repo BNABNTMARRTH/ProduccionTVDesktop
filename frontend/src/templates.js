@@ -42,6 +42,18 @@ export const PROJECT_MODES = {
     live: { label: 'Programa en vivo', chip: 'MODO · PROGRAMA EN VIVO' },
     narrative: { label: 'Producción narrativa', chip: 'MODO · PRODUCCIÓN NARRATIVA' },
 };
+// Catálogos del PERFIL del proyecto. Son copia de los del generador
+// (narrativa.js IMPACTOS y proyecto.js MEDIOS): el shell y el generador se
+// compilan por separado, así que no pueden compartir el módulo. Si cambias uno,
+// cambia el otro.
+export const INTENCIONES = ['Informar', 'Emocionar', 'Persuadir', 'Entretener', 'Denunciar', 'Enseñar', 'Generar reflexión', 'Promover una acción'];
+export const MEDIOS = ['TikTok', 'Instagram / Reels', 'YouTube', 'Facebook', 'WhatsApp', 'TV abierta', 'TV de paga', 'Streaming', 'Cine', 'Radio', 'Podcast', 'Prensa impresa', 'Pantallas en la calle', 'Evento en vivo'];
+
+export const perfilVacio = () => ({
+    emisor: '', mensaje: '', intencion: [], receptor: '', edad: '',
+    medios: [], presupuesto: '', presupuestoNota: '',
+});
+
 export const normalizeMode = (modo) => (modo === 'narrative' ? 'narrative' : 'live');
 
 // Roles de crew disponibles en el asistente. Los `icon` deben existir en el
@@ -204,6 +216,9 @@ export function makeTemplate(kind, profile = {}) {
         flujo: { preview: true, playback: extras.length > 0 },
         personal,
         includeCamOps: profile.includeCamOps ?? true,
+        // Perfil capturado al crear el proyecto (todo opcional): quién habla,
+        // qué dice, a quién y con cuánto. Se termina de llenar en la etapa 1.
+        perfil: { ...perfilVacio(), ...(profile.perfil || {}) },
         branding: { primaryColor: profile.color || NAVY, logoDataUrl: profile.logoDataUrl || '' },
         secciones: SECTION_DEFAULTS,
     };

@@ -142,6 +142,27 @@
 
   /* ------------------------ Páginas del documento ------------------------ */
 
+  // Perfil del proyecto: quién habla, qué dice, a quién y con cuánto. Es lo
+  // primero que se decide y lo que justifica el resto del documento, así que
+  // encabeza el resumen. Si el proyecto no lo tiene llenado, no se imprime.
+  function bloquePerfil() {
+    const p = cfg.perfil || {};
+    const lleno = (v) => (Array.isArray(v) ? v.length : String(v || '').trim());
+    if (!Object.values(p).some(lleno)) return '';
+    const dinero = (v) => (String(v || '').trim() ? '$' + Number(v).toLocaleString('es-MX') + ' MXN' : '—');
+    const fila = (k, v) => (lleno(v) ? `<span>${k}</span><b>${esc(Array.isArray(v) ? v.join(' · ') : v)}</b>` : '');
+    return `
+      <div class="cat2">Perfil del proyecto</div>
+      <div class="kv">
+        ${fila('Emisor', p.emisor)}
+        ${fila('Receptor', [p.receptor, p.edad].filter(Boolean).join(' · '))}
+        ${fila('Mensaje', p.mensaje)}
+        ${fila('Intención', p.intencion)}
+        ${fila('Medios del receptor', p.medios)}
+        ${lleno(p.presupuesto) ? `<span>Presupuesto</span><b>${dinero(p.presupuesto)}${p.presupuestoNota ? ' · ' + esc(p.presupuestoNota) : ''}</b>` : ''}
+      </div>`;
+  }
+
   function pagCompleta() {
     const total = (cfg.escaleta || []).reduce((a, r) => a + (r.dur || 0), 0);
     const cams = cfg.camaras || [], mics = cfg.microfonos || [];
@@ -157,6 +178,7 @@
         ${kv('Set', esc(cfg.pantalla || '—') + ' · Mesa: ' + esc(cfg.mesa || '—'))}
         ${kv('Color de marca', `<span class="chip" style="background:${esc(cfg.branding?.primaryColor || '#16365F')}">${esc(cfg.branding?.primaryColor || '#16365F')}</span>`)}
       </div>
+      ${bloquePerfil()}
       <div class="cat2">Equipo técnico</div>
       <table>
         <tr><th>Cámaras (${cams.length})</th><th>Micrófonos (${mics.length})</th><th>Fuentes (${extras.length})</th></tr>

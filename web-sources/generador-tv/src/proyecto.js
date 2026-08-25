@@ -82,7 +82,44 @@ export const DEMO = () => ({
   ],
   includeCamOps: true,
   secciones: seccionesDefault(),
+  perfil: perfilVacio(),
 });
+
+/* ------------------------------- PERFIL -------------------------------
+El brief que toda producción necesita ANTES de grabar: quién habla (emisor),
+qué dice (mensaje), para qué (intención), a quién (receptor y su edad), por
+dónde lo va a ver (medios) y con cuánto dinero. Vive en cfg.perfil y aplica
+igual a un programa en vivo que a un cortometraje. */
+
+// Por dónde consume medios el público al que le hablas.
+export const MEDIOS = [
+  "TikTok", "Instagram / Reels", "YouTube", "Facebook", "WhatsApp",
+  "TV abierta", "TV de paga", "Streaming", "Cine", "Radio", "Podcast",
+  "Prensa impresa", "Pantallas en la calle", "Evento en vivo",
+];
+
+export const perfilVacio = () => ({
+  emisor: "",           // quién produce y firma la pieza
+  mensaje: "",          // la idea en una frase
+  intencion: [],        // qué quieres que pase en quien lo vea
+  receptor: "",         // a quién le hablas
+  edad: "",             // rango de edad
+  medios: [],           // dónde lo va a ver
+  presupuesto: "",      // monto estimado en pesos
+  presupuestoNota: "",  // de dónde sale el dinero
+});
+
+// Rellena el perfil y RESCATA lo que antes vivía suelto en el brief narrativo
+// (mensaje clave, audiencia e impacto), para no perder lo ya capturado.
+export const normPerfil = (perfil, narrativa) => {
+  const p = { ...perfilVacio(), ...(perfil || {}) };
+  if (!p.mensaje && narrativa?.mensaje) p.mensaje = narrativa.mensaje;
+  if (!p.receptor && narrativa?.audiencia) p.receptor = narrativa.audiencia;
+  if (!p.intencion.length && narrativa?.impacto) p.intencion = [narrativa.impacto];
+  p.intencion = Array.isArray(p.intencion) ? p.intencion : [];
+  p.medios = Array.isArray(p.medios) ? p.medios : [];
+  return p;
+};
 
 export const BLANCO = () => ({
   titulo: "PRODUCCIÓN DE TV – TÍTULO DEL PROGRAMA",
@@ -125,6 +162,7 @@ export const normalizeCfg = (cfg) => {
     microfonos: Array.isArray(cfg?.microfonos) ? cfg.microfonos : [],
     branding: cfg?.branding || { primaryColor: NAVY, logoDataUrl: "" },
     secciones: normSecciones(cfg?.secciones),
+    perfil: normPerfil(cfg?.perfil, cfg?.narrativa),
   };
   let migroTalentos = false;
   if (!Array.isArray(c.talentos)) {

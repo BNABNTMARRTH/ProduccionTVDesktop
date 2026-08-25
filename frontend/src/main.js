@@ -330,12 +330,11 @@ async function createProject(profile) {
     const name = profile.name || `Proyecto ${new Date().toLocaleDateString()}`;
     const template = profile.template || 'vacio';
     // Base mínima y editable (ver nuevo-proyecto.js): cámaras, un talento y la
-    // escaleta vacía. El proyecto abre directo en Escaleta, que es donde se
-    // trabaja; nada queda decidido de antemano.
-    const cfg = profile.cfg || {
-        ...makeTemplate(template, { ...profile, projectName: name, company: profile.company || 'ATJ Producciones' }),
-        abrirEnEscaleta: true,
-    };
+    // escaleta vacía. Desde la reorganización por etapas el proyecto abre en
+    // PERFIL (etapa 1), que es por donde empieza toda producción.
+    const cfg = profile.cfg || makeTemplate(template, {
+        ...profile, projectName: name, company: profile.company || 'ATJ Producciones',
+    });
     const project = {
         id: uid('project'), name, template,
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),

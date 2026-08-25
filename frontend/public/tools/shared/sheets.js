@@ -71,6 +71,38 @@
       ${sigs(['Director(a) de cámaras', 'Floor manager'])}`;
   }
 
+  // Hoja del PERFIL: el brief del proyecto en una página. Lo capturado se
+  // imprime como dato; lo que falte sale como línea en blanco para llenarlo a
+  // mano en clase o en junta de producción. Así sirve igual con el proyecto a
+  // medias que terminado.
+  function perfil(cfg, projectName) {
+    const p = cfg.perfil || {};
+    const val = (v) => (Array.isArray(v) ? v.join(' · ') : String(v || '').trim());
+    const dato = (etiqueta, v, alto) => `
+      <div class="writezone" data-label="${esc(etiqueta)}">
+        ${val(v)
+          ? `<p style="margin:6px 2px;font-size:13px;line-height:1.5">${esc(val(v))}</p>`
+          : `<div class="lines"${alto ? ` style="min-height:${alto}px"` : ''}></div>`}
+      </div>`;
+    const dinero = val(p.presupuesto)
+      ? '$' + Number(p.presupuesto).toLocaleString('es-MX') + ' MXN' + (val(p.presupuestoNota) ? ' · ' + val(p.presupuestoNota) : '')
+      : '';
+    return `
+      ${head(cfg, projectName, 'Perfil del proyecto', 'Quién habla, qué dice, a quién y con cuánto')}
+      <div class="cat">Quién habla</div>
+      ${dato('Emisor — quién produce y firma', p.emisor)}
+      <div class="cat">Qué dice</div>
+      ${dato('Mensaje — la idea en una frase', p.mensaje, 46)}
+      ${dato('Intención — qué quieres que pase en quien lo vea', p.intencion)}
+      <div class="cat">A quién</div>
+      ${dato('Receptor', p.receptor)}
+      ${dato('Edad', p.edad)}
+      ${dato('Medios que usa el receptor', p.medios)}
+      <div class="cat">Con cuánto</div>
+      ${dato('Presupuesto estimado y de dónde sale', dinero)}
+      ${sigs(['Productor(a)', 'Director(a)'])}`;
+  }
+
   function checklist(cfg, projectName) {
     const item = (t, extra) => `<div class="check-item"><i></i>${esc(t)}${extra ? `<small>${esc(extra)}</small>` : ''}</div>`;
     const cams = (cfg.camaras || []).map((c, i) => item(`${c.nombre || 'CAM ' + (i + 1)} conectada, balance y foco`, c.plano || ''));
@@ -557,5 +589,5 @@
       ${sigs(['Continuidad / Script', 'Responsable de captura', 'Fecha de captura'])}`;
   }
 
-  window.PTVSheets = { esc, fmt, trunc, head, foot, sigs, setsDe, escaleta, camaras, checklist, plano, planoSvg, iluminacion, llamado, cambios };
+  window.PTVSheets = { esc, fmt, trunc, head, foot, sigs, setsDe, perfil, escaleta, camaras, checklist, plano, planoSvg, iluminacion, llamado, cambios };
 })();

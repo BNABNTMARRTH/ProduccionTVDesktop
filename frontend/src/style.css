@@ -181,6 +181,19 @@ button:focus-visible,input:focus-visible{outline:2px solid #58a8ff;outline-offse
 .np-modo strong{font-size:15px}
 .np-modo small{color:#9db1cc;font-size:12px;line-height:1.45}
 .np-modo em{color:#6f86a6;font-size:11px;font-style:normal}
+/* Bloque plegable del perfil dentro de la caja de proyecto nuevo. */
+.np-mas{display:flex;align-items:center;gap:8px;width:100%;margin:0 0 14px;border:1px dashed #34557c;background:transparent;color:#9db1cc;border-radius:11px;padding:10px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;text-align:left}
+.np-mas:hover{border-color:#58a8ff;color:#dce8f8}
+.np-mas-ico{color:#65b0ff}
+.np-mas em{font-style:normal;font-weight:500;color:#6f86a6}
+.np-extra{margin:0 0 18px;padding:16px 16px 4px;border:1px solid #2a415f;border-radius:14px;background:#0a1524}
+.np-extra .np-input{margin-bottom:16px;font-size:14px;padding:9px 11px}
+.np-dos{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.np-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 16px}
+.np-chip{border:1px solid #2d4564;background:#0d1b2e;color:#9db1cc;border-radius:999px;padding:6px 11px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
+.np-chip:hover{border-color:#58a8ff;color:#dce8f8}
+.np-chip.on{border-color:#58a8ff;background:#17365e;color:#fff}
+.np-chip:active,.np-mas:active{transform:scale(.97)}
 .np-crear{width:100%;border:1px solid #4f89c8;background:#1d6fd1;color:#fff;border-radius:11px;padding:12px;font:inherit;font-size:15px;font-weight:800;cursor:pointer}
 .np-crear:hover{background:#2a7fe4}
 @media(max-width:560px){.np-modos{grid-template-columns:1fr}}

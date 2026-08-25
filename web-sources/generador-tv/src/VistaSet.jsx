@@ -130,6 +130,21 @@ export function VistaSet({ cfg, setCfg }) {
                   onChange={(e) => upActivo({ mesaVisible: e.target.checked }, { commit: true })} />
                 Mesa / escritorio en el set
               </label>
+              {/* Los rótulos que se dibujan EN el plano. Antes vivían en Datos
+                  generales, junto al título del proyecto; aquí se ve al momento
+                  lo que uno escribe. */}
+              {editable && (
+                <input value={cfg.pantalla || ""} title="Lo que aparece en la pantalla del set"
+                  onChange={(e) => setCfg((c) => ({ ...c, pantalla: e.target.value }))}
+                  className="rounded-lg border px-2 py-1 text-xs font-bold"
+                  style={{ ...chip, width: 190 }} placeholder="Texto de la pantalla…" />
+              )}
+              {editable && activo.mesaVisible !== false && (
+                <input value={cfg.mesa || ""} title="Lo que aparece en el frente de la mesa"
+                  onChange={(e) => setCfg((c) => ({ ...c, mesa: e.target.value }))}
+                  className="rounded-lg border px-2 py-1 text-xs font-bold"
+                  style={{ ...chip, width: 170 }} placeholder="Texto de la mesa…" />
+              )}
               <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "#33445F" }} title="Muestra u oculta todos los nombres. Doble clic sobre una etiqueta del plano la oculta individualmente. Mantén el puntero encima de un icono para ver su nombre.">
                 <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
                 Mostrar etiquetas

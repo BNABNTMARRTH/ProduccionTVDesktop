@@ -83,3 +83,28 @@ export function Swatches({ value, onChange }) {
     </div>
   );
 }
+
+// Grupo de opciones que se encienden y apagan (varias a la vez). Se usa en el
+// perfil del proyecto: intención y medios del receptor. Es más rápido y menos
+// intimidante que escribir, y deja los datos comparables entre proyectos.
+export function Chips({ titulo, ayuda, opciones, valor = [], onChange }) {
+  const activo = (o) => valor.includes(o);
+  const alternar = (o) => onChange(activo(o) ? valor.filter((v) => v !== o) : [...valor, o]);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="text-xs font-bold uppercase text-slate-500">{titulo}</div>
+      {ayuda && <p className="m-0 text-xs text-slate-500" style={{ marginTop: -4 }}>{ayuda}</p>}
+      <div className="flex flex-wrap gap-1.5">
+        {opciones.map((o) => (
+          <button key={o} type="button" onClick={() => alternar(o)} aria-pressed={activo(o)}
+            className="rounded-full px-3 py-1.5 text-xs font-bold"
+            style={activo(o)
+              ? { background: NAVY, color: "#fff", border: "1px solid " + NAVY }
+              : { background: "#fff", color: INK, border: "1px solid #C8D2DE" }}>
+            {o}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

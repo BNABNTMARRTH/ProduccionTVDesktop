@@ -8,11 +8,11 @@ import { CATALOGO_FUENTES, CATALOGO_ROLES, MIC_TIPOS, MIC_TIPO_CORTO, PLANOS } f
 import { computeFuentes, computeRows, generarCSV, generarEDL } from "./escaleta.js";
 import { useReorder } from "./hooks.js";
 import { ICONS } from "./iconos.jsx";
-import { TIPOS_PROYECTO } from "./narrativa.js";
-import { BLANCO, DEMO, normalizeCfg } from "./proyecto.js";
+import { IMPACTOS, TIPOS_PROYECTO } from "./narrativa.js";
+import { BLANCO, DEMO, MEDIOS, normalizeCfg, perfilVacio } from "./proyecto.js";
 import { EMBEDDED, descargarArchivo } from "./puente.js";
 import { AIR_COLOR, INK, NAVY, PALETTE } from "./theme.js";
-import { btn, Card, inp, inpStyle, Swatches } from "./ui.jsx";
+import { btn, Card, Chips, inp, inpStyle, Swatches } from "./ui.jsx";
 import { fmt, parseDur, reorder, slug, textOn, trunc, uid } from "./util.js";
 
 // Panel de EDICIÓN del proyecto (columna izquierda): identidad y marca, fuentes
@@ -23,6 +23,8 @@ import { fmt, parseDur, reorder, slug, textOn, trunc, uid } from "./util.js";
 // es como funcionaba antes y como sigue funcionando la versión web.
 export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grupo = "todo" }) {
   const ver = (g) => grupo === "todo" || grupo === g;
+  const perfil = cfg.perfil || perfilVacio();
+  const upPerfil = (parche) => setCfg((c) => ({ ...c, perfil: { ...(c.perfil || perfilVacio()), ...parche } }));
   const [nombreProy, setNombreProy] = useState("");
   const [rolCustom, setRolCustom] = useState("");
   const [busqueda, setBusqueda] = useState("");
@@ -153,16 +155,9 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
             <textarea className={inp} style={inpStyle} rows={2} value={cfg.narrativa.logline || ""}
               onChange={(e) => up({ narrativa: { ...cfg.narrativa, logline: e.target.value } })} />
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <label className="text-xs font-bold uppercase text-slate-500">Mensaje clave
-              <input className={inp} style={inpStyle} value={cfg.narrativa.mensaje || ""}
-                onChange={(e) => up({ narrativa: { ...cfg.narrativa, mensaje: e.target.value } })} />
-            </label>
-            <label className="text-xs font-bold uppercase text-slate-500">Audiencia
-              <input className={inp} style={inpStyle} value={cfg.narrativa.audiencia || ""}
-                onChange={(e) => up({ narrativa: { ...cfg.narrativa, audiencia: e.target.value } })} />
-            </label>
-          </div>
+          <p className="m-0 text-xs text-slate-500">
+            El mensaje y a quién va dirigido se llenan arriba, en <b>Perfil del proyecto</b>.
+          </p>
           <label className="text-xs font-bold uppercase text-slate-500">Llamada a la acción
             <input className={inp} style={inpStyle} value={cfg.narrativa.cta || ""}
               onChange={(e) => up({ narrativa: { ...cfg.narrativa, cta: e.target.value } })} />
@@ -181,15 +176,9 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
         <label className="text-xs font-bold uppercase text-slate-500">Subtítulo
           <input className={inp} style={inpStyle} value={cfg.subtitulo} onChange={(e) => up({ subtitulo: e.target.value })} />
         </label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 gap-2">
           <label className="text-xs font-bold uppercase text-slate-500">Organización / logo
             <input className={inp} style={inpStyle} value={cfg.organizacion} onChange={(e) => up({ organizacion: e.target.value })} />
-          </label>
-          <label className="text-xs font-bold uppercase text-slate-500">Texto pantalla del set
-            <input className={inp} style={inpStyle} value={cfg.pantalla} onChange={(e) => up({ pantalla: e.target.value })} />
-          </label>
-          <label className="text-xs font-bold uppercase text-slate-500">Texto de la mesa
-            <input className={inp} style={inpStyle} value={cfg.mesa} onChange={(e) => up({ mesa: e.target.value })} />
           </label>
         </div>
         <div className="flex flex-wrap items-end gap-3">
@@ -202,6 +191,50 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
           </label>
           {cfg.branding?.logoDataUrl && <button className={btn} style={{ background: "#E9EDF3", color: INK }} onClick={() => setCfg((c) => ({ ...c, branding: { ...(c.branding || {}), logoDataUrl: "" } }))}>Quitar logotipo</button>}
         </div>
+      </Card>)}
+
+      {/* Perfil: el brief que toda producción necesita antes de grabar */}
+      {ver('perfil') && (
+      <Card title="Perfil del proyecto">
+        <p className="m-0 text-xs text-slate-500" style={{ marginTop: -6 }}>
+          Quién habla, qué dice, para qué, a quién y con cuánto. Es lo primero que se decide
+          y lo que después justifica cada plano, cada luz y cada gasto.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <label className="text-xs font-bold uppercase text-slate-500">Emisor — quién produce
+            <input className={inp} style={inpStyle} placeholder="FCC-UASLP, taller de documental"
+              value={perfil.emisor} onChange={(e) => upPerfil({ emisor: e.target.value })} />
+          </label>
+          <label className="text-xs font-bold uppercase text-slate-500">Receptor — a quién le hablas
+            <input className={inp} style={inpStyle} placeholder="Estudiantes de la facultad"
+              value={perfil.receptor} onChange={(e) => upPerfil({ receptor: e.target.value })} />
+          </label>
+        </div>
+        <label className="text-xs font-bold uppercase text-slate-500">Mensaje — la idea en una frase
+          <textarea className={inp} style={inpStyle} rows={2} placeholder="Si tu proyecto solo pudiera decir una cosa, ¿cuál sería?"
+            value={perfil.mensaje} onChange={(e) => upPerfil({ mensaje: e.target.value })} />
+        </label>
+        <Chips titulo="Intención — qué quieres que pase en quien lo vea"
+          opciones={IMPACTOS} valor={perfil.intencion}
+          onChange={(v) => upPerfil({ intencion: v })} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <label className="text-xs font-bold uppercase text-slate-500">Edad del receptor
+            <input className={inp} style={inpStyle} placeholder="18 a 25 años"
+              value={perfil.edad} onChange={(e) => upPerfil({ edad: e.target.value })} />
+          </label>
+          <label className="text-xs font-bold uppercase text-slate-500">Presupuesto estimado (MXN)
+            <input className={inp} style={inpStyle} inputMode="numeric" placeholder="0"
+              value={perfil.presupuesto} onChange={(e) => upPerfil({ presupuesto: e.target.value.replace(/[^\d.]/g, "") })} />
+          </label>
+        </div>
+        <Chips titulo="Medios que usa tu receptor"
+          ayuda="Dónde va a ver tu proyecto. Define formato, duración y hasta el encuadre."
+          opciones={MEDIOS} valor={perfil.medios}
+          onChange={(v) => upPerfil({ medios: v })} />
+        <label className="text-xs font-bold uppercase text-slate-500">¿De dónde sale el dinero?
+          <input className={inp} style={inpStyle} placeholder="Beca, recursos propios, patrocinio…"
+            value={perfil.presupuestoNota} onChange={(e) => upPerfil({ presupuestoNota: e.target.value })} />
+        </label>
       </Card>)}
 
       {/* Cámaras */}
