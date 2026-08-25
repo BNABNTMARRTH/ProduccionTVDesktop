@@ -3,12 +3,20 @@
     <dict>
         <key>CFBundlePackageType</key>
         <string>APPL</string>
+        <!-- El nombre lleva la version: en el Dock y en el menu se distingue
+             "Produccion TV 0.7.0" de "Produccion TV 0.8.0" de un vistazo. -->
         <key>CFBundleName</key>
-        <string>{{.Info.ProductName}}</string>
+        <string>{{.Info.ProductName}} {{.Info.ProductVersion}}</string>
         <key>CFBundleExecutable</key>
         <string>{{.OutputFilename}}</string>
+        <!-- FIRMA POR VERSION (2026-08-24). macOS identifica una app por este
+             texto, NO por su nombre ni por su carpeta. Cuando todas las
+             versiones lo compartian, abrir una version concreta era imposible:
+             el sistema elegia cualquiera de las copias registradas. Al colgar
+             la version del identificador, cada build es una app distinta para
+             macOS y se puede abrir la que se quiera. -->
         <key>CFBundleIdentifier</key>
-        <string>com.aldomaster.producciontv.desktop</string>
+        <string>com.aldomaster.producciontv.desktop.v{{.Info.ProductVersion}}</string>
         <key>CFBundleVersion</key>
         <string>{{.Info.ProductVersion}}</string>
         <key>CFBundleGetInfoString</key>
