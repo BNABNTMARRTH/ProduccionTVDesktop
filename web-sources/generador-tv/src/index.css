@@ -258,7 +258,7 @@ textarea.campo-caja { min-height: calc(var(--alto-control) * 1.7); line-height: 
 .rejilla-filas {
   display: grid;
   gap: var(--hueco-campo);
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 430px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr));
   align-items: start;
 }
 @media (max-width: 620px) { .rejilla-campos > .col-2 { grid-column: span 1; } }

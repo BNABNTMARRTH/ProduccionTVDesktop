@@ -272,7 +272,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
                 </span>
                 <span className="flex items-center justify-center rounded-full font-bold shrink-0"
                   style={{ width: 24, height: 24, background: c.color, color: textOn(c.color), fontSize: 12 }}>{i + 1}</span>
-                <input className={inp} style={{ ...inpStyle, width: 110, flex: "0 0 auto" }} value={c.nombre} onChange={(e) => upCam(c.id, { nombre: e.target.value })} />
+                <input className={inp} style={{ ...inpStyle, flex: "1 1 150px", maxWidth: 280 }} value={c.nombre} onChange={(e) => upCam(c.id, { nombre: e.target.value })} />
                 <input className={inp} style={{ ...inpStyle, flex: "1 1 160px" }} list="planos" placeholder="Tipo de plano…" value={c.plano} onChange={(e) => upCam(c.id, { plano: e.target.value })} />
                 <span className="flex gap-0.5 shrink-0">
                   <button className="b-min" onClick={() => moveCam(i, -1)} disabled={i === 0} aria-label="Subir cámara"><ChevronUp size={16} /></button>
@@ -332,8 +332,8 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
             return (
               <div key={t.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2" style={{ borderColor: "#DDE4EC" }}>
                 <User size={16} color={t.tipo === "invitado" ? "#0E9F9E" : NAVY} />
-                <input className={inp} style={{ ...inpStyle, flex: "1 1 180px" }} value={t.nombre} onChange={(e) => upTal(t.id, { nombre: e.target.value })} />
-                <select className={inp} style={{ ...inpStyle, width: 140 }} value={t.tipo} onChange={(e) => upTal(t.id, { tipo: e.target.value })}>
+                <input className={inp} style={{ ...inpStyle, flex: "1 1 200px" }} value={t.nombre} onChange={(e) => upTal(t.id, { nombre: e.target.value })} />
+                <select className={inp} style={{ ...inpStyle, flex: "1 1 150px", minWidth: 130 }} value={t.tipo} onChange={(e) => upTal(t.id, { tipo: e.target.value })}>
                   <option value="conductor">Conductor(a)</option>
                   <option value="invitado">Invitado(a)</option>
                 </select>
@@ -358,12 +358,12 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
               <div key={m.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2" style={{ borderColor: "#DDE4EC" }}>
                 <Mic size={16} color="#1FA14E" />
                 <input className={inp} style={{ ...inpStyle, flex: "1 1 150px" }} value={m.nombre} onChange={(e) => upMic(m.id, { nombre: e.target.value })} />
-                <select className={inp} style={{ ...inpStyle, width: 165 }} value={micTipo} title="Tipo de micrófono"
+                <select className={inp} style={{ ...inpStyle, flex: "1 1 170px", minWidth: 145 }} value={micTipo} title="Tipo de micrófono"
                   onChange={(e) => upMic(m.id, { micTipo: e.target.value, asignadoA: e.target.value === "boom" ? "set" : "" })}>
                   {MIC_TIPOS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
                 </select>
                 {micTipo !== "boom" && (
-                  <select className={inp} style={{ ...inpStyle, width: 160 }} value={m.asignadoA || ""} title={micTipo === "shotgun" ? "Cámara donde va montado" : "Talento que lo porta"}
+                  <select className={inp} style={{ ...inpStyle, flex: "1 1 165px", minWidth: 140 }} value={m.asignadoA || ""} title={micTipo === "shotgun" ? "Cámara donde va montado" : "Talento que lo porta"}
                     onChange={(e) => upMic(m.id, { asignadoA: e.target.value })}>
                     <option value="">Sin asignar (suelto)</option>
                     {micTipo === "shotgun"
