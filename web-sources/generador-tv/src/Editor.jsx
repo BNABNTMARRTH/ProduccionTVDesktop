@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ChevronDown, ChevronUp, Download, FilePlus, FolderOpen, GripVertical,
-  Mic, Plus, Save, Search, StickyNote, Trash2, User, X,
+  Mic, Plus, Save, Search, StickyNote, Trash2, Upload, User, X,
 } from "lucide-react";
 import { AnalisisTiempos } from "./AnalisisTiempos.jsx";
 import { CATALOGO_FUENTES, CATALOGO_ROLES, MIC_TIPOS, MIC_TIPO_CORTO, PLANOS } from "./catalogos.js";
@@ -12,7 +12,7 @@ import { IMPACTOS, TIPOS_PROYECTO } from "./narrativa.js";
 import { BLANCO, DEMO, MEDIOS, normalizeCfg, perfilVacio } from "./proyecto.js";
 import { EMBEDDED, descargarArchivo } from "./puente.js";
 import { AIR_COLOR, INK, NAVY, PALETTE } from "./theme.js";
-import { btn, Card, Chips, inp, inpStyle, Swatches } from "./ui.jsx";
+import { Btn, btn, Campo, Campos, Card, Chips, inp, inpStyle, Seccion, Swatches } from "./ui.jsx";
 import { fmt, parseDur, reorder, slug, textOn, trunc, uid } from "./util.js";
 
 // Panel de EDICIÓN del proyecto (columna izquierda): identidad y marca, fuentes
@@ -25,6 +25,12 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
   const ver = (g) => grupo === "todo" || grupo === g;
   const perfil = cfg.perfil || perfilVacio();
   const upPerfil = (parche) => setCfg((c) => ({ ...c, perfil: { ...(c.perfil || perfilVacio()), ...parche } }));
+  const logoRef = useRef(null);
+  // El logline y la llamada a la acción viven en `narrativa`, que puede no
+  // existir todavía (proyectos creados antes del brief). Se crea al escribir
+  // en vez de esconder los campos: si el usuario tiene la idea en la cabeza,
+  // el sitio para ponerla tiene que estar ahí.
+  const upNarr = (parche) => setCfg((c) => ({ ...c, narrativa: { ...(c.narrativa || {}), ...parche } }));
   const [nombreProy, setNombreProy] = useState("");
   const [rolCustom, setRolCustom] = useState("");
   const [busqueda, setBusqueda] = useState("");
@@ -113,14 +119,13 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
   const delRol = (id) => setCfg((c) => ({ ...c, personal: c.personal.filter((p) => p.id !== id) }));
 
   return (
-    <div className="grid items-start gap-3 px-3 py-4"
-      style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 520px), 1fr))" }}>
+    <div className="rejilla-tarjetas">
       {/* Proyectos (solo versión web: en la app de escritorio los proyectos los maneja el shell) */}
       {ver('perfil') && !EMBEDDED && (
       <Card title="Proyectos" open={false}>
         <div className="flex flex-wrap gap-2">
-          <button className={btn} style={{ background: "#E9EDF3", color: INK }} onClick={() => setCfg(normalizeCfg(BLANCO()))}><FilePlus size={15} /> Nuevo (en blanco)</button>
-          <button className={btn} style={{ background: "#E9EDF3", color: INK }} onClick={() => setCfg(normalizeCfg(DEMO()))}><FolderOpen size={15} /> Cargar ejemplo UASLP</button>
+          <Btn rango={2} onClick={() => setCfg(normalizeCfg(BLANCO()))}><FilePlus size={15} /> Nuevo (en blanco)</Btn>
+          <Btn rango={2} onClick={() => setCfg(normalizeCfg(DEMO()))}><FolderOpen size={15} /> Cargar ejemplo UASLP</Btn>
         </div>
         <div className="flex gap-2">
           <input className={inp} style={inpStyle} placeholder="Nombre del proyecto…" value={nombreProy} onChange={(e) => setNombreProy(e.target.value)} />
@@ -135,8 +140,8 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
               <div key={p.id} className="flex items-center gap-2 rounded-md border px-2 py-1.5" style={{ borderColor: "#C8D2DE" }}>
                 <span className="flex-1 text-sm font-semibold truncate" style={{ color: INK }}>{p.nombre}</span>
                 <span className="text-xs text-slate-400">{new Date(p.fecha).toLocaleDateString()}</span>
-                <button className={btn} style={{ background: "#E9EDF3", color: INK, padding: "3px 8px" }} onClick={() => cargar(p)}>Abrir</button>
-                <button className="text-slate-400" onClick={() => eliminar(p)} aria-label="Eliminar"><Trash2 size={15} /></button>
+                <Btn rango={2} onClick={() => cargar(p)}>Abrir</Btn>
+                <button className="b-min b-min-x" onClick={() => eliminar(p)} aria-label="Eliminar"><Trash2 size={15} /></button>
               </div>
             ))}
           </div>
@@ -144,359 +149,379 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
         <p className="text-xs text-slate-500">Los proyectos se guardan en este navegador y tu trabajo actual se autoguarda automáticamente.</p>
       </Card>)}
 
-      {/* Datos generales */}
+      {/* EL PROYECTO — una sola tarjeta.
+          Antes eran TRES cajas separadas ("Datos generales", "Narrativa /
+          Brief" y "Perfil del proyecto") puestas una junto a otra. Medidas:
+          39, 296 y 527 px de alto → medio metro de desnivel y un hueco muerto
+          al lado de la más baja. Y el corte era arbitrario: el título del
+          proyecto y el logline son la misma decisión, tomada en el mismo
+          momento, y estaban en cajas distintas.
+          Ahora es una caja con cuatro secciones en el orden en que de verdad
+          se piensa un proyecto: quién es → para quién → qué dice → con cuánto. */}
       {ver('perfil') && (
-      <Card title="Narrativa / Brief" open={!!cfg.narrativa}>
-        {cfg.narrativa ? (<>
-          <p className="m-0 text-xs text-slate-500">
-            {TIPOS_PROYECTO.find((t) => t.id === cfg.narrativa.tipo)?.nombre || cfg.narrativa.tipo}
-            {cfg.narrativa.impacto ? ` · ${cfg.narrativa.impacto}` : ""}{cfg.narrativa.emocion ? ` · ${cfg.narrativa.emocion}` : ""}
-          </p>
-          <label className="text-xs font-bold uppercase text-slate-500">Logline
-            <textarea className={inp} style={inpStyle} rows={2} value={cfg.narrativa.logline || ""}
-              onChange={(e) => up({ narrativa: { ...cfg.narrativa, logline: e.target.value } })} />
-          </label>
-          <p className="m-0 text-xs text-slate-500">
-            El mensaje y a quién va dirigido se llenan arriba, en <b>Perfil del proyecto</b>.
-          </p>
-          <label className="text-xs font-bold uppercase text-slate-500">Llamada a la acción
-            <input className={inp} style={inpStyle} value={cfg.narrativa.cta || ""}
-              onChange={(e) => up({ narrativa: { ...cfg.narrativa, cta: e.target.value } })} />
-          </label>
-        </>) : (
-          <p className="m-0 text-sm text-slate-500">
-            Todavía no hay brief. Aquí vivirán la premisa, el tono y los personajes de tu proyecto.
-          </p>
-        )}
-      </Card>)}
-      {ver('perfil') && (
-      <Card title="Datos generales">
-        <label className="text-xs font-bold uppercase text-slate-500">Título principal
-          <input className={inp} style={inpStyle} value={cfg.titulo} onChange={(e) => up({ titulo: e.target.value })} />
-        </label>
-        <label className="text-xs font-bold uppercase text-slate-500">Subtítulo
-          <input className={inp} style={inpStyle} value={cfg.subtitulo} onChange={(e) => up({ subtitulo: e.target.value })} />
-        </label>
-        <div className="grid grid-cols-1 gap-2">
-          <label className="text-xs font-bold uppercase text-slate-500">Organización / logo
-            <input className={inp} style={inpStyle} value={cfg.organizacion} onChange={(e) => up({ organizacion: e.target.value })} />
-          </label>
-        </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-xs font-bold uppercase text-slate-500">Logotipo de la productora
-            <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="block mt-1 text-xs" onChange={(e) => importLogo(e.target.files?.[0])} />
-          </label>
-          <label className="text-xs font-bold uppercase text-slate-500">Color principal
-            <input type="color" className="block mt-1" value={cfg.branding?.primaryColor || NAVY}
-              onChange={(e) => setCfg((c) => ({ ...c, branding: { ...(c.branding || {}), primaryColor: e.target.value } }))} />
-          </label>
-          {cfg.branding?.logoDataUrl && <button className={btn} style={{ background: "#E9EDF3", color: INK }} onClick={() => setCfg((c) => ({ ...c, branding: { ...(c.branding || {}), logoDataUrl: "" } }))}>Quitar logotipo</button>}
-        </div>
-      </Card>)}
+      <Card title="El proyecto" ancho>
+        <Seccion titulo="Identidad"
+          pista="Cómo se llama y de quién es. Sale impreso en todas las hojas.">
+          <Campos>
+            <Campo etiqueta="Título principal" ancho="largo" value={cfg.titulo}
+              onChange={(e) => up({ titulo: e.target.value })} className="col-2" />
+            <Campo etiqueta="Subtítulo" ancho="largo" value={cfg.subtitulo}
+              onChange={(e) => up({ subtitulo: e.target.value })} className="col-2" />
+            <Campo etiqueta="Organización" ancho="largo" value={cfg.organizacion}
+              onChange={(e) => up({ organizacion: e.target.value })} />
+            <label className="campo">
+              <span className="campo-et">Color principal</span>
+              <input type="color" className="campo-caja" style={{ maxWidth: 90, padding: 4, cursor: "pointer" }}
+                value={cfg.branding?.primaryColor || NAVY}
+                onChange={(e) => setCfg((c) => ({ ...c, branding: { ...(c.branding || {}), primaryColor: e.target.value } }))} />
+            </label>
+            <div className="campo">
+              <span className="campo-et">Logotipo</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                {cfg.branding?.logoDataUrl && (
+                  <img src={cfg.branding.logoDataUrl} alt="Logotipo actual"
+                    style={{ height: 34, width: "auto", borderRadius: 6, border: "1px solid #E7ECF3" }} />
+                )}
+                <Btn rango={2} icono={Upload} onClick={() => logoRef.current?.click()}>
+                  {cfg.branding?.logoDataUrl ? "Cambiar" : "Subir imagen"}
+                </Btn>
+                {cfg.branding?.logoDataUrl && (
+                  <Btn rango="x" icono={X} titulo="Quitar el logotipo"
+                    onClick={() => setCfg((c) => ({ ...c, branding: { ...(c.branding || {}), logoDataUrl: "" } }))} />
+                )}
+                <input ref={logoRef} type="file" hidden
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  onChange={(e) => importLogo(e.target.files?.[0])} />
+              </div>
+            </div>
+          </Campos>
+        </Seccion>
 
-      {/* Perfil: el brief que toda producción necesita antes de grabar */}
-      {ver('perfil') && (
-      <Card title="Perfil del proyecto">
-        <p className="m-0 text-xs text-slate-500" style={{ marginTop: -6 }}>
-          Quién habla, qué dice, para qué, a quién y con cuánto. Es lo primero que se decide
-          y lo que después justifica cada plano, cada luz y cada gasto.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <label className="text-xs font-bold uppercase text-slate-500">Emisor — quién produce
-            <input className={inp} style={inpStyle} placeholder="FCC-UASLP, taller de documental"
-              value={perfil.emisor} onChange={(e) => upPerfil({ emisor: e.target.value })} />
-          </label>
-          <label className="text-xs font-bold uppercase text-slate-500">Receptor — a quién le hablas
-            <input className={inp} style={inpStyle} placeholder="Estudiantes de la facultad"
-              value={perfil.receptor} onChange={(e) => upPerfil({ receptor: e.target.value })} />
-          </label>
-        </div>
-        <label className="text-xs font-bold uppercase text-slate-500">Mensaje — la idea en una frase
-          <textarea className={inp} style={inpStyle} rows={2} placeholder="Si tu proyecto solo pudiera decir una cosa, ¿cuál sería?"
-            value={perfil.mensaje} onChange={(e) => upPerfil({ mensaje: e.target.value })} />
-        </label>
-        <Chips titulo="Intención — qué quieres que pase en quien lo vea"
-          opciones={IMPACTOS} valor={perfil.intencion}
-          onChange={(v) => upPerfil({ intencion: v })} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <label className="text-xs font-bold uppercase text-slate-500">Edad del receptor
-            <input className={inp} style={inpStyle} placeholder="18 a 25 años"
+        <Seccion titulo="El encargo"
+          pista="Quién habla y a quién le habla. Es lo que después justifica cada plano, cada luz y cada gasto.">
+          <Campos>
+            <Campo etiqueta="Emisor — quién produce" ancho="largo"
+              placeholder="FCC-UASLP, taller de documental"
+              value={perfil.emisor} onChange={(e) => upPerfil({ emisor: e.target.value })} className="col-2" />
+            <Campo etiqueta="Receptor — a quién le hablas" ancho="largo"
+              placeholder="Estudiantes de la facultad"
+              value={perfil.receptor} onChange={(e) => upPerfil({ receptor: e.target.value })} className="col-2" />
+            <Campo etiqueta="Edad del receptor" ancho="corto" placeholder="18 a 25"
               value={perfil.edad} onChange={(e) => upPerfil({ edad: e.target.value })} />
-          </label>
-          <label className="text-xs font-bold uppercase text-slate-500">Presupuesto estimado (MXN)
-            <input className={inp} style={inpStyle} inputMode="numeric" placeholder="0"
-              value={perfil.presupuesto} onChange={(e) => upPerfil({ presupuesto: e.target.value.replace(/[^\d.]/g, "") })} />
-          </label>
-        </div>
-        <Chips titulo="Medios que usa tu receptor"
-          ayuda="Dónde va a ver tu proyecto. Define formato, duración y hasta el encuadre."
-          opciones={MEDIOS} valor={perfil.medios}
-          onChange={(v) => upPerfil({ medios: v })} />
-        <label className="text-xs font-bold uppercase text-slate-500">¿De dónde sale el dinero?
-          <input className={inp} style={inpStyle} placeholder="Beca, recursos propios, patrocinio…"
-            value={perfil.presupuestoNota} onChange={(e) => upPerfil({ presupuestoNota: e.target.value })} />
-        </label>
+          </Campos>
+          <Chips titulo="Medios que usa tu receptor"
+            ayuda="Dónde va a ver tu proyecto. Define formato, duración y hasta el encuadre."
+            opciones={MEDIOS} valor={perfil.medios} onChange={(v) => upPerfil({ medios: v })} />
+        </Seccion>
+
+        <Seccion titulo="La idea"
+          pista="Si tu proyecto solo pudiera decir una cosa, ¿cuál sería?">
+          <Campos>
+            <Campo etiqueta="Mensaje — la idea en una frase" ancho="texto" area rows={2}
+              placeholder="Lo que quieres que se lleve quien lo vea"
+              value={perfil.mensaje} onChange={(e) => upPerfil({ mensaje: e.target.value })} className="col-2" />
+            <Campo etiqueta="Logline — la historia en una frase" ancho="texto" area rows={2}
+              placeholder="Un protagonista quiere algo, pero algo se lo impide"
+              value={cfg.narrativa?.logline || ""} onChange={(e) => upNarr({ logline: e.target.value })} className="col-2" />
+            <Campo etiqueta="Llamada a la acción" ancho="largo"
+              placeholder="Qué quieres que haga al terminar de verlo"
+              value={cfg.narrativa?.cta || ""} onChange={(e) => upNarr({ cta: e.target.value })} className="col-2" />
+          </Campos>
+          <Chips titulo="Intención — qué quieres que pase en quien lo vea"
+            opciones={IMPACTOS} valor={perfil.intencion} onChange={(v) => upPerfil({ intencion: v })} />
+          {cfg.narrativa && (
+            <p className="seccion-pista">
+              Tipo: <b>{TIPOS_PROYECTO.find((t) => t.id === cfg.narrativa.tipo)?.nombre || cfg.narrativa.tipo}</b>
+              {cfg.narrativa.impacto ? ` · ${cfg.narrativa.impacto}` : ""}
+              {cfg.narrativa.emocion ? ` · ${cfg.narrativa.emocion}` : ""}
+            </p>
+          )}
+        </Seccion>
+
+        <Seccion titulo="Recursos"
+          pista="Un número aproximado sirve más que ninguno: es lo que decide cuántas cámaras y cuántos días caben.">
+          <Campos>
+            <Campo etiqueta="Presupuesto estimado (MXN)" ancho="corto" inputMode="numeric" placeholder="0"
+              value={perfil.presupuesto}
+              onChange={(e) => upPerfil({ presupuesto: e.target.value.replace(/[^\d.]/g, "") })} />
+            <Campo etiqueta="¿De dónde sale el dinero?" ancho="largo"
+              placeholder="Beca, recursos propios, patrocinio…"
+              value={perfil.presupuestoNota} onChange={(e) => upPerfil({ presupuestoNota: e.target.value })} className="col-2" />
+          </Campos>
+        </Seccion>
       </Card>)}
 
       {/* Cámaras */}
       {ver('necesidades') && (
-      <Card title={`Cámaras y planos (${cfg.camaras.length})`} className="xl:col-span-2">
-        <datalist id="planos">{PLANOS.map((p) => <option key={p} value={p} />)}</datalist>
-        {cfg.camaras.map((c, i) => (
-          <div key={c.id} {...dndCam.target(i)}
-            className="rounded-lg border p-2 flex flex-col gap-2"
-            style={{
-              borderColor: dndCam.overIdx === i && dndCam.dragIdx !== i ? AIR_COLOR : "#DDE4EC",
-              opacity: dndCam.dragIdx === i ? 0.4 : 1,
-            }}>
-            <div className="flex flex-wrap items-center gap-2">
-              <span {...dndCam.source(i)} title="Arrastra para reordenar"
-                className="cursor-grab active:cursor-grabbing text-slate-400 shrink-0" style={{ touchAction: "none" }}>
-                <GripVertical size={16} />
-              </span>
-              <span className="flex items-center justify-center rounded-full font-bold shrink-0"
-                style={{ width: 24, height: 24, background: c.color, color: textOn(c.color), fontSize: 12 }}>{i + 1}</span>
-              <input className={inp} style={{ ...inpStyle, width: 110, flex: "0 0 auto" }} value={c.nombre} onChange={(e) => upCam(c.id, { nombre: e.target.value })} />
-              <input className={inp} style={{ ...inpStyle, flex: "1 1 160px" }} list="planos" placeholder="Tipo de plano…" value={c.plano} onChange={(e) => upCam(c.id, { plano: e.target.value })} />
-              <span className="flex gap-0.5 shrink-0">
-                <button className="text-slate-400" onClick={() => moveCam(i, -1)} disabled={i === 0} aria-label="Subir cámara"><ChevronUp size={16} /></button>
-                <button className="text-slate-400" onClick={() => moveCam(i, 1)} disabled={i === cfg.camaras.length - 1} aria-label="Bajar cámara"><ChevronDown size={16} /></button>
-                <button className="text-slate-400" onClick={() => delCam(c.id)} disabled={cfg.camaras.length <= 1} aria-label="Eliminar cámara"><Trash2 size={16} /></button>
-              </span>
-            </div>
-            <Swatches value={c.color} onChange={(col) => upCam(c.id, { color: col })} />
-          </div>
-        ))}
-        <button className={`${btn} text-white self-start`} style={{ background: NAVY }} onClick={addCam} disabled={cfg.camaras.length >= 8}>
-          <Plus size={15} /> Agregar cámara {cfg.camaras.length >= 8 ? "(máx. 8)" : ""}
-        </button>
-      </Card>)}
-
-      {/* Talentos: conductores e invitados, entes propios en el plano del set */}
-      {ver('necesidades') && (
-      <Card title={`Talentos — conductores e invitados (${(cfg.talentos || []).length})`}>
-        {(cfg.talentos || []).map((t) => {
-          const micsT = (cfg.microfonos || []).filter((m) => m.asignadoA === `tal:${t.id}`);
-          return (
-            <div key={t.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2" style={{ borderColor: "#DDE4EC" }}>
-              <User size={16} color={t.tipo === "invitado" ? "#0E9F9E" : NAVY} />
-              <input className={inp} style={{ ...inpStyle, flex: "1 1 180px" }} value={t.nombre} onChange={(e) => upTal(t.id, { nombre: e.target.value })} />
-              <select className={inp} style={{ ...inpStyle, width: 140 }} value={t.tipo} onChange={(e) => upTal(t.id, { tipo: e.target.value })}>
-                <option value="conductor">Conductor(a)</option>
-                <option value="invitado">Invitado(a)</option>
-              </select>
-              <span className="text-xs text-slate-500 shrink-0">
-                {micsT.length ? micsT.map((m) => MIC_TIPO_CORTO[m.micTipo] || "mic").join(" + ") : "sin micrófono"}
-              </span>
-              <button className="text-slate-400" onClick={() => delTal(t.id)} aria-label="Eliminar talento"><Trash2 size={16} /></button>
-            </div>
-          );
-        })}
-        <button className={`${btn} text-white self-start`} style={{ background: NAVY }} onClick={addTal}><Plus size={15} /> Agregar talento</button>
-        <p className="text-xs text-slate-500">El micrófono se les asigna en la sección Micrófonos (solapa, dinámico…). Sus posiciones se arrastran en la pestaña Set.</p>
-      </Card>)}
-
-      {ver('necesidades') && (
-      <Card title={`Micrófonos (${(cfg.microfonos || []).length})`} open={false} className="xl:col-span-2">
-        {(cfg.microfonos || []).map((m) => {
-          const micTipo = m.micTipo || "dinamico";
-          return (
-            <div key={m.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2" style={{ borderColor: "#DDE4EC" }}>
-              <Mic size={16} color="#1FA14E" />
-              <input className={inp} style={{ ...inpStyle, flex: "1 1 150px" }} value={m.nombre} onChange={(e) => upMic(m.id, { nombre: e.target.value })} />
-              <select className={inp} style={{ ...inpStyle, width: 165 }} value={micTipo} title="Tipo de micrófono"
-                onChange={(e) => upMic(m.id, { micTipo: e.target.value, asignadoA: e.target.value === "boom" ? "set" : "" })}>
-                {MIC_TIPOS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-              </select>
-              {micTipo !== "boom" && (
-                <select className={inp} style={{ ...inpStyle, width: 160 }} value={m.asignadoA || ""} title={micTipo === "shotgun" ? "Cámara donde va montado" : "Talento que lo porta"}
-                  onChange={(e) => upMic(m.id, { asignadoA: e.target.value })}>
-                  <option value="">Sin asignar (suelto)</option>
-                  {micTipo === "shotgun"
-                    ? cfg.camaras.map((c2, i2) => <option key={c2.id} value={`cam:${c2.id}`}>{c2.nombre || `CAM ${i2 + 1}`}</option>)
-                    : (cfg.talentos || []).map((t) => <option key={t.id} value={`tal:${t.id}`}>{t.nombre}</option>)}
-                </select>
-              )}
-              <select className={inp} style={{ ...inpStyle, width: 120 }} value={m.conexion} title="Conexión"
-                onChange={(e) => upMic(m.id, { conexion: e.target.value })}>
-                <option>XLR</option><option>Inalámbrico</option><option>USB</option><option>3.5 mm</option>
-              </select>
-              <button className="text-slate-400" onClick={() => delMic(m.id)} aria-label="Eliminar micrófono"><Trash2 size={16} /></button>
-            </div>
-          );
-        })}
-        <button className={`${btn} text-white self-start`} style={{ background: "#1FA14E" }} onClick={addMic}><Plus size={15} /> Agregar micrófono</button>
-        <p className="text-xs text-slate-500">Boom = perchado con posición propia en el set · Shotgun = montado en una cámara · Solapa y dinámico = los porta un talento.</p>
-      </Card>)}
-
-      {/* Otras fuentes */}
-      {ver('necesidades') && (
-      <Card title="Otras fuentes (comerciales, VTR, gráficos…)" open={false}>
-        {cfg.extras.map((x) => (
-          <div key={x.id} className="rounded-lg border p-2 flex flex-col gap-2" style={{ borderColor: "#DDE4EC" }}>
-            <div className="flex flex-wrap items-center gap-2">
-              <input className={inp} style={{ ...inpStyle, flex: "1 1 140px" }} value={x.nombre} onChange={(e) => upExtra(x.id, { nombre: e.target.value })} />
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 shrink-0">
-                <input type="checkbox" checked={!!x.esCorte} onChange={(e) => upExtra(x.id, { esCorte: e.target.checked })} />
-                Es corte comercial
-              </label>
-              <button className="text-slate-400 shrink-0" onClick={() => delExtra(x.id)} aria-label="Eliminar fuente"><Trash2 size={16} /></button>
-            </div>
-            <Swatches value={x.color} onChange={(col) => upExtra(x.id, { color: col })} />
-          </div>
-        ))}
-        <div>
-          <p className="text-xs font-bold uppercase text-slate-500 mb-1">Agregar fuente común</p>
-          <div className="flex flex-wrap gap-1.5">
-            {CATALOGO_FUENTES.map((f) => (
-              <button key={f.nombre} onClick={() => addFuente(f)}
-                className="rounded-full border px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1.5"
-                style={{ borderColor: "#C8D2DE", color: "#475569", background: "#F4F7FA" }}>
-                <span className="rounded-full shrink-0" style={{ width: 10, height: 10, background: f.color }} /> + {f.nombre}
-              </button>
-            ))}
-          </div>
-        </div>
-        <button className={`${btn} self-start`} style={{ background: "#E9EDF3", color: INK }} onClick={addExtra}><Plus size={15} /> Agregar fuente en blanco</button>
-      </Card>)}
-
-      {/* Escaleta */}
-      {ver('tiempos') && (
-      <Card title={`Escaleta / Rundown — total ${fmt(total)}`} className="xl:col-span-2">
-        <p className="text-xs text-slate-500" style={{ marginTop: -6 }}>Duración en MM:SS (ej. 01:10). IN/OUT y la línea de tiempo se calculan solos.</p>
-
-        <div className="relative">
-          <Search size={15} className="absolute text-slate-400" style={{ left: 9, top: 10 }} />
-          <input className={inp} style={{ ...inpStyle, paddingLeft: 30 }} placeholder="Buscar por nombre, fuente, duración o nota…"
-            value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-          {busqueda && (
-            <button className="absolute text-slate-400" style={{ right: 9, top: 10 }} onClick={() => setBusqueda("")} aria-label="Limpiar búsqueda"><X size={15} /></button>
-          )}
-        </div>
-        {busqueda && (
-          <p className="text-xs text-slate-500" style={{ marginTop: -4 }}>
-            {segFiltrados.length} de {cfg.escaleta.length} segmentos. El reordenamiento se desactiva mientras buscas.
-          </p>
-        )}
-
-        {segFiltrados.map(({ s, i }) => (
-          <div key={s.id} {...(busqueda ? {} : dndSeg.target(i))}
-            className="flex flex-col gap-1 rounded-lg border p-1.5"
-            style={{
-              borderColor: !busqueda && dndSeg.overIdx === i && dndSeg.dragIdx !== i ? AIR_COLOR : "#DDE4EC",
-              opacity: !busqueda && dndSeg.dragIdx === i ? 0.4 : 1,
-            }}>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {!busqueda && (
-                <span {...dndSeg.source(i)} title="Arrastra para reordenar"
+      <Card title="Fuentes de video" ancho>
+        <Seccion titulo="Cámaras"
+          pista="Cada cámara es una fuente del switcher y una silueta en el plano del set.">
+          <datalist id="planos">{PLANOS.map((p) => <option key={p} value={p} />)}</datalist>
+          <div className="rejilla-filas">
+          {cfg.camaras.map((c, i) => (
+            <div key={c.id} {...dndCam.target(i)}
+              className="rounded-lg border p-2 flex flex-col gap-2"
+              style={{
+                borderColor: dndCam.overIdx === i && dndCam.dragIdx !== i ? AIR_COLOR : "#DDE4EC",
+                opacity: dndCam.dragIdx === i ? 0.4 : 1,
+              }}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span {...dndCam.source(i)} title="Arrastra para reordenar"
                   className="cursor-grab active:cursor-grabbing text-slate-400 shrink-0" style={{ touchAction: "none" }}>
-                  <GripVertical size={15} />
+                  <GripVertical size={16} />
                 </span>
-              )}
-              <span className="text-xs font-bold text-slate-400 text-center shrink-0" style={{ width: 20 }}>{i + 1}</span>
-              <input className={inp} style={{ ...inpStyle, flex: "1 1 170px" }} value={s.segmento} onChange={(e) => upSeg(s.id, { segmento: e.target.value })} />
-              <input key={`${s.id}:${s.dur}`} className={inp} style={{ ...inpStyle, width: 70, flex: "0 0 auto", textAlign: "center" }}
-                defaultValue={fmt(s.dur)}
-                onBlur={(e) => { const v = parseDur(e.target.value); if (v == null || v < 0) { e.target.value = fmt(s.dur); } else upSeg(s.id, { dur: v }); }} />
-              <select className={inp} style={{ ...inpStyle, width: 150, flex: "0 0 auto" }} value={s.fuente} onChange={(e) => upSeg(s.id, { fuente: e.target.value })}>
-                {fuentes.map((f) => <option key={f.id} value={f.id}>{f.tipo === "cam" ? `${f.nombre} — ${trunc(f.plano, 18)}` : f.nombre}</option>)}
-              </select>
-              <span className="flex gap-0.5 shrink-0">
-                {!busqueda && <button className="text-slate-400" onClick={() => move(i, -1)} aria-label="Subir"><ChevronUp size={16} /></button>}
-                {!busqueda && <button className="text-slate-400" onClick={() => move(i, 1)} aria-label="Bajar"><ChevronDown size={16} /></button>}
-                <button className="text-slate-400" onClick={() => delSeg(s.id)} aria-label="Eliminar segmento"><Trash2 size={16} /></button>
-              </span>
+                <span className="flex items-center justify-center rounded-full font-bold shrink-0"
+                  style={{ width: 24, height: 24, background: c.color, color: textOn(c.color), fontSize: 12 }}>{i + 1}</span>
+                <input className={inp} style={{ ...inpStyle, width: 110, flex: "0 0 auto" }} value={c.nombre} onChange={(e) => upCam(c.id, { nombre: e.target.value })} />
+                <input className={inp} style={{ ...inpStyle, flex: "1 1 160px" }} list="planos" placeholder="Tipo de plano…" value={c.plano} onChange={(e) => upCam(c.id, { plano: e.target.value })} />
+                <span className="flex gap-0.5 shrink-0">
+                  <button className="b-min" onClick={() => moveCam(i, -1)} disabled={i === 0} aria-label="Subir cámara"><ChevronUp size={16} /></button>
+                  <button className="b-min" onClick={() => moveCam(i, 1)} disabled={i === cfg.camaras.length - 1} aria-label="Bajar cámara"><ChevronDown size={16} /></button>
+                  <button className="b-min b-min-x" onClick={() => delCam(c.id)} disabled={cfg.camaras.length <= 1} aria-label="Eliminar cámara"><Trash2 size={16} /></button>
+                </span>
+              </div>
+              <Swatches value={c.color} onChange={(col) => upCam(c.id, { color: col })} />
             </div>
-            <div className="flex items-start gap-1.5">
-              <StickyNote size={13} className="text-slate-300 shrink-0" style={{ marginTop: 6, marginLeft: 2 }} />
-              <textarea className={inp} rows={s.nota ? 2 : 1}
-                style={{ ...inpStyle, fontSize: 12, resize: "vertical", minHeight: 30, lineHeight: 1.4 }}
-                placeholder="Notas del segmento: guion del conductor, cue de audio, aviso de efectos…"
-                value={s.nota || ""} onChange={(e) => upSeg(s.id, { nota: e.target.value })} />
+          ))}
+          </div>
+          <Btn rango={1} className="self-start" onClick={addCam} disabled={cfg.camaras.length >= 8}
+            titulo={cfg.camaras.length >= 8 ? "Máximo 8 cámaras" : "Agregar una cámara al proyecto"}>
+            <Plus size={15} /> Agregar cámara {cfg.camaras.length >= 8 ? "(máx. 8)" : ""}
+          </Btn>
+        </Seccion>
+
+        <Seccion titulo="Otras fuentes"
+          pista="Lo que entra al programa sin ser cámara: comerciales, VTR, gráficos.">
+          <div className="rejilla-filas">
+          {cfg.extras.map((x) => (
+            <div key={x.id} className="rounded-lg border p-2 flex flex-col gap-2" style={{ borderColor: "#DDE4EC" }}>
+              <div className="flex flex-wrap items-center gap-2">
+                <input className={inp} style={{ ...inpStyle, flex: "1 1 140px" }} value={x.nombre} onChange={(e) => upExtra(x.id, { nombre: e.target.value })} />
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 shrink-0">
+                  <input type="checkbox" checked={!!x.esCorte} onChange={(e) => upExtra(x.id, { esCorte: e.target.checked })} />
+                  Es corte comercial
+                </label>
+                <button className="b-min b-min-x" onClick={() => delExtra(x.id)} aria-label="Eliminar fuente"><Trash2 size={16} /></button>
+              </div>
+              <Swatches value={x.color} onChange={(col) => upExtra(x.id, { color: col })} />
+            </div>
+          ))}
+          <div>
+            <p className="text-xs font-bold uppercase text-slate-500 mb-1">Agregar fuente común</p>
+            <div className="flex flex-wrap gap-1.5">
+              {CATALOGO_FUENTES.map((f) => (
+                <button key={f.nombre} onClick={() => addFuente(f)}
+                  className="b-agregar" title={`Agregar ${f.nombre} como fuente`}>
+                  <span className="rounded-full shrink-0" style={{ width: 10, height: 10, background: f.color }} /> + {f.nombre}
+                </button>
+              ))}
             </div>
           </div>
-        ))}
-        {segFiltrados.length === 0 && busqueda && (
-          <p className="text-sm text-slate-400 text-center" style={{ padding: 8 }}>Ningún segmento coincide con “{busqueda}”.</p>
-        )}
-        <button className={`${btn} text-white self-start`} style={{ background: NAVY }} onClick={addSeg}><Plus size={15} /> Agregar segmento</button>
+          </div>
+          <Btn rango={2} icono={Plus} className="self-start" onClick={addExtra}>Agregar fuente en blanco</Btn>
+        </Seccion>
       </Card>)}
 
-      {/* Análisis de tiempos */}
-      {ver('tiempos') && (
-      <Card title="Análisis de tiempos" className="xl:col-span-2">
-        <AnalisisTiempos cfg={cfg} />
-      </Card>)}
-
-      {/* Exportar */}
-      {ver('tiempos') && (
-      <Card title="Exportar para edición de video" open={false}>
-        <p className="text-xs text-slate-500" style={{ marginTop: -6 }}>
-          Lleva la escaleta a tu editor. El <b>EDL</b> crea cortes en la línea de tiempo (DaVinci Resolve / Premiere / Avid).
-          El <b>CSV</b> abre en Excel/Sheets y sirve como lista de marcadores. Los nombres y notas viajan como comentarios.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button className={`${btn} text-white`} style={{ background: NAVY }}
-            onClick={() => descargarArchivo(`${slug(cfg.titulo)}.edl`, generarEDL(cfg))}>
-            <Download size={15} /> Descargar EDL
-          </button>
-          <button className={btn} style={{ background: "#E9EDF3", color: INK }}
-            onClick={() => descargarArchivo(`${slug(cfg.titulo)}.csv`, generarCSV(cfg), "text/csv")}>
-            <Download size={15} /> Descargar CSV
-          </button>
-        </div>
-      </Card>)}
-
-      {/* Flujo */}
       {ver('necesidades') && (
-      <Card title="Flujo de producción" open={false}>
-        <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: INK }}>
-          <input type="checkbox" checked={(cfg.flujo || {}).preview !== false} onChange={(e) => up({ flujo: { ...(cfg.flujo || {}), preview: e.target.checked } })} />
-          Incluir monitor PREVIEW
-        </label>
-        <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: INK }}>
-          <input type="checkbox" checked={(cfg.flujo || {}).playback !== false} onChange={(e) => up({ flujo: { ...(cfg.flujo || {}), playback: e.target.checked } })} />
-          Incluir playback de comerciales / cortinillas
-        </label>
-        <p className="text-xs text-slate-500">Las cámaras del flujo y los monitores de cabina se generan automáticamente desde la sección de cámaras.</p>
-      </Card>)}
-
-      {/* Personal */}
-      {ver('necesidades') && (
-      <Card title={`Personal de operación (${cfg.personal.length}${cfg.includeCamOps ? ` + ${cfg.camaras.length} cam.` : ""})`} className="xl:col-span-2">
-        <div className="flex flex-wrap gap-1.5">
-          {cfg.personal.map((p) => {
-            const Ic = ICONS[p.icon] || User;
+      <Card title="Personas y sonido" ancho>
+        <Seccion titulo="Talentos"
+          pista="Quién aparece en cámara. Sus posiciones se arrastran en el plano del set.">
+          <div className="rejilla-filas">
+          {(cfg.talentos || []).map((t) => {
+            const micsT = (cfg.microfonos || []).filter((m) => m.asignadoA === `tal:${t.id}`);
             return (
-              <span key={p.id} className="flex items-center gap-1.5 rounded-full border pl-2 pr-1 py-1 text-xs font-semibold"
-                style={{ borderColor: "#C8D2DE", color: INK }}>
-                <Ic size={13} /> {p.rol}
-                <button className="text-slate-400" onClick={() => delRol(p.id)} aria-label={`Quitar ${p.rol}`}><X size={13} /></button>
-              </span>
+              <div key={t.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2" style={{ borderColor: "#DDE4EC" }}>
+                <User size={16} color={t.tipo === "invitado" ? "#0E9F9E" : NAVY} />
+                <input className={inp} style={{ ...inpStyle, flex: "1 1 180px" }} value={t.nombre} onChange={(e) => upTal(t.id, { nombre: e.target.value })} />
+                <select className={inp} style={{ ...inpStyle, width: 140 }} value={t.tipo} onChange={(e) => upTal(t.id, { tipo: e.target.value })}>
+                  <option value="conductor">Conductor(a)</option>
+                  <option value="invitado">Invitado(a)</option>
+                </select>
+                <span className="text-xs text-slate-500 shrink-0">
+                  {micsT.length ? micsT.map((m) => MIC_TIPO_CORTO[m.micTipo] || "mic").join(" + ") : "sin micrófono"}
+                </span>
+                <button className="b-min b-min-x" onClick={() => delTal(t.id)} aria-label="Eliminar talento"><Trash2 size={16} /></button>
+              </div>
             );
           })}
-        </div>
-        <div>
-          <p className="text-xs font-bold uppercase text-slate-500 mb-1">Agregar rol común</p>
-          <div className="flex flex-wrap gap-1.5">
-            {CATALOGO_ROLES.filter((r) => !cfg.personal.some((p) => p.rol === r.rol)).map((r) => (
-              <button key={r.rol} className="rounded-full border px-2.5 py-1 text-xs font-semibold"
-                style={{ borderColor: "#C8D2DE", color: "#475569", background: "#F4F7FA" }}
-                onClick={() => addRol(r.rol, r.icon)}>+ {r.rol}</button>
-            ))}
           </div>
-        </div>
-        <div className="flex gap-2">
-          <input className={inp} style={inpStyle} placeholder="Rol personalizado…" value={rolCustom} onChange={(e) => setRolCustom(e.target.value)} />
-          <button className={`${btn} shrink-0`} style={{ background: "#E9EDF3", color: INK }}
-            onClick={() => { if (rolCustom.trim()) { addRol(rolCustom.trim(), "custom"); setRolCustom(""); } }}>
-            <Plus size={15} /> Agregar
-          </button>
-        </div>
-        <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: INK }}>
-          <input type="checkbox" checked={cfg.includeCamOps} onChange={(e) => up({ includeCamOps: e.target.checked })} />
-          Incluir operadores de cámara automáticamente (uno por cámara)
-        </label>
+          <Btn rango={1} icono={Plus} className="self-start" onClick={addTal}>Agregar talento</Btn>
+          <p className="text-xs text-slate-500">El micrófono se les asigna en la sección Micrófonos (solapa, dinámico…). Sus posiciones se arrastran en la pestaña Set.</p>
+        </Seccion>
+
+        <Seccion titulo="Micrófonos"
+          pista="A cada talento se le asigna aquí su micrófono; el tipo decide cómo se dibuja en el plano.">
+          <div className="rejilla-filas">
+          {(cfg.microfonos || []).map((m) => {
+            const micTipo = m.micTipo || "dinamico";
+            return (
+              <div key={m.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2" style={{ borderColor: "#DDE4EC" }}>
+                <Mic size={16} color="#1FA14E" />
+                <input className={inp} style={{ ...inpStyle, flex: "1 1 150px" }} value={m.nombre} onChange={(e) => upMic(m.id, { nombre: e.target.value })} />
+                <select className={inp} style={{ ...inpStyle, width: 165 }} value={micTipo} title="Tipo de micrófono"
+                  onChange={(e) => upMic(m.id, { micTipo: e.target.value, asignadoA: e.target.value === "boom" ? "set" : "" })}>
+                  {MIC_TIPOS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </select>
+                {micTipo !== "boom" && (
+                  <select className={inp} style={{ ...inpStyle, width: 160 }} value={m.asignadoA || ""} title={micTipo === "shotgun" ? "Cámara donde va montado" : "Talento que lo porta"}
+                    onChange={(e) => upMic(m.id, { asignadoA: e.target.value })}>
+                    <option value="">Sin asignar (suelto)</option>
+                    {micTipo === "shotgun"
+                      ? cfg.camaras.map((c2, i2) => <option key={c2.id} value={`cam:${c2.id}`}>{c2.nombre || `CAM ${i2 + 1}`}</option>)
+                      : (cfg.talentos || []).map((t) => <option key={t.id} value={`tal:${t.id}`}>{t.nombre}</option>)}
+                  </select>
+                )}
+                <select className={inp} style={{ ...inpStyle, width: 120 }} value={m.conexion} title="Conexión"
+                  onChange={(e) => upMic(m.id, { conexion: e.target.value })}>
+                  <option>XLR</option><option>Inalámbrico</option><option>USB</option><option>3.5 mm</option>
+                </select>
+                <button className="b-min b-min-x" onClick={() => delMic(m.id)} aria-label="Eliminar micrófono"><Trash2 size={16} /></button>
+              </div>
+            );
+          })}
+          </div>
+          <Btn rango={1} icono={Plus} className="self-start" onClick={addMic}>Agregar micrófono</Btn>
+          <p className="text-xs text-slate-500">Boom = perchado con posición propia en el set · Shotgun = montado en una cámara · Solapa y dinámico = los porta un talento.</p>
+        </Seccion>
+      </Card>)}
+
+      {ver('necesidades') && (
+      <Card title="Equipo y flujo" ancho>
+        <Seccion titulo="Personal de operación"
+          pista="Los puestos que hacen falta detrás de cámara.">
+          <div className="flex flex-wrap gap-1.5">
+            {cfg.personal.map((p) => {
+              const Ic = ICONS[p.icon] || User;
+              return (
+                <span key={p.id} className="flex items-center gap-1.5 rounded-full border pl-2 pr-1 py-1 text-xs font-semibold"
+                  style={{ borderColor: "#C8D2DE", color: INK }}>
+                  <Ic size={13} /> {p.rol}
+                  <button className="b-min b-min-x" onClick={() => delRol(p.id)} aria-label={`Quitar ${p.rol}`}><X size={13} /></button>
+                </span>
+              );
+            })}
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase text-slate-500 mb-1">Agregar rol común</p>
+            <div className="flex flex-wrap gap-1.5">
+              {CATALOGO_ROLES.filter((r) => !cfg.personal.some((p) => p.rol === r.rol)).map((r) => (
+                <button key={r.rol} className="b-agregar" title={`Agregar ${r.rol} al equipo`}
+                  onClick={() => addRol(r.rol, r.icon)}>+ {r.rol}</button>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <input className={inp} style={inpStyle} placeholder="Rol personalizado…" value={rolCustom} onChange={(e) => setRolCustom(e.target.value)} />
+            <button className={`${btn} shrink-0`} style={{ background: "#E9EDF3", color: INK }}
+              onClick={() => { if (rolCustom.trim()) { addRol(rolCustom.trim(), "custom"); setRolCustom(""); } }}>
+              <Plus size={15} /> Agregar
+            </button>
+          </div>
+          <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: INK }}>
+            <input type="checkbox" checked={cfg.includeCamOps} onChange={(e) => up({ includeCamOps: e.target.checked })} />
+            Incluir operadores de cámara automáticamente (uno por cámara)
+          </label>
+        </Seccion>
+
+        <Seccion titulo="Flujo de producción"
+          pista="Cómo viaja la señal desde la cámara hasta quien lo ve.">
+          <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: INK }}>
+            <input type="checkbox" checked={(cfg.flujo || {}).preview !== false} onChange={(e) => up({ flujo: { ...(cfg.flujo || {}), preview: e.target.checked } })} />
+            Incluir monitor PREVIEW
+          </label>
+          <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: INK }}>
+            <input type="checkbox" checked={(cfg.flujo || {}).playback !== false} onChange={(e) => up({ flujo: { ...(cfg.flujo || {}), playback: e.target.checked } })} />
+            Incluir playback de comerciales / cortinillas
+          </label>
+          <p className="text-xs text-slate-500">Las cámaras del flujo y los monitores de cabina se generan automáticamente desde la sección de cámaras.</p>
+        </Seccion>
+      </Card>)}
+
+      {ver('tiempos') && (
+      <Card title="Escaleta y tiempos" ancho>
+        <Seccion titulo={`Escaleta / Rundown — total ${fmt(total)}`}
+          pista="El orden del programa y cuánto dura cada parte.">
+          <p className="text-xs text-slate-500" style={{ marginTop: -6 }}>Duración en MM:SS (ej. 01:10). IN/OUT y la línea de tiempo se calculan solos.</p>
+
+          <div className="relative">
+            <Search size={15} className="b-min absolute" style={{ left: 9, top: 10 }} />
+            <input className={inp} style={{ ...inpStyle, paddingLeft: 30 }} placeholder="Buscar por nombre, fuente, duración o nota…"
+              value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+            {busqueda && (
+              <button className="b-min absolute" style={{ right: 9, top: 10 }} onClick={() => setBusqueda("")} aria-label="Limpiar búsqueda"><X size={15} /></button>
+            )}
+          </div>
+          {busqueda && (
+            <p className="text-xs text-slate-500" style={{ marginTop: -4 }}>
+              {segFiltrados.length} de {cfg.escaleta.length} segmentos. El reordenamiento se desactiva mientras buscas.
+            </p>
+          )}
+
+          {segFiltrados.map(({ s, i }) => (
+            <div key={s.id} {...(busqueda ? {} : dndSeg.target(i))}
+              className="flex flex-col gap-1 rounded-lg border p-1.5"
+              style={{
+                borderColor: !busqueda && dndSeg.overIdx === i && dndSeg.dragIdx !== i ? AIR_COLOR : "#DDE4EC",
+                opacity: !busqueda && dndSeg.dragIdx === i ? 0.4 : 1,
+              }}>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {!busqueda && (
+                  <span {...dndSeg.source(i)} title="Arrastra para reordenar"
+                    className="cursor-grab active:cursor-grabbing text-slate-400 shrink-0" style={{ touchAction: "none" }}>
+                    <GripVertical size={15} />
+                  </span>
+                )}
+                <span className="text-xs font-bold text-slate-400 text-center shrink-0" style={{ width: 20 }}>{i + 1}</span>
+                <input className={inp} style={{ ...inpStyle, flex: "1 1 170px" }} value={s.segmento} onChange={(e) => upSeg(s.id, { segmento: e.target.value })} />
+                <input key={`${s.id}:${s.dur}`} className={inp} style={{ ...inpStyle, width: 70, flex: "0 0 auto", textAlign: "center" }}
+                  defaultValue={fmt(s.dur)}
+                  onBlur={(e) => { const v = parseDur(e.target.value); if (v == null || v < 0) { e.target.value = fmt(s.dur); } else upSeg(s.id, { dur: v }); }} />
+                <select className={inp} style={{ ...inpStyle, width: 150, flex: "0 0 auto" }} value={s.fuente} onChange={(e) => upSeg(s.id, { fuente: e.target.value })}>
+                  {fuentes.map((f) => <option key={f.id} value={f.id}>{f.tipo === "cam" ? `${f.nombre} — ${trunc(f.plano, 18)}` : f.nombre}</option>)}
+                </select>
+                <span className="flex gap-0.5 shrink-0">
+                  {!busqueda && <button className="b-min" onClick={() => move(i, -1)} aria-label="Subir"><ChevronUp size={16} /></button>}
+                  {!busqueda && <button className="b-min" onClick={() => move(i, 1)} aria-label="Bajar"><ChevronDown size={16} /></button>}
+                  <button className="b-min b-min-x" onClick={() => delSeg(s.id)} aria-label="Eliminar segmento"><Trash2 size={16} /></button>
+                </span>
+              </div>
+              <div className="flex items-start gap-1.5">
+                <StickyNote size={13} className="text-slate-300 shrink-0" style={{ marginTop: 6, marginLeft: 2 }} />
+                <textarea className={inp} rows={s.nota ? 2 : 1}
+                  style={{ ...inpStyle, fontSize: 12, resize: "vertical", minHeight: 30, lineHeight: 1.4 }}
+                  placeholder="Notas del segmento: guion del conductor, cue de audio, aviso de efectos…"
+                  value={s.nota || ""} onChange={(e) => upSeg(s.id, { nota: e.target.value })} />
+              </div>
+            </div>
+          ))}
+          {segFiltrados.length === 0 && busqueda && (
+            <p className="text-sm text-slate-400 text-center" style={{ padding: 8 }}>Ningún segmento coincide con “{busqueda}”.</p>
+          )}
+          <Btn rango={1} icono={Plus} className="self-start" onClick={addSeg}>Agregar segmento</Btn>
+        </Seccion>
+
+        <Seccion titulo="Análisis de tiempos"
+          pista="Si algo se pasa o falta, se ve aquí antes de grabar.">
+          <AnalisisTiempos cfg={cfg} />
+        </Seccion>
+
+        <Seccion titulo="Exportar para edición"
+          pista="Los mismos tiempos, en el formato que entiende tu editor de video.">
+          <p className="text-xs text-slate-500" style={{ marginTop: -6 }}>
+            Lleva la escaleta a tu editor. El <b>EDL</b> crea cortes en la línea de tiempo (DaVinci Resolve / Premiere / Avid).
+            El <b>CSV</b> abre en Excel/Sheets y sirve como lista de marcadores. Los nombres y notas viajan como comentarios.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button className={`${btn} text-white`} style={{ background: NAVY }}
+              onClick={() => descargarArchivo(`${slug(cfg.titulo)}.edl`, generarEDL(cfg))}>
+              <Download size={15} /> Descargar EDL
+            </button>
+            <button className={btn} style={{ background: "#E9EDF3", color: INK }}
+              onClick={() => descargarArchivo(`${slug(cfg.titulo)}.csv`, generarCSV(cfg), "text/csv")}>
+              <Download size={15} /> Descargar CSV
+            </button>
+          </div>
+        </Seccion>
       </Card>)}
     </div>
   );

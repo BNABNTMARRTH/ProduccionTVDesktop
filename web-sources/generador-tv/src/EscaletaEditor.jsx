@@ -69,9 +69,9 @@ export function EscaletaEditor({ cfg, setCfg, rows, editable }) {
             onBlur={(e) => setDur(r.id, e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} />
           {editable ? (
             <div className="flex items-center justify-end gap-0.5">
-              <button onClick={() => move(i, -1)} disabled={i === 0} className="text-slate-400 hover:text-slate-700 disabled:opacity-30" title="Subir"><ChevronUp size={14} /></button>
-              <button onClick={() => move(i, 1)} disabled={i === rows.length - 1} className="text-slate-400 hover:text-slate-700 disabled:opacity-30" title="Bajar"><ChevronDown size={14} /></button>
-              <button onClick={() => del(r.id)} className="text-slate-400 hover:text-red-600" title="Eliminar"><Trash2 size={14} /></button>
+              <button onClick={() => move(i, -1)} disabled={i === 0} className="b-min" title="Subir"><ChevronUp size={14} /></button>
+              <button onClick={() => move(i, 1)} disabled={i === rows.length - 1} className="b-min" title="Bajar"><ChevronDown size={14} /></button>
+              <button onClick={() => del(r.id)} className="b-min b-min-x" title="Eliminar"><Trash2 size={14} /></button>
             </div>
           ) : <span />}
         </div>

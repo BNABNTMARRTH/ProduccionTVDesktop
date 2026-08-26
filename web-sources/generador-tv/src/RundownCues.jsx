@@ -119,9 +119,9 @@ export function RundownCues({ cfg, setCfg, rows, fuentes, editable, onOpenEscale
                     <div className="flex justify-center">{estadoChip(t, s.id)}</div>
                     {editable ? (
                       <div className="flex items-center justify-end gap-0.5">
-                        <button onClick={() => moveCue(s.id, i, -1)} disabled={i === 0} className="text-slate-400 hover:text-slate-700 disabled:opacity-30" title="Subir"><ChevronUp size={13} /></button>
-                        <button onClick={() => moveCue(s.id, i, 1)} disabled={i === tomas.length - 1} className="text-slate-400 hover:text-slate-700 disabled:opacity-30" title="Bajar"><ChevronDown size={13} /></button>
-                        <button onClick={() => setSel({ segId: s.id, tomaId: t.id })} className="text-slate-400 hover:text-slate-700" title="Editar cue"><Pencil size={13} /></button>
+                        <button onClick={() => moveCue(s.id, i, -1)} disabled={i === 0} className="b-min" title="Subir"><ChevronUp size={13} /></button>
+                        <button onClick={() => moveCue(s.id, i, 1)} disabled={i === tomas.length - 1} className="b-min" title="Bajar"><ChevronDown size={13} /></button>
+                        <button onClick={() => setSel({ segId: s.id, tomaId: t.id })} className="b-min" title="Editar cue"><Pencil size={13} /></button>
                       </div>
                     ) : <span />}
                   </div>
