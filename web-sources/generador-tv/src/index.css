@@ -216,9 +216,9 @@ textarea.campo-caja { min-height: calc(var(--alto-control) * 1.7); line-height: 
 .campo-pista { margin: 0; font-size: var(--t-etiqueta); color: var(--apagado); line-height: 1.45; }
 
 /* Anchos naturales. El campo nunca pasa de lo que su contenido necesita. */
-.a-corto  { max-width: 13ch; }
-.a-medio  { max-width: 26ch; }
-.a-largo  { max-width: 46ch; }
+.a-corto  { max-width: 17ch; }
+.a-medio  { max-width: 32ch; }
+.a-largo  { max-width: 58ch; }
 .a-texto  { max-width: 72ch; }   /* párrafos: el largo de línea legible */
 .a-libre  { max-width: none; }
 
@@ -236,17 +236,27 @@ textarea.campo-caja { min-height: calc(var(--alto-control) * 1.7); line-height: 
 .rejilla-tarjetas {
   display: grid;
   align-items: start;
+  align-content: start;
   gap: var(--hueco);
   padding: var(--p-rejilla);
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));
+  min-height: calc(100vh - 60px);
 }
 .ancho-total { grid-column: 1 / -1; }
 
 .rejilla-campos {
   display: grid;
   gap: var(--hueco-campo);
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
   align-items: start;
+
+  /* Tope de cuatro columnas. Sin el, en el monitor de 2440 px una seccion se
+     desplegaba en CINCO columnas: demasiado recorrido para el ojo (se pierde
+     la pareja etiqueta-campo) y ademas aplastaba la tarjeta a una tira de
+     nada, que es de donde salia el hueco vertical. Con el tope las secciones
+     ocupan dos renglones y la caja recupera altura. */
+  --cols: 4;
+  grid-template-columns: repeat(auto-fit, minmax(
+    min(100%, max(250px, calc((100% - (var(--cols) - 1) * var(--hueco-campo)) / var(--cols)))), 1fr));
 }
 .rejilla-campos > .col-2 { grid-column: span 2; }
 
@@ -272,6 +282,8 @@ textarea.campo-caja { min-height: calc(var(--alto-control) * 1.7); line-height: 
    adentro las partes se separan con una línea, no con otro marco.
    ========================================================================== */
 .tarjeta {
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--borde);
   border-radius: var(--radio-tarjeta);
   background: #fff;
@@ -299,10 +311,11 @@ textarea.campo-caja { min-height: calc(var(--alto-control) * 1.7); line-height: 
 /* La flecha dice si la caja abre y hacia dónde va; gira, no desaparece. */
 .tarjeta-flecha { margin-left: auto; flex: none; transition: transform .2s cubic-bezier(.2,.7,.3,1); opacity: .7; }
 details[open] > .tarjeta-cab .tarjeta-flecha { transform: rotate(180deg); }
-.tarjeta-cuerpo { display: flex; flex-direction: column; gap: var(--hueco); padding: var(--p-tarjeta); }
+.tarjeta-cuerpo { flex: 1 1 auto; display: flex; flex-direction: column; gap: var(--hueco); padding: var(--p-tarjeta); }
 
 /* División interna: lo que antes era otra caja, ahora es una sección. */
 .seccion { display: flex; flex-direction: column; gap: var(--hueco-campo); }
+.seccion.crece textarea.campo-caja { min-height: clamp(58px, 17vh, 240px); }
 .seccion + .seccion { padding-top: var(--hueco); border-top: 1px solid #E7ECF3; }
 .seccion-cab { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
 .seccion-tit {
@@ -325,4 +338,14 @@ details[open] > .tarjeta-cab .tarjeta-flecha { transform: rotate(180deg); }
   .campo-caja { border-color: #6B7C93; }
   .b-2 { border-color: #8A99AC; }
   .campo-et, .seccion-pista, .campo-pista { color: #45536A; }
+}
+
+/* Fila de la escaleta. Al topar el nombre del segmento (antes se estiraba a
+   1968 px) quedaba media banda vacia a la derecha. En pantalla ancha la nota
+   sube a ocuparla: controles a la izquierda, nota al lado. En angosta vuelve
+   a su renglon de abajo. */
+.fila-segmento { display: flex; flex-direction: column; }
+@media (min-width: 1250px) {
+  .fila-segmento { display: grid; grid-template-columns: minmax(0, auto) minmax(320px, 1fr); align-items: start; }
+  .fila-segmento > :last-child { padding-top: 2px; }
 }

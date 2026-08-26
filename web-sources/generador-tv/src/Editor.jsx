@@ -214,7 +214,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
             opciones={MEDIOS} valor={perfil.medios} onChange={(v) => upPerfil({ medios: v })} />
         </Seccion>
 
-        <Seccion titulo="La idea"
+        <Seccion titulo="La idea" crece
           pista="Si tu proyecto solo pudiera decir una cosa, ¿cuál sería?">
           <Campos>
             <Campo etiqueta="Mensaje — la idea en una frase" ancho="texto" area rows={2}
@@ -411,7 +411,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
             </div>
           </div>
           <div className="flex gap-2">
-            <input className={inp} style={inpStyle} placeholder="Rol personalizado…" value={rolCustom} onChange={(e) => setRolCustom(e.target.value)} />
+            <input className={`${inp} a-largo`} style={inpStyle} placeholder="Rol personalizado…" value={rolCustom} onChange={(e) => setRolCustom(e.target.value)} />
             <button className={`${btn} shrink-0`} style={{ background: "#E9EDF3", color: INK }}
               onClick={() => { if (rolCustom.trim()) { addRol(rolCustom.trim(), "custom"); setRolCustom(""); } }}>
               <Plus size={15} /> Agregar
@@ -444,8 +444,8 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
           <p className="text-xs text-slate-500" style={{ marginTop: -6 }}>Duración en MM:SS (ej. 01:10). IN/OUT y la línea de tiempo se calculan solos.</p>
 
           <div className="relative">
-            <Search size={15} className="b-min absolute" style={{ left: 9, top: 10 }} />
-            <input className={inp} style={{ ...inpStyle, paddingLeft: 30 }} placeholder="Buscar por nombre, fuente, duración o nota…"
+            <Search size={15} className="absolute pointer-events-none" style={{ left: 10, top: "50%", transform: "translateY(-50%)", color: "#9AA7B8" }} />
+            <input className={`${inp} a-largo`} style={{ ...inpStyle, paddingLeft: 30 }} placeholder="Buscar por nombre, fuente, duración o nota…"
               value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
             {busqueda && (
               <button className="b-min absolute" style={{ right: 9, top: 10 }} onClick={() => setBusqueda("")} aria-label="Limpiar búsqueda"><X size={15} /></button>
@@ -459,7 +459,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
 
           {segFiltrados.map(({ s, i }) => (
             <div key={s.id} {...(busqueda ? {} : dndSeg.target(i))}
-              className="flex flex-col gap-1 rounded-lg border p-1.5"
+              className="fila-segmento gap-1 rounded-lg border p-1.5"
               style={{
                 borderColor: !busqueda && dndSeg.overIdx === i && dndSeg.dragIdx !== i ? AIR_COLOR : "#DDE4EC",
                 opacity: !busqueda && dndSeg.dragIdx === i ? 0.4 : 1,
@@ -472,7 +472,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
                   </span>
                 )}
                 <span className="text-xs font-bold text-slate-400 text-center shrink-0" style={{ width: 20 }}>{i + 1}</span>
-                <input className={inp} style={{ ...inpStyle, flex: "1 1 170px" }} value={s.segmento} onChange={(e) => upSeg(s.id, { segmento: e.target.value })} />
+                <input className={inp} style={{ ...inpStyle, flex: "1 1 170px", maxWidth: "40ch" }} value={s.segmento} onChange={(e) => upSeg(s.id, { segmento: e.target.value })} />
                 <input key={`${s.id}:${s.dur}`} className={inp} style={{ ...inpStyle, width: 70, flex: "0 0 auto", textAlign: "center" }}
                   defaultValue={fmt(s.dur)}
                   onBlur={(e) => { const v = parseDur(e.target.value); if (v == null || v < 0) { e.target.value = fmt(s.dur); } else upSeg(s.id, { dur: v }); }} />
@@ -488,7 +488,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
               <div className="flex items-start gap-1.5">
                 <StickyNote size={13} className="text-slate-300 shrink-0" style={{ marginTop: 6, marginLeft: 2 }} />
                 <textarea className={inp} rows={s.nota ? 2 : 1}
-                  style={{ ...inpStyle, fontSize: 12, resize: "vertical", minHeight: 30, lineHeight: 1.4 }}
+                  style={{ ...inpStyle, fontSize: 12, resize: "vertical", minHeight: 30, lineHeight: 1.4, maxWidth: "80ch" }}
                   placeholder="Notas del segmento: guion del conductor, cue de audio, aviso de efectos…"
                   value={s.nota || ""} onChange={(e) => upSeg(s.id, { nota: e.target.value })} />
               </div>

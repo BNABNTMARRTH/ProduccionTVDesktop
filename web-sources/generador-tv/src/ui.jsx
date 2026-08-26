@@ -68,9 +68,13 @@ export const SecTitle = ({ children }) => <div className="seccion-tit">{children
 
 // Una división DENTRO de una tarjeta. Es lo que sustituye a "otra cajita":
 // misma separación visual, sin gastar otro marco ni otra barra azul.
-export function Seccion({ titulo, pista, children }) {
+// `crece` marca la seccion que se queda con el alto sobrante cuando la ventana
+// es mas alta que el contenido. Se pone en la que tiene campos de escribir: el
+// espacio de mas ahi sirve para algo, repartido en margenes solo deja una caja
+// blanca a medio llenar, que se ve peor que el fondo.
+export function Seccion({ titulo, pista, crece = false, children }) {
   return (
-    <section className="seccion">
+    <section className={`seccion${crece ? " crece" : ""}`}>
       {(titulo || pista) && (
         <div className="seccion-cab">
           {titulo && <h3 className="seccion-tit m-0">{titulo}</h3>}
