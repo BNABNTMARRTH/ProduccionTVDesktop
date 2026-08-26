@@ -89,18 +89,51 @@
       : '';
     return `
       ${head(cfg, projectName, 'Perfil del proyecto', 'Quién habla, qué dice, a quién y con cuánto')}
+      <div class="cat">La pieza</div>
+      ${dato('Género', p.genero)}
+      ${dato('Formato — la forma del cuadro', p.formato)}
+      ${dato('Fecha de entrega comprometida', p.entrega)}
       <div class="cat">Quién habla</div>
       ${dato('Emisor — quién produce y firma', p.emisor)}
       <div class="cat">Qué dice</div>
       ${dato('Mensaje — la idea en una frase', p.mensaje, 46)}
+      ${dato('Tono', p.tono)}
+      ${dato('Referencias — a qué se debe parecer', p.referencias)}
       ${dato('Intención — qué quieres que pase en quien lo vea', p.intencion)}
       <div class="cat">A quién</div>
       ${dato('Receptor', p.receptor)}
       ${dato('Edad', p.edad)}
+      ${dato('Alcance — hasta dónde llega', p.alcance)}
+      ${dato('Qué tanto sabe ya del tema', p.conocimiento)}
       ${dato('Medios que usa el receptor', p.medios)}
       <div class="cat">Con cuánto</div>
       ${dato('Presupuesto estimado y de dónde sale', dinero)}
+      ${repartoImpreso(p)}
       ${sigs(['Productor(a)', 'Director(a)'])}`;
+  }
+
+  /* El reparto del presupuesto, con los rangos de la industria al lado. Si un
+     bloque se salió, la fila queda marcada: es lo que se discute en la mesa. */
+  function repartoImpreso(p) {
+    const total = Number(String(p.presupuesto || '').replace(/[^\d.]/g, '')) || 0;
+    const r = p.reparto || {};
+    if (!total || !Object.keys(r).length) return '';
+    const BL = [
+      ['atl', 'Sobre la línea', 25, 35], ['btl', 'Bajo la línea', 40, 50],
+      ['pos', 'Posproducción', 10, 20], ['imprev', 'Imprevistos', 5, 10],
+    ];
+    const filas = BL.map(([id, nom, min, max]) => {
+      const pct = Number(r[id]) || 0;
+      const fuera = pct < min || pct > max;
+      return `<tr><td>${nom}${fuera ? ' <b>!</b>' : ''}</td>
+        <td style="text-align:right">${pct}%</td>
+        <td style="text-align:right">$${Math.round(total * pct / 100).toLocaleString('es-MX')}</td>
+        <td style="text-align:right;color:#777">${min}-${max}%</td></tr>`;
+    }).join('');
+    return `<table class="tb" style="margin-top:6px"><thead><tr>
+        <th>Reparto del presupuesto</th><th style="text-align:right">%</th>
+        <th style="text-align:right">MXN</th><th style="text-align:right">Rango usual</th>
+      </tr></thead><tbody>${filas}</tbody></table>`;
   }
 
   function checklist(cfg, projectName) {

@@ -13,7 +13,8 @@ import {
 import { ESTRUCTURAS, loglineDe, escenasDe, alertasDe, planoPorEncuadre, anguloPorPercepcion, sincronizarPersonajes, construirProyectoNarrativo } from '../web-sources/generador-tv/src/narrativa.js';
 import { revisar, escalaDePlano, NIVELES } from '../web-sources/generador-tv/src/sugerencias.js';
 import { FICHAS, fichasDe } from '../web-sources/generador-tv/src/fichas.js';
-import { objetivoDe, normalizeCfg } from '../web-sources/generador-tv/src/proyecto.js';
+import { objetivoDe, normalizeCfg, normPerfil, formatoSugerido, porSegundo,
+         repartoCalculado, repartoVacio, BLOQUES, FORMATOS } from '../web-sources/generador-tv/src/proyecto.js';
 import { escaletaEnVivoDe, TIPOS_PROGRAMA, construirEscaletaEnVivo } from '../web-sources/generador-tv/src/envivo.js';
 import {
   TIPOS, TIPO_SIGUIENTE, siguienteEnRotacion, bloqueNuevo, renglonesDe, medidasDe,
@@ -763,5 +764,74 @@ test('ninguna ficha se repite aunque el tipo y el medio coincidan', () => {
 test('un proyecto vacío o sin datos no rompe: siempre devuelve algo que leer', () => {
   [null, undefined, {}, { perfil: {} }].forEach((cfg) => {
     assert.ok(fichasDe(cfg).length > 0, 'debería ofrecer al menos una ficha');
+  });
+});
+
+
+/* ===================== PERFIL AMPLIADO (2026-08-26) =====================
+El formato del cuadro, el alcance y el reparto del presupuesto. Los rangos
+del reparto son los de la industria (Above/Below the Line), no inventados. */
+
+test('la forma del cuadro se deduce de dónde lo va a ver el receptor', () => {
+  assert.equal(formatoSugerido(['TikTok', 'Instagram / Reels']), '9:16');
+  assert.equal(formatoSugerido(['Cine']), '2.39:1');
+  assert.equal(formatoSugerido(['TV abierta']), '16:9');
+  assert.equal(formatoSugerido([]), '16:9', 'sin medios, el horizontal es lo seguro');
+});
+
+test('si va a TikTok Y a cine, manda el panorámico: se recorta, no se inventa cuadro', () => {
+  assert.equal(formatoSugerido(['TikTok', 'Cine']), '2.39:1');
+});
+
+test('la sugerencia de formato no pisa lo que el usuario ya eligió a mano', () => {
+  assert.equal(normPerfil({ medios: ['TikTok'], formato: '16:9' }).formato, '16:9');
+  assert.equal(normPerfil({ medios: ['TikTok'] }).formato, '9:16', 'vacío sí se sugiere');
+});
+
+test('un perfil viejo no rompe: el reparto se repone entero', () => {
+  const p = normPerfil({ emisor: 'FCC' });
+  assert.deepEqual(p.reparto, repartoVacio());
+  assert.equal(p.reparto.atl + p.reparto.btl + p.reparto.pos + p.reparto.imprev, 100);
+});
+
+test('un reparto a medias no deja huecos que rompan la suma', () => {
+  const p = normPerfil({ reparto: { atl: 40 } });
+  assert.equal(p.reparto.atl, 40);
+  assert.equal(typeof p.reparto.pos, 'number', 'las llaves que faltan se reponen');
+});
+
+test('el reparto convierte porcentajes a pesos', () => {
+  const { filas, total, suma } = repartoCalculado({ presupuesto: '12000', reparto: repartoVacio() });
+  assert.equal(total, 12000);
+  assert.equal(suma, 100);
+  assert.equal(filas.find((f) => f.id === 'atl').mxn, 3600);
+  assert.equal(filas.find((f) => f.id === 'btl').mxn, 5400);
+});
+
+test('avisa cuando un bloque se sale del rango de la industria', () => {
+  // El error clásico: se gastan todo grabando y llegan secos a editar.
+  const { filas } = repartoCalculado({ presupuesto: '12000', reparto: { atl: 30, btl: 52, pos: 8, imprev: 10 } });
+  const fuera = filas.filter((f) => f.fuera).map((f) => f.id);
+  assert.deepEqual(fuera, ['btl', 'pos']);
+  assert.ok(!filas.find((f) => f.id === 'atl').fuera, '30% en sobre la línea está bien');
+});
+
+test('los rangos del reparto dejan margen: los mínimos no pasan de 100', () => {
+  const minimos = BLOQUES.reduce((a, b) => a + b.min, 0);
+  assert.ok(minimos <= 100, `los mínimos suman ${minimos}%`);
+  assert.ok(BLOQUES.reduce((a, b) => a + b.max, 0) >= 100, 'los máximos deben poder cubrir el total');
+});
+
+test('el presupuesto con comas o signo de pesos igual se lee', () => {
+  assert.equal(porSegundo('$12,000', 30), 400);
+  assert.equal(porSegundo('12000', 30), 400);
+  assert.equal(porSegundo('', 30), null, 'sin presupuesto no se inventa un número');
+  assert.equal(porSegundo('12000', 0), null, 'sin duración tampoco');
+});
+
+test('cada formato declara proporción usable para dibujarlo', () => {
+  FORMATOS.forEach((f) => {
+    assert.ok(f.w > 0 && f.h > 0, `${f.id} sin proporción`);
+    assert.ok(f.para, `${f.id} no dice para qué sirve`);
   });
 });

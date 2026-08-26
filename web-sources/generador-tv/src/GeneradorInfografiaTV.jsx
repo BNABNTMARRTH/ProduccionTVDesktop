@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
-  Monitor, Clapperboard, Eye, Pencil, Undo2, Redo2, Share2, Link2, Check,
+  BookOpen, Check, Clapperboard, Eye, Lightbulb, Link2, Monitor, Pencil, Redo2, Share2, Undo2,
 } from "lucide-react";
 import LZString from "lz-string";
 import { uid, slug } from "./util.js";
@@ -228,16 +228,15 @@ export default function GeneradorInfografiaTV() {
     </button>
   );
   const iconBtn = (onClick, disabled, title, Icono) => (
-    <button onClick={onClick} disabled={disabled} title={title}
-      className="flex items-center justify-center rounded-md"
-      style={{ width: 32, height: 32, background: "rgba(255,255,255,.12)", color: "#fff", opacity: disabled ? 0.35 : 1 }}>
-      <Icono size={16} />
+    <button onClick={onClick} disabled={disabled} title={title} aria-label={title}
+      className="b b-2 b-ic">
+      <Icono size={17} />
     </button>
   );
   const base = typeof window !== "undefined" ? window.location.origin + window.location.pathname : "";
 
   return (
-    <div className="min-h-screen" style={{ background: "#E4E9F0", fontFamily: "'Barlow', system-ui, sans-serif" }}>
+    <div className="min-h-screen" style={{ background: "var(--fondo)", fontFamily: "system-ui, -apple-system, sans-serif" }}>
       <style>{`
         .cond { font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif; }
         details > summary::-webkit-details-marker { display: none; }
@@ -267,10 +266,15 @@ export default function GeneradorInfografiaTV() {
         }
       `}</style>
 
-      <div className="app-toolbar no-print sticky top-0 z-10 flex flex-wrap items-center gap-2 px-3 py-2 shadow" style={{ background: NAVY }}>
-        <Clapperboard size={18} color="#fff" />
-        <span className="app-title cond font-bold uppercase text-white" style={{ fontSize: 16, letterSpacing: 1 }}>
-          Generador de infografías de producción TV
+      {/* La barra es un MATERIAL translúcido, no una franja opaca: el contenido
+          pasa por debajo. Antes era azul marino sólido y era la costura más
+          visible entre el marco de la app y esta pantalla. */}
+      <div className="app-toolbar no-print sticky top-0 z-10 flex flex-wrap items-center gap-2 px-4 py-2"
+        style={{ background: "rgba(255,255,255,.72)", backdropFilter: "blur(24px) saturate(180%)",
+                 WebkitBackdropFilter: "blur(24px) saturate(180%)", borderBottom: "1px solid var(--filo)" }}>
+        <Clapperboard size={17} color="var(--sorpresa-t)" />
+        <span className="app-title cond font-bold uppercase" style={{ fontSize: 17, letterSpacing: ".05em", color: "var(--tinta)" }}>
+          Producción TV
         </span>
         <span className="flex-1" />
         {!readonly && (
@@ -290,20 +294,14 @@ export default function GeneradorInfografiaTV() {
           {!EMBEDDED && tab("escaleta", Clapperboard, "Escaleta")}
         </div>}
         <button onClick={() => { setFicha((v) => !v); setSugerencias(false); }}
-          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold"
-          title="Cómo se hace el tipo de pieza que estás haciendo: por dónde empezar, cuánto dura y qué revisar."
-          style={ficha
-            ? { background: "#1D6FD1", color: "#fff" }
-            : { background: "#fff", color: INK, border: "1px solid #C8D2DE" }}>
-          📖 Cómo se hace
+          className="b b-chip" aria-pressed={ficha}
+          title="Cómo se hace el tipo de pieza que estás haciendo: por dónde empezar, cuánto dura y qué revisar.">
+          <BookOpen size={14} /> Cómo se hace
         </button>
         <button onClick={() => { setSugerencias((v) => !v); setFicha(false); }}
-          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold"
-          title="Revisa tu proyecto y explica qué convendría ajustar. No cambia nada por su cuenta."
-          style={sugerencias
-            ? { background: "#1FA14E", color: "#fff" }
-            : { background: "#fff", color: INK, border: "1px solid #C8D2DE" }}>
-          💡 Sugerencias
+          className="b b-chip" aria-pressed={sugerencias}
+          title="Revisa tu proyecto y explica qué convendría ajustar. No cambia nada por su cuenta.">
+          <Lightbulb size={14} /> Sugerencias
         </button>
         {!readonly && !EMBEDDED && (
           <button onClick={compartir} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold text-white"

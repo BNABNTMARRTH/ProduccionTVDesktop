@@ -2,350 +2,286 @@
 @tailwind components;
 @tailwind utilities;
 
-html,
-body,
-#root {
-  margin: 0;
-  padding: 0;
-  min-height: 100%;
+/* ============================================================================
+   GELATINAS — el sistema visual de Producción TV
+   ---------------------------------------------------------------------------
+   Sale del oficio, no de una tendencia: una gelatina es el filtro de color que
+   un iluminador clipa a una lámpara para pintar una escena. Aquí cada gelatina
+   tiene un TRABAJO, que es lo que evita que tres colores saturados se vuelvan
+   confeti:
+     rosa   → la acción principal y dónde estás parado. Es EL acento, uno solo.
+     ámbar  → falta esto, revísalo.
+     azul   → dato técnico, lo que la app calculó sola.
+     tally  → borrar y "al aire". Nada más.
+   ============================================================================ */
+
+/* Las dos únicas caras que se cargan. Antes el código declaraba 'Barlow' y
+   'Barlow Condensed' SIN un solo @font-face: nunca se cargaron y todo caía a
+   Arial Narrow. De ahí venía buena parte del aspecto de plantilla. */
+@font-face{
+  font-family:'Barlow Condensed'; font-style:normal; font-weight:600; font-display:swap;
+  src:url('./fuentes/barlow-condensed-600.woff2') format('woff2');
+}
+@font-face{
+  font-family:'Barlow Condensed'; font-style:normal; font-weight:700; font-display:swap;
+  src:url('./fuentes/barlow-condensed-700.woff2') format('woff2');
 }
 
-/* ==========================================================================
-   ESCALA FLUIDA
-   El problema que resuelve: antes TODO estaba en píxeles fijos (etiqueta 12,
-   caja 14, título 15) de una ventana de 900 px a un monitor de 2440. En chico
-   apretaba y en grande se veía diminuto. Ahora cada medida crece con la
-   ventana de forma continua — nunca da un salto — y se detiene en un tope
-   para que en pantalla enorme no se vuelva un cartel.
-   ========================================================================== */
-:root {
-  --t-etiqueta: clamp(10.5px, 0.16vw + 9.4px, 13px);
-  --t-cuerpo: clamp(13px, 0.26vw + 11.1px, 16.5px);
-  --t-titulo: clamp(15px, 0.4vw + 12.2px, 21px);
-  --t-seccion: clamp(11px, 0.18vw + 9.7px, 13.5px);
+html, body, #root { margin:0; padding:0; min-height:100%; }
 
-  --alto-control: clamp(34px, 0.5vw + 30px, 44px);
-  --radio: clamp(8px, 0.12vw + 7.1px, 12px);
-  --radio-tarjeta: clamp(12px, 0.2vw + 10.6px, 18px);
+:root{
+  --fondo:#EFEEF3;      /* el papel del foro: neutro frío, NO crema */
+  --bahia:#FFFFFF;      /* la superficie del panel */
+  --ranura:#F5F4F8;     /* el hueco donde se escribe */
+  --filo:#E4E2EC;
+  --filo-fuerte:#DCDAE7;
 
-  --p-tarjeta: clamp(12px, 0.5vw + 8.5px, 26px);
-  --p-rejilla: clamp(10px, 0.45vw + 6.8px, 24px);
-  --hueco: clamp(10px, 0.3vw + 7.9px, 18px);
-  --hueco-campo: clamp(8px, 0.22vw + 6.4px, 14px);
+  /* Vivos: SOLO gelatinas y rellenos grandes. */
+  --sorpresa:#F04E98; --cto:#FFA83A; --ctb:#3D8BE0;
+  /* Profundos: texto y botones. Los vivos NO pasan contraste AA sobre blanco. */
+  --sorpresa-t:#C2286D; --sorpresa-b:#D12E78;
+  --cto-t:#9A5A00; --ctb-t:#1F62B8; --tally:#C4262C;
 
-  --borde: #C8D2DE;
-  --tinta: #15233D;
-  --azul: #16365F;
-  --azul-vivo: #1D6FD1;
-  --apagado: #6B7C93;
+  --tinta:#1A1822; --tinta-media:#5C5870; --tinta-baja:#8B8799;
+
+  /* Una sola escala de esquinas. Sin excepciones. */
+  --r-tarjeta:14px; --r-campo:9px; --r-boton:9px;
+
+  /* Escala fluida: crece con la ventana sin dar saltos y para en un tope. */
+  --t-eti:clamp(10.5px,.16vw + 9.4px,13px);
+  --t-cuerpo:clamp(13px,.26vw + 11.1px,16.5px);
+  --t-sec:clamp(11px,.18vw + 9.7px,13.5px);
+  --t-tit:clamp(17px,.42vw + 14px,24px);
+  --alto:clamp(36px,.5vw + 32px,46px);
+  --p-tarjeta:clamp(14px,.5vw + 10px,26px);
+  --p-rejilla:clamp(12px,.45vw + 8px,22px);
+  --hueco:clamp(12px,.36vw + 9px,20px);
+  --hueco-campo:clamp(10px,.22vw + 8px,15px);
 }
 
-/* ==========================================================================
-   BOTONES
-   Antes: 91 botones en el generador, CERO con estado de "presionado", CERO con
-   anillo de foco para teclado y solo 9 con algún aviso al pasar el puntero. Se
-   veían todos con el mismo peso, así que no se distinguía la acción principal
-   de una secundaria ni de una que borra.
+body{ background:var(--fondo); color:var(--tinta); }
+.cond{ font-family:'Barlow Condensed','Arial Narrow',sans-serif; }
+.mono{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; }
 
-   Ahora hay cuatro rangos con jerarquía visual clara, y los cuatro responden:
-   se aclaran al pasar encima, se HUNDEN al tocarlos (no al soltar) y dibujan
-   un anillo cuando se llega con el teclado.
-   ========================================================================== */
-.b {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: var(--alto-control);
-  padding: 0 clamp(11px, 0.35vw + 8.5px, 18px);
-  border: 1px solid transparent;
-  border-radius: var(--radio);
-  font-size: var(--t-cuerpo);
-  font-weight: 650;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-  user-select: none;
-  -webkit-user-select: none;
-  transition: background-color .16s ease, border-color .16s ease, color .16s ease,
-              box-shadow .16s ease, transform .1s cubic-bezier(.2, .7, .3, 1);
+/* ============================ BOTONES ============================
+   Cuatro rangos. Uno solo de rango 1 por tarjeta: es el que el ojo busca. */
+.b{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  min-height:var(--alto); padding:0 clamp(12px,.35vw + 9px,19px);
+  border:1px solid transparent; border-radius:var(--r-boton);
+  font-size:var(--t-cuerpo); font-weight:650; line-height:1; white-space:nowrap;
+  cursor:pointer; user-select:none; -webkit-user-select:none;
+  transition:background-color .16s, border-color .16s, color .16s, box-shadow .16s,
+             transform .1s cubic-bezier(.2,.7,.3,1);
 }
-.b > svg { flex: none; }
+.b > svg{ flex:none; }
+.b-1{ background:linear-gradient(180deg,#E1408B,#C42B72); color:#fff; border-color:#A82363;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.28), 0 6px 15px -8px rgba(196,43,114,.85); }
+.b-1:hover{ background:linear-gradient(180deg,#EC4C96,#D0327C); }
+.b-1:active{ background:linear-gradient(180deg,#C42B72,#A82363); }
+.b-2{ background:#fff; color:var(--tinta); border-color:var(--filo-fuerte);
+      box-shadow:0 1px 1px rgba(26,24,34,.04); }
+.b-2:hover{ background:#FAF9FC; border-color:#C4C1D2; }
+.b-2:active{ background:#F2F0F6; }
+.b-3{ background:transparent; border-color:transparent; color:var(--tinta-media); }
+.b-3:hover{ background:rgba(26,24,34,.05); color:var(--tinta); }
+.b-x{ background:transparent; border-color:transparent; color:#9A96A8; }
+.b-x:hover{ background:#FDECEC; border-color:#F2C9C9; color:var(--tally); }
+/* Responde al TOCAR, no al soltar: es lo que la hace sentir viva. */
+.b:active{ transform:scale(.97); }
+.b:focus-visible, .campo-caja:focus-visible{ outline:2px solid var(--sorpresa-b); outline-offset:2px; }
+.b:disabled, .b[aria-disabled="true"]{ opacity:.42; cursor:not-allowed; transform:none; box-shadow:none; }
+.b-ic{ padding:0; width:var(--alto); min-width:var(--alto); gap:0; }
 
-/* Rango 1 — la acción principal. Una sola por tarjeta: es la que el ojo busca. */
-.b-1 { background: var(--azul-vivo); border-color: #1a63ba; color: #fff;
-       box-shadow: 0 1px 0 rgba(255,255,255,.22) inset, 0 6px 14px -8px rgba(29,111,209,.9); }
-.b-1:hover { background: #2a7fe4; }
-.b-1:active { background: #175fb4; }
+/* Piso mínimo para los ~90 botones sueltos de las 13 pantallas: se hunden y
+   se ven con el teclado, sin tener que editarlos uno por uno. */
+button{ -webkit-tap-highlight-color:transparent; }
+button:not(:disabled){ cursor:pointer; }
+button:focus-visible{ outline:2px solid var(--sorpresa-b); outline-offset:2px; border-radius:6px; }
+button:not(.b){ transition:transform .1s cubic-bezier(.2,.7,.3,1), background-color .16s, color .16s; }
+button:not(.b):not(:disabled):active{ transform:scale(.97); }
 
-/* Rango 2 — lo habitual: acompaña, no compite. */
-.b-2 { background: #EDF1F7; border-color: #D4DDE9; color: var(--tinta); }
-.b-2:hover { background: #E1E8F2; border-color: #BFCCDD; }
-.b-2:active { background: #D3DDEB; }
+/* Icono compacto de las filas de tabla: zona de clic real, no un dibujo suelto. */
+.b-min{ display:inline-grid; place-items:center; width:31px; height:31px; min-width:31px;
+  flex:none; border:1px solid transparent; border-radius:8px; background:transparent; color:#9A96A8; }
+.b-min:hover{ background:rgba(26,24,34,.06); color:var(--tinta); }
+.b-min:disabled{ opacity:.28; }
+.b-min-x:hover{ background:#FDECEC; border-color:#F2C9C9; color:var(--tally); }
 
-/* Rango 3 — apenas un texto con zona de clic. Para lo accesorio. */
-.b-3 { background: transparent; border-color: transparent; color: var(--apagado); }
-.b-3:hover { background: rgba(21, 35, 61, .06); color: var(--tinta); }
-.b-3:active { background: rgba(21, 35, 61, .11); }
+/* Chip encendible. El CSS lee aria-pressed: el estado vive en el marcado. */
+.b-chip{ min-height:calc(var(--alto) - 7px); padding:0 clamp(12px,.3vw + 10px,17px);
+  border-radius:999px; font-size:var(--t-eti); font-weight:700; }
+.b-chip[aria-pressed="false"]{ background:#fff; border-color:var(--filo-fuerte); color:var(--tinta-media); }
+.b-chip[aria-pressed="false"]:hover{ border-color:#BDB9CC; color:var(--tinta); }
+.b-chip[aria-pressed="true"]{ background:#FCEAF3; color:var(--sorpresa-t); border-color:#F0AECF;
+  box-shadow:inset 0 0 0 1px rgba(240,78,152,.18); }
 
-/* Rango 4 — destruye algo. Se pinta de rojo SOLO al acercarse, para que no
-   grite todo el tiempo pero avise antes de que la mano llegue. */
-.b-x { background: transparent; border-color: transparent; color: #9AA7B8; }
-.b-x:hover { background: #FDEAEA; border-color: #F5C6C6; color: #C42B2B; }
-.b-x:active { background: #F8D7D7; }
+/* Chip de AGREGAR: el borde punteado dice "aquí no hay nada todavía". */
+.b-agregar{ display:inline-flex; align-items:center; gap:7px; min-height:33px; padding:0 14px;
+  border:1px dashed #C3BFD1; border-radius:999px; background:#FAF9FC; color:var(--tinta-media);
+  font-size:var(--t-eti); font-weight:700; line-height:1; cursor:pointer;
+  transition:border-color .16s, background-color .16s, color .16s, transform .1s cubic-bezier(.2,.7,.3,1); }
+.b-agregar:hover{ border-style:solid; border-color:var(--sorpresa-b); background:#FDF2F7; color:var(--sorpresa-t); }
+.b-agregar:active{ transform:scale(.97); }
 
-/* Se hunde al TOCAR, no al soltar: es lo que hace que se sienta viva. */
-.b:active { transform: scale(.97); }
-
-/* El teclado también existe: anillo visible al llegar con Tab. */
-.b:focus-visible,
-.campo-caja:focus-visible,
-.campo-caja:focus {
-  outline: 2px solid #4C9BFF;
-  outline-offset: 2px;
+/* ============================ CAMPOS ============================
+   Ranuras hundidas en el panel, no cajas encima. Y cada una mide lo que
+   guarda: una caja de mil píxeles para escribir "18 a 25" es lo que hace
+   que la pantalla se sienta vacía. */
+.campo{ display:flex; flex-direction:column; gap:6px; min-width:0; }
+.campo-et{ font-size:var(--t-eti); font-weight:600; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--tinta-baja); }
+.campo-caja{
+  width:100%; min-height:var(--alto); padding:8px clamp(10px,.2vw + 8px,14px);
+  background:var(--ranura); border:1px solid #DFDDE9; border-radius:var(--r-campo);
+  box-shadow:inset 0 1px 2px rgba(26,24,34,.07);
+  color:var(--tinta); font:inherit; font-size:var(--t-cuerpo);
+  transition:background-color .16s, border-color .16s, box-shadow .16s;
 }
+.campo-caja::placeholder{ color:#A5A1B2; }
+.campo-caja:hover{ border-color:#C9C6D6; background:#FAF9FC; }
+/* Al escribir, el campo se ENCIENDE: pasa a blanco. */
+.campo-caja:focus{ outline:0; background:#fff; border-color:var(--sorpresa-b);
+  box-shadow:0 0 0 3px rgba(240,78,152,.22); }
+textarea.campo-caja{ min-height:calc(var(--alto) * 1.9); line-height:1.55; resize:vertical; }
+.campo-pista{ margin:0; font-size:var(--t-eti); color:var(--tinta-baja); line-height:1.45; }
+.a-corto{ max-width:17ch } .a-medio{ max-width:32ch }
+.a-largo{ max-width:58ch } .a-texto{ max-width:78ch } .a-libre{ max-width:none }
 
-.b:disabled,
-.b[aria-disabled="true"] {
-  opacity: .42;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-.b:disabled:hover,
-.b[aria-disabled="true"]:hover { background: inherit; }
+/* ============================ REJILLAS ============================
+   El reacomodo ocurre entre CAMPOS, donde caben muchas columnas y pasar de 6
+   a 7 mueve el ancho 14%. Entre tarjetas movía 44% y ahí sí se notaba. */
+.rejilla-tarjetas{ display:grid; align-items:start; align-content:start;
+  gap:var(--hueco); padding:var(--p-rejilla);
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));
+  min-height:calc(100vh - 60px); }
+.ancho-total{ grid-column:1 / -1; }
+.rejilla-campos{ display:grid; gap:var(--hueco-campo); align-items:start; --cols:4;
+  grid-template-columns:repeat(auto-fit,minmax(
+    min(100%, max(240px, calc((100% - (var(--cols) - 1) * var(--hueco-campo)) / var(--cols)))),1fr)); }
+.rejilla-campos > .col-2{ grid-column:span 2 }
+@media(max-width:640px){ .rejilla-campos > .col-2{ grid-column:span 1 } }
+.rejilla-filas{ display:grid; gap:var(--hueco-campo); align-items:start;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr)); }
 
-/* Botón de solo icono: cuadrado y con la misma zona de clic que los demás,
-   para que no haya que apuntar con precisión de cirujano. */
-.b-ic {
-  padding: 0;
-  width: var(--alto-control);
-  min-width: var(--alto-control);
-  gap: 0;
-}
+/* MESA DE INSTRUMENTOS: la etapa se reparte en bahías de distinto tamaño,
+   no en una losa larga. Cada una pesa lo que pesa su contenido. */
+.mesa{ display:grid; gap:var(--hueco); padding:var(--p-rejilla);
+  grid-template-columns:repeat(12,1fr); align-content:start;
+  min-height:calc(100vh - 60px); }
+.b7{ grid-column:span 7 } .b5{ grid-column:span 5 }
+.b8{ grid-column:span 8; align-self:start } .b4{ grid-column:span 4; align-self:start }
+@media(max-width:1180px){ .b7,.b5,.b8,.b4{ grid-column:span 12 } }
 
-/* ── Piso mínimo para TODO botón ─────────────────────────────────────────
-   El generador tiene ~90 botones repartidos en 13 pantallas. Convertirlos uno
-   por uno a la clase .b sería una semana de trabajo y un riesgo de romper
-   pantallas que hoy funcionan. Esta regla los alcanza a todos de golpe con lo
-   mínimo indispensable: se hunden al tocarlos y se ven al llegar con el
-   teclado. Los que ya usan .b conservan su acabado completo. */
-button { -webkit-tap-highlight-color: transparent; }
-button:not(:disabled) { cursor: pointer; }
-button:focus-visible { outline: 2px solid #4C9BFF; outline-offset: 2px; border-radius: 6px; }
-button:not(.b):not(:disabled):active { transform: scale(.97); }
-button:not(.b) { transition: transform .1s cubic-bezier(.2,.7,.3,1), background-color .16s ease, color .16s ease; }
+/* ============================ TARJETAS (BAHÍAS) ============================ */
+.tarjeta{ position:relative; display:flex; flex-direction:column;
+  background:var(--bahia); border-radius:var(--r-tarjeta); overflow:hidden;
+  box-shadow:0 0 0 1px var(--filo), 0 1px 2px rgba(26,24,34,.05), 0 14px 34px -22px rgba(26,24,34,.35); }
+/* LA GELATINA. La firma del sistema: la tira de color clipeada al filo y la
+   luz que se cuela por ella. Cae en las dos direcciones, como la luz de
+   verdad; una franja pareja de arriba a abajo se lee como mancha. */
+.tarjeta::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; z-index:2;
+  background:linear-gradient(180deg,var(--gel,var(--sorpresa)) 0 42%,transparent);
+  box-shadow:0 0 18px 1px var(--gel-luz,rgba(240,78,152,.5)); }
+.tarjeta::after{ content:""; position:absolute; inset:0; pointer-events:none; border-radius:var(--r-tarjeta);
+  background:radial-gradient(130% 52% at 0% 0%,var(--gel-luz,rgba(240,78,152,.14)),transparent 68%); }
+.tarjeta > *{ position:relative; z-index:1; }
+.gel-rosa{ --gel:#F04E98; --gel-luz:rgba(240,78,152,.15) }
+.gel-ambar{ --gel:#FFA83A; --gel-luz:rgba(255,168,58,.20) }
+.gel-azul{ --gel:#3D8BE0; --gel-luz:rgba(61,139,224,.14) }
 
-/* Botón compacto de icono para las filas de tabla (borrar, subir, bajar).
-   Antes eran iconos sueltos de 13–16 px sin fondo ni borde: 53 de ellos median
-   menos de 28 px de alto, por debajo de lo que una mano acierta sin apuntar.
-   Ahora tienen una zona de clic real y un fondo que aparece al acercarse. */
-.b-min {
-  display: inline-grid;
-  place-items: center;
-  width: 30px; height: 30px; min-width: 30px;
-  flex: none;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: #9AA7B8;
-}
-.b-min:hover { background: rgba(21,35,61,.07); color: var(--tinta); }
-.b-min:active { background: rgba(21,35,61,.12); }
-.b-min:disabled { opacity: .28; }
-.b-min-x:hover { background: #FDEAEA; border-color: #F5C6C6; color: #C42B2B; }
+.tarjeta-cab{ display:flex; align-items:center; gap:11px;
+  padding:clamp(13px,.3vw + 10px,18px) var(--p-tarjeta);
+  border-bottom:1px solid var(--filo); cursor:pointer; list-style:none;
+  font-family:'Barlow Condensed','Arial Narrow',sans-serif;
+  font-size:var(--t-tit); font-weight:700; letter-spacing:.055em; text-transform:uppercase;
+  line-height:1; color:var(--tinta); transition:background-color .16s; }
+.tarjeta-cab::-webkit-details-marker{ display:none }
+.tarjeta-cab:hover{ background:rgba(26,24,34,.02) }
+.tarjeta-cab:focus-visible{ outline:2px solid var(--sorpresa-b); outline-offset:-3px }
+.tarjeta-cab::before{ content:""; width:7px; height:7px; border-radius:50%; flex:none;
+  background:var(--gel,var(--sorpresa)); box-shadow:0 0 9px 1px var(--gel,rgba(240,78,152,.8)); }
+.tarjeta-flecha{ margin-left:auto; flex:none; opacity:.45;
+  transition:transform .2s cubic-bezier(.2,.7,.3,1) }
+details[open] > .tarjeta-cab .tarjeta-flecha{ transform:rotate(180deg) }
+.tarjeta-cuerpo{ flex:1; display:flex; flex-direction:column; gap:var(--hueco);
+  padding:var(--p-tarjeta); }
 
-/* Chip encendible (intención, medios): mismo lenguaje que los botones. */
-.b-chip {
-  min-height: calc(var(--alto-control) - 6px);
-  padding: 0 clamp(11px, 0.3vw + 9px, 16px);
-  border-radius: 999px;
-  font-size: var(--t-etiqueta);
-  font-weight: 700;
-}
-.b-chip[aria-pressed="false"] { background: #fff; border-color: var(--borde); color: var(--tinta); }
-.b-chip[aria-pressed="false"]:hover { border-color: #93AECE; background: #F4F8FD; }
-.b-chip[aria-pressed="true"] { background: var(--azul); border-color: var(--azul); color: #fff; }
-.b-chip[aria-pressed="true"]:hover { background: #1d4478; }
+/* Sección: lo que antes era otra cajita, ahora es una división. */
+.seccion{ display:flex; flex-direction:column; gap:var(--hueco-campo) }
+.seccion + .seccion{ padding-top:var(--hueco); border-top:1px solid #F0EFF4 }
+.seccion-cab{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap }
+.seccion-tit{ font-family:'Barlow Condensed','Arial Narrow',sans-serif;
+  font-size:var(--t-sec); font-weight:600; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--tinta-baja) }
+.seccion-pista{ margin:0; font-size:var(--t-eti); color:var(--tinta-baja); line-height:1.45 }
+/* Solo crece lo que gana con crecer: las áreas de escribir. */
+.seccion.crece textarea.campo-caja{ min-height:clamp(58px,17vh,240px) }
 
-/* Chip de AGREGAR. El borde punteado dice "aquí todavía no hay nada, esto lo
-   crea" — se distingue de un chip encendible, que sí guarda un valor. */
-.b-agregar {
-  display: inline-flex; align-items: center; gap: 7px;
-  min-height: 32px; padding: 0 13px;
-  border: 1px dashed #B6C4D6; border-radius: 999px;
-  background: #F7FAFD; color: #475569;
-  font-size: var(--t-etiqueta); font-weight: 700; line-height: 1;
-  cursor: pointer;
-  transition: border-color .16s ease, background-color .16s ease, color .16s ease, transform .1s cubic-bezier(.2,.7,.3,1);
-}
-.b-agregar:hover { border-style: solid; border-color: var(--azul-vivo); background: #EAF3FE; color: var(--azul); }
-.b-agregar:active { transform: scale(.97); background: #DCEAFB; }
+/* ============================ FORMATO ============================
+   Se elige VIENDO la forma del cuadro, no leyendo "9:16". */
+.formatos{ display:flex; gap:9px; flex-wrap:wrap }
+.fmt{ display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer;
+  padding:9px 11px 8px; border-radius:var(--r-campo); border:1px solid var(--filo-fuerte);
+  background:#fff; transition:.16s }
+.fmt:hover{ border-color:#BDB9CC }
+.fmt .caja{ background:#DFDDE9; border-radius:2px; transition:.16s }
+.fmt .nom{ font-size:10.5px; font-weight:700; letter-spacing:.05em; color:var(--tinta-baja); line-height:1 }
+.fmt[aria-pressed="true"]{ border-color:var(--sorpresa-b); background:#FDF2F7 }
+.fmt[aria-pressed="true"] .caja{ background:var(--sorpresa) }
+.fmt[aria-pressed="true"] .nom{ color:var(--sorpresa-t) }
+.fmt:active{ transform:scale(.97) }
 
-/* ==========================================================================
-   CAMPOS
-   El problema medido: una caja de "Edad del receptor" llegaba a 1073 px de
-   ancho. Un campo tan largo como el dato que guarda se lee solo; uno de mil
-   píxeles para escribir "18 a 25 años" es lo que hace que la pantalla se
-   sienta vacía. Ahora cada campo declara cuánto mide lo que va adentro.
-   ========================================================================== */
-.campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.campo-et {
-  font-size: var(--t-etiqueta);
-  font-weight: 700;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  color: var(--apagado);
-}
-.campo-caja {
-  width: 100%;
-  min-height: var(--alto-control);
-  padding: 7px clamp(9px, 0.2vw + 7.5px, 14px);
-  border: 1px solid var(--borde);
-  border-radius: var(--radio);
-  background: #fff;
-  color: var(--tinta);
-  font: inherit;
-  font-size: var(--t-cuerpo);
-  transition: border-color .16s ease, box-shadow .16s ease;
-}
-.campo-caja:hover { border-color: #A9BACE; }
-.campo-caja:focus { border-color: var(--azul-vivo); }
-.campo-caja::placeholder { color: #A3AFC0; }
-textarea.campo-caja { min-height: calc(var(--alto-control) * 1.7); line-height: 1.45; resize: vertical; }
-.campo-pista { margin: 0; font-size: var(--t-etiqueta); color: var(--apagado); line-height: 1.45; }
+/* ============================ TABULADOR ============================ */
+.lectura{ display:flex; flex-direction:column; gap:3px }
+.lectura .cifra{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-variant-numeric:tabular-nums; font-size:clamp(32px,1.1vw + 26px,48px);
+  font-weight:600; line-height:1; letter-spacing:-.03em; color:var(--ctb-t) }
+.lectura .pie{ font-size:11.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--tinta-baja) }
+.reparto{ display:flex; gap:3px; height:9px; border-radius:999px; overflow:hidden }
+.reparto span{ display:block; border-radius:2px }
+.tab{ display:flex; flex-direction:column }
+.tab-fila{ display:grid; grid-template-columns:1fr 64px 100px; align-items:center; gap:12px;
+  padding:9px 0; border-bottom:1px solid #F0EFF4 }
+.tab-nom{ display:flex; align-items:flex-start; gap:9px; min-width:0 }
+.tab-nom i{ width:8px; height:8px; border-radius:2px; flex:none; margin-top:5px }
+.tab-nom b{ display:block; font-size:13px; font-weight:600; color:var(--tinta) }
+.tab-rango{ display:block; font-size:10.5px; color:var(--tinta-baja); font-variant-numeric:tabular-nums }
+.tab-pct{ width:100%; min-height:31px; padding:4px 9px; text-align:right;
+  background:var(--ranura); border:1px solid #DFDDE9; border-radius:7px; color:var(--tinta);
+  font:600 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums }
+.tab-pct:focus{ outline:0; background:#fff; border-color:var(--sorpresa-b);
+  box-shadow:0 0 0 3px rgba(240,78,152,.2) }
+.tab-mxn{ text-align:right; font:600 14px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-variant-numeric:tabular-nums; color:var(--tinta) }
+.tab-fila.fuera .tab-pct{ border-color:#E8B860; background:#FFFAF0; color:var(--cto-t) }
+.tab-fila.fuera .tab-rango{ color:var(--cto-t); font-weight:600 }
+.tab-tot{ display:grid; grid-template-columns:1fr 64px 100px; gap:12px; align-items:center;
+  padding-top:12px; margin-top:4px; border-top:1.5px solid var(--filo) }
+.tab-tot .tab-nom b{ font-weight:700 }
 
-/* Anchos naturales. El campo nunca pasa de lo que su contenido necesita. */
-.a-corto  { max-width: 17ch; }
-.a-medio  { max-width: 32ch; }
-.a-largo  { max-width: 58ch; }
-.a-texto  { max-width: 72ch; }   /* párrafos: el largo de línea legible */
-.a-libre  { max-width: none; }
+/* Ámbar = falta esto. Azul = lo calculó la app. */
+.aviso{ display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:600;
+  color:var(--cto-t); background:#FFF6E6; border:1px solid #F3D9A6; border-radius:999px;
+  padding:6px 13px; line-height:1.35 }
+.dato{ display:inline-flex; align-items:baseline; gap:8px; font-size:12px; color:var(--tinta-baja) }
+.dato b{ color:var(--ctb-t); font-size:15px; font-weight:600 }
 
-/* ==========================================================================
-   REJILLAS
-   El salto medido: al pasar de 1070 a 1200 px de ventana, la tarjeta caía de
-   1046 a 582 px. Se encogía 44% mientras la ventana CRECÍA. Pasaba porque el
-   reacomodo ocurría al nivel de la TARJETA, donde solo caben 1, 2 o 3 columnas
-   y cada cambio parte el ancho por la mitad.
-
-   La corrección: las tarjetas grandes ocupan siempre el ancho completo y el
-   reacomodo baja al nivel del CAMPO, donde caben muchas columnas y pasar de 6
-   a 7 mueve el ancho un 14% en vez de un 44%. Ahí el cambio no se nota.
-   ========================================================================== */
-.rejilla-tarjetas {
-  display: grid;
-  align-items: start;
-  align-content: start;
-  gap: var(--hueco);
-  padding: var(--p-rejilla);
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));
-  min-height: calc(100vh - 60px);
-}
-.ancho-total { grid-column: 1 / -1; }
-
-.rejilla-campos {
-  display: grid;
-  gap: var(--hueco-campo);
-  align-items: start;
-
-  /* Tope de cuatro columnas. Sin el, en el monitor de 2440 px una seccion se
-     desplegaba en CINCO columnas: demasiado recorrido para el ojo (se pierde
-     la pareja etiqueta-campo) y ademas aplastaba la tarjeta a una tira de
-     nada, que es de donde salia el hueco vertical. Con el tope las secciones
-     ocupan dos renglones y la caja recupera altura. */
-  --cols: 4;
-  grid-template-columns: repeat(auto-fit, minmax(
-    min(100%, max(250px, calc((100% - (var(--cols) - 1) * var(--hueco-campo)) / var(--cols)))), 1fr));
-}
-.rejilla-campos > .col-2 { grid-column: span 2; }
-
-/* Conjuntos repetidos (cámaras, talentos, micrófonos, otras fuentes): son un
-   CONJUNTO, no una secuencia, así que pueden ir en varias columnas. Antes cada
-   ficha ocupaba una banda del ancho completo y su caja de nombre se estiraba
-   hasta 2232 px en el monitor grande. Ahora caben cuatro fichas por fila y
-   ninguna caja pasa del ancho de lo que guarda. */
-.rejilla-filas {
-  display: grid;
-  gap: var(--hueco-campo);
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr));
-  align-items: start;
-}
-@media (max-width: 620px) { .rejilla-campos > .col-2 { grid-column: span 1; } }
-
-/* ==========================================================================
-   TARJETAS Y SECCIONES
-   Antes cada dato vivía en su propia cajita con su propia barra azul: la
-   etapa 1 eran tres cajas de 39, 296 y 527 px de alto una junto a otra —
-   medio metro de desnivel y aire muerto al lado de la más baja. Ahora una
-   caja grande con divisiones internas: el título azul se gasta una vez y
-   adentro las partes se separan con una línea, no con otro marco.
-   ========================================================================== */
-.tarjeta {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--borde);
-  border-radius: var(--radio-tarjeta);
-  background: #fff;
-  overflow: hidden;
-  box-shadow: 0 1px 2px rgba(15, 30, 55, .05), 0 8px 24px -18px rgba(15, 30, 55, .5);
-}
-.tarjeta-cab {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: clamp(8px, 0.22vw + 6.5px, 14px) var(--p-tarjeta);
-  background: var(--azul);
-  color: #fff;
-  font-size: var(--t-titulo);
-  font-weight: 700;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  cursor: pointer;
-  list-style: none;
-  transition: background-color .16s ease;
-}
-.tarjeta-cab::-webkit-details-marker { display: none; }
-.tarjeta-cab:hover { background: #1d4478; }
-.tarjeta-cab:focus-visible { outline: 2px solid #4C9BFF; outline-offset: -3px; }
-/* La flecha dice si la caja abre y hacia dónde va; gira, no desaparece. */
-.tarjeta-flecha { margin-left: auto; flex: none; transition: transform .2s cubic-bezier(.2,.7,.3,1); opacity: .7; }
-details[open] > .tarjeta-cab .tarjeta-flecha { transform: rotate(180deg); }
-.tarjeta-cuerpo { flex: 1 1 auto; display: flex; flex-direction: column; gap: var(--hueco); padding: var(--p-tarjeta); }
-
-/* División interna: lo que antes era otra caja, ahora es una sección. */
-.seccion { display: flex; flex-direction: column; gap: var(--hueco-campo); }
-.seccion.crece textarea.campo-caja { min-height: clamp(58px, 17vh, 240px); }
-.seccion + .seccion { padding-top: var(--hueco); border-top: 1px solid #E7ECF3; }
-.seccion-cab { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
-.seccion-tit {
-  font-size: var(--t-seccion);
-  font-weight: 800;
-  letter-spacing: .09em;
-  text-transform: uppercase;
-  color: var(--azul);
-}
-.seccion-pista { margin: 0; font-size: var(--t-etiqueta); color: var(--apagado); line-height: 1.45; }
-
-/* ==========================================================================
-   ACCESIBILIDAD
-   ========================================================================== */
-@media (prefers-reduced-motion: reduce) {
-  .b, .campo-caja, .tarjeta-cab, .tarjeta-flecha { transition: none; }
-  .b:active { transform: none; }
-}
-@media (prefers-contrast: more) {
-  .campo-caja { border-color: #6B7C93; }
-  .b-2 { border-color: #8A99AC; }
-  .campo-et, .seccion-pista, .campo-pista { color: #45536A; }
+/* Fila de la escaleta: en pantalla ancha la nota va AL LADO, no debajo. */
+.fila-segmento{ display:flex; flex-direction:column }
+@media (min-width:1250px){
+  .fila-segmento{ display:grid; grid-template-columns:minmax(0,auto) minmax(320px,1fr); align-items:start }
+  .fila-segmento > :last-child{ padding-top:2px }
 }
 
-/* Fila de la escaleta. Al topar el nombre del segmento (antes se estiraba a
-   1968 px) quedaba media banda vacia a la derecha. En pantalla ancha la nota
-   sube a ocuparla: controles a la izquierda, nota al lado. En angosta vuelve
-   a su renglon de abajo. */
-.fila-segmento { display: flex; flex-direction: column; }
-@media (min-width: 1250px) {
-  .fila-segmento { display: grid; grid-template-columns: minmax(0, auto) minmax(320px, 1fr); align-items: start; }
-  .fila-segmento > :last-child { padding-top: 2px; }
+/* ============================ ACCESIBILIDAD ============================ */
+@media (prefers-reduced-motion:reduce){
+  .b,.campo-caja,.tarjeta-cab,.tarjeta-flecha,.fmt,.b-agregar,button:not(.b){ transition:none }
+  .b:active,.b-agregar:active,.fmt:active,button:not(.b):active{ transform:none }
+}
+@media (prefers-contrast:more){
+  .campo-caja,.tab-pct{ border-color:#8B8799 }
+  .b-2,.b-chip[aria-pressed="false"]{ border-color:#8B8799 }
+  .campo-et,.seccion-pista,.campo-pista,.tab-rango{ color:#3F3B4D }
+  .tarjeta{ box-shadow:0 0 0 1px #8B8799 }
 }

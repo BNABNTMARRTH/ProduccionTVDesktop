@@ -9,10 +9,12 @@ import { computeFuentes, computeRows, generarCSV, generarEDL } from "./escaleta.
 import { useReorder } from "./hooks.js";
 import { ICONS } from "./iconos.jsx";
 import { IMPACTOS, TIPOS_PROYECTO } from "./narrativa.js";
-import { BLANCO, DEMO, MEDIOS, normalizeCfg, perfilVacio } from "./proyecto.js";
+import { ALCANCES, BLANCO, CONOCIMIENTOS, DEMO, MEDIOS, formatoSugerido, normalizeCfg,
+         objetivoDe, perfilVacio, porSegundo } from "./proyecto.js";
 import { EMBEDDED, descargarArchivo } from "./puente.js";
 import { AIR_COLOR, INK, NAVY, PALETTE } from "./theme.js";
-import { Btn, btn, Campo, Campos, Card, Chips, inp, inpStyle, Seccion, Swatches } from "./ui.jsx";
+import { Aviso, Btn, btn, Campo, Campos, Card, Chips, Formatos, inp, inpStyle,
+         Lectura, Seccion, Swatches, Tabulador } from "./ui.jsx";
 import { fmt, parseDur, reorder, slug, textOn, trunc, uid } from "./util.js";
 
 // Panel de EDICIÓN del proyecto (columna izquierda): identidad y marca, fuentes
@@ -37,6 +39,10 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
   const fuentes = computeFuentes(cfg);
   const rows = computeRows(cfg);
   const total = rows.length ? rows[rows.length - 1].tout : 0;
+  // Lo que de verdad pone el presupuesto en perspectiva: cuánto cuesta cada
+  // segundo que sobrevive al corte final.
+  const segundos = Math.round((objetivoDe(cfg) || 0) * 60) || rows.reduce((a, r) => a + (r.dur || 0), 0);
+  const costoSegundo = porSegundo(cfg.perfil?.presupuesto, segundos);
 
   const q = busqueda.trim().toLowerCase();
   const segFiltrados = cfg.escaleta
@@ -119,7 +125,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
   const delRol = (id) => setCfg((c) => ({ ...c, personal: c.personal.filter((p) => p.id !== id) }));
 
   return (
-    <div className="rejilla-tarjetas">
+    <div className={grupo === "perfil" ? "mesa" : "rejilla-tarjetas"}>
       {/* Proyectos (solo versión web: en la app de escritorio los proyectos los maneja el shell) */}
       {ver('perfil') && !EMBEDDED && (
       <Card title="Proyectos" open={false}>
@@ -149,107 +155,130 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
         <p className="text-xs text-slate-500">Los proyectos se guardan en este navegador y tu trabajo actual se autoguarda automáticamente.</p>
       </Card>)}
 
-      {/* EL PROYECTO — una sola tarjeta.
-          Antes eran TRES cajas separadas ("Datos generales", "Narrativa /
-          Brief" y "Perfil del proyecto") puestas una junto a otra. Medidas:
-          39, 296 y 527 px de alto → medio metro de desnivel y un hueco muerto
-          al lado de la más baja. Y el corte era arbitrario: el título del
-          proyecto y el logline son la misma decisión, tomada en el mismo
-          momento, y estaban en cajas distintas.
-          Ahora es una caja con cuatro secciones en el orden en que de verdad
-          se piensa un proyecto: quién es → para quién → qué dice → con cuánto. */}
-      {ver('perfil') && (
-      <Card title="El proyecto" ancho>
-        <Seccion titulo="Identidad"
-          pista="Cómo se llama y de quién es. Sale impreso en todas las hojas.">
-          <Campos>
-            <Campo etiqueta="Título principal" ancho="largo" value={cfg.titulo}
-              onChange={(e) => up({ titulo: e.target.value })} className="col-2" />
-            <Campo etiqueta="Subtítulo" ancho="largo" value={cfg.subtitulo}
-              onChange={(e) => up({ subtitulo: e.target.value })} className="col-2" />
-            <Campo etiqueta="Organización" ancho="largo" value={cfg.organizacion}
-              onChange={(e) => up({ organizacion: e.target.value })} />
-            <label className="campo">
-              <span className="campo-et">Color principal</span>
-              <input type="color" className="campo-caja" style={{ maxWidth: 90, padding: 4, cursor: "pointer" }}
-                value={cfg.branding?.primaryColor || NAVY}
-                onChange={(e) => setCfg((c) => ({ ...c, branding: { ...(c.branding || {}), primaryColor: e.target.value } }))} />
-            </label>
-            <div className="campo">
-              <span className="campo-et">Logotipo</span>
-              <div className="flex items-center gap-2 flex-wrap">
-                {cfg.branding?.logoDataUrl && (
-                  <img src={cfg.branding.logoDataUrl} alt="Logotipo actual"
-                    style={{ height: 34, width: "auto", borderRadius: 6, border: "1px solid #E7ECF3" }} />
-                )}
-                <Btn rango={2} icono={Upload} onClick={() => logoRef.current?.click()}>
-                  {cfg.branding?.logoDataUrl ? "Cambiar" : "Subir imagen"}
-                </Btn>
-                {cfg.branding?.logoDataUrl && (
-                  <Btn rango="x" icono={X} titulo="Quitar el logotipo"
-                    onClick={() => setCfg((c) => ({ ...c, branding: { ...(c.branding || {}), logoDataUrl: "" } }))} />
-                )}
-                <input ref={logoRef} type="file" hidden
-                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                  onChange={(e) => importLogo(e.target.files?.[0])} />
-              </div>
+      {/* LA MESA DE INSTRUMENTOS — etapa 1
+          Antes: una sola losa larga con filas de campos. Antes de eso, TRES
+          cajas de 39, 296 y 527 px de alto una junto a otra.
+          Ahora cuatro BAHÍAS de distinto tamaño, cada una con su gelatina, en
+          el orden en que de verdad se piensa un proyecto: quién es → para
+          quién → qué dice → con cuánto. */}
+      {ver('perfil') && (<>
+
+      <Card title="Identidad" gel="rosa" className="b7">
+        <Campos>
+          <Campo etiqueta="Título principal" value={cfg.titulo}
+            onChange={(e) => up({ titulo: e.target.value })} className="col-2" />
+          <Campo etiqueta="Subtítulo" value={cfg.subtitulo}
+            onChange={(e) => up({ subtitulo: e.target.value })} className="col-2" />
+          <Campo etiqueta="Organización" value={cfg.organizacion}
+            onChange={(e) => up({ organizacion: e.target.value })} />
+          <Campo etiqueta="Género" list="generos" placeholder="Comercial, documental…"
+            value={perfil.genero} onChange={(e) => upPerfil({ genero: e.target.value })} />
+          <datalist id="generos">
+            {["Ficción", "Documental", "Comercial de producto", "Videoclip",
+              "Reportaje", "Institucional", "Programa en vivo"].map((g) => <option key={g} value={g} />)}
+          </datalist>
+          <Campo etiqueta="Fecha de entrega" type="date" ancho="medio"
+            value={perfil.entrega} onChange={(e) => upPerfil({ entrega: e.target.value })} />
+          <label className="campo">
+            <span className="campo-et">Color de marca</span>
+            <input type="color" className="campo-caja" style={{ maxWidth: 62, padding: 4, cursor: "pointer" }}
+              value={cfg.branding?.primaryColor || NAVY}
+              onChange={(e) => setCfg((c) => ({ ...c, branding: { ...(c.branding || {}), primaryColor: e.target.value } }))} />
+          </label>
+          <div className="campo">
+            <span className="campo-et">Logotipo</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {cfg.branding?.logoDataUrl && (
+                <img src={cfg.branding.logoDataUrl} alt="Logotipo actual"
+                  style={{ height: 34, width: "auto", borderRadius: 6, border: "1px solid var(--filo)" }} />
+              )}
+              <Btn rango={2} icono={Upload} onClick={() => logoRef.current?.click()}>
+                {cfg.branding?.logoDataUrl ? "Cambiar" : "Subir imagen"}
+              </Btn>
+              {cfg.branding?.logoDataUrl && (
+                <Btn rango="x" icono={X} titulo="Quitar el logotipo"
+                  onClick={() => setCfg((c) => ({ ...c, branding: { ...(c.branding || {}), logoDataUrl: "" } }))} />
+              )}
+              <input ref={logoRef} type="file" hidden
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                onChange={(e) => importLogo(e.target.files?.[0])} />
             </div>
-          </Campos>
-        </Seccion>
+          </div>
+        </Campos>
+        <Formatos valor={perfil.formato} sugerido={formatoSugerido(perfil.medios)}
+          onChange={(f) => upPerfil({ formato: f })} />
+      </Card>
 
-        <Seccion titulo="El encargo"
-          pista="Quién habla y a quién le habla. Es lo que después justifica cada plano, cada luz y cada gasto.">
-          <Campos>
-            <Campo etiqueta="Emisor — quién produce" ancho="largo"
-              placeholder="FCC-UASLP, taller de documental"
-              value={perfil.emisor} onChange={(e) => upPerfil({ emisor: e.target.value })} className="col-2" />
-            <Campo etiqueta="Receptor — a quién le hablas" ancho="largo"
-              placeholder="Estudiantes de la facultad"
-              value={perfil.receptor} onChange={(e) => upPerfil({ receptor: e.target.value })} className="col-2" />
-            <Campo etiqueta="Edad del receptor" ancho="corto" placeholder="18 a 25"
-              value={perfil.edad} onChange={(e) => upPerfil({ edad: e.target.value })} />
-          </Campos>
-          <Chips titulo="Medios que usa tu receptor"
-            ayuda="Dónde va a ver tu proyecto. Define formato, duración y hasta el encuadre."
-            opciones={MEDIOS} valor={perfil.medios} onChange={(v) => upPerfil({ medios: v })} />
-        </Seccion>
+      <Card title="El encargo" gel="azul" className="b5">
+        <Campos>
+          <Campo etiqueta="Emisor — quién produce" placeholder="FCC-UASLP, taller de documental"
+            value={perfil.emisor} onChange={(e) => upPerfil({ emisor: e.target.value })} className="col-2" />
+          <Campo etiqueta="Receptor — a quién le hablas" placeholder="Estudiantes de la facultad"
+            value={perfil.receptor} onChange={(e) => upPerfil({ receptor: e.target.value })} className="col-2" />
+          <Campo etiqueta="Edad" ancho="corto" placeholder="18 a 25"
+            value={perfil.edad} onChange={(e) => upPerfil({ edad: e.target.value })} />
+          <label className="campo">
+            <span className="campo-et">Alcance</span>
+            <select className="campo-caja" value={perfil.alcance}
+              onChange={(e) => upPerfil({ alcance: e.target.value })}>
+              <option value="">Sin definir</option>
+              {ALCANCES.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </label>
+          <label className="campo col-2">
+            <span className="campo-et">Qué tanto sabe ya del tema</span>
+            <select className="campo-caja" value={perfil.conocimiento}
+              onChange={(e) => upPerfil({ conocimiento: e.target.value })}>
+              <option value="">Sin definir</option>
+              {CONOCIMIENTOS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </label>
+        </Campos>
+        <Chips titulo="Dónde lo va a ver"
+          ayuda="Define formato, duración y hasta el encuadre."
+          opciones={MEDIOS} valor={perfil.medios} onChange={(v) => upPerfil({ medios: v })} />
+      </Card>
 
-        <Seccion titulo="La idea" crece
-          pista="Si tu proyecto solo pudiera decir una cosa, ¿cuál sería?">
+      <Card title="La idea" gel="rosa" className="b8">
+        <div className="seccion crece">
           <Campos>
-            <Campo etiqueta="Mensaje — la idea en una frase" ancho="texto" area rows={2}
+            <Campo etiqueta="Mensaje — la idea en una frase" area rows={2}
               placeholder="Lo que quieres que se lleve quien lo vea"
               value={perfil.mensaje} onChange={(e) => upPerfil({ mensaje: e.target.value })} className="col-2" />
-            <Campo etiqueta="Logline — la historia en una frase" ancho="texto" area rows={2}
+            <Campo etiqueta="Logline — la historia en una frase" area rows={2}
               placeholder="Un protagonista quiere algo, pero algo se lo impide"
               value={cfg.narrativa?.logline || ""} onChange={(e) => upNarr({ logline: e.target.value })} className="col-2" />
-            <Campo etiqueta="Llamada a la acción" ancho="largo"
-              placeholder="Qué quieres que haga al terminar de verlo"
-              value={cfg.narrativa?.cta || ""} onChange={(e) => upNarr({ cta: e.target.value })} className="col-2" />
           </Campos>
-          <Chips titulo="Intención — qué quieres que pase en quien lo vea"
-            opciones={IMPACTOS} valor={perfil.intencion} onChange={(v) => upPerfil({ intencion: v })} />
-          {cfg.narrativa && (
-            <p className="seccion-pista">
-              Tipo: <b>{TIPOS_PROYECTO.find((t) => t.id === cfg.narrativa.tipo)?.nombre || cfg.narrativa.tipo}</b>
-              {cfg.narrativa.impacto ? ` · ${cfg.narrativa.impacto}` : ""}
-              {cfg.narrativa.emocion ? ` · ${cfg.narrativa.emocion}` : ""}
-            </p>
-          )}
-        </Seccion>
+        </div>
+        <Campos>
+          <Campo etiqueta="Llamada a la acción" placeholder="Qué quieres que haga al terminar de verlo"
+            value={cfg.narrativa?.cta || ""} onChange={(e) => upNarr({ cta: e.target.value })} className="col-2" />
+          <Campo etiqueta="Tono" placeholder="Cómico, solemne, íntimo…"
+            value={perfil.tono} onChange={(e) => upPerfil({ tono: e.target.value })} />
+          <Campo etiqueta="Referencias — a qué se debe parecer"
+            placeholder="Una película, un spot, un video que ya existe"
+            value={perfil.referencias} onChange={(e) => upPerfil({ referencias: e.target.value })} />
+        </Campos>
+        <Chips titulo="Intención — qué quieres que pase en quien lo vea"
+          opciones={IMPACTOS} valor={perfil.intencion} onChange={(v) => upPerfil({ intencion: v })} />
+      </Card>
 
-        <Seccion titulo="Recursos"
-          pista="Un número aproximado sirve más que ninguno: es lo que decide cuántas cámaras y cuántos días caben.">
-          <Campos>
-            <Campo etiqueta="Presupuesto estimado (MXN)" ancho="corto" inputMode="numeric" placeholder="0"
-              value={perfil.presupuesto}
-              onChange={(e) => upPerfil({ presupuesto: e.target.value.replace(/[^\d.]/g, "") })} />
-            <Campo etiqueta="¿De dónde sale el dinero?" ancho="largo"
-              placeholder="Beca, recursos propios, patrocinio…"
-              value={perfil.presupuestoNota} onChange={(e) => upPerfil({ presupuestoNota: e.target.value })} className="col-2" />
-          </Campos>
-        </Seccion>
-      </Card>)}
+      <Card title="Recursos" gel="ambar" className="b4">
+        {segundos > 0 && costoSegundo != null && (
+          <Lectura cifra={`$${costoSegundo.toLocaleString("es-MX")}`} pie="por segundo en pantalla" />
+        )}
+        <Campos>
+          <Campo etiqueta="Presupuesto (MXN)" ancho="corto" inputMode="numeric" placeholder="0"
+            className="mono" value={perfil.presupuesto}
+            onChange={(e) => upPerfil({ presupuesto: e.target.value.replace(/[^\d.]/g, "") })} />
+          <Campo etiqueta="¿De dónde sale el dinero?" placeholder="Beca, recursos propios, patrocinio…"
+            value={perfil.presupuestoNota} onChange={(e) => upPerfil({ presupuestoNota: e.target.value })}
+            className="col-2" />
+        </Campos>
+        <Tabulador perfil={perfil} onChange={(reparto) => upPerfil({ reparto })} />
+      </Card>
+
+      </>)}
 
       {/* Cámaras */}
       {ver('necesidades') && (

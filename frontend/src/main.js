@@ -1,6 +1,6 @@
 import './style.css';
 import html2canvas from 'html2canvas';
-import appIcon from './assets/images/atj-icon-small.png';
+import appIcon from './assets/images/produccion-tv-256.png';
 import { icono } from './iconos.js';
 import { DeleteProjectFile, DeleteTrashFile, FocusLauncher, GetLaunchContext, ListTrashFiles, LoadAllProjects, LoadProjectFile, OpenProjectWindow, Print, ReadTrashFile, SaveBase64File, SaveProjectFile, SaveTextFile } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';

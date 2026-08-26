@@ -98,6 +98,43 @@ export const MEDIOS = [
   "Prensa impresa", "Pantallas en la calle", "Evento en vivo",
 ];
 
+// La forma del cuadro. Se elige VIENDO la proporción, no leyendo "9:16", y
+// sale de por dónde lo va a ver el receptor: vertical para TikTok y Reels,
+// panorámico para cine. Decide encuadre, títulos y hasta dónde se para la gente.
+export const FORMATOS = [
+  { id: "9:16",   nombre: "9:16",   w: 9,    h: 16, para: "TikTok, Reels, Shorts" },
+  { id: "4:5",    nombre: "4:5",    w: 4,    h: 5,  para: "Feed de Instagram" },
+  { id: "1:1",    nombre: "1:1",    w: 1,    h: 1,  para: "Cuadrado, feed" },
+  { id: "16:9",   nombre: "16:9",   w: 16,   h: 9,  para: "YouTube, TV, streaming" },
+  { id: "2.39:1", nombre: "2.39:1", w: 2.39, h: 1,  para: "Cine panorámico" },
+];
+
+// Alcance: hasta dónde llega la pieza (sección 1.6 del flujo de producción).
+export const ALCANCES = ["Local", "Estatal", "Nacional", "Internacional"];
+
+// Cuánto sabe ya el receptor del tema. Cambia cuánto hay que explicar.
+export const CONOCIMIENTOS = [
+  "Nada, hay que explicarle desde cero",
+  "Algo, reconoce el tema",
+  "Mucho, ya lo conoce bien",
+];
+
+/* REPARTO DEL PRESUPUESTO
+Los rangos NO son inventados: son los que usa la industria (Above the Line /
+Below the Line). Dos datos que valen para un alumno y que el reparto enseña
+solo: tramoya y eléctrico es el departamento más caro de todo el rodaje
+(8-15% del total, no la cámara), y por debajo de 10% en posproducción te
+quedas sin dinero antes de terminar la pieza.
+Fuentes: saturation.io/blog/film-budget-breakdown-by-department ·
+produccionaudiovisual.com (above the line / below the line). */
+export const BLOQUES = [
+  { id: "atl",    nombre: "Sobre la línea", detalle: "guion · dirección · producción · elenco", min: 25, max: 35, color: "#F04E98" },
+  { id: "btl",    nombre: "Bajo la línea",  detalle: "rodaje · cámara · luces · locación · arte", min: 40, max: 50, color: "#FFA83A" },
+  { id: "pos",    nombre: "Posproducción",  detalle: "edición · sonido · música · color",        min: 10, max: 20, color: "#3D8BE0" },
+  { id: "imprev", nombre: "Imprevistos",    detalle: "seguro · reserva · lo que siempre pasa",    min: 5,  max: 10, color: "#B9B5C6" },
+];
+export const repartoVacio = () => ({ atl: 30, btl: 45, pos: 15, imprev: 10 });
+
 export const perfilVacio = () => ({
   emisor: "",           // quién produce y firma la pieza
   mensaje: "",          // la idea en una frase
@@ -107,6 +144,15 @@ export const perfilVacio = () => ({
   medios: [],           // dónde lo va a ver
   presupuesto: "",      // monto estimado en pesos
   presupuestoNota: "",  // de dónde sale el dinero
+  // --- agregados 2026-08-26 ---
+  genero: "",           // comercial, documental, videoclip…
+  formato: "",          // la forma del cuadro (vacío = se sugiere sola)
+  entrega: "",          // fecha comprometida (YYYY-MM-DD)
+  alcance: "",          // hasta dónde llega
+  conocimiento: "",     // cuánto sabe ya el receptor
+  tono: "",             // cómico, solemne, íntimo…
+  referencias: "",      // a qué se debe parecer
+  reparto: repartoVacio(),
 });
 
 // Rellena el perfil y RESCATA lo que antes vivía suelto en el brief narrativo
@@ -118,8 +164,42 @@ export const normPerfil = (perfil, narrativa) => {
   if (!p.intencion.length && narrativa?.impacto) p.intencion = [narrativa.impacto];
   p.intencion = Array.isArray(p.intencion) ? p.intencion : [];
   p.medios = Array.isArray(p.medios) ? p.medios : [];
+  // El reparto se repone entero: un proyecto viejo no lo trae y una sola
+  // llave faltante rompería la suma.
+  p.reparto = { ...repartoVacio(), ...(p.reparto || {}) };
+  if (!FORMATOS.some((f) => f.id === p.formato)) p.formato = formatoSugerido(p.medios);
   return p;
 };
+
+// Qué forma de cuadro pide lo que el receptor usa. Si solo ve vertical, la
+// pieza es vertical: grabar horizontal para TikTok es tirar la mitad del cuadro.
+export function formatoSugerido(medios = []) {
+  const m = new Set(medios);
+  const soloVertical = ["TikTok", "Instagram / Reels"].some((x) => m.has(x))
+    && !["Cine", "TV abierta", "TV de paga", "Streaming"].some((x) => m.has(x));
+  if (soloVertical) return "9:16";
+  if (m.has("Cine")) return "2.39:1";
+  return "16:9";
+}
+
+// Cuánto cuesta cada segundo que queda en pantalla. Es el número que de verdad
+// pone en perspectiva si el presupuesto alcanza para lo que se quiere grabar.
+export function porSegundo(presupuesto, segundos) {
+  const p = Number(String(presupuesto).replace(/[^\d.]/g, ""));
+  if (!p || !segundos) return null;
+  return Math.round(p / segundos);
+}
+
+// Reparto en pesos + qué bloques se salieron del rango de la industria.
+export function repartoCalculado(perfil) {
+  const total = Number(String(perfil?.presupuesto || "").replace(/[^\d.]/g, "")) || 0;
+  const r = { ...repartoVacio(), ...(perfil?.reparto || {}) };
+  const filas = BLOQUES.map((b) => {
+    const pct = Number(r[b.id]) || 0;
+    return { ...b, pct, mxn: Math.round(total * pct / 100), fuera: pct < b.min || pct > b.max };
+  });
+  return { total, filas, suma: filas.reduce((a, f) => a + f.pct, 0) };
+}
 
 export const BLANCO = () => ({
   titulo: "PRODUCCIÓN DE TV – TÍTULO DEL PROGRAMA",

@@ -10,6 +10,7 @@
 import React, { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { INK, NAVY, PALETTE } from "./theme.js";
+import { FORMATOS, repartoCalculado } from "./proyecto.js";
 
 // ── Compatibilidad ────────────────────────────────────────────────────────
 // Las pantallas viejas piden `btn`, `inp` e `inpStyle`. Se conservan, pero
@@ -98,9 +99,12 @@ export function Box({ title, children, style }) {
 // Tarjeta plegable con encabezado. `ancho` la hace ocupar la fila completa:
 // las tarjetas grandes ya no compiten por columnas, y así el reacomodo deja de
 // dar el salto que partía la pantalla a la mitad.
-export function Card({ title, children, open = true, className = "", ancho = false }) {
+// `gel` es el color de la gelatina clipeada al filo (rosa = acción y dónde
+// estás, ámbar = revísalo, azul = dato técnico). `ancho` la hace ocupar la
+// fila completa de la rejilla.
+export function Card({ title, children, open = true, className = "", ancho = false, gel = "rosa" }) {
   return (
-    <details open={open} className={`tarjeta ${ancho ? "ancho-total" : ""} ${className}`}>
+    <details open={open} className={`tarjeta gel-${gel} ${ancho ? "ancho-total" : ""} ${className}`}>
       <summary className="tarjeta-cab cond">
         {title}
         <ChevronDown className="tarjeta-flecha" size={18} aria-hidden="true" />
@@ -175,6 +179,92 @@ export function Chips({ titulo, ayuda, opciones, valor = [], onChange }) {
             className="b b-chip">{o}</button>
         ))}
       </div>
+    </div>
+  );
+}
+
+
+// ── Formato: la forma del cuadro ──────────────────────────────────────────
+// Se elige VIENDO la proporción, no leyendo "9:16". El rectángulo se dibuja a
+// escala real, así que la decisión se toma con el ojo, que es como se toma en
+// un rodaje. Sale de por dónde lo va a ver el receptor.
+export function Formatos({ valor, onChange, sugerido }) {
+  // El rectángulo se dibuja a escala: cabe en 56×34 y conserva su proporción.
+  const CAJA_W = 56, CAJA_H = 34;
+  const medida = (f) => {
+    const r = f.w / f.h;
+    const w = Math.min(CAJA_W, CAJA_H * r);
+    return { width: Math.round(w), height: Math.round(w / r) };
+  };
+  return (
+    <div className="campo">
+      <span className="campo-et">Formato — la forma del cuadro</span>
+      <div className="formatos">
+        {FORMATOS.map((f) => {
+          return (
+            <button key={f.id} type="button" className="fmt" aria-pressed={valor === f.id}
+              title={f.para} onClick={() => onChange(f.id)}>
+              <span className="caja" style={medida(f)} />
+              <span className="nom">{f.nombre}</span>
+            </button>
+          );
+        })}
+      </div>
+      {sugerido && (
+        <p className="campo-pista">
+          {FORMATOS.find((f) => f.id === valor)?.para}
+          {valor === sugerido ? "" : ` · para lo que elegiste, lo normal sería ${sugerido}`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Lectura: una cifra grande, como un medidor ────────────────────────────
+export const Lectura = ({ cifra, pie }) => (
+  <div className="lectura"><span className="cifra">{cifra}</span><span className="pie">{pie}</span></div>
+);
+
+export const Aviso = ({ children }) => <span className="aviso">{children}</span>;
+
+// ── Tabulador de presupuesto ──────────────────────────────────────────────
+// Los rangos son los de la industria (Above the Line / Below the Line), no
+// inventados. Si un bloque se sale, su casilla se pone ámbar: la gelatina
+// ámbar haciendo su trabajo, que es decir "revisa esto".
+export function Tabulador({ perfil, onChange }) {
+  const { filas, suma, total } = repartoCalculado(perfil);
+  const mxn = (n) => "$" + n.toLocaleString("es-MX");
+  return (
+    <div className="campo">
+      <div className="seccion-cab">
+        <span className="seccion-tit">A qué se va</span>
+        <p className="seccion-pista">Los rangos son los que usa la industria. Si te sales, la casilla se pone ámbar.</p>
+      </div>
+      <div className="reparto" aria-hidden="true">
+        {filas.map((f) => <span key={f.id} style={{ flex: Math.max(f.pct, 1), background: f.color }} />)}
+      </div>
+      <div className="tab">
+        {filas.map((f) => (
+          <div key={f.id} className={`tab-fila${f.fuera ? " fuera" : ""}`}>
+            <span className="tab-nom">
+              <i style={{ background: f.color }} />
+              <span><b>{f.nombre}</b><em className="tab-rango">{f.detalle} · {f.min}-{f.max}%</em></span>
+            </span>
+            <input className="tab-pct" inputMode="numeric" value={f.pct}
+              aria-label={`Porcentaje de ${f.nombre}`}
+              onChange={(e) => onChange({ ...perfil.reparto, [f.id]: Number(e.target.value.replace(/[^\d]/g, "")) || 0 })} />
+            <span className="tab-mxn">{total ? mxn(f.mxn) : "—"}</span>
+          </div>
+        ))}
+        <div className="tab-tot">
+          <span className="tab-nom"><span><b>Total repartido</b></span></span>
+          <span className="tab-mxn" style={{ color: suma === 100 ? undefined : "var(--cto-t)" }}>{suma}%</span>
+          <span className="tab-mxn">{total ? mxn(total) : "—"}</span>
+        </div>
+      </div>
+      {suma !== 100 && (
+        <Aviso>{suma > 100 ? `Estás repartiendo ${suma}%: sobra ${suma - 100}%` : `Falta repartir ${100 - suma}%`}</Aviso>
+      )}
     </div>
   );
 }

@@ -166,13 +166,54 @@
     return `
       <div class="cat2">Perfil del proyecto</div>
       <div class="kv">
+        ${fila('Género', p.genero)}
+        ${fila('Formato', p.formato)}
+        ${fila('Entrega', p.entrega)}
         ${fila('Emisor', p.emisor)}
         ${fila('Receptor', [p.receptor, p.edad].filter(Boolean).join(' · '))}
+        ${fila('Alcance', p.alcance)}
+        ${fila('Qué sabe del tema', p.conocimiento)}
         ${fila('Mensaje', p.mensaje)}
+        ${fila('Tono', p.tono)}
+        ${fila('Referencias', p.referencias)}
         ${fila('Intención', p.intencion)}
         ${fila('Medios del receptor', p.medios)}
         ${lleno(p.presupuesto) ? `<span>Presupuesto</span><b>${dinero(p.presupuesto)}${p.presupuestoNota ? ' · ' + esc(p.presupuestoNota) : ''}</b>` : ''}
-      </div>`;
+      </div>
+      ${bloqueReparto(p)}`;
+  }
+
+  /* El reparto del presupuesto impreso. Los rangos son los de la industria
+     (Above the Line / Below the Line); si un bloque se salió, sale marcado en
+     la hoja para que se vea en la mesa, no solo en la pantalla. */
+  function bloqueReparto(p) {
+    const total = Number(String(p.presupuesto || '').replace(/[^\d.]/g, '')) || 0;
+    const r = p.reparto || {};
+    if (!total || !Object.keys(r).length) return '';
+    const BL = [
+      ['atl', 'Sobre la línea', 'guion · dirección · producción · elenco', 25, 35],
+      ['btl', 'Bajo la línea', 'rodaje · cámara · luces · locación · arte', 40, 50],
+      ['pos', 'Posproducción', 'edición · sonido · música · color', 10, 20],
+      ['imprev', 'Imprevistos', 'seguro · reserva', 5, 10],
+    ];
+    const filas = BL.map(([id, nom, det, min, max]) => {
+      const pct = Number(r[id]) || 0;
+      const fuera = pct < min || pct > max;
+      return `<tr${fuera ? ' style="background:#FFF6E6"' : ''}>
+        <td>${nom}<br><small style="color:#777">${det}</small></td>
+        <td style="text-align:right">${pct}%${fuera ? ' <b>!</b>' : ''}</td>
+        <td style="text-align:right">$${Math.round(total * pct / 100).toLocaleString('es-MX')}</td>
+        <td style="text-align:right;color:#777">${min}-${max}%</td></tr>`;
+    }).join('');
+    return `
+      <div class="cat2">Reparto del presupuesto</div>
+      <table class="tb"><thead><tr>
+        <th>Bloque</th><th style="text-align:right">%</th>
+        <th style="text-align:right">MXN</th><th style="text-align:right">Rango</th>
+      </tr></thead><tbody>${filas}</tbody></table>
+      <p style="font-size:8pt;color:#777;margin:4px 0 0">
+        Los rangos son los que usa la industria. Un bloque marcado con ! se salió del suyo.
+        Por debajo de 10% en posproducción el dinero se acaba antes de terminar la pieza.</p>`;
   }
 
   function pagCompleta() {
