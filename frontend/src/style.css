@@ -146,20 +146,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sorpresa-b);out
    Se usa en un foro a oscuras, con el switcher y el teleprompter: una pantalla
    blanca ahí encandila al operador y se refleja en las caras del talento. Las
    salas de control del mundo real son oscuras por eso mismo, no por moda. */
-.production-view{height:100%;overflow:auto;padding:28px;background:#081321}.production-header{display:flex;align-items:center;justify-content:space-between;max-width:1600px;margin:0 auto 20px}.production-header h1{margin:6px 0 0}.production-header button,.production-empty button{border:1px solid #31547b;background:#153253;color:#fff;border-radius:8px;padding:8px 12px;margin-left:7px;cursor:pointer}.production-layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(340px,.9fr);gap:18px;max-width:1600px;margin:auto}.live-card,.checklist-card{border:1px solid #2b405d;border-radius:16px;background:var(--bahia);overflow:hidden}.live-meta{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:var(--tinta-baja);font-size:11px;font-weight:800}.live-meta strong{font-size:30px;color:#fff;font-variant-numeric:tabular-nums}.progress{height:6px;background:#1c2c42}.progress i{display:block;height:100%;background:#e0312f}.live-main{min-height:440px;display:flex;flex-direction:column;justify-content:center;padding:38px 44px;background:radial-gradient(circle at 50% 30%,#1b3559,#0b1728)}.live-main>span{align-self:flex-start;background:#e0312f;color:#fff;border-radius:999px;padding:4px 9px;font-size:10px;font-weight:800}.live-main h2{font-size:64px;line-height:1.05;text-transform:uppercase;margin:18px 0 14px}.live-main p{color:#c3d2e6;font-size:25px;line-height:1.55;max-width:58ch;overflow:auto}.next-row{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:14px 18px;border-top:1px solid #2b405d}.next-row span{color:var(--tinta-baja);font-size:10px}.production-controls{display:flex;justify-content:center;gap:10px;padding:18px}.production-controls button{width:46px;height:46px;border:1px solid #315070;border-radius:50%;background:#FFFFFF;color:#fff;font-weight:800}.production-controls .play{width:62px;height:62px;background:#1fa14e;border-color:#35c66d}.checklist-card{padding:18px}.checklist-card h2{margin:0}
+.production-view{height:100%;overflow:auto;padding:28px;background:#081321}.production-header{display:flex;align-items:center;justify-content:space-between;max-width:1600px;margin:0 auto 20px}.production-header h1{margin:6px 0 0}.production-header button,.production-empty button{border:1px solid #31547b;background:#153253;color:#fff;border-radius:8px;padding:8px 12px;margin-left:7px;cursor:pointer}.production-layout{display:grid;grid-template-columns:minmax(320px,1fr) minmax(0,1.35fr);gap:18px;max-width:1700px;margin:auto;align-items:start}.checklist-card,.set-card{border-radius:16px;background:var(--bahia);overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.07),0 18px 40px -26px #000}.checklist-card{padding:18px}.checklist-card h2{margin:0}
 /* Pestañas del panel derecho de Producción: checklist ⇄ set en vivo */
-.panel-tabs{display:flex;gap:6px;margin-bottom:12px}
-.panel-tabs button{flex:1;border:1px solid #31547b;background:var(--ranura);color:#aebdd2;border-radius:8px;padding:8px 10px;font-weight:800;font-size:12px;cursor:pointer}
-.panel-tabs button.active{background:#17365e;border-color:var(--sorpresa-b);color:#fff}
-.production-layout.set-live-open{grid-template-columns:minmax(0,.8fr) minmax(560px,1.45fr)}
-.production-layout.aside-collapsed{grid-template-columns:minmax(0,1fr) auto}
-.collapse-btn{border:1px solid #315070;background:#FFFFFF;color:#9fb4d0;border-radius:8px;min-width:30px;height:30px;font-size:13px;font-weight:800;cursor:pointer;flex:0 0 auto}
-.collapse-btn:hover{background:var(--ranura);color:#fff}
-.live-meta-right{display:flex;align-items:center;gap:10px}
-.live-card.collapsed .live-meta{padding:10px 18px}
-.live-card.collapsed .production-controls{padding:12px}
+
 .checklist-card.collapsed{display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px 8px}
-.aside-vertical{writing-mode:vertical-rl;color:var(--tinta-baja);font-size:10px;font-weight:800;letter-spacing:2px}
+
 /* Teleprompter de pantalla completa */
 .prompter-overlay{position:fixed;inset:0;z-index:80;background:#000;display:flex;flex-direction:column}
 .prompter-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0b1626;border-bottom:1px solid var(--filo);color:#cdd9ec;flex-wrap:wrap}
@@ -264,7 +255,6 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sorpresa-b);out
 }
 @page{size:letter;margin:8mm}
 
-
 /* ===================== ACABADO (2026-08-24) =====================
 Tres reglas que la app no tenía y que se notan en cada clic:
 1) todo lo que se puede tocar se hunde al TOCARLO (no al soltarlo);
@@ -292,3 +282,66 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .rail button{color:#a3b7d4}
   .secciones button{color:#c3d4ea;box-shadow:0 0 0 1px rgba(178,209,245,.4) inset}
 }
+
+/* El Ensayo trae su propia paleta oscura: los mismos tokens, otros valores.
+   Así el resto de la app puede ser clara sin que esta pantalla se arrastre. */
+.production-view{
+  --bahia:#1B1924; --ranura:#141220; --filo:rgba(255,255,255,.09);
+  --filo-fuerte:rgba(255,255,255,.16);
+  --tinta:#F2F0F6; --tinta-media:#B4AFC2; --tinta-baja:#8E89A0;
+  color:var(--tinta);
+}
+
+/* ============================================================================
+   ENSAYO — dos protagonistas: que no falte nada, y practicar el corte.
+   La escaleta se retiró de aquí (26-ago): minuto a minuto no es lo que se
+   ensaya, y para eso está la etapa 2. Sigue siendo la ÚNICA pantalla oscura
+   de la app porque se usa en un foro a oscuras.
+   ============================================================================ */
+.production-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;max-width:1700px;margin:0 auto 20px}
+.production-header h1{margin:6px 0 0;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:30px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:#F2F0F6}
+.ensayo-acciones{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.estado-aire{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.02em}
+.estado-aire.listo{background:rgba(37,160,95,.14);color:#7BE3A4;box-shadow:inset 0 0 0 1px rgba(37,160,95,.42)}
+.estado-aire.no{background:rgba(255,168,58,.13);color:#FFC576;box-shadow:inset 0 0 0 1px rgba(255,168,58,.4)}
+
+.panel-cab{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:16px 20px 13px;border-bottom:1px solid rgba(255,255,255,.08)}
+.panel-cab h2{margin:0;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:19px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#F2F0F6}
+.panel-cuenta,.panel-pista{margin-left:auto;font-size:11.5px;color:#8E89A0}
+.panel-pista{margin-left:auto;text-align:right}
+
+.checklist-card .checks-list{padding:10px 14px 16px;display:flex;flex-direction:column;gap:7px;max-height:none}
+.check{display:flex;align-items:flex-start;gap:11px;padding:11px 13px;border-radius:11px;font-size:13.5px;line-height:1.45;background:rgba(255,255,255,.035)}
+.check span{flex:none;width:21px;height:21px;display:grid;place-items:center;border-radius:50%;font-size:12px;font-weight:800;margin-top:1px}
+.check.error{color:#FFC1C3}.check.error span{background:#C4262C;color:#fff}
+.check.warn{color:#FFD79B}.check.warn span{background:#FFA83A;color:#3A2500}
+.check.ok{color:#A9E9C4}.check.ok span{background:#1E9457;color:#fff}
+.check.info span{background:#3D8BE0;color:#fff}
+
+/* EL BUS DE CÁMARAS. Un switcher de verdad: la que entra se va al aire y la
+   que estaba pasa a previo. Rojo es "al aire" desde que existe la televisión;
+   no se cambia por gusto. */
+.bus{display:flex;gap:9px;flex-wrap:wrap;padding:14px 20px 4px}
+.bus-cam{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:112px;
+  padding:10px 13px;border-radius:11px;border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.04);color:#CFCBD9;cursor:pointer;text-align:left;
+  transition:background .16s,border-color .16s,color .16s,box-shadow .16s,transform .1s cubic-bezier(.2,.7,.3,1)}
+.bus-cam i{width:100%;height:3px;border-radius:2px;display:block;margin-bottom:3px}
+.bus-cam b{font-size:13px;font-weight:700;letter-spacing:.02em}
+.bus-cam small{font-size:10.5px;color:#8E89A0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.bus-cam:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:#fff}
+.bus-cam:active{transform:scale(.97)}
+.bus-cam.aire{background:rgba(196,38,44,.20);border-color:#C4262C;color:#fff;
+  box-shadow:0 0 0 1px #C4262C,0 0 20px -4px rgba(196,38,44,.8)}
+.bus-cam.aire small{color:#FFB9BB}
+.bus-cam.previo{background:rgba(30,148,87,.16);border-color:#1E9457;color:#DFF5E8}
+.bus-cam.previo small{color:#9FDCBB}
+.bus-cam:focus-visible{outline:2px solid var(--sorpresa-b);outline-offset:2px}
+
+.set-card .set-live{padding:8px 16px 4px}
+.set-card .set-live svg{background:#fff;border-radius:10px}
+.set-card .set-live svg{width:100%!important;height:auto!important;display:block}
+.set-live-note{margin:0;padding:6px 20px 16px;font-size:11.5px;color:#8E89A0}
+.tally-aire{color:#E5484D}.tally-previo{color:#38C77E}
+
+@media(max-width:1100px){.production-layout{grid-template-columns:1fr}}
