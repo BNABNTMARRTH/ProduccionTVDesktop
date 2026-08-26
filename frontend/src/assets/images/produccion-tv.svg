@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Producción TV">
   <!-- PORTAFILTROS DE GELATINAS
-       Tres gelatinas -ámbar, rosa y azul- montadas en su marco. Es la
-       herramienta con la que un iluminador pinta una escena, y es de donde
-       sale toda la paleta de la app.
+       Tres gelatinas montadas en su marco, y van de FRÍO A CALIENTE: azul
+       (una idea sin cuerpo), ámbar (ya aterrizó) y rojo (al aire). Es la
+       identidad de la app en una marca: de la idea a lo real.
        Plano y geométrico a propósito: el icono anterior era un render 3D de
        cámara de cuero y cromo que a 32 px en el Dock era una mancha café.
        Este se sigue leyendo a 16 px porque son tres barras y un marco. -->
@@ -21,9 +21,9 @@
 
   <!-- Las tres gelatinas. El rosa va al centro: es el acento de la app. -->
   <g>
-    <rect x="112" y="128" width="80" height="256" rx="14" fill="#FFA83A"/>
-    <rect x="216" y="128" width="80" height="256" rx="14" fill="#F04E98"/>
-    <rect x="320" y="128" width="80" height="256" rx="14" fill="#3D8BE0"/>
+    <rect x="112" y="128" width="80" height="256" rx="14" fill="#3C8FE0"/>
+    <rect x="216" y="128" width="80" height="256" rx="14" fill="#E08A12"/>
+    <rect x="320" y="128" width="80" height="256" rx="14" fill="#D53238"/>
   </g>
 
   <!-- La luz que se cuela por ellas -->

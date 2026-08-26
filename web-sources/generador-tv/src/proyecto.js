@@ -128,10 +128,10 @@ quedas sin dinero antes de terminar la pieza.
 Fuentes: saturation.io/blog/film-budget-breakdown-by-department ·
 produccionaudiovisual.com (above the line / below the line). */
 export const BLOQUES = [
-  { id: "atl",    nombre: "Sobre la línea", detalle: "guion · dirección · producción · elenco", min: 25, max: 35, color: "#F04E98" },
-  { id: "btl",    nombre: "Bajo la línea",  detalle: "rodaje · cámara · luces · locación · arte", min: 40, max: 50, color: "#FFA83A" },
-  { id: "pos",    nombre: "Posproducción",  detalle: "edición · sonido · música · color",        min: 10, max: 20, color: "#3D8BE0" },
-  { id: "imprev", nombre: "Imprevistos",    detalle: "seguro · reserva · lo que siempre pasa",    min: 5,  max: 10, color: "#B9B5C6" },
+  { id: "atl",    nombre: "Sobre la línea", detalle: "guion · dirección · producción · elenco", min: 25, max: 35, color: "#3C8FE0" },
+  { id: "btl",    nombre: "Bajo la línea",  detalle: "rodaje · cámara · luces · locación · arte", min: 40, max: 50, color: "#E08A12" },
+  { id: "pos",    nombre: "Posproducción",  detalle: "edición · sonido · música · color",        min: 10, max: 20, color: "#D9602B" },
+  { id: "imprev", nombre: "Imprevistos",    detalle: "seguro · reserva · lo que siempre pasa",    min: 5,  max: 10, color: "#B4AEA2" },
 ];
 export const repartoVacio = () => ({ atl: 30, btl: 45, pos: 15, imprev: 10 });
 
