@@ -12,6 +12,7 @@ import { Infografia } from "./Infografia.jsx";
 import { Editor } from "./Editor.jsx";
 import { EditorGuion } from "./EditorGuion.jsx";
 import { PanelSugerencias } from "./PanelSugerencias.jsx";
+import { PanelFicha } from "./PanelFicha.jsx";
 import { DEMO, normalizeCfg, esNarrativo } from "./proyecto.js";
 import { VistaSet } from "./VistaSet.jsx";
 
@@ -99,6 +100,8 @@ export default function GeneradorInfografiaTV() {
   const [copiado, setCopiado] = useState(false);
   // Las sugerencias solo aparecen cuando se piden con el botón 💡.
   const [sugerencias, setSugerencias] = useState(false);
+  // "Cómo se hace": la ficha del tipo de pieza, también a petición.
+  const [ficha, setFicha] = useState(false);
   // Zoom de impresión calculado por contenido: la infografía entra completa
   // en una página A4 horizontal mientras siga legible; si quedaría demasiado
   // chica, se ajusta solo al ancho y fluye a varias páginas. (Antes era un
@@ -286,7 +289,15 @@ export default function GeneradorInfografiaTV() {
           {!EMBEDDED && tab("set", Monitor, "Set")}
           {!EMBEDDED && tab("escaleta", Clapperboard, "Escaleta")}
         </div>}
-        <button onClick={() => setSugerencias((v) => !v)}
+        <button onClick={() => { setFicha((v) => !v); setSugerencias(false); }}
+          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold"
+          title="Cómo se hace el tipo de pieza que estás haciendo: por dónde empezar, cuánto dura y qué revisar."
+          style={ficha
+            ? { background: "#1D6FD1", color: "#fff" }
+            : { background: "#fff", color: INK, border: "1px solid #C8D2DE" }}>
+          📖 Cómo se hace
+        </button>
+        <button onClick={() => { setSugerencias((v) => !v); setFicha(false); }}
           className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold"
           title="Revisa tu proyecto y explica qué convendría ajustar. No cambia nada por su cuenta."
           style={sugerencias
@@ -328,6 +339,7 @@ export default function GeneradorInfografiaTV() {
         </div>
       )}
       {sugerencias && <PanelSugerencias cfg={cfg} setCfg={readonly ? undefined : setCfg} onClose={() => setSugerencias(false)} />}
+      {ficha && <PanelFicha cfg={cfg} setCfg={readonly ? undefined : setCfg} onClose={() => setFicha(false)} />}
     </div>
   );
 }

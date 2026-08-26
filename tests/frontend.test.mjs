@@ -12,6 +12,7 @@ import {
 } from '../web-sources/generador-tv/src/iluminacion.js';
 import { ESTRUCTURAS, loglineDe, escenasDe, alertasDe, planoPorEncuadre, anguloPorPercepcion, sincronizarPersonajes, construirProyectoNarrativo } from '../web-sources/generador-tv/src/narrativa.js';
 import { revisar, escalaDePlano, NIVELES } from '../web-sources/generador-tv/src/sugerencias.js';
+import { FICHAS, fichasDe } from '../web-sources/generador-tv/src/fichas.js';
 import { objetivoDe, normalizeCfg } from '../web-sources/generador-tv/src/proyecto.js';
 import { escaletaEnVivoDe, TIPOS_PROGRAMA, construirEscaletaEnVivo } from '../web-sources/generador-tv/src/envivo.js';
 import {
@@ -637,4 +638,130 @@ test('escribir antes de una marca la recorre: el resaltado no se despega', () =>
 
 test('un texto sin marcas devuelve un solo trozo sin color', () => {
   assert.deepEqual(trozosMarcados('Hola', []), [{ texto: 'Hola', color: null }]);
+});
+
+/* ---------------- Reglas de ritmo (duración como serie) ----------------
+Criterios tomados del cuaderno «2. Guion y narrativa»: el tempo se mide por
+cuánto VARÍA la duración de las escenas, no por su valor absoluto. */
+
+// Escaleta de n segmentos, todos de la misma duración salvo los que se indiquen.
+const escaletaDe = (durs) => ({
+  escaleta: durs.map((dur, i) => ({ id: `s${i}`, segmento: `Bloque ${i + 1}`, dur })),
+});
+
+test('ritmo plano: escenas todas iguales piden contraste', () => {
+  const avisos = revisar(escaletaDe([60, 60, 60, 60, 60])).filter((a) => a.regla === 'ritmo-plano');
+  assert.equal(avisos.length, 1);
+  assert.equal(avisos[0].nivel, 'recomendacion');
+  assert.match(avisos[0].porque, /contraste/);
+});
+
+test('ritmo plano: si las duraciones varían, la regla calla', () => {
+  const reglas = reglasDe(escaletaDe([20, 90, 45, 150, 30]));
+  assert.ok(!reglas.includes('ritmo-plano'));
+});
+
+test('ritmo plano: con menos de cuatro segmentos no opina', () => {
+  const reglas = reglasDe(escaletaDe([60, 60, 60]));
+  assert.ok(!reglas.includes('ritmo-plano'));
+});
+
+test('final sin acelerar: el último tercio mucho más largo que el primero', () => {
+  const avisos = revisar(escaletaDe([20, 20, 30, 40, 90, 100]))
+    .filter((a) => a.regla === 'final-sin-acelerar');
+  assert.equal(avisos.length, 1);
+  assert.match(avisos[0].problema, /más lento/);
+});
+
+test('final sin acelerar: si el final se acorta, no dice nada', () => {
+  const reglas = reglasDe(escaletaDe([100, 90, 60, 40, 20, 15]));
+  assert.ok(!reglas.includes('final-sin-acelerar'));
+});
+
+test('texto que no cabe: avisa cuántos segundos faltan', () => {
+  // 120 palabras necesitan ~48 s a 2.5 palabras/segundo; el bloque dura 10.
+  const cfg = { escaleta: [{ id: 'a', segmento: 'Apertura', dur: 10,
+    nota: Array.from({ length: 120 }, (_, i) => `palabra${i}`).join(' ') }] };
+  const avisos = revisar(cfg).filter((a) => a.regla === 'texto-no-cabe');
+  assert.equal(avisos.length, 1);
+  assert.equal(avisos[0].nivel, 'precaucion');
+  assert.match(avisos[0].motivo, /120 palabras/);
+  assert.match(avisos[0].porque, /150 palabras por minuto/);
+});
+
+test('texto que no cabe: un texto que sí entra en el tiempo no genera aviso', () => {
+  const cfg = { escaleta: [{ id: 'a', segmento: 'Apertura', dur: 60,
+    nota: Array.from({ length: 100 }, (_, i) => `palabra${i}`).join(' ') }] };
+  assert.ok(!reglasDe(cfg).includes('texto-no-cabe'));
+});
+
+test('las reglas de ritmo también traen los cuatro campos y nivel válido', () => {
+  const avisos = revisar(escaletaDe([60, 60, 60, 60, 60]));
+  avisos.forEach((a) => {
+    assert.ok(NIVELES[a.nivel]);
+    ['problema', 'motivo', 'accion', 'porque'].forEach((c) => assert.ok(String(a[c] || '').trim()));
+  });
+});
+
+/* ------------------- Fichas de "cómo se hace" -------------------
+No hay buscador: la ficha se deduce de lo que el proyecto ya declara — su tipo
+(cfg.narrativa.tipo) y dónde se va a publicar (cfg.perfil.medios). */
+
+const idsDe = (cfg) => fichasDe(cfg).map((f) => f.id);
+
+test('cada ficha trae los seis apartados llenos y dice de qué cuaderno viene', () => {
+  assert.ok(FICHAS.length >= 7, `se esperaban 7 fichas, hay ${FICHAS.length}`);
+  FICHAS.forEach((f) => {
+    assert.ok(String(f.titulo || '').trim(), `${f.id} sin título`);
+    assert.ok(String(f.fuente || '').trim(), `${f.id} no dice de qué cuaderno viene`);
+    ['empezar', 'pasos', 'estructura', 'duracion', 'errores', 'revisa'].forEach((c) => {
+      const v = f[c];
+      const lleno = Array.isArray(v) ? v.length > 0 : String(v || '').trim().length > 0;
+      assert.ok(lleno, `${f.id} tiene vacío el apartado ${c}`);
+    });
+  });
+});
+
+test('el tipo de proyecto elige la ficha, sin que el usuario busque nada', () => {
+  assert.equal(idsDe({ modo: 'narrative', narrativa: { tipo: 'videoclip' } })[0], 'videoclip');
+  assert.equal(idsDe({ modo: 'narrative', narrativa: { tipo: 'publicidad' } })[0], 'comercial');
+  assert.equal(idsDe({ modo: 'narrative', narrativa: { tipo: 'ficcion' } })[0], 'narrativo');
+  assert.equal(idsDe({ modo: 'live', narrativa: { tipo: 'estudio' } })[0], 'envivo');
+});
+
+test('un proyecto en vivo sin tipo declarado cae en la ficha de en vivo', () => {
+  assert.equal(idsDe({ modo: 'live' })[0], 'envivo');
+});
+
+test('un proyecto narrativo sin tipo declarado cae en la ficha de guion', () => {
+  assert.equal(idsDe({ modo: 'narrative' })[0], 'narrativo');
+});
+
+test('el medio donde se publica suma su propia ficha de formato', () => {
+  const spotEnTikTok = { modo: 'narrative', narrativa: { tipo: 'publicidad' },
+    perfil: { medios: ['TikTok'] } };
+  assert.deepEqual(idsDe(spotEnTikTok).slice(0, 2), ['comercial', 'tiktok']);
+
+  const clipEnReels = { modo: 'narrative', narrativa: { tipo: 'videoclip' },
+    perfil: { medios: ['Instagram / Reels'] } };
+  assert.deepEqual(idsDe(clipEnReels).slice(0, 2), ['videoclip', 'reel']);
+});
+
+test('preparar el rodaje se ofrece siempre, y al final', () => {
+  [{ modo: 'live' }, { modo: 'narrative', narrativa: { tipo: 'ficcion' } }].forEach((cfg) => {
+    const ids = idsDe(cfg);
+    assert.equal(ids[ids.length - 1], 'rodaje');
+  });
+});
+
+test('ninguna ficha se repite aunque el tipo y el medio coincidan', () => {
+  const ids = idsDe({ modo: 'narrative', narrativa: { tipo: 'publicidad' },
+    perfil: { medios: ['TikTok', 'TikTok', 'Instagram / Reels'] } });
+  assert.deepEqual(ids, [...new Set(ids)]);
+});
+
+test('un proyecto vacío o sin datos no rompe: siempre devuelve algo que leer', () => {
+  [null, undefined, {}, { perfil: {} }].forEach((cfg) => {
+    assert.ok(fichasDe(cfg).length > 0, 'debería ofrecer al menos una ficha');
+  });
 });

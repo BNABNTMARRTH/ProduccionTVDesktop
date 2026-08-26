@@ -356,6 +356,77 @@ export function vtrSinRetorno(cfg) {
   }));
 }
 
+/* ============================ REGLAS DE RITMO ============================
+Estas tres miran la DURACIÓN de los segmentos como serie, no uno por uno. El
+fundamento viene del cuaderno «2. Guion y narrativa» (NotebookLM, ago-2026), en
+particular del análisis cuantitativo de guiones de Murtagh, Ganz y McKie («The
+structure of narrative: the case of film scripts», arXiv:0805.3799), que mide el
+tempo con la variación de la longitud de las escenas. */
+
+// Palabras que se leen por segundo en locución natural (unas 150 por minuto).
+const PALABRAS_POR_SEGUNDO = 2.5;
+
+const palabrasDe = (t) => String(t || '').trim().split(/\s+/)
+  .filter((p) => /[\p{L}\p{N}]/u.test(p)).length;
+
+// Desviación estándar relativa: cuánto varían las duraciones entre sí,
+// independientemente de si el programa es corto o largo. 0 = todas iguales.
+function dispersionDeDuraciones(durs) {
+  const n = durs.filter((d) => d > 0);
+  if (n.length < 2) return 0;
+  const media = n.reduce((a, b) => a + b, 0) / n.length;
+  if (!media) return 0;
+  return Math.sqrt(n.reduce((a, b) => a + (b - media) ** 2, 0) / n.length) / media;
+}
+
+// «Todas tus escenas duran casi lo mismo: el ritmo queda plano.»
+export function ritmoPlano(cfg) {
+  const durs = segmentosDe(cfg).map((s) => s.dur || 0).filter((d) => d > 0);
+  if (durs.length < 4) return [];
+  const disp = dispersionDeDuraciones(durs);
+  if (disp >= 0.25) return [];
+  return [aviso({
+    id: 'ritmo-plano', regla: 'ritmo-plano', nivel: 'recomendacion',
+    problema: 'Todas las escenas duran casi lo mismo',
+    motivo: `Los ${durs.length} segmentos rondan los ${fmtSeg(durs.reduce((a, b) => a + b, 0) / durs.length)} cada uno, con muy poca diferencia entre ellos.`,
+    accion: 'Alterna duraciones: deja respirar las escenas que lo necesitan y recorta las de trámite.',
+    porque: 'El ritmo se percibe por contraste, no por velocidad. Cuando todas las escenas miden igual el espectador deja de notar dónde está lo importante, y la pieza se siente monótona aunque cada escena por separado esté bien.',
+  })];
+}
+
+// «El final va más lento que el principio.»
+export function finalSinAcelerar(cfg) {
+  const durs = segmentosDe(cfg).map((s) => s.dur || 0).filter((d) => d > 0);
+  if (durs.length < 6) return [];
+  const corte = Math.floor(durs.length / 3);
+  const media = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+  const inicio = media(durs.slice(0, corte));
+  const final = media(durs.slice(-corte));
+  if (!inicio || final / inicio <= 1.5) return [];
+  return [aviso({
+    id: 'final-lento', regla: 'final-sin-acelerar', nivel: 'recomendacion',
+    problema: 'El final va más lento que el principio',
+    motivo: `Las últimas escenas promedian ${fmtSeg(final)} y las primeras ${fmtSeg(inicio)}.`,
+    accion: 'Acorta las escenas del tramo final, o mueve al principio lo que solo explica.',
+    porque: 'Al acercarse el cierre las escenas suelen acortarse: los cortes más seguidos acumulan tensión. Si el final es la parte más lenta, el remate llega desinflado.',
+  })];
+}
+
+// «El texto que escribiste no cabe en el tiempo que le diste al segmento.»
+export function textoNoCabeEnTiempo(cfg) {
+  const largos = segmentosDe(cfg)
+    .map((s, i) => ({ s, ref: i + 1, pal: palabrasDe(s.nota), dur: s.dur || 0 }))
+    .filter(({ pal, dur }) => dur > 0 && pal > 0 && pal > dur * PALABRAS_POR_SEGUNDO * 1.15);
+  return largos.slice(0, 3).map(({ s, ref, pal, dur }) => aviso({
+    id: `texto-largo-${s.id || ref}`, regla: 'texto-no-cabe', nivel: 'precaucion',
+    problema: 'El texto no cabe en el tiempo del segmento',
+    motivo: `El segmento ${ref} («${s.segmento || 'sin título'}») dura ${fmtSeg(dur)}, pero sus ${pal} palabras necesitan cerca de ${fmtSeg(Math.ceil(pal / PALABRAS_POR_SEGUNDO))} para leerse a ritmo normal.`,
+    accion: `Recorta el texto o dale al segmento unos ${fmtSeg(Math.ceil(pal / PALABRAS_POR_SEGUNDO) - dur)} más.`,
+    porque: 'A ritmo natural se leen unas 150 palabras por minuto. Si el texto excede el tiempo, en grabación se resuelve acelerando la locución, y eso se nota: el presentador suena atropellado y el público deja de entender.',
+    refs: [String(ref)],
+  }));
+}
+
 /* ============================ Punto de entrada ============================ */
 
 const REGLAS = [
@@ -363,6 +434,8 @@ const REGLAS = [
   ritmoDePlanos, planosCerradosSeguidos, faltanPlanosRecurso, musicaSobreDialogo, dialogoSinAudio,
   // Narrativas
   escenasSinCambio, saltosInteriorExterior,
+  // Ritmo de la escaleta (duración como serie)
+  ritmoPlano, finalSinAcelerar, textoNoCabeEnTiempo,
   // En vivo
   duracionContraObjetivo, camarasConMismoEncuadre, sinResponsableDeCorte, vtrSinRetorno,
 ];
