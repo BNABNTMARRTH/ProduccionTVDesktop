@@ -11,7 +11,7 @@ const COLOR = {
   recomendacion: { fondo: "rgba(88,168,255,.14)", texto: "#8FC2FF", borde: "rgba(88,168,255,.40)" },
 };
 
-export function PanelSugerencias({ cfg, setCfg, onClose }) {
+export function PanelSugerencias({ cfg, setCfg, onClose, embebido = false }) {
   const todos = useMemo(() => revisar(cfg), [cfg]);
   const [ignorados, setIgnorados] = useState(() => new Set());
   const [abierto, setAbierto] = useState(null);
@@ -32,11 +32,12 @@ export function PanelSugerencias({ cfg, setCfg, onClose }) {
     .filter((c) => c.total);
 
   return (
-    <div className="no-print fixed z-40 flex flex-col rounded-2xl border shadow-2xl"
-      style={{
+    <div className={embebido ? "flex flex-col min-h-0 flex-1" : "no-print fixed z-40 flex flex-col rounded-2xl border shadow-2xl"}
+      style={embebido ? undefined : {
         right: 18, bottom: 18, width: "min(400px, calc(100vw - 36px))", maxHeight: "min(72vh, 620px)",
         borderColor: "#2F5C91", background: "linear-gradient(150deg,#15304F,#0C1D31)", color: "#E8EEF8",
       }}>
+      {!embebido && (
       <div className="flex items-center gap-2 px-4 pt-3.5 pb-2">
         <span className="grid place-items-center rounded-lg" style={{ width: 26, height: 26, background: "rgba(88,168,255,.18)", fontSize: 14 }}>💡</span>
         <b className="text-sm">Sugerencias</b>
@@ -45,6 +46,7 @@ export function PanelSugerencias({ cfg, setCfg, onClose }) {
           <X size={16} />
         </button>
       </div>
+      )}
 
       {cuenta.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-4 pb-2.5">

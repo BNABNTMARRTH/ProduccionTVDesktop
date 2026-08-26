@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
-  BookOpen, Check, Clapperboard, Eye, Lightbulb, Link2, Monitor, Pencil, Redo2, Share2, Undo2,
+  Check, Clapperboard, Compass, Eye, Link2, Monitor, Pencil, Redo2, Share2, Undo2,
 } from "lucide-react";
 import LZString from "lz-string";
 import { uid, slug } from "./util.js";
@@ -11,14 +11,24 @@ import { VistaEscaleta } from "./VistaEscaleta.jsx";
 import { Infografia } from "./Infografia.jsx";
 import { Editor } from "./Editor.jsx";
 import { EditorGuion } from "./EditorGuion.jsx";
-import { PanelSugerencias } from "./PanelSugerencias.jsx";
-import { PanelFicha } from "./PanelFicha.jsx";
+import { PanelGuia } from "./PanelGuia.jsx";
 import { DEMO, normalizeCfg, esNarrativo } from "./proyecto.js";
 import { VistaSet } from "./VistaSet.jsx";
 
 // Modos que entiende el puente con el escritorio. Los tres últimos son ETAPAS:
 // el editor completo filtrado a las tarjetas de esa etapa.
 const GRUPOS = ["perfil", "necesidades", "tiempos"];
+/* De la idea a lo real: qué gelatina le toca a cada pantalla.
+   1 azul (la idea sin cuerpo) · 2 verde (se inventa) · 3 ámbar (aterriza)
+   4 naranja (tiene fecha) · 5 rojo (al aire). */
+const ETAPA_DE = {
+  perfil: 1, editar: 1, vista: 1,
+  guion: 2, escaleta: 2, tiempos: 2,
+  necesidades: 3, diagrama: 3,
+  set: 4, guias: 4,
+  production: 5,
+};
+
 const MODOS = ["editar", "vista", "set", "escaleta", "guion", ...GRUPOS];
 
 /* ----------------------------- Tokens / utilidades ----------------------------- */
@@ -98,10 +108,10 @@ export default function GeneradorInfografiaTV() {
   const [proyectos, setProyectos] = useState([]);
   const [cargado, setCargado] = useState(false);
   const [copiado, setCopiado] = useState(false);
-  // Las sugerencias solo aparecen cuando se piden con el botón 💡.
-  const [sugerencias, setSugerencias] = useState(false);
-  // "Cómo se hace": la ficha del tipo de pieza, también a petición.
-  const [ficha, setFicha] = useState(false);
+  // La guía: una sola puerta con dos respuestas. 'ficha' = cómo se hace este
+  // tipo de pieza; 'sugerencias' = qué le falta a ESTE proyecto. Antes eran
+  // dos botones separados y era partir la misma pregunta en dos.
+  const [guia, setGuia] = useState(null);
   // Zoom de impresión calculado por contenido: la infografía entra completa
   // en una página A4 horizontal mientras siga legible; si quedaría demasiado
   // chica, se ajusta solo al ancho y fluye a varias páginas. (Antes era un
@@ -236,7 +246,10 @@ export default function GeneradorInfografiaTV() {
   const base = typeof window !== "undefined" ? window.location.origin + window.location.pathname : "";
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--fondo)", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+    <div className="min-h-screen" data-etapa={ETAPA_DE[modo] || 1}
+      style={{ background: "var(--yeso)", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      {/* La pared de yeso, con su grano y la luz de la etapa. Va detrás de todo. */}
+      <div className="pared" aria-hidden="true" />
       <style>{`
         .cond { font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif; }
         details > summary::-webkit-details-marker { display: none; }
@@ -293,15 +306,10 @@ export default function GeneradorInfografiaTV() {
           {!EMBEDDED && tab("set", Monitor, "Set")}
           {!EMBEDDED && tab("escaleta", Clapperboard, "Escaleta")}
         </div>}
-        <button onClick={() => { setFicha((v) => !v); setSugerencias(false); }}
-          className="b b-chip" aria-pressed={ficha}
-          title="Cómo se hace el tipo de pieza que estás haciendo: por dónde empezar, cuánto dura y qué revisar.">
-          <BookOpen size={14} /> Cómo se hace
-        </button>
-        <button onClick={() => { setSugerencias((v) => !v); setFicha(false); }}
-          className="b b-chip" aria-pressed={sugerencias}
-          title="Revisa tu proyecto y explica qué convendría ajustar. No cambia nada por su cuenta.">
-          <Lightbulb size={14} /> Sugerencias
+        <button onClick={() => setGuia((v) => (v ? null : "ficha"))}
+          className="b b-chip" aria-pressed={!!guia}
+          title="Cómo se hace este tipo de pieza y qué le falta a la tuya.">
+          <Compass size={14} /> Guía
         </button>
         {!readonly && !EMBEDDED && (
           <button onClick={compartir} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold text-white"
@@ -336,8 +344,10 @@ export default function GeneradorInfografiaTV() {
           </p>
         </div>
       )}
-      {sugerencias && <PanelSugerencias cfg={cfg} setCfg={readonly ? undefined : setCfg} onClose={() => setSugerencias(false)} />}
-      {ficha && <PanelFicha cfg={cfg} setCfg={readonly ? undefined : setCfg} onClose={() => setFicha(false)} />}
+      {guia && (
+        <PanelGuia cfg={cfg} setCfg={readonly ? undefined : setCfg}
+          pestana={guia} setPestana={setGuia} onClose={() => setGuia(null)} />
+      )}
     </div>
   );
 }

@@ -126,6 +126,7 @@ const primeraVista = (etapa, modo) => (seccionesDe(etapa, modo)[0] || etapa.secc
 const showWelcome = !localStorage.getItem(WELCOME_KEY);
 
 document.querySelector('#app').innerHTML = `
+  <div class="pared" aria-hidden="true"></div>
   <div class="desktop-shell">
     <nav class="rail" id="rail" aria-label="Herramientas">
       <img class="rail-logo" src="${appIcon}" alt="">
@@ -290,6 +291,11 @@ function renderNav() {
     renderModo();
     const etapa = etapaPorId(etapaActiva());
     railButtons.forEach((b) => b.classList.toggle('active', b.dataset.etapa === etapa?.id));
+    // DE LA IDEA A LO REAL: la etapa activa decide la temperatura de TODA la
+    // pantalla — la luz que baña la pared, el vidrio del rail, los botones y
+    // el foco de los campos. La app se calienta conforme el proyecto se vuelve
+    // real: 1 azul (una idea) → 5 rojo (al aire).
+    document.documentElement.dataset.etapa = etapa?.n || '1';
     // Una sola sección: no hay nada que elegir, la barra sobra.
     const modo = normalizeMode(latestInfografia?.modo);
     const lista = seccionesDe(etapa, modo);
