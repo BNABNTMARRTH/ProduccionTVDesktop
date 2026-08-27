@@ -219,13 +219,21 @@ const toolInfo = {
    hay que mandárselo por el mismo puente que ya usa todo lo demás. */
 const TEMA_LLAVE = 'ptv:tema';
 const leerTema = () => { try { return localStorage.getItem(TEMA_LLAVE) || ''; } catch { return ''; } };
-const temaEfectivo = () => leerTema()
-  || (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'oscuro' : 'claro');
+const prefiereOscuro = () => !!window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+
+/* LO QUE SE ESTÁ VIENDO AHORA. La única verdad es el DOM, no lo guardado.
+   Antes el botón calculaba el siguiente tema leyendo localStorage, y si el
+   almacenamiento no persiste —pasa en algunos WebView, y ahí setItem lanza y
+   el try/catch se lo traga— siempre calculaba el MISMO destino: funcionaba
+   una vez y se atoraba. Leyendo el DOM alterna aunque no se pueda guardar
+   nada; lo único que se pierde entonces es recordarlo al reabrir. */
+const temaActual = () => document.documentElement.dataset.tema
+  || (prefiereOscuro() ? 'oscuro' : 'claro');
 
 function aplicarTema(tema) {
   if (tema) document.documentElement.dataset.tema = tema;
   else delete document.documentElement.dataset.tema;
-  const oscuro = temaEfectivo() === 'oscuro';
+  const oscuro = temaActual() === 'oscuro';
   const btn = document.querySelector('#tema-btn');
   if (btn) {
     btn.innerHTML = icono(oscuro ? 'luna' : 'sol', 17);
@@ -233,12 +241,12 @@ function aplicarTema(tema) {
   }
   // Al iframe hay que decírselo: no comparte hoja de estilos con el marco.
   document.querySelectorAll('iframe').forEach((f) => {
-    try { f.contentWindow?.postMessage({ type: 'producciontv:tema', tema: temaEfectivo() }, '*'); } catch {}
+    try { f.contentWindow?.postMessage({ type: 'producciontv:tema', tema: temaActual() }, '*'); } catch {}
   });
 }
 
 function alternarTema() {
-  const nuevo = temaEfectivo() === 'oscuro' ? 'claro' : 'oscuro';
+  const nuevo = temaActual() === 'oscuro' ? 'claro' : 'oscuro';
   try { localStorage.setItem(TEMA_LLAVE, nuevo); } catch {}
   aplicarTema(nuevo);
 }

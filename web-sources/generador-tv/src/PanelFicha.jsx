@@ -13,7 +13,7 @@ import { fichasDe } from "./fichas.js";
 // Lo único que escribe en el proyecto es el checklist: las casillas que marcas
 // se guardan en cfg.revisado, para que al volver sepas por dónde ibas.
 
-const AZUL = "#8FC2FF";
+const AZUL = "var(--e1-t)";
 
 export function PanelFicha({ cfg, setCfg, onClose, embebido = false }) {
   const fichas = useMemo(() => fichasDe(cfg), [cfg]);
@@ -32,14 +32,14 @@ export function PanelFicha({ cfg, setCfg, onClose, embebido = false }) {
   };
 
   const Bloque = ({ titulo, children }) => (
-    <div className="rounded-xl px-3.5 py-3" style={{ background: "rgba(143,194,255,.07)", border: "1px solid rgba(143,194,255,.16)" }}>
+    <div className="rounded-xl px-3.5 py-3" style={{ background: "var(--vidrio-a)", border: "1px solid var(--linea)" }}>
       <div className="mb-1.5 text-[10px] font-black uppercase tracking-wider" style={{ color: AZUL }}>{titulo}</div>
       {children}
     </div>
   );
 
   const listaNumerada = (items) => (
-    <ol className="m-0 list-decimal pl-4 text-[12.5px] leading-relaxed" style={{ color: "#DBE7F5" }}>
+    <ol className="m-0 list-decimal pl-4 text-[12.5px] leading-relaxed" style={{ color: "var(--tinta)" }}>
       {items.map((t, i) => <li key={i} className="my-1">{t}</li>)}
     </ol>
   );
@@ -48,14 +48,14 @@ export function PanelFicha({ cfg, setCfg, onClose, embebido = false }) {
     <div className={embebido ? "flex flex-col min-h-0 flex-1" : "no-print fixed z-40 flex flex-col rounded-2xl border shadow-2xl"}
       style={embebido ? undefined : {
         right: 18, bottom: 18, width: "min(400px, calc(100vw - 36px))", maxHeight: "min(72vh, 620px)",
-        borderColor: "#2F5C91", background: "linear-gradient(150deg,#15304F,#0C1D31)", color: "#E8EEF8",
+        borderColor: "#2F5C91", background: "linear-gradient(150deg,#15304F,#0C1D31)", color: "var(--tinta)",
       }}>
       {!embebido && (
       <div className="flex items-center gap-2 px-4 pt-3.5 pb-2">
-        <span className="grid place-items-center rounded-lg" style={{ width: 26, height: 26, background: "rgba(88,168,255,.18)", fontSize: 14 }}>📖</span>
+        <span className="grid place-items-center rounded-lg" style={{ width: 26, height: 26, background: "color-mix(in srgb, var(--e1) 16%, var(--yeso))", fontSize: 14 }}>📖</span>
         <b className="text-sm">Cómo se hace</b>
         <button onClick={onClose} title="Cerrar" className="ml-auto rounded-md p-1"
-          style={{ color: "#9FB6D4", background: "transparent", border: "none", cursor: "pointer" }}>
+          style={{ color: "var(--tinta-baja)", background: "transparent", border: "none", cursor: "pointer" }}>
           <X size={16} />
         </button>
       </div>
@@ -67,8 +67,8 @@ export function PanelFicha({ cfg, setCfg, onClose, embebido = false }) {
             <button key={x.id} onClick={() => setActiva(i)}
               className="rounded-full px-2.5 py-1 text-[11px] font-bold"
               style={i === activa
-                ? { background: "rgba(88,168,255,.22)", color: "#CFE4FF", border: "1px solid rgba(88,168,255,.5)" }
-                : { background: "transparent", color: "#9FB6D4", border: "1px solid rgba(143,194,255,.22)", cursor: "pointer" }}>
+                ? { background: "var(--e1-f)", color: "#fff", border: "1px solid var(--e1-f)" }
+                : { background: "transparent", color: "var(--tinta-baja)", border: "1px solid var(--linea)", cursor: "pointer" }}>
               {x.titulo}
             </button>
           ))}
@@ -77,18 +77,18 @@ export function PanelFicha({ cfg, setCfg, onClose, embebido = false }) {
 
       <div className="flex flex-col gap-2.5 overflow-y-auto px-4 pb-4" style={{ scrollbarWidth: "thin" }}>
         <Bloque titulo="Por dónde empezar">
-          <p className="m-0 text-[12.5px] leading-relaxed" style={{ color: "#fff" }}>{f.empezar}</p>
+          <p className="m-0 text-[12.5px] leading-relaxed" style={{ color: "var(--tinta)" }}>{f.empezar}</p>
         </Bloque>
 
         <Bloque titulo="Paso a paso">{listaNumerada(f.pasos)}</Bloque>
         <Bloque titulo="Cómo se arma">{listaNumerada(f.estructura)}</Bloque>
 
         <Bloque titulo="Cuánto dura">
-          <p className="m-0 text-[12.5px] leading-relaxed" style={{ color: "#DBE7F5" }}>{f.duracion}</p>
+          <p className="m-0 text-[12.5px] leading-relaxed" style={{ color: "var(--tinta)" }}>{f.duracion}</p>
         </Bloque>
 
         <Bloque titulo="Errores que se repiten">
-          <ul className="m-0 list-disc pl-4 text-[12.5px] leading-relaxed" style={{ color: "#DBE7F5" }}>
+          <ul className="m-0 list-disc pl-4 text-[12.5px] leading-relaxed" style={{ color: "var(--tinta)" }}>
             {f.errores.map((t, i) => <li key={i} className="my-1">{t}</li>)}
           </ul>
         </Bloque>
@@ -99,7 +99,7 @@ export function PanelFicha({ cfg, setCfg, onClose, embebido = false }) {
               const listo = !!marcados[`${f.id}:${i}`];
               return (
                 <label key={i} className="flex cursor-pointer items-start gap-2 text-[12.5px] leading-relaxed"
-                  style={{ color: listo ? "#8FD6A8" : "#DBE7F5", cursor: editable ? "pointer" : "default" }}>
+                  style={{ color: listo ? "var(--e2-t)" : "var(--tinta)", cursor: editable ? "pointer" : "default" }}>
                   <input type="checkbox" checked={listo} onChange={() => alternar(i)} disabled={!editable}
                     style={{ marginTop: 3, accentColor: "#1FA14E", width: 13, height: 13 }} />
                   <span style={{ textDecoration: listo ? "line-through" : "none", opacity: listo ? 0.75 : 1 }}>{t}</span>
@@ -109,7 +109,7 @@ export function PanelFicha({ cfg, setCfg, onClose, embebido = false }) {
           </div>
         </Bloque>
 
-        <p className="m-0 pt-0.5 text-[10.5px] leading-relaxed" style={{ color: "#7F97B8" }}>
+        <p className="m-0 pt-0.5 text-[10.5px] leading-relaxed" style={{ color: "var(--tinta-baja)" }}>
           De la investigación reunida en el cuaderno «{f.fuente}».
         </p>
       </div>

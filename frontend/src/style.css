@@ -32,7 +32,7 @@
    Tres estados: sin elección manda el sistema, con elección manda data-tema. */
 @media (prefers-color-scheme: dark){
   :root:not([data-tema="claro"]){
-    --yeso:#1C1A18; --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#9C968B;
+    --yeso:#1C1A18; --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#A8A297;
     --linea:rgba(255,255,255,.09);
     --e1-t:#8FC4F7; --e2-t:#5CE0A0; --e3-t:#FFC569; --e4-t:#FF9A6B; --e5-t:#FF8A8E;
     --vidrio-a:rgba(255,255,255,.10); --vidrio-b:rgba(255,255,255,.045);
@@ -41,7 +41,7 @@
   }
 }
 :root[data-tema="oscuro"]{
-  --yeso:#1C1A18; --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#9C968B;
+  --yeso:#1C1A18; --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#A8A297;
   --linea:rgba(255,255,255,.09);
   --e1-t:#8FC4F7; --e2-t:#5CE0A0; --e3-t:#FFC569; --e4-t:#FF9A6B; --e5-t:#FF8A8E;
   --vidrio-a:rgba(255,255,255,.10); --vidrio-b:rgba(255,255,255,.045);
