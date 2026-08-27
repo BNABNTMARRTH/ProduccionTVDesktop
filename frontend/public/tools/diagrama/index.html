@@ -916,6 +916,13 @@ function syncFromInfografia(cfg){
 }
 
 window.addEventListener('message',event=>{
+    // El tema viaja del marco a la herramienta: son documentos distintos y
+    // esta no hereda nada. Sin esto arrancaría siempre en claro.
+    if (event.data?.type === 'producciontv:tema') {
+      const t = event.data.tema;
+      if (t === 'claro' || t === 'oscuro') document.documentElement.dataset.tema = t;
+      else delete document.documentElement.dataset.tema;
+    }
   if(event.data&&event.data.type==='producciontv:request-project'){
     window.parent.postMessage({
       type:'producciontv:project-data',

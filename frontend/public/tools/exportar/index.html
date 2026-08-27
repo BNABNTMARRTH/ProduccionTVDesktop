@@ -7,35 +7,90 @@
 <link rel="stylesheet" href="../shared/sheets.css">
 <style>
   *{box-sizing:border-box}
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#25313f;color:#15233D}
-  .layout{display:grid;grid-template-columns:320px minmax(0,1fr);min-height:100vh}
+  /* ============================================================================
+     Exportar habla el mismo idioma que la app: yeso, vidrio y la gelatina de
+     la etapa. Aquí la etapa es la 4 (2400 K, media hora antes): los documentos
+     son el último paso antes de rodar.
+     LAS HOJAS SE QUEDAN BLANCAS. Son papel y se imprimen; el tema no las toca.
+     ============================================================================ */
+  :root{
+    --yeso:#F1EEE8; --tinta:#171512; --tinta-media:#57534B; --tinta-baja:#625D55;
+    --linea:rgba(23,21,18,.08);
+    --gel:#D9602B; --gel-t:#8F3A11; --gel-f:#8F3A11;
+    --vidrio-a:rgba(255,255,255,.78); --vidrio-b:rgba(255,255,255,.52);
+    --vidrio-borde:rgba(255,255,255,.75); --vidrio-filo:rgba(255,255,255,.95);
+    --hueco-fondo:rgba(255,255,255,.55); --grano:.5;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-tema="claro"]){
+      --yeso:#1C1A18; --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#A8A297;
+      --linea:rgba(255,255,255,.09); --gel-t:#FF9A6B;
+      --vidrio-a:rgba(255,255,255,.10); --vidrio-b:rgba(255,255,255,.045);
+      --vidrio-borde:rgba(255,255,255,.14); --vidrio-filo:rgba(255,255,255,.16);
+      --hueco-fondo:rgba(0,0,0,.28); --grano:.30;
+    }
+  }
+  :root[data-tema="oscuro"]{
+    --yeso:#1C1A18; --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#A8A297;
+    --linea:rgba(255,255,255,.09); --gel-t:#FF9A6B;
+    --vidrio-a:rgba(255,255,255,.10); --vidrio-b:rgba(255,255,255,.045);
+    --vidrio-borde:rgba(255,255,255,.14); --vidrio-filo:rgba(255,255,255,.16);
+    --hueco-fondo:rgba(0,0,0,.28); --grano:.30;
+  }
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+    background:var(--yeso);color:var(--tinta)}
+  /* La pared: el yeso con su grano y la luz de la etapa. */
+  .pared{position:fixed;inset:0;z-index:0;pointer-events:none}
+  .pared::before{content:"";position:absolute;inset:0;
+    background:radial-gradient(70% 55% at 10% 0%,rgba(217,96,43,.20),transparent 62%),
+               radial-gradient(90% 70% at 100% 100%,rgba(217,96,43,.09),transparent 68%)}
+  .pared::after{content:"";position:absolute;inset:0;opacity:var(--grano);mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E")}
+  .layout{position:relative;z-index:1;display:grid;grid-template-columns:340px minmax(0,1fr);min-height:100vh}
   /* Panel de configuración */
-  .config{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;display:flex;flex-direction:column;gap:18px;padding:18px 16px;background:#0d1b2e;color:#dce8f8;border-right:1px solid #2a3e58}
-  .config h1{margin:0;font-size:15px;text-transform:uppercase;letter-spacing:1px;color:#fff}
-  .config h2{margin:0 0 8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#62adff}
+  .config{position:sticky;top:0;align-self:start;height:calc(100vh - 28px);margin:14px 0 14px 14px;overflow:auto;
+    display:flex;flex-direction:column;gap:18px;padding:20px 18px;color:var(--tinta);border-radius:20px;
+    background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));
+    -webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
+    border:1px solid var(--vidrio-borde);
+    box-shadow:inset 0 1px 0 var(--vidrio-filo),0 20px 44px -26px rgba(0,0,0,.4)}
+  .config h1{margin:0;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.055em;color:var(--tinta)}
+  .config h2{margin:0 0 9px;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.16em;color:var(--tinta-baja)}
   .type-grid{display:flex;flex-direction:column;gap:8px}
-  .type-card{display:flex;flex-direction:column;gap:2px;text-align:left;border:1px solid #2d4564;background:#12233c;color:#e9f1fc;border-radius:11px;padding:10px 12px;cursor:pointer;font:inherit}
+  .type-card{display:flex;flex-direction:column;gap:3px;text-align:left;border:1px solid var(--vidrio-borde);
+    background:var(--vidrio-b);color:var(--tinta);border-radius:12px;padding:11px 13px;cursor:pointer;font:inherit;
+    transition:background .18s,border-color .18s,box-shadow .18s,transform .1s cubic-bezier(.2,.7,.3,1)}
+  .type-card:hover{background:var(--vidrio-a);border-color:var(--gel)}
+  .type-card:active{transform:scale(.98)}
   .type-card strong{font-size:13px}
-  .type-card small{color:#7f93ae;font-size:10.5px}
-  .type-card.selected{border-color:#58a8ff;background:#17365e;box-shadow:0 0 0 1px #58a8ff}
+  .type-card small{color:var(--tinta-baja);font-size:11px}
+  .type-card.selected{border-color:var(--gel-f);color:#fff;
+    background:linear-gradient(165deg,var(--gel),var(--gel-f));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 15px -8px var(--gel)}
+  .type-card.selected small{color:rgba(255,255,255,.88)}
   .sec-list{display:flex;flex-direction:column;gap:6px}
-  .sec-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center;border:1px solid #2d4564;background:#12233c;border-radius:9px;padding:7px 9px}
+  .sec-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center;border:1px solid var(--linea);background:var(--vidrio-b);border-radius:10px;padding:7px 9px}
   .sec-row.off{opacity:.5}
   .sec-row label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;cursor:pointer;min-width:0}
   .sec-row label span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .sec-row input{width:14px;height:14px;accent-color:#58a8ff;flex:none}
-  .sec-row button{width:24px;height:24px;border:0;border-radius:6px;background:#172c48;color:#bcd0e9;cursor:pointer;font-size:12px}
+  .sec-row input{width:15px;height:15px;accent-color:var(--gel);flex:none}
+  .sec-row button{width:26px;height:26px;border:1px solid var(--linea);border-radius:7px;background:var(--vidrio-a);color:var(--tinta-media);cursor:pointer;font-size:12px}
+  .sec-row button:hover:not(:disabled){color:var(--tinta);border-color:var(--gel)}
   .sec-row button:disabled{opacity:.3;cursor:default}
-  .pages-hint{font-size:10.5px;color:#7f93ae;line-height:1.5;margin:6px 0 0}
-  .go{margin-top:auto;border:1px solid #4f89c8;background:#1d6fd1;color:#fff;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer}
-  .go:hover{background:#2d83e6}
+  .pages-hint{font-size:11px;color:var(--tinta-baja);line-height:1.5;margin:6px 0 0}
+  .go{margin-top:auto;border:1px solid var(--gel-f);color:#fff;border-radius:11px;padding:13px;font-weight:700;font-size:15px;cursor:pointer;
+    background:linear-gradient(170deg,var(--gel),var(--gel-f));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 8px 18px -9px var(--gel);
+    transition:filter .18s,transform .1s cubic-bezier(.2,.7,.3,1)}
+  .go:active{transform:scale(.97)}
+  .go:hover:not(:disabled){filter:brightness(1.07)}
   .go:disabled{opacity:.45;cursor:default}
   /* Previsualización */
   /* Las páginas se acomodan en tantas columnas como quepan: en pantalla grande
      se revisan varias de un vistazo en lugar de una sola con aire a los lados. */
-  .preview{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,816px),1fr));justify-items:center;align-items:start;gap:22px;padding:24px 16px 60px;overflow:auto}
-  .preview-title{grid-column:1/-1;align-self:stretch;text-align:center;color:#a9b8c9;font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase}
-  .empty{margin-top:80px;text-align:center;color:#a9b8c9;font-size:14px;line-height:1.7}
+  .preview{position:relative;z-index:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,816px),1fr));justify-items:center;align-items:start;gap:22px;padding:24px 16px 60px;overflow:auto}
+  .preview-title{grid-column:1/-1;align-self:stretch;text-align:center;color:var(--tinta-baja);font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase}
+  .empty{margin-top:80px;text-align:center;color:var(--tinta-media);font-size:14px;line-height:1.7}
   @media print{
     body{background:#fff}
     .config,.preview-title{display:none!important}
@@ -83,6 +138,7 @@
 </style>
 </head>
 <body>
+<div class="pared" aria-hidden="true"></div>
 <div class="layout">
   <aside class="config no-print">
     <h1>⇩ Exportar</h1>
@@ -535,6 +591,13 @@
   };
 
   window.addEventListener('message', (event) => {
+    // El tema viaja del marco a la herramienta: son documentos distintos y
+    // esta no hereda nada. Sin esto arrancaría siempre en claro.
+    if (event.data?.type === 'producciontv:tema') {
+      const t = event.data.tema;
+      if (t === 'claro' || t === 'oscuro') document.documentElement.dataset.tema = t;
+      else delete document.documentElement.dataset.tema;
+    }
     const data = event.data;
     if (data && data.type === 'producciontv:load-exportar') {
       cfg = data.cfg || null;
