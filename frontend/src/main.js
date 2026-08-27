@@ -157,6 +157,7 @@ document.querySelector('#app').innerHTML = `
         <span class="mode-chip" id="mode-chip" title="Modo del proyecto. Se elige al crearlo y define las herramientas disponibles."></span>
         <div class="header-actions">
           <span class="save-status" id="save-status">Guardado local</span>
+          <button id="tema-btn" title="Cambiar entre claro y oscuro">${icono('sol', 17)}</button>
           <button id="tour-btn" title="Recorrido guiado: cómo usar la app paso a paso">${icono('ayuda', 17)}</button>
           <button id="focus-mode" title="Modo pantalla completa">${icono('pantalla', 17)}</button>
         </div>
@@ -210,6 +211,37 @@ const toolInfo = {
     guias: { title: 'Guías de set imprimibles', description: 'Hojas rellenables a mano: escaleta, cámaras, checklist, plano y registro de cambios', src: './tools/guias/index.html' },
     exportar: { title: 'Exportar', description: 'Configura qué exportar, en qué formato, qué secciones incluir y en qué orden', src: './tools/exportar/index.html' },
 };
+
+/* ---- TEMA CLARO / OSCURO ----------------------------------------------
+   Tres estados a propósito: si el usuario no elige, se respeta lo que tenga
+   puesto el sistema; si elige, manda lo suyo y se recuerda.
+   El contenido vive en un IFRAME, que es otro documento y no hereda el tema:
+   hay que mandárselo por el mismo puente que ya usa todo lo demás. */
+const TEMA_LLAVE = 'ptv:tema';
+const leerTema = () => { try { return localStorage.getItem(TEMA_LLAVE) || ''; } catch { return ''; } };
+const temaEfectivo = () => leerTema()
+  || (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'oscuro' : 'claro');
+
+function aplicarTema(tema) {
+  if (tema) document.documentElement.dataset.tema = tema;
+  else delete document.documentElement.dataset.tema;
+  const oscuro = temaEfectivo() === 'oscuro';
+  const btn = document.querySelector('#tema-btn');
+  if (btn) {
+    btn.innerHTML = icono(oscuro ? 'luna' : 'sol', 17);
+    btn.title = oscuro ? 'Cambiar a claro' : 'Cambiar a oscuro';
+  }
+  // Al iframe hay que decírselo: no comparte hoja de estilos con el marco.
+  document.querySelectorAll('iframe').forEach((f) => {
+    try { f.contentWindow?.postMessage({ type: 'producciontv:tema', tema: temaEfectivo() }, '*'); } catch {}
+  });
+}
+
+function alternarTema() {
+  const nuevo = temaEfectivo() === 'oscuro' ? 'claro' : 'oscuro';
+  try { localStorage.setItem(TEMA_LLAVE, nuevo); } catch {}
+  aplicarTema(nuevo);
+}
 
 const shell = document.querySelector('.desktop-shell');
 const frame = document.querySelector('#tool-frame');
@@ -750,7 +782,7 @@ window.addEventListener('message', async (event) => {
 
 /* ----------------------------- Eventos generales ----------------------------- */
 
-frame.addEventListener('load', () => { loading.classList.add('hidden'); setTimeout(hydrateFrame, 80); });
+frame.addEventListener('load', () => { loading.classList.add('hidden'); aplicarTema(leerTema()); setTimeout(hydrateFrame, 80); });
 railButtons.forEach((button) => button.onclick = () => {
     const etapa = etapaPorId(button.dataset.etapa);
     if (etapa) selectView(ultimaSeccion[etapa.id] || primeraVista(etapa, normalizeMode(latestInfografia?.modo)));
@@ -767,6 +799,13 @@ document.querySelector('#active-name').onclick = () => {
     selectView('home');
 };
 document.querySelector('#focus-mode').onclick = () => shell.classList.toggle('focus-mode');
+document.querySelector('#tema-btn').onclick = alternarTema;
+// Arranque: se aplica lo elegido (o nada, y entonces manda el sistema). Y si
+// el usuario cambia el tema del Mac con la app abierta, la app lo sigue —
+// mientras no haya elegido a mano.
+aplicarTema(leerTema());
+window.matchMedia?.('(prefers-color-scheme: dark)')
+  .addEventListener?.('change', () => { if (!leerTema()) aplicarTema(''); });
 document.querySelector('#tour-btn').onclick = () => { localStorage.setItem(TOUR_KEY, '1'); tour.start(); };
 
 // Importar proyecto .ptv: desde el botón de Inicio o con doble clic en Finder

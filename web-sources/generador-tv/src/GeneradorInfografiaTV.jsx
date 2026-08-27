@@ -190,6 +190,13 @@ export default function GeneradorInfografiaTV() {
         reset(normalizeCfg(event.data.cfg));
         setModo(event.data.mode || "editar");
       }
+      // El tema viaja del marco al iframe: son dos documentos y el iframe no
+      // hereda nada. Sin esto el contenido arrancaría siempre en claro.
+      if (event.data?.type === "producciontv:tema") {
+        const t = event.data.tema;
+        if (t === "claro" || t === "oscuro") document.documentElement.dataset.tema = t;
+        else delete document.documentElement.dataset.tema;
+      }
       if (event.data?.type === "producciontv:set-mode" && MODOS.includes(event.data.mode)) {
         setModo(event.data.mode);
       }

@@ -49,6 +49,10 @@ TRAZOS.production = TRAZOS.produccion;
 // el guion ES la escaleta, la salida ES exportar y el ensayo ES el aire.
 TRAZOS.guion = TRAZOS.escaleta;
 TRAZOS.salida = TRAZOS.exportar;
+// Sol y luna del interruptor de tema.
+TRAZOS.sol = '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M4.2 12H2M22 12h-2.2M6.3 6.3 4.8 4.8M19.2 19.2l-1.5-1.5M17.7 6.3l1.5-1.5M4.8 19.2l1.5-1.5"/>';
+TRAZOS.luna = '<path d="M20.2 14.4A8.4 8.4 0 1 1 9.6 3.8a6.6 6.6 0 0 0 10.6 10.6z"/>';
+
 TRAZOS.ensayo = TRAZOS.produccion;
 
 export const NOMBRES_ICONOS = Object.keys(TRAZOS);

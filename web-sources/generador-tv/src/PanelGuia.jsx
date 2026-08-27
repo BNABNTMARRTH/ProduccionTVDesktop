@@ -5,7 +5,7 @@
 // pregunta partida en dos, y obligaba a adivinar cuál de los dos abrir. Ahora
 // es un botón, un panel y dos pestañas: la receta del tipo de pieza que estás
 // haciendo, y la revisión de la tuya.
-import React from "react";
+import React, { useEffect } from "react";
 import { X } from "lucide-react";
 import { PanelFicha } from "./PanelFicha.jsx";
 import { PanelSugerencias } from "./PanelSugerencias.jsx";
@@ -24,9 +24,22 @@ export function PanelGuia({ cfg, setCfg, pestana, setPestana, onClose }) {
     </button>
   );
 
+  // Esc cierra. Es lo que espera cualquiera que abre una ventana encima.
+  useEffect(() => {
+    const k = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", k);
+    return () => document.removeEventListener("keydown", k);
+  }, [onClose]);
+
+  // AL CENTRO, no en la esquina. Estaba anclada abajo a la derecha y quedaba
+  // lejos de donde se está mirando. El velo es tenue a propósito: la guía se
+  // consulta MIENTRAS trabajas, no te secuestra la pantalla; se ve lo que hay
+  // detrás y un clic afuera la cierra.
   return (
-    <div className="no-print fixed z-40 flex flex-col vidrio"
-      style={{ right: 18, bottom: 18, width: "min(420px, calc(100vw - 36px))", maxHeight: "min(74vh, 640px)" }}>
+    <div className="no-print fixed inset-0 z-40 grid place-items-center guia-velo"
+      onClick={onClose} role="dialog" aria-modal="false" aria-label="Guía">
+    <div onClick={(e) => e.stopPropagation()} className="flex flex-col vidrio"
+      style={{ width: "min(560px, calc(100vw - 48px))", maxHeight: "min(76vh, 680px)" }}>
       <div className="flex items-center gap-2" style={{ padding: "14px 16px 10px" }}>
         <b className="cond" style={{ fontSize: 19, letterSpacing: ".06em", textTransform: "uppercase" }}>Guía</b>
         <button onClick={onClose} title="Cerrar" aria-label="Cerrar la guía"
@@ -41,6 +54,7 @@ export function PanelGuia({ cfg, setCfg, pestana, setPestana, onClose }) {
           ? <PanelFicha cfg={cfg} setCfg={setCfg} onClose={onClose} embebido />
           : <PanelSugerencias cfg={cfg} setCfg={setCfg} onClose={onClose} embebido />}
       </div>
+    </div>
     </div>
   );
 }
