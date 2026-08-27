@@ -30,3 +30,30 @@
 .sheet .sig-row span{flex:1;border-top:1.5px solid #15233D;padding-top:4px;font-size:10px;font-weight:700;text-transform:uppercase;color:#5b6b82;text-align:center}
 .sheet .plan-note{font-size:10px;color:#5b6b82;margin:4px 0 10px;line-height:1.5}
 .sheet .foot{position:absolute;bottom:16px;left:44px;right:44px;display:flex;justify-content:space-between;font-size:9px;color:#8a97a8;letter-spacing:1px;text-transform:uppercase}
+
+/* ============================================================================
+   HOJA DE GUION LITERARIO
+   Courier y las sangrías del oficio. No es capricho tipográfico: con esta
+   medida una página equivale a un minuto de pantalla, y por eso se puede
+   cronometrar un guion con una regla. Cambiar la fuente rompe la cuenta.
+   ============================================================================ */
+.gl-cuenta{display:flex;flex-wrap:wrap;gap:6px 20px;margin:0 0 12px;padding:8px 10px;
+  border:1px solid #C8D2DE;border-radius:6px;background:#F7F9FC;
+  font-size:9.5pt;color:#5b6b82;letter-spacing:.2px}
+.gl-cuenta b{color:#15233D;font-size:11pt}
+.gl{font-family:"Courier New",Courier,monospace;font-size:11.5pt;line-height:1.5;color:#12212f}
+.gl .gl-esc{font-weight:700;margin:16px 0 8px;letter-spacing:.4px;page-break-after:avoid}
+.gl .gl-esc:first-child{margin-top:2px}
+.gl .gl-acc{margin:0 0 9px}
+.gl .gl-per{margin:9px 0 0 37%;font-weight:700;page-break-after:avoid}
+.gl .gl-par{margin:0 0 0 31%;font-style:italic;width:38%}
+.gl .gl-dia{margin:0 0 0 22%;width:52%}
+.gl .gl-tra{margin:9px 0;text-align:right;color:#4a5a70}
+.gl mark{padding:0 1px;border-radius:2px}
+@media print{
+  /* Un personaje no se queda solo al pie de la hoja, ni su diálogo huérfano
+     al principio de la siguiente: es la regla de oro del guion impreso. */
+  .gl .gl-per, .gl .gl-esc{break-after:avoid;page-break-after:avoid}
+  .gl .gl-dia, .gl .gl-par{break-before:avoid;page-break-before:avoid}
+  .gl mark{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}

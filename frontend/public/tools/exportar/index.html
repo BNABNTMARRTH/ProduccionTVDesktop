@@ -126,14 +126,6 @@
   .person strong{display:block;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .person small{font-size:9.5px;color:#5b6b82;text-transform:uppercase;font-weight:700;letter-spacing:.5px}
   /* Guion literario: formato tradicional, Courier y sangrías del oficio. */
-  .gl{font-family:"Courier New",Courier,monospace;font-size:12px;line-height:1.5;color:#12212f}
-  .gl .esc{font-weight:700;margin:16px 0 8px;letter-spacing:.4px}
-  .gl .esc:first-child{margin-top:4px}
-  .gl .acc{margin:0 0 9px}
-  .gl .per{margin:9px 0 0 37%;font-weight:700}
-  .gl .par{margin:0 0 0 31%;font-style:italic;width:38%}
-  .gl .dia{margin:0 0 0 22%;width:52%}
-  .gl .tra{margin:9px 0 9px;text-align:right;color:#4a5a70}
   .cat2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#16365F;border-bottom:2px solid #16365F;padding-bottom:3px;margin:14px 0 8px}
 </style>
 </head>
@@ -451,39 +443,14 @@
   // Colores del marcatextos del guion (espejo de MARCADORES en guion.js). Lo
   // que el autor marcó en pantalla también sale impreso.
   const MARCAS_COLOR = { verde: '#B8FF3C', amarillo: '#FFF25C', naranja: '#FFB03A', rojo: '#FF7A7A' };
-  function pintado(b) {
-    const t = String(b.texto || '');
-    const marcas = (b.marcas || []).slice().sort((x, y) => x.ini - y.ini);
-    if (!marcas.length) return esc(t);
-    let out = '', i = 0;
-    marcas.forEach((m) => {
-      const ini = Math.max(0, m.ini), fin = Math.min(t.length, m.fin);
-      if (fin <= ini) return;
-      if (ini > i) out += esc(t.slice(i, ini));
-      out += `<span style="background:${MARCAS_COLOR[m.color] || '#FFF25C'}">${esc(t.slice(ini, fin))}</span>`;
-      i = Math.max(i, fin);
-    });
-    return out + esc(t.slice(i));
-  }
 
+  // El guion literario lo arma la hoja COMPARTIDA (PTVSheets.guion), la misma
+  // que sale en Guías. Antes este archivo tenía su propia copia del formato y
+  // dos copias del mismo formato acaban separándose.
   function pagsGuion() {
-    const escenas = (cfg.escaleta || []).filter((e) => (e.guion || []).some((b) => String(b.texto || '').trim()));
-    if (!escenas.length) return [];
-    const CLASE = { accion: 'acc', personaje: 'per', parentesis: 'par', dialogo: 'dia', transicion: 'tra' };
-    const cuerpo = escenas.map((e, i) => {
-      const enc = esc(String(e.encabezado || `ESCENA ${i + 1}`).toUpperCase());
-      const bloques = (e.guion || []).filter((b) => String(b.texto || '').trim()).map((b) => {
-        const cls = CLASE[b.tipo] || 'acc';
-        const txt = pintado(b).replace(/\n/g, '<br>');
-        const contenido = (b.tipo === 'personaje' || b.tipo === 'transicion') ? txt.toUpperCase() : txt;
-        return `<p class="${cls}">${b.tipo === 'parentesis' ? '(' + contenido + ')' : contenido}</p>`;
-      }).join('');
-      return `<div class="esc">${i + 1}. ${enc}</div>${bloques}`;
-    }).join('');
-    return [{
-      name: 'guion-literario',
-      html: `${pgHead('Guion literario', 'El guion en su forma tradicional')}<div class="gl">${cuerpo}</div>`,
-    }];
+    const hay = (cfg.escaleta || []).some((e) => (e.guion || []).some((b) => String(b.texto || '').trim()));
+    if (!hay) return [];
+    return [{ name: 'guion-literario', html: S.guion(cfg, projectName) }];
   }
 
   /* --------------------------- Composición --------------------------- */

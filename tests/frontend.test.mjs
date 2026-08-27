@@ -835,3 +835,93 @@ test('cada formato declara proporción usable para dibujarlo', () => {
     assert.ok(f.para, `${f.id} no dice para qué sirve`);
   });
 });
+
+
+/* ============== HOJA DE GUION IMPRIMIBLE (2026-08-27) ==============
+La cuenta de páginas no es cosmética: una página ≈ un minuto de pantalla es la
+regla con la que se cronometra un guion antes de rodarlo. Si la cuenta miente,
+el alumno llega al set con una pieza que no dura lo que creía. */
+
+const S = await (async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../frontend/public/tools/shared/sheets.js', import.meta.url), 'utf8');
+  const ventana = { PTVSheets: null };
+  new Function('window', src)(ventana);
+  return ventana.PTVSheets;
+})();
+
+const escenaCon = (bloques) => ({ encabezado: 'INT. SALA - DÍA', guion: bloques });
+
+test('la hoja de guion existe y se puede pedir como cualquier otra', () => {
+  assert.equal(typeof S.guion, 'function');
+  assert.equal(typeof S.medidasGuion, 'function');
+});
+
+test('un guion vacío da una hoja para llenar a mano, no un error', () => {
+  const html = S.guion({}, 'Proyecto');
+  assert.ok(html.includes('todavía está en blanco'));
+  assert.ok(html.includes('lines'), 'trae renglones para escribir a mano');
+});
+
+test('la cuenta de páginas sigue la regla del oficio: 55 renglones = 1 página', () => {
+  // Un bloque de acción de una línea ocupa 1 renglón + 1 de aire; la escena
+  // suma 2 por su encabezado. 55 renglones tienen que dar exactamente 1 página.
+  const cfg = { escaleta: [escenaCon(Array.from({ length: 26 }, () => ({ tipo: 'accion', texto: 'x' })))] };
+  const m = S.medidasGuion(cfg);
+  assert.equal(m.renglones, 2 + 26 * 2, 'encabezado + cada bloque con su aire');
+  assert.ok(Math.abs(m.paginas - m.renglones / 55) < 1e-9);
+});
+
+test('una línea larga cuenta los renglones que de verdad ocupa', () => {
+  const corto = S.medidasGuion({ escaleta: [escenaCon([{ tipo: 'accion', texto: 'a'.repeat(30) }])] });
+  const largo = S.medidasGuion({ escaleta: [escenaCon([{ tipo: 'accion', texto: 'a'.repeat(180) }])] });
+  assert.ok(largo.renglones > corto.renglones, 'un párrafo largo ocupa más página');
+});
+
+test('el diálogo, más angosto, ocupa más renglones que la misma acción', () => {
+  const texto = 'a'.repeat(120);
+  const acc = S.medidasGuion({ escaleta: [escenaCon([{ tipo: 'accion', texto }])] });
+  const dia = S.medidasGuion({ escaleta: [escenaCon([{ tipo: 'dialogo', texto }])] });
+  assert.ok(dia.renglones > acc.renglones, 'la caja del diálogo es más angosta');
+});
+
+test('las escenas sin texto no cuentan: no inflan la duración', () => {
+  const cfg = { escaleta: [escenaCon([{ tipo: 'accion', texto: '' }]), escenaCon([{ tipo: 'accion', texto: 'sí' }])] };
+  assert.equal(S.medidasGuion(cfg).escenas, 1);
+});
+
+test('la hoja imprime el guion con las sangrías del oficio', () => {
+  const cfg = { escaleta: [escenaCon([
+    { tipo: 'accion', texto: 'Ana abre la bolsa.' },
+    { tipo: 'personaje', texto: 'ana' },
+    { tipo: 'parentesis', texto: 'bajito' },
+    { tipo: 'dialogo', texto: 'No se puede disimular.' },
+  ])] };
+  const html = S.guion(cfg, 'Tostacruj');
+  assert.ok(html.includes('gl-per'), 'personaje con su sangría');
+  assert.ok(html.includes('gl-dia'), 'diálogo con la suya');
+  assert.ok(html.includes('ANA'), 'el personaje va en mayúsculas');
+  assert.ok(html.includes('(bajito)'), 'el paréntesis lleva sus paréntesis');
+});
+
+test('los marcatextos se imprimen: si alguien marcó algo, es porque importa', () => {
+  const cfg = { escaleta: [escenaCon([
+    { tipo: 'dialogo', texto: 'No se puede disimular.', marcas: [{ ini: 0, fin: 2, color: '#B8FF3C' }] },
+  ])] };
+  const html = S.guion(cfg, 'X');
+  assert.ok(html.includes('<mark'), 'la marca sale en papel');
+  assert.ok(html.includes('#B8FF3C'), 'con su color');
+});
+
+test('una marca con rangos fuera del texto no rompe la hoja', () => {
+  const cfg = { escaleta: [escenaCon([
+    { tipo: 'accion', texto: 'corto', marcas: [{ ini: -5, fin: 999, color: '#FFF25C' }] },
+  ])] };
+  assert.ok(S.guion(cfg, 'X').includes('corto'));
+});
+
+test('avisa cuando el guion no dura lo que el proyecto pidió', () => {
+  const largo = { duracionObjetivoMin: 1,
+    escaleta: [escenaCon(Array.from({ length: 200 }, () => ({ tipo: 'accion', texto: 'x' })))] };
+  assert.ok(S.guion(largo, 'X').includes('min de más'));
+});

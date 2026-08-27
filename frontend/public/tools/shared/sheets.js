@@ -622,5 +622,97 @@
       ${sigs(['Continuidad / Script', 'Responsable de captura', 'Fecha de captura'])}`;
   }
 
-  window.PTVSheets = { esc, fmt, trunc, head, foot, sigs, setsDe, perfil, escaleta, camaras, checklist, plano, planoSvg, iluminacion, llamado, cambios };
+
+  /* HOJA DE GUION LITERARIO
+     El guion en su forma tradicional, con las sangrías del oficio y en
+     Courier: es la tipografía con la que una página equivale a un minuto de
+     pantalla. Por eso la hoja lleva su propio contador arriba — el mismo
+     número que ve el alumno mientras escribe, ahora también en papel.
+     Los marcatextos se imprimen: si alguien marcó algo, es porque importa. */
+  const CLASE_GUION = { accion: 'gl-acc', personaje: 'gl-per', parentesis: 'gl-par', dialogo: 'gl-dia', transicion: 'gl-tra' };
+
+  // 55 renglones = 1 página = 1 minuto. Es la regla del oficio, y es la misma
+  // cuenta que hace el editor: si cambia una, tiene que cambiar la otra.
+  const RENGLONES_POR_PAGINA = 55;
+  const ANCHO = { accion: 60, personaje: 32, parentesis: 26, dialogo: 34, transicion: 60 };
+
+  function renglonesDeBloque(b) {
+    const ancho = ANCHO[b.tipo] || 60;
+    return String(b.texto || '').split('\n')
+      .reduce((total, linea) => total + Math.max(1, Math.ceil(linea.length / ancho)), 0);
+  }
+
+  function medidasGuion(cfg) {
+    const escenas = (cfg.escaleta || []).filter((e) => (e.guion || []).some((b) => String(b.texto || '').trim()));
+    let renglones = 0;
+    escenas.forEach((e) => {
+      renglones += 2; // el encabezado de escena y su aire
+      (e.guion || []).forEach((b) => { if (String(b.texto || '').trim()) renglones += renglonesDeBloque(b) + 1; });
+    });
+    const paginas = renglones / RENGLONES_POR_PAGINA;
+    return { escenas: escenas.length, renglones, paginas, minutos: paginas };
+  }
+
+  // Pinta los marcatextos guardados como rangos {ini, fin, color}.
+  function pintadoGuion(b) {
+    const texto = String(b.texto || '');
+    const marcas = (b.marcas || []).filter((m) => m && m.color).sort((a, x) => a.ini - x.ini);
+    if (!marcas.length) return esc(texto);
+    let out = '', cursor = 0;
+    marcas.forEach((m) => {
+      const ini = Math.max(0, Math.min(texto.length, m.ini));
+      const fin = Math.max(ini, Math.min(texto.length, m.fin));
+      out += esc(texto.slice(cursor, ini));
+      out += `<mark style="background:${esc(m.color)};color:#12212f">${esc(texto.slice(ini, fin))}</mark>`;
+      cursor = fin;
+    });
+    return out + esc(texto.slice(cursor));
+  }
+
+  function guion(cfg, projectName) {
+    const escenas = (cfg.escaleta || []).filter((e) => (e.guion || []).some((b) => String(b.texto || '').trim()));
+    const m = medidasGuion(cfg);
+    const objetivo = Number(cfg?.duracionObjetivoMin || 0) || 0;
+    const desfase = objetivo ? m.minutos - objetivo : 0;
+
+    if (!escenas.length) {
+      return `
+        ${head(cfg, projectName, 'Guion literario', 'Una página ≈ un minuto de pantalla')}
+        <div class="writezone" data-label="El guion todavía está en blanco">
+          <div class="lines" style="min-height:520px"></div>
+        </div>
+        <p style="font-size:9pt;color:#5b6b82;margin:8px 0 0">
+          Escríbelo en la etapa 2 (Guion) y esta hoja se llena sola. O úsala a mano:
+          encabezado de escena en mayúsculas, acción al margen, personaje centrado y diálogo debajo.</p>
+        ${sigs(['Guionista', 'Director(a)'])}`;
+    }
+
+    const cuerpo = escenas.map((e, i) => {
+      const enc = esc(String(e.encabezado || `ESCENA ${i + 1}`).toUpperCase());
+      const bloques = (e.guion || []).filter((b) => String(b.texto || '').trim()).map((b) => {
+        const cls = CLASE_GUION[b.tipo] || 'gl-acc';
+        const txt = pintadoGuion(b).replace(/\n/g, '<br>');
+        const contenido = (b.tipo === 'personaje' || b.tipo === 'transicion') ? txt.toUpperCase() : txt;
+        return `<p class="${cls}">${b.tipo === 'parentesis' ? '(' + contenido + ')' : contenido}</p>`;
+      }).join('');
+      return `<div class="gl-esc">${i + 1}. ${enc}</div>${bloques}`;
+    }).join('');
+
+    const aviso = objetivo && Math.abs(desfase) >= 0.5
+      ? `<b style="color:${desfase > 0 ? '#8F3A11' : '#8A5300'}"> · ${Math.abs(desfase).toFixed(1)} min de ${desfase > 0 ? 'más' : 'menos'}</b>`
+      : '';
+
+    return `
+      ${head(cfg, projectName, 'Guion literario', 'Una página ≈ un minuto de pantalla')}
+      <div class="gl-cuenta">
+        <span><b>${m.paginas.toFixed(1)}</b> páginas</span>
+        <span><b>${fmt(Math.round(m.minutos * 60))}</b> en pantalla</span>
+        <span><b>${m.escenas}</b> ${m.escenas === 1 ? 'escena' : 'escenas'}</span>
+        ${objetivo ? `<span>objetivo <b>${objetivo} min</b>${aviso}</span>` : ''}
+      </div>
+      <div class="gl">${cuerpo}</div>
+      ${sigs(['Guionista', 'Director(a)'])}`;
+  }
+
+  window.PTVSheets = { esc, fmt, trunc, head, foot, sigs, setsDe, perfil, guion, medidasGuion, escaleta, camaras, checklist, plano, planoSvg, iluminacion, llamado, cambios };
 })();

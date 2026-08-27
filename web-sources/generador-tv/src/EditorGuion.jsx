@@ -13,14 +13,15 @@
 //   Retroceso    en un bloque vacío, lo borra y sube al anterior
 //   ⌘/Ctrl+Enter abre una escena nueva
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Download, Plus, Printer, Trash2 } from "lucide-react";
 import {
   TIPOS, ORDEN_TIPOS, TIPO_SIGUIENTE, siguienteEnRotacion, bloqueNuevo, guionDe,
   medidasDe, normalizarEncabezado, personajesDe,
-  MARCADORES, aplicarMarca, quitarMarca, trozosMarcados, moverMarcas,
+  MARCADORES, aplicarMarca, quitarMarca, trozosMarcados, moverMarcas, guionATexto,
 } from "./guion.js";
 import { objetivoDe } from "./proyecto.js";
-import { TarjetaAyuda } from "./ui.jsx";
+import { Btn, TarjetaAyuda } from "./ui.jsx";
+import { descargarArchivo, EMBEDDED } from "./puente.js";
 import { INK, NAVY } from "./theme.js";
 import { fmt, parseDur, uid } from "./util.js";
 
@@ -36,7 +37,7 @@ const tipografia = (bloque, t) => ({
   textAlign: t.align,
   textTransform: t.mayus ? "uppercase" : "none",
   fontStyle: bloque.tipo === "parentesis" ? "italic" : "normal",
-  color: bloque.tipo === "transicion" ? "#5b6b82" : INK,
+  color: bloque.tipo === "transicion" ? "var(--tinta-media)" : INK,
   padding: bloque.tipo === "dialogo" || bloque.tipo === "parentesis" ? "0" : "6px 0 0",
   border: 0,
   margin: 0,
@@ -48,6 +49,27 @@ export function EditorGuion({ cfg, setCfg }) {
   const escenas = cfg.escaleta || [];
   const personajes = useMemo(() => personajesDe(cfg), [cfg]);
   const medidas = useMemo(() => medidasDe(escenas), [escenas]);
+
+  const nombreArchivo = (ext) =>
+    `${(cfg.titulo || "guion").replace(/[^\w\sáéíóúñÁÉÍÓÚÑ-]/g, "").trim().slice(0, 60) || "guion"}.${ext}`;
+
+  // El .txt sale con las sangrías del oficio: se abre en cualquier lado y
+  // sigue leyéndose como un guion.
+  const descargarGuion = () => descargarArchivo(nombreArchivo("txt"), guionATexto(escenas), "text/plain");
+
+  // Imprimir: se arma la MISMA hoja que sale en Guías y se manda al marco,
+  // que es quien tiene el diálogo de impresión del sistema. Imprimir el
+  // iframe directo solo saca lo que se ve en pantalla.
+  const imprimirGuion = async () => {
+    const hoja = window.PTVSheets?.guion?.(cfg, cfg.titulo || "Guion");
+    if (!hoja) return;
+    // El marco es quien tiene el diálogo del sistema, y necesita el CSS: un
+    // iframe impreso solo aporta lo que se ve en pantalla, no las páginas.
+    let css = "";
+    try { css = await (await fetch("../shared/sheets.css")).text(); } catch {}
+    window.parent.postMessage({ type: "producciontv:print-document",
+      html: `<section class="sheet">${hoja}</section>`, css }, "*");
+  };
   const objetivoMin = objetivoDe(cfg);
   const [foco, setFoco] = useState(null);          // id del bloque a enfocar
   const [sugiere, setSugiere] = useState(null);    // {bloqueId, opciones}
@@ -177,34 +199,34 @@ export function EditorGuion({ cfg, setCfg }) {
   };
 
   return (
-    <div className="scrollwrap overflow-auto px-2 py-4" style={{ background: "#E9EDF3" }}>
+    <div className="scrollwrap overflow-auto px-2 py-4" style={{ background: "var(--vidrio-b)" }}>
       <div className="mx-auto grid gap-4 xl:grid-cols-[250px_minmax(0,1fr)] 2xl:grid-cols-[250px_minmax(0,900px)_minmax(340px,1fr)]"
         style={{ maxWidth: "100%" }}>
       {/* Índice de escenas: solo aparece cuando hay ancho para él. Antes ese
           espacio se quedaba vacío a los lados de la página. */}
       <aside className="no-print hidden xl:block">
-        <div className="sticky top-2 rounded-xl p-3" style={{ background: "#fff", border: "1px solid #C8D2DE" }}>
-          <div className="mb-2 text-xs font-bold uppercase" style={{ color: "#8A97A8", letterSpacing: 1 }}>
+        <div className="sticky top-2 rounded-xl p-3" style={{ background: "#fff", border: "1px solid var(--linea)" }}>
+          <div className="mb-2 text-xs font-bold uppercase" style={{ color: "var(--tinta-baja)", letterSpacing: 1 }}>
             Escenas ({escenas.length})
           </div>
           <div className="flex flex-col gap-1">
             {escenas.map((e, i) => (
               <button key={e.id} type="button" onClick={() => irA(e.id)}
                 className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs"
-                style={{ color: INK, background: "transparent" }}>
-                <b style={{ color: "#93a1b3", minWidth: 14 }}>{i + 1}</b>
+                style={{ color: "var(--tinta)", background: "transparent" }}>
+                <b style={{ color: "var(--tinta-baja)", minWidth: 14 }}>{i + 1}</b>
                 <span className="flex-1" style={{ lineHeight: 1.35 }}>
-                  {e.encabezado || <em style={{ color: "#93a1b3" }}>Sin encabezado</em>}
+                  {e.encabezado || <em style={{ color: "var(--tinta-baja)" }}>Sin encabezado</em>}
                 </span>
-                <span style={{ color: "#93a1b3" }}>{fmt(e.dur || 0)}</span>
+                <span style={{ color: "var(--tinta-baja)" }}>{fmt(e.dur || 0)}</span>
               </button>
             ))}
-            {!escenas.length && <p className="m-0 text-xs" style={{ color: "#93a1b3" }}>Todavía no hay escenas.</p>}
+            {!escenas.length && <p className="m-0 text-xs" style={{ color: "var(--tinta-baja)" }}>Todavía no hay escenas.</p>}
           </div>
           {editable && (
             <button type="button" onClick={() => agregarEscena(escenas[escenas.length - 1]?.id)}
               className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-bold"
-              style={{ background: "#EEF3F9", color: NAVY }}>
+              style={{ background: "var(--vidrio-b)", color: "var(--tinta)" }}>
               <Plus size={13} /> Escena al final
             </button>
           )}
@@ -212,23 +234,43 @@ export function EditorGuion({ cfg, setCfg }) {
       </aside>
       <div>
       {/* Barra de estado: páginas, minutos y comparación con la duración objetivo */}
-      <div className="no-print mb-3 flex flex-wrap items-center gap-3 rounded-xl px-4 py-2.5"
-        style={{ background: "#fff", border: "1px solid #C8D2DE" }}>
-        <b className="cond text-sm font-bold uppercase" style={{ color: NAVY, letterSpacing: 1 }}>Guion literario</b>
-        <span className="text-xs" style={{ color: "#5b6b82" }}>
-          {medidas.paginas.toFixed(1)} páginas · ≈ {fmt(medidas.segundos)} en pantalla
-          {objetivoMin ? ` · objetivo ${objetivoMin} min` : ""}
-        </span>
+      <div className="no-print vidrio mb-3 flex flex-wrap items-center gap-4 px-4 py-3">
+        {/* LA CUENTA. Una página ≈ un minuto: es la regla con la que se
+            cronometra un guion, así que el número va grande, como la lectura
+            de un instrumento. Antes era texto gris de paso junto al título y
+            el usuario ni lo veía. */}
+        <div className="flex items-baseline gap-2">
+          <span className="mono" style={{ fontSize: 30, fontWeight: 600, lineHeight: 1,
+            letterSpacing: "-.03em", color: "var(--gel-t)" }}>{medidas.paginas.toFixed(1)}</span>
+          <span className="cond" style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".14em",
+            textTransform: "uppercase", color: "var(--tinta-baja)" }}>páginas</span>
+        </div>
+        <span style={{ width: 1, height: 26, background: "var(--linea)" }} />
+        <div className="flex items-baseline gap-2">
+          <span className="mono" style={{ fontSize: 17, fontWeight: 600, color: "var(--tinta)" }}>{fmt(medidas.segundos)}</span>
+          <span style={{ fontSize: 11.5, letterSpacing: ".09em", textTransform: "uppercase", color: "var(--tinta-baja)" }}>en pantalla</span>
+        </div>
+        {objetivoMin ? (
+          <span style={{ fontSize: 11.5, color: "var(--tinta-baja)" }}>objetivo {objetivoMin} min</span>
+        ) : null}
         {objetivoMin > 0 && Math.abs(desfase) >= 0.5 && (
           <span className="rounded-full px-2 py-0.5 text-xs font-bold"
-            style={desfase > 0 ? { background: "#FDECEC", color: "#B4232A" } : { background: "#FFF6E0", color: "#8A6100" }}>
+            style={desfase > 0 ? { background: "color-mix(in srgb, var(--e5) 14%, var(--yeso))", color: "var(--e5-t)" } : { background: "color-mix(in srgb, var(--e3) 15%, var(--yeso))", color: "var(--e3-t)" }}>
             {desfase > 0 ? `${Math.abs(desfase).toFixed(1)} min de más` : `${Math.abs(desfase).toFixed(1)} min de menos`}
           </span>
         )}
         <span className="flex-1" />
+        {/* Sacar el guion de la app. Estaba solo en Exportar, tres pantallas
+            más allá: si no está donde se escribe, no existe. */}
+        <div className="flex items-center gap-1.5">
+          <Btn rango={2} icono={Printer} titulo="Imprimir el guion o guardarlo como PDF"
+            onClick={imprimirGuion} disabled={!medidas.renglones}>Imprimir</Btn>
+          <Btn rango={2} icono={Download} titulo="Guardar el guion como texto, para abrirlo en cualquier lado"
+            onClick={descargarGuion} disabled={!medidas.renglones}>.txt</Btn>
+        </div>
         {editable && (
           <div className="flex items-center gap-1.5" title="Selecciona texto y elige un color. Sin selección, marca el bloque completo.">
-            <span className="text-xs font-bold uppercase" style={{ color: "#8A97A8", letterSpacing: .6 }}>Marcar</span>
+            <span className="text-xs font-bold uppercase" style={{ color: "var(--tinta-baja)", letterSpacing: .6 }}>Marcar</span>
             {Object.entries(MARCADORES).map(([id, m]) => (
               <button key={id} type="button" title={m.nombre}
                 onMouseDown={(e) => e.preventDefault()} onClick={() => marcar(id)}
@@ -238,7 +280,7 @@ export function EditorGuion({ cfg, setCfg }) {
             <button type="button" title="Quitar el marcador"
               onMouseDown={(e) => e.preventDefault()} onClick={() => marcar(null)}
               className="h-6 rounded-md px-2 text-xs font-bold"
-              style={{ background: "#EEF3F9", color: "#5b6b82", border: "1px solid #C8D2DE" }}>
+              style={{ background: "var(--vidrio-b)", color: "var(--tinta-media)", border: "1px solid var(--linea)" }}>
               Quitar
             </button>
           </div>
@@ -253,7 +295,7 @@ export function EditorGuion({ cfg, setCfg }) {
       </div>
 
       {/* La página */}
-      <div className="rounded-xl px-10 py-8 shadow-sm" style={{ ...PAPEL, border: "1px solid #C8D2DE" }}>
+      <div className="rounded-xl px-10 py-8 shadow-sm" style={{ ...PAPEL, border: "1px solid var(--linea)" }}>
         {!escenas.length && (
           <p className="m-0 text-center text-sm" style={{ color: "#7c8a9c" }}>
             Todavía no hay escenas. Empieza la primera aquí abajo.
@@ -264,7 +306,7 @@ export function EditorGuion({ cfg, setCfg }) {
           <section key={esc.id} id={`esc-${esc.id}`} className="mb-7" style={{ scrollMarginTop: 12 }}>
             {/* Encabezado de escena */}
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold" style={{ color: "#93a1b3", minWidth: 22 }}>{i + 1}</span>
+              <span className="text-xs font-bold" style={{ color: "var(--tinta-baja)", minWidth: 22 }}>{i + 1}</span>
               <input
                 value={esc.encabezado || ""}
                 disabled={!editable}
@@ -273,9 +315,9 @@ export function EditorGuion({ cfg, setCfg }) {
                 onBlur={(e) => upEscena(esc.id, { encabezado: normalizarEncabezado(e.target.value) })}
                 placeholder="INT. LUGAR – DÍA"
                 className="w-full border-0 bg-transparent py-1 text-sm font-bold outline-none"
-                style={{ fontFamily: PAPEL.fontFamily, letterSpacing: 0.5, color: INK }}
+                style={{ fontFamily: PAPEL.fontFamily, letterSpacing: 0.5, color: "var(--tinta)" }}
               />
-              <span className="no-print text-xs" style={{ color: "#93a1b3", whiteSpace: "nowrap" }}>{fmt(esc.dur || 0)}</span>
+              <span className="no-print text-xs" style={{ color: "var(--tinta-baja)", whiteSpace: "nowrap" }}>{fmt(esc.dur || 0)}</span>
               {editable && escenas.length > 1 && (
                 <button type="button" onClick={() => borrarEscena(esc.id)} title="Borrar esta escena"
                   className="no-print grid h-6 w-6 place-items-center rounded" style={{ color: "#b45", background: "#fff" }}>
@@ -283,7 +325,7 @@ export function EditorGuion({ cfg, setCfg }) {
                 </button>
               )}
             </div>
-            <div style={{ height: 1, background: "#E2E8F0", margin: "2px 0 10px" }} />
+            <div style={{ height: 1, background: "var(--linea)", margin: "2px 0 10px" }} />
 
             {/* Cuerpo del guion */}
             {guionDe(esc).map((b) => {
@@ -325,14 +367,14 @@ export function EditorGuion({ cfg, setCfg }) {
                   {sugiere?.bloqueId === b.id && (
                     <div className="no-print" style={{
                       position: "absolute", zIndex: 5, left: 0, top: "100%",
-                      background: "#fff", border: "1px solid #C8D2DE", borderRadius: 8,
+                      background: "#fff", border: "1px solid var(--linea)", borderRadius: 8,
                       boxShadow: "0 8px 20px rgba(12,28,48,.14)", overflow: "hidden",
                     }}>
                       {sugiere.opciones.map((op) => (
                         <button key={op} type="button"
                           onMouseDown={(e) => { e.preventDefault(); upBloque(esc.id, b.id, { texto: op }); setSugiere(null); }}
                           className="block w-full px-3 py-1.5 text-left text-xs font-bold"
-                          style={{ fontFamily: "system-ui, sans-serif", color: INK }}>
+                          style={{ fontFamily: "system-ui, sans-serif", color: "var(--tinta)" }}>
                           {op}
                         </button>
                       ))}
@@ -345,7 +387,7 @@ export function EditorGuion({ cfg, setCfg }) {
             {editable && (
               <button type="button" onClick={() => agregarEscena(esc.id)}
                 className="no-print mt-3 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold"
-                style={{ background: "#EEF3F9", color: NAVY, fontFamily: "system-ui, sans-serif" }}>
+                style={{ background: "var(--vidrio-b)", color: "var(--tinta)", fontFamily: "system-ui, sans-serif" }}>
                 <Plus size={13} /> Escena nueva aquí
               </button>
             )}
@@ -355,7 +397,7 @@ export function EditorGuion({ cfg, setCfg }) {
         {editable && !escenas.length && (
           <button type="button" onClick={() => agregarEscena(null)}
             className="mx-auto mt-2 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold text-white"
-            style={{ background: NAVY, fontFamily: "system-ui, sans-serif" }}>
+            style={{ background: "var(--gel-f)", fontFamily: "system-ui, sans-serif" }}>
             <Plus size={15} /> Empezar la primera escena
           </button>
         )}
@@ -371,17 +413,17 @@ export function EditorGuion({ cfg, setCfg }) {
           if (!esc) return null;
           const i = escenas.indexOf(esc);
           const campo = (etiqueta, valor, alPoner, placeholder) => (
-            <label className="block text-xs font-bold uppercase" style={{ color: "#8A97A8", letterSpacing: 0.6 }}>
+            <label className="block text-xs font-bold uppercase" style={{ color: "var(--tinta-baja)", letterSpacing: 0.6 }}>
               {etiqueta}
               <input value={valor || ""} disabled={!editable} placeholder={placeholder}
                 onChange={(e) => alPoner(e.target.value)}
                 className="mt-1 w-full rounded-md border px-2 py-1.5 text-sm font-normal normal-case"
-                style={{ borderColor: "#C8D2DE", color: INK, fontFamily: "system-ui, sans-serif" }} />
+                style={{ borderColor: "var(--linea)", color: "var(--tinta)", fontFamily: "system-ui, sans-serif" }} />
             </label>
           );
           return (
-            <div className="sticky top-2 flex flex-col gap-3 rounded-xl p-3" style={{ background: "#fff", border: "1px solid #C8D2DE" }}>
-              <div className="text-xs font-bold uppercase" style={{ color: NAVY, letterSpacing: 1 }}>
+            <div className="sticky top-2 flex flex-col gap-3 rounded-xl p-3" style={{ background: "#fff", border: "1px solid var(--linea)" }}>
+              <div className="text-xs font-bold uppercase" style={{ color: "var(--tinta)", letterSpacing: 1 }}>
                 Escena {i + 1}
               </div>
               {campo("Nombre del bloque", esc.segmento, (v) => upEscena(esc.id, { segmento: v }), "1. Presente")}
@@ -389,7 +431,7 @@ export function EditorGuion({ cfg, setCfg }) {
               {campo("Función en la historia", esc.funcion, (v) => upEscena(esc.id, { funcion: v }), "Presenta el mundo")}
               {campo("¿Qué cambia aquí?", esc.cambio, (v) => upEscena(esc.id, { cambio: v }), "Lo que ya no vuelve a ser igual")}
               {campo("Personajes", esc.personajes, (v) => upEscena(esc.id, { personajes: v }), "Doña Rosa, Marco")}
-              <p className="m-0 text-xs" style={{ color: "#93a1b3", lineHeight: 1.45 }}>
+              <p className="m-0 text-xs" style={{ color: "var(--tinta-baja)", lineHeight: 1.45 }}>
                 Son los mismos campos de la escaleta: lo que escribas aquí aparece allá.
               </p>
             </div>

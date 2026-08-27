@@ -13,6 +13,11 @@
     />
   </head>
   <body>
+    <!-- Las hojas imprimibles compartidas: el guion se imprime desde su propio
+         editor con EXACTAMENTE la misma hoja que sale en Guías, sin duplicar
+         el formato. La ruta es relativa porque la app va empotrada en
+         tools/infografias/ dentro del binario. -->
+    <script src="../shared/sheets.js"></script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
