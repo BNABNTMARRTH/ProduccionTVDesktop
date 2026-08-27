@@ -42,7 +42,7 @@ html, body, #root { margin:0; padding:0; min-height:100%; }
 
 :root{
   --yeso:#F1EEE8;
-  --tinta:#171512; --tinta-media:#57534B; --tinta-baja:#8A857B;
+  --tinta:#171512; --tinta-media:#57534B; --tinta-baja:#625D55;
   --linea:rgba(23,21,18,.08);
 
   /* LA ESCALA. Cada etapa una gelatina, de frío a caliente.
@@ -54,6 +54,13 @@ html, body, #root { margin:0; padding:0; min-height:100%; }
   --e5:#D53238; --e5-t:#93191E;   /* 5 Producción  · tally, al aire      */
 
   /* La gelatina en curso. Cada pantalla la reasigna con data-etapa. */
+
+  /* RELLENO vs TEXTO. Los `-t` cambian con el tema (sobre yeso hacen falta
+     oscuros, sobre negro claros). Los `-f` NO cambian nunca: son el fondo de
+     un botón lleno, y encima siempre va texto blanco. Si el relleno siguiera
+     al tema, en oscuro quedaría blanco sobre azul claro: 2.5:1, ilegible. */
+  --e1-f:#1C5FA8; --e2-f:#0A6E41; --e3-f:#8A5300; --e4-f:#8F3A11; --e5-f:#93191E;
+  --gel-f:var(--e1-f);
   --gel:var(--e1); --gel-t:var(--e1-t);
   --gel-halo:rgba(60,143,224,.24);
   --luz-a:rgba(60,143,224,.20); --luz-b:rgba(60,143,224,.09);
@@ -77,11 +84,11 @@ html, body, #root { margin:0; padding:0; min-height:100%; }
   --hueco-campo:clamp(10px,.22vw + 8px,15px);
 }
 /* Cada etapa reasigna su gelatina y la luz que baña la pared. */
-[data-etapa="1"]{--gel:var(--e1);--gel-t:var(--e1-t);--gel-halo:rgba(60,143,224,.24);--luz-a:rgba(60,143,224,.20);--luz-b:rgba(60,143,224,.09)}
-[data-etapa="2"]{--gel:var(--e2);--gel-t:var(--e2-t);--gel-halo:rgba(15,160,94,.24);--luz-a:rgba(15,160,94,.18);--luz-b:rgba(15,160,94,.08)}
-[data-etapa="3"]{--gel:var(--e3);--gel-t:var(--e3-t);--gel-halo:rgba(224,138,18,.26);--luz-a:rgba(224,138,18,.22);--luz-b:rgba(217,96,43,.10)}
-[data-etapa="4"]{--gel:var(--e4);--gel-t:var(--e4-t);--gel-halo:rgba(217,96,43,.26);--luz-a:rgba(217,96,43,.22);--luz-b:rgba(217,96,43,.10)}
-[data-etapa="5"]{--gel:var(--e5);--gel-t:var(--e5-t);--gel-halo:rgba(213,50,56,.26);--luz-a:rgba(213,50,56,.20);--luz-b:rgba(213,50,56,.09)}
+[data-etapa="1"]{--gel:var(--e1);--gel-t:var(--e1-t);--gel-f:var(--e1-f);--gel-halo:rgba(60,143,224,.24);--luz-a:rgba(60,143,224,.20);--luz-b:rgba(60,143,224,.09)}
+[data-etapa="2"]{--gel:var(--e2);--gel-t:var(--e2-t);--gel-f:var(--e2-f);--gel-halo:rgba(15,160,94,.24);--luz-a:rgba(15,160,94,.18);--luz-b:rgba(15,160,94,.08)}
+[data-etapa="3"]{--gel:var(--e3);--gel-t:var(--e3-t);--gel-f:var(--e3-f);--gel-halo:rgba(224,138,18,.26);--luz-a:rgba(224,138,18,.22);--luz-b:rgba(217,96,43,.10)}
+[data-etapa="4"]{--gel:var(--e4);--gel-t:var(--e4-t);--gel-f:var(--e4-f);--gel-halo:rgba(217,96,43,.26);--luz-a:rgba(217,96,43,.22);--luz-b:rgba(217,96,43,.10)}
+[data-etapa="5"]{--gel:var(--e5);--gel-t:var(--e5-t);--gel-f:var(--e5-f);--gel-halo:rgba(213,50,56,.26);--luz-a:rgba(213,50,56,.20);--luz-b:rgba(213,50,56,.09)}
 
 /* ============================================================================
    MODO OSCURO — la misma pared, con las luces apagadas
@@ -100,7 +107,7 @@ html, body, #root { margin:0; padding:0; min-height:100%; }
 @media (prefers-color-scheme: dark){
   :root:not([data-tema="claro"]){
     --yeso:#1C1A18;
-    --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#7E786E;
+    --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#9C968B;
     --linea:rgba(255,255,255,.09);
     --e1-t:#8FC4F7; --e2-t:#5CE0A0; --e3-t:#FFC569; --e4-t:#FF9A6B; --e5-t:#FF8A8E;
     --vidrio-a:rgba(255,255,255,.10); --vidrio-b:rgba(255,255,255,.045);
@@ -111,7 +118,7 @@ html, body, #root { margin:0; padding:0; min-height:100%; }
 }
 :root[data-tema="oscuro"]{
   --yeso:#1C1A18;
-  --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#7E786E;
+  --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#9C968B;
   --linea:rgba(255,255,255,.09);
   --e1-t:#8FC4F7; --e2-t:#5CE0A0; --e3-t:#FFC569; --e4-t:#FF9A6B; --e5-t:#FF8A8E;
   --vidrio-a:rgba(255,255,255,.10); --vidrio-b:rgba(255,255,255,.045);
@@ -170,8 +177,8 @@ body{ background:var(--yeso); color:var(--tinta); }
   background:linear-gradient(155deg, var(--reflejo), transparent 46%); }
 .b > *{ position:relative; z-index:1; }
 /* Rango 1: vidrio TEÑIDO con la gelatina de la etapa. Uno por panel. */
-.b-1{ border-color:var(--gel-t); color:#fff;
-  background:linear-gradient(170deg, var(--gel), var(--gel-t));
+.b-1{ border-color:var(--gel-f); color:#fff;
+  background:linear-gradient(170deg, var(--gel), var(--gel-f));
   box-shadow:inset 0 1px 0 rgba(255,255,255,.42), 0 8px 18px -9px var(--gel); }
 .b-1:hover{ filter:brightness(1.07); }
 .b-1:active{ filter:brightness(.94); }
@@ -211,8 +218,8 @@ button:not(.b):not(:disabled):active{ transform:scale(.97); }
   -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); }
 .b-chip[aria-pressed="false"]{ background:var(--vidrio-b); border-color:var(--vidrio-borde); color:var(--tinta-media); }
 .b-chip[aria-pressed="false"]:hover{ background:var(--vidrio-a); color:var(--tinta); }
-.b-chip[aria-pressed="true"]{ background:linear-gradient(165deg, var(--gel), var(--gel-t));
-  border-color:var(--gel-t); color:#fff; box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 5px 12px -6px var(--gel); }
+.b-chip[aria-pressed="true"]{ background:linear-gradient(165deg, var(--gel), var(--gel-f));
+  border-color:var(--gel-f); color:#fff; box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 5px 12px -6px var(--gel); }
 
 /* AGREGAR: el punteado dice "aquí todavía no hay nada" — regla 2. */
 .b-agregar{ display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 15px;
