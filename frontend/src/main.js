@@ -1301,10 +1301,33 @@ window.addEventListener('message', async (event) => {
         return;
     }
 
+    /* QUIEN NO SE VE, NO ESCRIBE (2026-08-29).
+    Cada panel es una copia VIVA del proyecto entero: al desanclar un módulo
+    quedan dos herramientas montadas a la vez, la de la pestaña nueva y la que
+    sigue en la pestaña Proyecto. Las dos mandaban su cfg completo, y el shell
+    se quedaba con el último que llegara. La escondida guarda lo de ANTES de
+    que empezaras a escribir en la otra, así que en cuanto emitía —al
+    rehidratarse, al cambiarle el tema, al reacomodarse— devolvía el proyecto
+    al estado viejo y borraba lo recién escrito. Eso es lo que dejaba inservible
+    desanclar un módulo: escribías en la pestaña y se te borraba al instante.
+
+    La regla ahora: SOLO EL PANEL QUE ESTÁ AL FRENTE puede cambiar el proyecto.
+    Es el único donde el usuario puede haber escrito algo; lo que mande
+    cualquier otro es, por definición, un eco o una copia atrasada. Los demás
+    no se pierden nada: se ponen al día solos al asomarse (ver ponerAlDia). */
     if (data.type === 'producciontv:infografia-state') {
         if (!panel.escucha) return;
+        if (panel !== panelAlFrente()) return;
+        /* Y LO QUE NO CAMBIÓ NO SE GUARDA. Hidratar un panel le cambia el
+        estado, así que contesta con un eco de lo que acabamos de mandarle. Al
+        aceptarlo se marcaba el proyecto como modificado y se escribía el .ptv
+        con hora nueva; la OTRA ventana veía un archivo "más reciente", lo
+        adoptaba y le arrancaba de las manos lo que su usuario estaba
+        escribiendo. Sin cambio real no hay guardado, y se acaba el ping-pong. */
+        const texto = JSON.stringify(data.cfg);
+        if (texto === JSON.stringify(latestInfografia)) { panel.sello = selloEstado; return; }
         latestInfografia = data.cfg;
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(latestInfografia));
+        localStorage.setItem(AUTOSAVE_KEY, texto);
         // El panel que escribió ya está al día; los demás quedan atrasados y
         // se pondrán al corriente cuando se asomen (ver ponerAlDia).
         marcarCambio();
@@ -1321,9 +1344,15 @@ window.addEventListener('message', async (event) => {
 
     if (data.type === 'producciontv:diagram-state') {
         if (!panel.escucha) return;
-        latestDiagram = data.state;
-        const syncedInfografia = infografiaFromDiagram(latestDiagram, latestInfografia);
+        // El diagrama SÍ puede hablar desde el fondo: el shell le manda el set
+        // en caliente (sync-infografia) y lo que devuelve es la ruta de señal
+        // recalculada, no una copia atrasada del proyecto. Pero el eco tampoco
+        // se guarda: si no cambió ni el diagrama ni lo que se deriva de él, no
+        // hay nada que escribir.
+        const syncedInfografia = infografiaFromDiagram(data.state, latestInfografia);
         const didSync = syncedInfografia !== latestInfografia;
+        if (!didSync && JSON.stringify(data.state) === JSON.stringify(latestDiagram)) { panel.sello = selloEstado; return; }
+        latestDiagram = data.state;
         latestInfografia = syncedInfografia;
         localStorage.setItem(DIAGRAM_KEY, JSON.stringify(latestDiagram));
         if (didSync) {
