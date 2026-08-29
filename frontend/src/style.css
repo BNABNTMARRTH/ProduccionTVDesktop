@@ -608,6 +608,78 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .bus-cam.previo small{color:rgba(255,255,255,.85)}
 .bus-cam:focus-visible{outline:2px solid var(--gel-t);outline-offset:2px}
 
+/* ============================================================================
+   EN VIVO — la escaleta corriendo con reloj (2026-08-29)
+   Todo en UNA tarjeta y en este orden, que es el de la mirada de quien dirige:
+   cuánto va (transporte) → qué está al aire (buses) → qué toca hacer
+   (monitor) → dónde está la gente (plano). Si hay que barrer la pantalla
+   para saber si vas a tiempo, la pantalla no sirve en un foro.
+   ============================================================================ */
+.vivo-transporte{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 20px 4px}
+.vivo-play{display:inline-flex;align-items:center;gap:8px;min-width:132px;justify-content:center;
+  padding:11px 18px;border-radius:11px;border:1px solid var(--gel-t);cursor:pointer;
+  background:linear-gradient(165deg,var(--gel),var(--gel-f));color:#fff;font-weight:700;font-size:14px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 8px 18px -10px var(--gel);
+  transition:transform .1s cubic-bezier(.2,.7,.3,1),filter .16s}
+.vivo-play:hover:not(:disabled){filter:brightness(1.06)}
+.vivo-play:active:not(:disabled){transform:scale(.97)}
+.vivo-play:disabled{opacity:.45;cursor:default;box-shadow:none}
+.vivo-play.on{background:linear-gradient(165deg,var(--e3),var(--e3-f));border-color:var(--e3-f)}
+.vivo-reset{width:42px;height:42px;flex:none;border-radius:11px;border:1px solid var(--vidrio-borde);
+  background:var(--vidrio-b);color:var(--tinta);font-size:17px;cursor:pointer}
+.vivo-reset:hover:not(:disabled){border-color:var(--gel);color:var(--gel-t)}
+.vivo-reset:disabled{opacity:.4;cursor:default}
+/* El reloj en cifras de ancho fijo: si no, los dígitos bailan al pasar el
+   tiempo y la vista se va detrás del brinco en vez de al número. */
+.vivo-reloj{display:flex;align-items:baseline;gap:7px;font-variant-numeric:tabular-nums}
+.vivo-reloj b{font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:34px;font-weight:700;line-height:1;letter-spacing:.02em;color:var(--tinta)}
+.vivo-reloj b.corriendo{color:var(--e5-t)}
+.vivo-reloj span{font-size:11.5px;color:var(--tinta-baja);white-space:nowrap}
+.vivo-barra{flex:1 1 140px;min-width:120px;height:6px;border-radius:3px;background:var(--vidrio-b);border:1px solid var(--linea);overflow:hidden}
+.vivo-barra i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--e1),var(--e5));transition:width .2s linear}
+
+/* LOS DOS BUSES. Rojo al aire y verde en previo desde que existe la
+   televisión: aquí no se innova, se obedece la convención del foro. */
+.vivo-buses{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 20px 0}
+.vivo-bus{border-radius:13px;padding:12px 15px;border:1px solid var(--vidrio-borde);background:var(--vidrio-b);min-width:0}
+.vivo-bus b{display:block;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:27px;font-weight:700;
+  letter-spacing:.02em;text-transform:uppercase;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vivo-bus small{display:block;font-size:11px;opacity:.85;margin-top:1px}
+.vivo-bus.aire{background:linear-gradient(165deg,var(--e5),var(--e5-f));border-color:var(--e5-f);color:#fff;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 0 26px -8px var(--e5)}
+.vivo-bus.previo{background:linear-gradient(165deg,var(--e2),var(--e2-f));border-color:var(--e2-f);color:#fff}
+.vivo-rot{display:block;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;opacity:.8;margin-bottom:3px}
+.vivo-rot em{font-style:normal;opacity:.75;letter-spacing:.06em}
+
+/* EL DESVÍO: programa contra realidad. Es el único aviso de la tarjeta, así
+   que cuando aparece tiene que leerse sin buscarlo. */
+.vivo-desvio{margin:10px 20px 0;padding:9px 13px;border-radius:10px;font-size:12.5px;font-weight:700;
+  background:var(--e3-f);color:#fff}
+.vivo-desvio[hidden]{display:none}
+
+/* EL MONITOR: qué toca ejecutar AHORA y qué viene enseguida. */
+.vivo-monitor{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:10px;padding:12px 20px 4px}
+.vivo-ahora,.vivo-sigue{border-radius:13px;padding:12px 15px;border:1px solid var(--linea);background:var(--vidrio-b);min-width:0}
+.vivo-ahora{border-left:3px solid var(--e5)}
+.vivo-ahora h3{margin:0 0 5px;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:23px;font-weight:700;
+  letter-spacing:.02em;text-transform:uppercase;color:var(--tinta)}
+.vivo-ahora p{margin:0;font-size:14px;line-height:1.5;color:var(--tinta)}
+.vivo-ahora p.vacio{color:var(--tinta-baja);font-style:italic}
+.vivo-etiquetas{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.vivo-etiquetas span{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  padding:4px 8px;border-radius:999px;background:var(--vidrio-a);border:1px solid var(--vidrio-borde);color:var(--tinta-media)}
+.vivo-etiquetas span:empty{display:none}
+.vivo-sigue h4{margin:0 0 3px;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:18px;font-weight:700;
+  letter-spacing:.02em;text-transform:uppercase;color:var(--tinta-media)}
+.vivo-sigue small{display:block;font-size:11.5px;color:var(--tinta-baja);line-height:1.4}
+.vivo-resta{display:inline-block;margin-top:9px;font-variant-numeric:tabular-nums;font-size:12px;font-weight:800;
+  letter-spacing:.02em;color:var(--e5-t)}
+/* La cámara que el programa PIDE y todavía no has tomado: un pulso, no un
+   grito. El grito ya lo da la barra de desvío. */
+.bus-cam.pide{border-color:var(--e5);box-shadow:0 0 0 1px var(--e5) inset}
+.bus-cam.pide b::after{content:" ●";color:var(--e5-t);font-size:10px;vertical-align:middle}
+@media(max-width:900px){.vivo-buses,.vivo-monitor{grid-template-columns:1fr}}
+
 .set-card .set-live{padding:8px 16px 4px}
 .set-card .set-live svg{background:#fff;border-radius:10px}
 .set-card .set-live svg{width:100%!important;height:auto!important;display:block}
