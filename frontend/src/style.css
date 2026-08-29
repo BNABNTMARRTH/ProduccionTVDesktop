@@ -100,9 +100,21 @@ button{font:inherit}
    aparecer y desaparecer. Los 55px de padding-top de .rail son el hueco que le
    guarda la barra. Que el logo NUNCA se vaya es lo que arregla el viejo botón
    ⤢: siempre hay por dónde volver. */
-.rail-logo{position:absolute;z-index:6;left:45px;top:27px;width:34px;height:34px;padding:0;border:0;background:transparent;cursor:pointer;
-  transition:left .34s cubic-bezier(.3,.85,.25,1),top .34s cubic-bezier(.3,.85,.25,1),width .34s cubic-bezier(.3,.85,.25,1),height .34s cubic-bezier(.3,.85,.25,1)}
-.rail-logo img{width:100%;height:100%;display:block;object-fit:cover;border-radius:10px;box-shadow:0 4px 12px #0006;transition:filter .16s ease,border-radius .34s ease}
+/* EL VIAJE VA EN TRANSFORM, NO EN left/top/width/height (2026-08-29).
+   Con las cuatro propiedades de caja el navegador tenía que RECALCULAR LA
+   PÁGINA en cada cuadro del viaje, justo mientras la barra se encogía y el
+   documento de la herramienta se reacomodaba: el logo daba tirones. En
+   `transform` el viaje lo hace la tarjeta gráfica, en su propia capa, sin
+   tocar la página. De ahí `translate3d(0,0,0)` en reposo: reserva la capa
+   desde el principio para que el primer cuadro no sea el caro.
+   Los números salen de las dos posiciones reales: centro (62,44) con la barra
+   abierta y (42,41) posado en el encabezado → viaje (−20,−3); y 30/34 = .882
+   de tamaño. En ventana angosta la barra mide 60 y el centro cae en (44,44),
+   así que ahí el viaje es (−2,−3). */
+.rail-logo{position:absolute;z-index:6;left:45px;top:27px;width:34px;height:34px;--viaje-x:-20px;--viaje-y:-3px;padding:0;border:0;background:transparent;cursor:pointer;
+  transform:translate3d(0,0,0);
+  transition:transform .4s cubic-bezier(.32,.72,.24,1)}
+.rail-logo img{width:100%;height:100%;display:block;object-fit:cover;border-radius:10px;box-shadow:0 4px 12px #0006;transition:filter .16s ease}
 .rail-logo:hover:not(:disabled) img{filter:brightness(1.1)}
 .rail-logo:active:not(:disabled) img{filter:brightness(.94)}
 .rail-logo:disabled{cursor:default}
@@ -363,9 +375,18 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
 .desktop-shell.rail-plegado .rail{width:0;margin-left:0;padding-left:0;padding-right:0;border-width:0;opacity:0;overflow:hidden;pointer-events:none;visibility:hidden;
   transition:width .34s cubic-bezier(.3,.85,.25,1),margin .34s cubic-bezier(.3,.85,.25,1),padding .34s cubic-bezier(.3,.85,.25,1),border-width .34s,opacity .2s ease,visibility 0s .34s}
 /* El logo aterriza en el encabezado, un poco más chico: ahí es una firma, no
-   un rótulo. El encabezado le abre sitio con el mismo compás. */
-.desktop-shell.rail-plegado .rail-logo{left:27px;top:26px;width:30px;height:30px}
-.desktop-shell.rail-plegado .rail-logo img{border-radius:9px}
+   un rótulo. El encabezado le abre sitio con el mismo compás.
+   LA ESPERA DE .1s ES SOLO DE IDA (va en el estado de destino, así que al
+   volver no se aplica): deja que la barra se encoja y que el documento de la
+   herramienta se reacomode ANTES de empezar a moverse. Viajar encima de ese
+   trabajo era lo que se veía trabado. De vuelta no hace falta esperar: ahí el
+   logo sale al mismo tiempo que los botones y no va solo. */
+.desktop-shell.rail-plegado .rail-logo{transform:translate3d(var(--viaje-x),var(--viaje-y),0) scale(.882);transition-delay:.1s}
+/* Y NO REAPARECEN. Al quitar .plegando la animación deja de aplicarse y los
+   botones volvían de golpe a tamaño y opacidad completos, visibles otra vez
+   durante los .34s que tarda la barra en cerrarse: un parpadeo justo cuando
+   el logo empieza a moverse. Ya se los tragó el logo; que sigan tragados. */
+.desktop-shell.rail-plegado .rail button{opacity:0}
 .workspace-header{transition:padding-left .34s cubic-bezier(.3,.85,.25,1)}
 .desktop-shell.rail-plegado .workspace-header{padding-left:54px}
 
@@ -482,7 +503,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
    1.4:1, prácticamente invisible. Ahora el velo es el yeso del tema, así que
    se apaga con él y el texto vuelve a leerse. */
 .welcome-overlay{position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--yeso) 84%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);transition:opacity .18s ease}.welcome-overlay.closing{opacity:0;pointer-events:none}.welcome-card{position:relative;width:min(520px,calc(100vw - 48px));display:flex;flex-direction:column;align-items:center;text-align:center;padding:38px;border-radius:22px;background:var(--vidrio-a);overflow:hidden;box-shadow:0 0 0 1px var(--linea),0 26px 70px -30px rgba(26,24,34,.55)}.welcome-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(110% 45% at 50% 0,rgba(240,78,152,.16),transparent 62%)}.welcome-card>*{position:relative;z-index:1}.welcome-card img{width:104px;height:104px;object-fit:cover;border-radius:24px;margin-bottom:22px;box-shadow:0 14px 34px -14px rgba(26,24,34,.4)}.welcome-card h1{margin:9px 0 10px;font-size:32px;color:var(--tinta);font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:700;letter-spacing:.02em;text-transform:uppercase}.welcome-card p{max-width:410px;margin:0;color:var(--tinta-media);font-size:15px;line-height:1.65}.welcome-card p strong{color:var(--tinta)}.welcome-card button{margin-top:26px;min-width:170px;border:1px solid var(--gel-t);border-radius:9px;padding:12px 22px;background:linear-gradient(165deg,var(--gel),var(--gel-f));color:#fff;font-weight:700;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 8px 18px -9px var(--gel)}.welcome-card button:hover{background:linear-gradient(165deg,var(--gel),var(--gel-f))}
-@media(max-width:1000px){.rail{width:60px}.rail-logo{left:27px}.rail button em{display:none}.rail button .ic{width:36px;height:36px}}
+@media(max-width:1000px){.rail{width:60px}.rail-logo{left:27px;--viaje-x:-2px}.rail button em{display:none}.rail button .ic{width:36px;height:36px}}
 @media(max-width:1150px){.save-status,.workspace-header .mode-chip{display:none}.continue-card{grid-template-columns:1fr}.production-layout{grid-template-columns:1fr}}
 /* Contenedor donde se montan los documentos multipágina antes de imprimir */
 #print-host{display:none}

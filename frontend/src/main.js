@@ -3,7 +3,7 @@ import html2canvas from 'html2canvas';
 import appIcon from './assets/images/produccion-tv-256.png';
 import { icono } from './iconos.js';
 import { CloseWindow, DeleteProjectFile, DeleteTrashFile, FocusLauncher, FocusProjectWindow, GetLaunchContext, ListOpenProjects, ListTrashFiles, LoadAllProjects, LoadProjectFile, OpenProjectWindow, OpenToolWindow, Print, ReadTrashFile, SaveBase64File, SaveProjectFile, SaveTextFile, SetWindowTitle, WatchProject } from '../wailsjs/go/main/App';
-import { EventsOn } from '../wailsjs/runtime/runtime';
+import { EventsOn, WindowIsFullscreen, WindowUnfullscreen } from '../wailsjs/runtime/runtime';
 import { templateCatalog, makeTemplate, diagramFromConfig, infografiaFromDiagram, uid, PROJECT_MODES, normalizeMode } from './templates.js';
 import { createProductionView } from './production.js';
 import { createNuevoProyecto } from './nuevo-proyecto.js';
@@ -1360,13 +1360,28 @@ document.querySelector('[data-accion="nuevo"]').onclick = () => nuevoProyecto.op
 document.querySelector('[data-accion="proyectos"]').onclick = () => selectView('home');
 document.querySelector('[data-accion="plantillas"]').onclick = () => selectView('plantillas');
 document.querySelector('#tpl-vacio').onclick = () => nuevoProyecto.open();
-// El nombre del proyecto en el header funciona como la pestaña Archivo de
-// Word: desde una ventana de proyecto trae al frente la ventana ORIGINAL de
-// inicio (el lanzador) — no una copia local; si ya se cerró, Go abre una nueva.
-document.querySelector('#active-name').onclick = () => {
-    if (shell.classList.contains('project-window')) { FocusLauncher().catch(() => {}); return; }
-    selectView('home');
-};
+/* EL NOMBRE DEL PROYECTO funciona como la pestaña Archivo de Word: desde una
+ventana de proyecto trae al frente la ventana ORIGINAL de Inicio (el lanzador),
+no una copia; si ya se cerró, Go abre una nueva.
+
+EN PANTALLA COMPLETA NO HACÍA NADA, y no era culpa del botón: macOS le da a
+cada ventana a pantalla completa un ESCRITORIO propio, y traer al frente una
+ventana que vive en otro escritorio no se ve — el sistema simplemente no
+cambia de escritorio. Así que primero se sale de pantalla completa (eso te
+devuelve al escritorio donde está Inicio) y ahí sí se la llama. La espera es
+para el deslizamiento del sistema: pedir el frente a media transición se
+pierde, y volvías a quedarte con la sensación de que el botón no sirve. */
+async function irAInicio() {
+    if (!shell.classList.contains('project-window')) { selectView('home'); return; }
+    try {
+        if (await WindowIsFullscreen()) {
+            WindowUnfullscreen();
+            await new Promise((listo) => setTimeout(listo, 700));
+        }
+    } catch { /* fuera de Wails no hay ventana a la que preguntarle */ }
+    conGo(FocusLauncher);
+}
+document.querySelector('#active-name').onclick = irAInicio;
 // Los tres botones de la herramienta: el shell no sabe deshacer nada, solo se
 // lo pide al panel que está al frente.
 const pedirAHerramienta = (type) => panelAlFrente()?.el?.contentWindow?.postMessage({ type }, '*');
