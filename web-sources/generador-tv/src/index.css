@@ -404,3 +404,164 @@ details[open] > .tarjeta-cab .tarjeta-flecha{ transform:rotate(180deg) }
   box-shadow:inset 0 1px 0 var(--vidrio-filo); transition:.18s }
 .tema-btn:hover{ color:var(--tinta); filter:brightness(1.08) }
 .tema-btn:active{ transform:scale(.95) }
+
+/* ══════════════ EL LIENZO DEL PLANO CENITAL ══════════════
+El MISMO dibujo (EstudioCenital) sale en dos lados: el editor del plano, que
+es una superficie de TRABAJO, y la infografía, que es una HOJA y se imprime.
+Por eso los colores por omisión son los de papel — blancos, como siempre — y
+solo el editor se marca con `.lienzo-tema`, que es lo único que se apaga en
+modo oscuro. Así el plano sigue saliendo blanco en la infografía y en las
+hojas, y de paso al imprimir desde el editor también (ver @media print).
+
+Los colores de DATO no están aquí a propósito: el verde de los micrófonos, el
+color de cada cámara y el de cada luz identifican una cosa concreta y no
+cambian con el tema, igual que en el resto de la app. */
+:root{
+  --plano-piso:#F2F5F8; --plano-borde:#C8D2DE; --plano-rejilla:#E2E8EF;
+  --plano-piso-ext:#EDF5EA; --plano-borde-ext:#C4D9C6; --plano-rejilla-ext:#DFEBDD;
+  --plano-objeto:#FFFFFF; --plano-objeto-borde:#9AA7B5;
+  --plano-tinta:#33445F; --plano-tinta-baja:#8A97A8; --plano-linea:#5F7189;
+  --plano-cuerpo:#3C4654;
+  --plano-camara:#1B1F26; --plano-camara-visor:#2C333D; --plano-camara-lente:#0C0F14; --plano-camara-aro:#7D8794;
+  --plano-barra:#16365F; --plano-barra-hueco:#0E2748; --plano-barra-borde:#3A6EA5;
+  --plano-talento:#16365F;
+  --plano-ext-tinta:#4C7C54;
+}
+
+/* El foro con las luces apagadas: piso más oscuro que la pared de la app para
+   que el plano siga leyéndose como una superficie, no como un hueco. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-tema="claro"]) .lienzo-tema{
+    --plano-piso:#232120; --plano-borde:#3E3A35; --plano-rejilla:#2E2B28;
+    --plano-piso-ext:#1F2622; --plano-borde-ext:#374539; --plano-rejilla-ext:#28312B;
+    --plano-objeto:#35322D; --plano-objeto-borde:#7E766D;
+    --plano-tinta:#DCD6CC; --plano-tinta-baja:#A8A297; --plano-linea:#9A9289;
+    --plano-cuerpo:#8C857C;
+    --plano-camara:#524C45; --plano-camara-visor:#655E55; --plano-camara-lente:#2A2724; --plano-camara-aro:#A79E93;
+    --plano-barra:#22497A; --plano-barra-hueco:#152F52; --plano-barra-borde:#4C7FBE;
+    --plano-talento:#7FB2EC;
+    --plano-ext-tinta:#8FC79A;
+  }
+}
+:root[data-tema="oscuro"] .lienzo-tema{
+  --plano-piso:#232120; --plano-borde:#3E3A35; --plano-rejilla:#2E2B28;
+  --plano-piso-ext:#1F2622; --plano-borde-ext:#374539; --plano-rejilla-ext:#28312B;
+  --plano-objeto:#35322D; --plano-objeto-borde:#7E766D;
+  --plano-tinta:#DCD6CC; --plano-tinta-baja:#A8A297; --plano-linea:#9A9289;
+  --plano-cuerpo:#8C857C;
+  --plano-camara:#524C45; --plano-camara-visor:#655E55; --plano-camara-lente:#2A2724; --plano-camara-aro:#A79E93;
+  --plano-barra:#22497A; --plano-barra-hueco:#152F52; --plano-barra-borde:#4C7FBE;
+  --plano-talento:#7FB2EC;
+  --plano-ext-tinta:#8FC79A;
+}
+
+/* AL IMPRIMIR, SIEMPRE PAPEL. Aunque estés trabajando en modo oscuro, lo que
+   sale de la impresora es una hoja blanca: ni se gasta tinta ni se entrega un
+   plano negro al equipo de rodaje. */
+@media print{
+  .lienzo-tema{
+    --plano-piso:#F2F5F8; --plano-borde:#C8D2DE; --plano-rejilla:#E2E8EF;
+    --plano-piso-ext:#EDF5EA; --plano-borde-ext:#C4D9C6; --plano-rejilla-ext:#DFEBDD;
+    --plano-objeto:#FFFFFF; --plano-objeto-borde:#9AA7B5;
+    --plano-tinta:#33445F; --plano-tinta-baja:#8A97A8; --plano-linea:#5F7189;
+    --plano-cuerpo:#3C4654;
+    --plano-camara:#1B1F26; --plano-camara-visor:#2C333D; --plano-camara-lente:#0C0F14; --plano-camara-aro:#7D8794;
+    --plano-barra:#16365F; --plano-barra-hueco:#0E2748; --plano-barra-borde:#3A6EA5;
+    --plano-talento:#16365F;
+    --plano-ext-tinta:#4C7C54;
+  }
+}
+
+/* ===================== LA HOJA DEL GUION Y SU TEMA =====================
+El guion se escribe sobre una HOJA. Hasta el 27-ago la hoja era blanca en los
+dos temas, con el argumento de que es lo que se imprime — y sobre el papel las
+tintas del tema desaparecían, así que todo lo que iba encima usaba tintas de
+papel fijas.
+
+Estaba mal MIRARLO, que es lo que se hace el 99% del tiempo: una hoja blanca a
+pantalla completa dentro de una app oscura deslumbra, y leer un guion largo ahí
+cansa la vista. Un editor de guion serio apaga la hoja en modo oscuro y guarda
+el blanco para la impresora. Eso es lo que hace este bloque (2026-08-28).
+
+Mismo patrón que `.lienzo-tema`: los valores por omisión son los de papel, solo
+`.hoja-tema` se apaga en oscuro, y al imprimir vuelve el papel pase lo que pase.
+
+Los colores de las etiquetas de tipo (acción, personaje…) y de los marcatextos
+también viven aquí: son los que se rompían al cambiar el fondo. */
+:root{
+  --hoja:#fff; --hoja-alza:#fff;
+  --hoja-tinta:#12212f;          /* 15.6:1 sobre blanco */
+  --hoja-tinta-baja:#5A6672;     /*  5.9:1 sobre blanco */
+  --hoja-linea:rgba(18,33,47,.16);
+  --hoja-hueco:rgba(18,33,47,.06);
+  --hoja-borrar:#B4454F;
+  --tipo-accion:#2E7D5B; --tipo-personaje:#1D6FD1; --tipo-parentesis:#8A5CD6;
+  --tipo-dialogo:#B4232A; --tipo-transicion:#9A5B00;
+  /* Marcatextos: en claro son tinta fluorescente sólida, como en el papel. */
+  --marca-verde:#B8FF3C; --marca-amarillo:#FFF25C; --marca-naranja:#FFB03A; --marca-rojo:#FF7A7A;
+}
+
+/* La hoja con la luz apagada: un papel cálido y CLARAMENTE más claro que el
+   fondo. Medido: el fondo real detrás de la hoja no es la pared pelada sino
+   --vidrio-b encima de ella (≈#232120), así que un gris apenas más claro se
+   confundía con él y la hoja dejaba de leerse como hoja. #35322D —el mismo
+   tono que ya usan los objetos del plano en oscuro— se despega del fondo y
+   deja la tinta en 10.4:1. Los marcatextos pasan a ser BANDAS
+   translúcidas: el texto encima ya es claro, y sobre un amarillo sólido no se
+   leería nada. Las etiquetas de tipo suben de tono por la misma razón. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-tema="claro"]) .hoja-tema{
+    --hoja:#35322D; --hoja-alza:#403C36;
+    --hoja-tinta:#ECE7DF; --hoja-tinta-baja:#A9A399;
+    --hoja-linea:rgba(255,255,255,.15);
+    --hoja-hueco:rgba(255,255,255,.07);
+    --hoja-borrar:#FF8A8E;
+    --tipo-accion:#6FD3A4; --tipo-personaje:#7FB2EC; --tipo-parentesis:#C3A6F5;
+    --tipo-dialogo:#FF9AA0; --tipo-transicion:#E8B462;
+    --marca-verde:rgba(184,255,60,.26); --marca-amarillo:rgba(255,242,92,.26);
+    --marca-naranja:rgba(255,176,58,.30); --marca-rojo:rgba(255,122,122,.32);
+  }
+}
+:root[data-tema="oscuro"] .hoja-tema{
+  --hoja:#35322D; --hoja-alza:#403C36;
+  --hoja-tinta:#ECE7DF; --hoja-tinta-baja:#A9A399;
+  --hoja-linea:rgba(255,255,255,.15);
+  --hoja-hueco:rgba(255,255,255,.07);
+  --hoja-borrar:#FF8A8E;
+  --tipo-accion:#6FD3A4; --tipo-personaje:#7FB2EC; --tipo-parentesis:#C3A6F5;
+  --tipo-dialogo:#FF9AA0; --tipo-transicion:#E8B462;
+  --marca-verde:rgba(184,255,60,.26); --marca-amarillo:rgba(255,242,92,.26);
+  --marca-naranja:rgba(255,176,58,.30); --marca-rojo:rgba(255,122,122,.32);
+}
+
+/* AL IMPRIMIR, SIEMPRE PAPEL: hoja blanca y marcatextos sólidos. */
+@media print{
+  .hoja-tema{
+    --hoja:#fff; --hoja-alza:#fff;
+    --hoja-tinta:#12212f; --hoja-tinta-baja:#5A6672;
+    --hoja-linea:rgba(18,33,47,.16); --hoja-hueco:rgba(18,33,47,.06);
+    --hoja-borrar:#B4454F;
+    --tipo-accion:#2E7D5B; --tipo-personaje:#1D6FD1; --tipo-parentesis:#8A5CD6;
+    --tipo-dialogo:#B4232A; --tipo-transicion:#9A5B00;
+    --marca-verde:#B8FF3C; --marca-amarillo:#FFF25C; --marca-naranja:#FFB03A; --marca-rojo:#FF7A7A;
+  }
+}
+
+/* LA SUPERFICIE DE TRABAJO de las vistas enfocadas (plano del set, escaleta).
+   Llevaba `bg-white` de Tailwind: un blanco fijo que no seguía al tema, así
+   que en modo oscuro quedaba una losa blanca con el texto claro del tema
+   encima. No es papel —la hoja que se imprime es la infografía, y esa sí se
+   queda blanca—: es mesa de trabajo, y se apaga con la app. */
+.vista-foco{
+  /* Los componentes que salen TANTO aquí como en la hoja impresa (el cuadro de
+     personal, por ejemplo) leen estas variables con la tinta de papel como
+     respaldo: aquí existen y siguen al tema; en la hoja no existen y se quedan
+     en papel. Así un mismo componente sirve a las dos superficies sin saber en
+     cuál está. */
+  --ui-tinta:var(--tinta);
+  --ui-tinta-media:var(--tinta-media);
+  background:var(--vidrio-b);
+  border:1px solid var(--vidrio-borde);
+  border-radius:14px;
+  box-shadow:inset 0 1px 0 var(--vidrio-filo), 0 18px 40px -26px rgba(23,21,18,.28);
+}

@@ -20,8 +20,6 @@ const TRAZOS = {
   diagrama: '<rect x="2.5" y="8.5" width="6" height="7" rx="1.5"/><rect x="15.5" y="4" width="6" height="6" rx="1.5"/><rect x="15.5" y="14" width="6" height="6" rx="1.5"/><path d="M8.5 12h3.5V7h3.5M12 12v5h3.5"/>',
   // Producción: al aire (el punto rojo emitiendo).
   produccion: '<circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/><path d="M6.5 6.5a7.8 7.8 0 000 11M17.5 6.5a7.8 7.8 0 010 11M3.5 3.5a12 12 0 000 17M20.5 3.5a12 12 0 010 17"/>',
-  // Guías: hojas para imprimir y llenar a mano.
-  guias: '<path d="M7 8.5V3.5h10v5"/><rect x="3.5" y="8.5" width="17" height="8" rx="2"/><path d="M7 13.5h10v7H7z"/>',
   // Exportar: sacar el documento de la app.
   exportar: '<path d="M12 3.5v11m0 0l-4-4m4 4l4-4M4.5 16.5v2a2 2 0 002 2h11a2 2 0 002-2v-2"/>',
 
@@ -40,7 +38,15 @@ const TRAZOS = {
   papelera: '<path d="M4 6.5h16M9.5 6.5V4.5h5v2M6.5 6.5l1 13h9l1-13M10 10v6M14 10v6"/>',
   inicio: '<path d="M4 10.5L12 4l8 6.5V19a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 19z"/><path d="M9.5 20.5v-6h5v6"/>',
   ayuda: '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.6a2.5 2.5 0 114 2.2c-.9.6-1.6 1-1.6 2M12 16.6v.4"/>',
-  pantalla: '<path d="M4 9V5.5A1.5 1.5 0 015.5 4H9M15 4h3.5A1.5 1.5 0 0120 5.5V9M20 15v3.5a1.5 1.5 0 01-1.5 1.5H15M9 20H5.5A1.5 1.5 0 014 18.5V15"/>',
+  // Desanclar: sacar el módulo del marco y ponerlo en su propia pestaña.
+  // La hoja chica se despega de la grande y sale por la esquina de arriba.
+  desanclar: '<path d="M13.5 4.5H19a.5.5 0 01.5.5v5.5M19 5l-6.5 6.5"/><path d="M16 13.5v4A2.5 2.5 0 0113.5 20h-7A2.5 2.5 0 014 17.5v-7A2.5 2.5 0 016.5 8h4"/>',
+  // Reanclar: la ventana suelta vuelve a meterse como pestaña.
+  reanclar: '<path d="M19.5 10.5V5a.5.5 0 00-.5-.5h-5.5M19 5l-6.5 6.5"/><path d="M16 13.5v4A2.5 2.5 0 0113.5 20h-7A2.5 2.5 0 014 17.5v-7A2.5 2.5 0 016.5 8h4"/>',
+  // Cerrar: la cruz de una pestaña.
+  cerrar: '<path d="M7 7l10 10M17 7L7 17"/>',
+  // Más: agregar una pestaña.
+  mas: '<path d="M12 5.5v13M5.5 12h13"/>',
 };
 
 // Nombres alternativos: el resto de la app llama 'production' a la pestaña En vivo.
@@ -54,6 +60,17 @@ TRAZOS.sol = '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M
 TRAZOS.luna = '<path d="M20.2 14.4A8.4 8.4 0 1 1 9.6 3.8a6.6 6.6 0 0 0 10.6 10.6z"/>';
 
 TRAZOS.ensayo = TRAZOS.produccion;
+
+// Sacar a su propia ventana: una ventana de escritorio con su barra de título
+// y una flecha que sale. Es el gesto de arrastrar la pestaña afuera, hecho botón.
+TRAZOS.ventana = '<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M3 8.5h18"/><path d="M9.5 15.5l5-5M11 10.5h3.5v3.5"/>';
+// Plantillas de set: tarjetas apiladas, la de enfrente con un plano dentro.
+TRAZOS.plantillas = '<rect x="3" y="6.5" width="13" height="14" rx="2"/><path d="M7 3.5h11a2 2 0 0 1 2 2v11"/><path d="M6.5 15.5h6M6.5 11.5h3"/>';
+// Deshacer / rehacer: la flecha que regresa y la que vuelve a avanzar.
+TRAZOS.deshacer = '<path d="M4 8.5h9.5a5.5 5.5 0 1 1 0 11H8"/><path d="M7.5 5 4 8.5 7.5 12"/>';
+TRAZOS.rehacer = '<path d="M20 8.5h-9.5a5.5 5.5 0 1 0 0 11H16"/><path d="M16.5 5 20 8.5 16.5 12"/>';
+// Guía: la brújula que dice cómo se hace esta pieza y qué le falta.
+TRAZOS.guia = '<circle cx="12" cy="12" r="9"/><path d="m15.2 8.8-1.9 4.5-4.5 1.9 1.9-4.5z"/>';
 
 export const NOMBRES_ICONOS = Object.keys(TRAZOS);
 

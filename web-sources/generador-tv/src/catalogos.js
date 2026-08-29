@@ -101,7 +101,15 @@ export const CATALOGO_ROLES = [
 // Mobiliario del set. cap = plazas para talentos; "mitad" ayuda a dibujar la manija
 // de giro. (Ojo: hoy también existe una copia en tools/shared/sheets.js; al unificar
 // el dibujo del plano —Fase 1— esa hoja debería leer desde aquí.)
+// LAS MESAS SON MOBILIARIO (2026-08-28). Antes el set traía una mesa FIJA de
+// serie —la dibujaba el propio lienzo, salía en todos los proyectos aunque no
+// hiciera falta y no se podía duplicar ni cambiar de forma—. Ahora la mesa se
+// agrega como cualquier otro mueble: se mueve, se gira, se quita y se pueden
+// poner varias. Y hay mesa redonda, que es la de los paneles y las tertulias.
+// (Los proyectos viejos conservan su mesa fija; ver mesaVisible en proyecto.js.)
 export const MUEBLES_CATALOGO = {
+  mesa:        { es: "Mesa / escritorio", cap: 3, mitad: 62 },
+  mesaRedonda: { es: "Mesa redonda",      cap: 6, mitad: 50 },
   podio:   { es: "Atril / podio",      cap: 1, mitad: 17 },
   sillon1: { es: "Sillón individual",  cap: 1, mitad: 24 },
   sillon2: { es: "Sofá de 2 plazas",   cap: 2, mitad: 38 },
@@ -109,8 +117,17 @@ export const MUEBLES_CATALOGO = {
   silla:   { es: "Silla",              cap: 1, mitad: 12 },
   banco:   { es: "Banco alto",         cap: 1, mitad: 11 },
 };
-// Dónde se sienta cada ocupante, relativo al centro del mueble (antes de girar).
+// Dónde se sienta cada ocupante, relativo al centro del mueble (antes de
+// girar). En las mesas la gente NO se sienta encima: se sienta alrededor —
+// detrás del escritorio, y en corro en la redonda—, que es como se ve en un
+// plano de planta de verdad. El primer asiento va al centro, para que una sola
+// persona no quede descuadrada.
 export const MUEBLE_ASIENTOS = {
+  mesa: [{ x: 0, y: -34 }, { x: -42, y: -34 }, { x: 42, y: -34 }],
+  mesaRedonda: [
+    { x: 0, y: -46 }, { x: 40, y: -23 }, { x: 40, y: 23 },
+    { x: 0, y: 46 }, { x: -40, y: 23 }, { x: -40, y: -23 },
+  ],
   podio: [{ x: 0, y: -26 }],
   sillon1: [{ x: 0, y: 0 }],
   sillon2: [{ x: -19, y: 0 }, { x: 19, y: 0 }],

@@ -77,6 +77,14 @@
   .sec-row button{width:26px;height:26px;border:1px solid var(--linea);border-radius:7px;background:var(--vidrio-a);color:var(--tinta-media);cursor:pointer;font-size:12px}
   .sec-row button:hover:not(:disabled){color:var(--tinta);border-color:var(--gel)}
   .sec-row button:disabled{opacity:.3;cursor:default}
+  /* Sub-opciones de una sección. Hoy solo las usa "Hojas imprimibles", que
+     antes era una herramienta aparte (Guías) y hacía exactamente esto: elegir
+     qué hojas se imprimen y cuántos renglones en blanco dejarles. */
+  .sec-sub{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:-2px 0 2px 26px;padding:9px 11px;border:1px dashed var(--linea);border-radius:9px;background:var(--vidrio-b)}
+  .sec-sub label{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .sec-sub input[type=checkbox]{width:14px;height:14px;accent-color:var(--gel)}
+  .sec-sub input[type=number]{width:52px;border:1px solid var(--linea);border-radius:7px;background:var(--vidrio-a);color:var(--tinta);padding:4px 6px;font:inherit;font-size:11.5px}
+  .sec-sub .nota{width:100%;font-size:11px;color:var(--tinta-baja);line-height:1.5}
   .pages-hint{font-size:11px;color:var(--tinta-baja);line-height:1.5;margin:6px 0 0}
   .go{margin-top:auto;border:1px solid var(--gel-f);color:#fff;border-radius:11px;padding:13px;font-weight:700;font-size:15px;cursor:pointer;
     background:linear-gradient(170deg,var(--gel),var(--gel-f));
@@ -155,6 +163,7 @@
 </div>
 
 <script src="../shared/sheets.js"></script>
+<script src="../shared/atajos.js"></script>
 <script>
 (() => {
   'use strict';
@@ -175,9 +184,31 @@
     { id: 'timeline', label: 'Línea de tiempo', on: true },
     { id: 'diagrama', label: 'Diagrama técnico', on: true },
     { id: 'personal', label: 'Personal de operación', on: true },
-    { id: 'guias', label: 'Guías rellenables', on: false },
+    { id: 'guias', label: 'Hojas imprimibles', on: false },
   ];
   let orden = SECCIONES.map((s) => ({ ...s }));
+
+  /* HOJAS IMPRIMIBLES. Antes vivían en una herramienta aparte llamada "Guías",
+     con su propia pestaña en Planeación. Era la misma función con otro nombre:
+     las mismas hojas, el mismo renderizador (PTVSheets) y el mismo destino, el
+     papel. Ahora son una sección más de Exportar, que es donde ya estaban a
+     medias — la sección existía, pero imprimía siempre las mismas siete hojas
+     y sin poder elegir. Aquí se recupera el control que tenía la herramienta:
+     cuáles hojas y cuántos renglones en blanco. */
+  const HOJAS = [
+    { id: 'perfil', label: 'Perfil' },
+    { id: 'guion', label: 'Guion literario' },
+    { id: 'escaleta', label: 'Escaleta' },
+    { id: 'camaras', label: 'Cámaras' },
+    { id: 'checklist', label: 'Checklist' },
+    { id: 'plano', label: 'Plano del set' },
+    { id: 'iluminacion', label: 'Plan de iluminación' },
+    { id: 'llamado', label: 'Hoja de llamado' },
+    { id: 'cambios', label: 'Registro de cambios' },
+  ];
+  // Las que traía encendidas la sección antes de este cambio.
+  let hojasOn = ['escaleta', 'camaras', 'checklist', 'plano', 'iluminacion', 'llamado', 'cambios'];
+  let filasExtra = 4;
 
   /* --------------------------- Utilidades --------------------------- */
 
@@ -469,8 +500,8 @@
       if (s.id === 'diagrama') pages.push({ name: 'diagrama-tecnico', html: pagDiagrama() });
       if (s.id === 'personal') pages.push({ name: 'personal', html: pagPersonal() });
       if (s.id === 'guias') {
-        ['escaleta', 'camaras', 'checklist', 'plano', 'iluminacion', 'llamado', 'cambios'].forEach((g, i) => {
-          pages.push({ name: `guia-${i + 1}-${g}`, html: S[g](cfg, projectName, { extraRows: 4 }), fillable: true });
+        HOJAS.filter((h) => hojasOn.includes(h.id)).forEach((h, i) => {
+          pages.push({ name: `hoja-${i + 1}-${h.id}`, html: S[h.id](cfg, projectName, { extraRows: filasExtra }), fillable: true });
         });
       }
     });
@@ -489,14 +520,35 @@
         <label><span>${s.label}</span></label>
         <button data-up="${i}" ${i === 0 ? 'disabled' : ''}>▲</button>
         <button data-down="${i}" ${i === orden.length - 1 ? 'disabled' : ''}>▼</button>
-      </div>`).join('');
+      </div>${s.id === 'guias' && s.on ? subHojas() : ''}`).join('');
     list.querySelectorAll('[data-on]').forEach((c) => c.onchange = () => { orden[Number(c.dataset.on)].on = c.checked; render(); });
+    list.querySelectorAll('[data-hoja]').forEach((c) => c.onchange = () => {
+      const id = c.dataset.hoja;
+      hojasOn = c.checked ? [...hojasOn, id] : hojasOn.filter((x) => x !== id);
+      render();
+    });
+    const filas = list.querySelector('#filas-extra');
+    if (filas) filas.onchange = () => {
+      filasExtra = Math.max(0, Math.min(12, Number(filas.value) || 0));
+      render();
+    };
     list.querySelectorAll('[data-up]').forEach((b) => b.onclick = () => { const i = Number(b.dataset.up); [orden[i - 1], orden[i]] = [orden[i], orden[i - 1]]; render(); });
     list.querySelectorAll('[data-down]').forEach((b) => b.onclick = () => { const i = Number(b.dataset.down); [orden[i + 1], orden[i]] = [orden[i], orden[i + 1]]; render(); });
     const go = document.querySelector('#go');
     const n = buildPages().length;
     go.textContent = tipo === 'proyecto' ? 'Exportar proyecto (.ptv)' : tipo === 'pdf' ? `Generar PDF (${n} páginas)` : `Generar ${n} PNG`;
     go.disabled = tipo !== 'proyecto' && n === 0;
+  }
+
+  // Las opciones de las hojas imprimibles, debajo de su fila.
+  function subHojas() {
+    return `
+      <div class="sec-sub">
+        ${HOJAS.map((h) => `
+          <label><input type="checkbox" data-hoja="${h.id}" ${hojasOn.includes(h.id) ? 'checked' : ''}>${h.label}</label>`).join('')}
+        <label>Renglones en blanco <input id="filas-extra" type="number" min="0" max="12" value="${filasExtra}"></label>
+        <span class="nota">Son las hojas que se llenan a mano en el set y después se capturan de regreso en la app. Los renglones en blanco son el espacio para escribir lo que salga en el rodaje.</span>
+      </div>`;
   }
 
   function renderPreview() {

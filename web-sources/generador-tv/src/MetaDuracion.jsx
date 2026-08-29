@@ -1,7 +1,7 @@
 import React from "react";
-import { fmt } from "./util.js";
+import { fmt, parseDur } from "./util.js";
 import { NAVY } from "./theme.js";
-import { objetivoDe } from "./proyecto.js";
+import { objetivoSegDe } from "./proyecto.js";
 
 // DURACIÓN OBJETIVO del proyecto: cuánto DEBE durar, contra lo que llevas.
 //
@@ -10,11 +10,37 @@ import { objetivoDe } from "./proyecto.js";
 // la tarea, el corte del festival. Sin este dato el asistente no puede avisar
 // que te estás pasando, que era justo la sugerencia más útil.
 //
-// Se guarda en minutos, en `cfg.duracionObjetivoMin`. Vacío = sin objetivo.
+// Se guarda en SEGUNDOS, en `cfg.duracionObjetivoSeg`. Vacío = sin objetivo.
+// Se escribe en MM:SS, igual que las duraciones de la escaleta, porque muchas
+// piezas duran menos de un minuto: un spot de 30", una cápsula de 50". Antes
+// el campo era de minutos enteros y esas piezas no se podían escribir.
 
 export function MetaDuracion({ cfg, setCfg, total, editable }) {
-  const objetivoMin = objetivoDe(cfg);
-  const objetivo = objetivoMin * 60;
+  const objetivo = objetivoSegDe(cfg);
+  // Lo que se está tecleando. Mientras el usuario escribe "1:" el valor no es
+  // una duración válida todavía, así que no se guarda hasta que suelta el campo.
+  const [borrador, setBorrador] = React.useState(null);
+  const enCampo = borrador !== null;
+  const mostrado = enCampo ? borrador : (objetivo ? fmt(objetivo) : "");
+
+  const guardar = (segundos) => setCfg((c) => {
+    const next = { ...c };
+    if (!segundos) { delete next.duracionObjetivoSeg; delete next.duracionObjetivoMin; return next; }
+    next.duracionObjetivoSeg = segundos;
+    // El campo viejo en minutos se conserva SOLO si el objetivo cae en minutos
+    // exactos, para que una versión anterior de la app lo siga leyendo bien.
+    // Si no cae exacto se quita: mejor que no muestre nada a que mienta.
+    if (segundos % 60 === 0) next.duracionObjetivoMin = segundos / 60;
+    else delete next.duracionObjetivoMin;
+    return next;
+  }, { commit: true });
+
+  const confirmar = () => {
+    if (!enCampo) return;
+    const seg = parseDur(borrador);
+    setBorrador(null);
+    guardar(!seg || seg < 0 ? 0 : Math.round(seg));
+  };
   const dif = total - objetivo;
   const cerca = Math.abs(dif) < 30;
 
@@ -38,18 +64,22 @@ export function MetaDuracion({ cfg, setCfg, total, editable }) {
       {editable ? (
         <span className="flex items-center gap-1.5">
           <input
-            type="number" min="0" step="1" value={objetivoMin || ""} placeholder="—"
-            onChange={(e) => {
-              const n = Math.max(0, Math.round(Number(e.target.value) || 0));
-              setCfg((c) => ({ ...c, duracionObjetivoMin: n }), { commit: true });
+            type="text" inputMode="numeric" value={mostrado} placeholder="—"
+            onChange={(e) => setBorrador(e.target.value)}
+            onBlur={confirmar}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); confirmar(); e.currentTarget.blur(); }
+              if (e.key === "Escape") { e.preventDefault(); setBorrador(null); e.currentTarget.blur(); }
             }}
             className="rounded-md border text-sm font-bold"
-            style={{ width: 68, padding: "5px 8px", borderColor: "#C8D2DE", color: NAVY, textAlign: "right" }}
-            title="Cuánto debe durar el proyecto terminado. Déjalo vacío si todavía no lo sabes." />
-          <span className="text-xs font-bold" style={{ color: "#5B6B82" }}>min</span>
+            style={{ width: 76, padding: "5px 8px", borderColor: "#C8D2DE", color: NAVY, textAlign: "right" }}
+            title={"Cuánto debe durar el proyecto TERMINADO, en minutos:segundos.\n"
+              + "1:30 = un minuto y medio · 0:45 o 45 = cuarenta y cinco segundos · 20:00 = veinte minutos.\n"
+              + "Déjalo vacío si todavía no lo sabes."} />
+          <span className="text-xs font-bold" style={{ color: "#5B6B82" }}>mm:ss</span>
         </span>
       ) : (
-        <span className="text-sm font-bold" style={{ color: NAVY }}>{objetivoMin ? `${objetivoMin} min` : "—"}</span>
+        <span className="text-sm font-bold" style={{ color: NAVY }}>{objetivo ? fmt(objetivo) : "—"}</span>
       )}
 
       <span className="text-xs" style={{ color: "#5B6B82" }}>

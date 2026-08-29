@@ -35,12 +35,22 @@ const MODOS = [
 ];
 
 import { INTENCIONES, MEDIOS, perfilVacio } from './templates.js';
+import { cfgDePlantilla } from './plantillas.js';
 
 export function createNuevoProyecto({ onCreate }) {
     let abierto = false;
     let modo = 'live';
     let verPerfil = false;          // el bloque del perfil arranca plegado
     let perfil = perfilVacio();
+    // Plantilla de set elegida en la galería de Inicio, si vino de ahí. Con
+    // plantilla ya no hay nada que decidir sobre el modo (todas son en vivo):
+    // la caja solo pregunta el nombre.
+    let plantilla = null;
+    // El NOMBRE ESCRITO se guarda aparte. La caja se vuelve a dibujar entera
+    // al cambiar de modo, al desplegar el perfil y al encender un chip; antes
+    // cada manejador se acordaba por su cuenta de rescatarlo, y el del perfil
+    // NO lo hacía: quien escribía el nombre y luego abría el brief lo perdía.
+    let nombreEscrito = '';
     const capa = document.createElement('div');
     capa.className = 'np-overlay';
     capa.hidden = true;
@@ -50,10 +60,13 @@ export function createNuevoProyecto({ onCreate }) {
         capa.innerHTML = `
           <div class="np-card" role="dialog" aria-modal="true" aria-labelledby="np-titulo">
             <button class="np-cerrar" aria-label="Cerrar">✕</button>
-            <h1 id="np-titulo">Nuevo proyecto</h1>
-            <p class="np-hint">Solo esto para empezar. Lo demás lo armas dentro y puedes cambiarlo cuando quieras.</p>
+            <h1 id="np-titulo">${plantilla ? 'Proyecto desde plantilla' : 'Nuevo proyecto'}</h1>
+            <p class="np-hint">${plantilla
+                ? `Se arma un set de <b>${esc(plantilla.nombre)}</b> ya puesto: ${esc(plantilla.resumen.toLowerCase())}. Todo se puede mover y cambiar dentro.`
+                : 'Solo esto para empezar. Lo demás lo armas dentro y puedes cambiarlo cuando quieras.'}</p>
             <label class="np-label" for="np-nombre">¿Cómo se llama?</label>
-            <input id="np-nombre" class="np-input" type="text" placeholder="Noticiero de la FCC" autocomplete="off">
+            <input id="np-nombre" class="np-input" type="text" placeholder="${plantilla ? esc(plantilla.nombre) : 'Noticiero de la FCC'}" autocomplete="off">
+            ${plantilla ? '' : `
             <label class="np-label">¿Cómo se produce?</label>
             <div class="np-modos">
               ${MODOS.map((m) => `
@@ -63,7 +76,7 @@ export function createNuevoProyecto({ onCreate }) {
                   <small>${m.desc}</small>
                   <em>${m.ejemplo}</em>
                 </button>`).join('')}
-            </div>
+            </div>`}
             <button class="np-mas" aria-expanded="${verPerfil}">
               <span class="np-mas-ico">${verPerfil ? '▾' : '▸'}</span>
               El perfil del proyecto <em>· opcional, se puede llenar después</em>
@@ -106,17 +119,16 @@ export function createNuevoProyecto({ onCreate }) {
                 </div>
               </div>
             </div>` : ''}
-            <button class="np-crear">Crear y empezar</button>
+            <button class="np-crear">${plantilla ? 'Crear con esta plantilla' : 'Crear y empezar'}</button>
           </div>`;
 
         const nombre = capa.querySelector('#np-nombre');
+        nombre.value = nombreEscrito;
         capa.querySelector('.np-cerrar').onclick = cerrar;
         capa.querySelectorAll('[data-modo]').forEach((b) => b.onclick = () => {
             leerCampos();
             modo = b.dataset.modo;
-            const foco = nombre.value;
             pinta();
-            capa.querySelector('#np-nombre').value = foco;
             capa.querySelector('#np-nombre').focus();
         });
         capa.querySelector('.np-mas').onclick = () => { leerCampos(); verPerfil = !verPerfil; pinta(); };
@@ -127,9 +139,7 @@ export function createNuevoProyecto({ onCreate }) {
             perfil[lista] = perfil[lista].includes(valor)
                 ? perfil[lista].filter((v) => v !== valor)
                 : [...perfil[lista], valor];
-            const foco = capa.querySelector('#np-nombre').value;
             pinta();
-            capa.querySelector('#np-nombre').value = foco;
         });
         capa.querySelector('.np-crear').onclick = crear;
         nombre.onkeydown = (e) => { if (e.key === 'Enter') crear(); };
@@ -139,6 +149,7 @@ export function createNuevoProyecto({ onCreate }) {
     // Guarda lo escrito antes de volver a dibujar la caja (se redibuja al
     // cambiar de modo, al plegar el perfil y al encender un chip).
     function leerCampos() {
+        nombreEscrito = capa.querySelector('#np-nombre')?.value ?? nombreEscrito;
         capa.querySelectorAll('[data-campo]').forEach((i) => {
             perfil[i.dataset.campo] = i.dataset.campo === 'presupuesto'
                 ? i.value.replace(/[^\d.]/g, '')
@@ -151,27 +162,36 @@ export function createNuevoProyecto({ onCreate }) {
 
     function crear() {
         leerCampos();
-        const nombre = (capa.querySelector('#np-nombre')?.value || '').trim();
+        const nombre = nombreEscrito.trim();
         const conPerfil = perfilConDatos() ? { perfil } : {};
+        // Con plantilla el proyecto viene armado de antemano, así que el perfil
+        // hay que METERLO ahí: si no, quien llenara el brief y además eligiera
+        // una plantilla perdería lo escrito (createProject usa el cfg tal cual).
+        const cfg = plantilla ? cfgDePlantilla(plantilla, nombre) : null;
+        if (cfg && conPerfil.perfil) cfg.perfil = { ...cfg.perfil, ...perfil };
         cerrar();
         onCreate({
             ...conPerfil,
-            name: nombre || `Proyecto ${new Date().toLocaleDateString('es-MX')}`,
-            modo,
-            // Base mínima y editable: un par de cámaras en vivo, una en narrativo,
-            // un talento y la escaleta VACÍA. Nada de segmentos impuestos.
-            template: 'vacio',
-            cams: modo === 'narrative' ? 1 : 2,
+            name: nombre || plantilla?.nombre || `Proyecto ${new Date().toLocaleDateString('es-MX')}`,
+            modo: plantilla ? 'live' : modo,
+            // Sin plantilla el proyecto nace VACÍO: sin cámaras, sin talentos,
+            // sin equipo y sin escaleta (2026-08-28, a petición del usuario).
+            // Todo se agrega dentro, que es donde se ve lo que se está armando.
+            // Con plantilla de set, en cambio, el proyecto nace ya armado.
+            template: plantilla?.kind || 'vacio',
+            ...(cfg ? { cfg } : {}),
         });
     }
 
-    function abrir() {
+    function abrir(opciones = {}) {
         if (abierto) return;
         abierto = true;
         capa.hidden = false;
         modo = 'live';
         verPerfil = false;
         perfil = perfilVacio();
+        nombreEscrito = '';
+        plantilla = opciones.plantilla || null;
         pinta();
     }
 

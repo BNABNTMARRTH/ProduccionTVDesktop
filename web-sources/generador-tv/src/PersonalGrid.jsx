@@ -1,7 +1,7 @@
 import React from "react";
 import { Camera, User } from "lucide-react";
 import { ICONS } from "./iconos.jsx";
-import { INK, NAVY } from "./theme.js";
+import { NAVY } from "./theme.js";
 import { textOn, trunc } from "./util.js";
 
 // Rejilla del equipo humano: cada rol con su icono y, si el proyecto lo pide,
@@ -16,7 +16,7 @@ export function PersonalGrid({ cfg, cams }) {
             <span className="flex items-center justify-center rounded-full" style={{ width: 42, height: 42, background: NAVY }}>
               <Ic size={20} color="#fff" />
             </span>
-            <span className="font-bold uppercase" style={{ fontSize: 9.5, color: INK, marginTop: 4, lineHeight: 1.15 }}>{p.rol}</span>
+            <span className="font-bold uppercase" style={{ fontSize: 9.5, color: "var(--ui-tinta, #15233D)", marginTop: 4, lineHeight: 1.15 }}>{p.rol}</span>
           </div>
         );
       })}
@@ -27,8 +27,8 @@ export function PersonalGrid({ cfg, cams }) {
             <span className="absolute flex items-center justify-center rounded-full font-bold"
               style={{ top: -4, right: -4, width: 17, height: 17, background: c.color, color: textOn(c.color), fontSize: 10, border: "2px solid #fff" }}>{c.num}</span>
           </span>
-          <span className="font-bold uppercase" style={{ fontSize: 9.5, color: INK, marginTop: 4, lineHeight: 1.15 }}>Cámara {c.num}</span>
-          <span style={{ fontSize: 8.5, color: "#5B6B82", lineHeight: 1.1 }}>{trunc(c.plano, 24)}</span>
+          <span className="font-bold uppercase" style={{ fontSize: 9.5, color: "var(--ui-tinta, #15233D)", marginTop: 4, lineHeight: 1.15 }}>Cámara {c.num}</span>
+          <span style={{ fontSize: 8.5, color: "var(--ui-tinta-media, #5B6B82)", lineHeight: 1.1 }}>{trunc(c.plano, 24)}</span>
         </div>
       ))}
     </div>

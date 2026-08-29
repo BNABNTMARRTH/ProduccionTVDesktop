@@ -199,6 +199,11 @@
 
   // Mobiliario (espejo del catálogo del generador React).
   const MUEBLES = {
+    mesa: { es: 'Mesa / escritorio', asientos: [{ x: 0, y: -34 }, { x: -42, y: -34 }, { x: 42, y: -34 }] },
+    mesaRedonda: { es: 'Mesa redonda', asientos: [
+      { x: 0, y: -46 }, { x: 40, y: -23 }, { x: 40, y: 23 },
+      { x: 0, y: 46 }, { x: -40, y: 23 }, { x: -40, y: -23 },
+    ] },
     podio: { es: 'Atril / podio', asientos: [{ x: 0, y: -26 }] },
     sillon1: { es: 'Sillón individual', asientos: [{ x: 0, y: 0 }] },
     sillon2: { es: 'Sofá de 2 plazas', asientos: [{ x: -19, y: 0 }, { x: 19, y: 0 }] },
@@ -206,9 +211,35 @@
     silla: { es: 'Silla', asientos: [{ x: 0, y: 0 }] },
     banco: { es: 'Banco alto', asientos: [{ x: 0, y: 0 }] },
   };
+  /* Gemela de rotulosDe en EstudioCenital.jsx: en un sofá los nombres van
+     apilados debajo; alrededor de una mesa, cada nombre junto a SU asiento. */
+  function rotulosDe(asientos, rot) {
+    var enCorro = asientos.some(function (a) { return Math.abs(a.y) > 8; });
+    if (!enCorro) return { mueble: 34, de: function (i) { return { x: 0, y: 45 + i * 11, corta: 30 }; } };
+    var rad = (rot * Math.PI) / 180;
+    var AFUERA = 1.35;
+    var gira = function (a) {
+      return { x: a.x * Math.cos(rad) - a.y * Math.sin(rad), y: a.x * Math.sin(rad) + a.y * Math.cos(rad) };
+    };
+    var abajo = Math.max.apply(null, asientos.map(function (a) { return gira(a).y * AFUERA; }));
+    return {
+      mueble: Math.max(34, Math.round(abajo) + 24),
+      de: function (i) {
+        var p = gira(asientos[i % asientos.length]);
+        return { x: Math.round(p.x * AFUERA), y: Math.round(p.y * AFUERA) + 4, corta: 22 };
+      },
+    };
+  }
+
   function muebleGlyph(tipo) {
     const tela = '#93A5BC', asiento = '#C9D4E2', borde = '#5F7189';
     switch (tipo) {
+      // Gemelas de GlyphMueble en glifos.jsx: las mesas usan las tintas del
+      // plano, que en la hoja impresa son las de papel.
+      case 'mesa':
+        return `<rect x="-56" y="-23" width="112" height="46" rx="6" fill="var(--plano-objeto)" stroke="var(--plano-objeto-borde)" stroke-width="2"/><rect x="-47" y="-14" width="94" height="28" rx="4" fill="none" stroke="var(--plano-objeto-borde)" stroke-width="1.2" opacity="0.5"/>`;
+      case 'mesaRedonda':
+        return `<circle r="34" fill="var(--plano-objeto)" stroke="var(--plano-objeto-borde)" stroke-width="2"/><circle r="24" fill="none" stroke="var(--plano-objeto-borde)" stroke-width="1.2" opacity="0.5"/>`;
       case 'podio':
         return `<path d="M-17 -12 L17 -12 L12 12 L-12 12 Z" fill="#B4845C" stroke="#8A6543" stroke-width="2"/><rect x="-13" y="-17" width="26" height="7" rx="2.5" fill="#8A6543"/>`;
       case 'sillon2':
@@ -313,6 +344,12 @@
 
     // Mobiliario con sus ocupantes; los talentos sentados no se dibujan sueltos.
     const muebles = set.muebles || [];
+    // ¿Hay un mueble justo encima del punto de foco? Entonces el rótulo del
+    // punto sobra: el mueble ya marca el centro (gemelo de EstudioCenital).
+    const muebleEncima = muebles.some(function (m) {
+      const q = at('mue:' + m.id);
+      return Math.hypot(q.x - mesa.x, q.y - mesa.y) < 46;
+    });
     const sentados = {};
     muebles.forEach((m) => (m.ocupantes || []).forEach((id) => { sentados[id] = true; }));
     const porId = {};
@@ -332,15 +369,17 @@
           <path d="M-4.5 2.5 q4.5 5 9 0 l1 4.5 h-11 z" fill="${col}"/>
         </g>`;
       }).join('');
+      const rotulo = rotulosDe(def.asientos, rot);
       const nombres = ocupantes.map((t, i) => {
         if (!labOk('tal:' + t.id)) return '';
         const micsT = (esLegacy ? [] : mics.filter((x) => x.micTipo !== 'boom' && x.asignadoA === 'tal:' + t.id));
         const micTxt = micsT.length ? ' · ' + micsT.map((x) => MIC_CORTO[x.micTipo] || 'mic').join(' + ') : '';
-        return `<text y="${45 + i * 11}" text-anchor="middle" font-size="9" font-weight="700" fill="${t.tipo === 'invitado' ? '#0E9F9E' : '#33445f'}">${esc(trunc(t.nombre + micTxt, 30))}</text>`;
+        const d = rotulo.de(i);
+        return `<text x="${d.x}" y="${d.y}" text-anchor="middle" font-size="9" font-weight="700" fill="${t.tipo === 'invitado' ? '#0E9F9E' : '#33445f'}">${esc(trunc(t.nombre + micTxt, d.corta))}</text>`;
       }).join('');
       return `<g transform="translate(${p.x} ${p.y})">
         <g transform="rotate(${rot})">${muebleGlyph(m.tipo)}${gente}</g>
-        ${labOk('mue:' + m.id) ? `<text y="34" text-anchor="middle" font-size="9" font-weight="700" fill="#5F7189">${esc(def.es.toUpperCase())}</text>` : ''}
+        ${labOk('mue:' + m.id) ? `<text y="${rotulo.mueble}" text-anchor="middle" font-size="9" font-weight="700" fill="#5F7189">${esc(def.es.toUpperCase())}</text>` : ''}
         ${nombres}
       </g>`;
     }).join('');
@@ -473,7 +512,7 @@
            <circle r="16" fill="none" stroke="#8A97A8" stroke-width="1.6" stroke-dasharray="4 3"/>
            <path d="M-23 0 H23 M0 -23 V23" stroke="#8A97A8" stroke-width="1.4"/>
            <circle r="3" fill="#8A97A8"/>
-           <text y="36" text-anchor="middle" font-size="9" font-weight="700" fill="#8A97A8">PUNTO DE FOCO</text>
+           ${muebleEncima ? '' : '<text y="36" text-anchor="middle" font-size="9" font-weight="700" fill="#8A97A8">PUNTO DE FOCO</text>'}
          </g>`;
     return `
       <svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;border:1px solid #C8D2DE;border-radius:8px">
@@ -672,7 +711,12 @@
   function guion(cfg, projectName) {
     const escenas = (cfg.escaleta || []).filter((e) => (e.guion || []).some((b) => String(b.texto || '').trim()));
     const m = medidasGuion(cfg);
-    const objetivo = Number(cfg?.duracionObjetivoMin || 0) || 0;
+    // La duración objetivo se guarda en segundos (duracionObjetivoSeg); los
+    // proyectos viejos la traen en minutos enteros (duracionObjetivoMin).
+    const objetivoSeg = Number(cfg?.duracionObjetivoSeg) > 0
+      ? Math.round(Number(cfg.duracionObjetivoSeg))
+      : Math.round((Number(cfg?.duracionObjetivoMin) || 0) * 60);
+    const objetivo = objetivoSeg / 60;
     const desfase = objetivo ? m.minutos - objetivo : 0;
 
     if (!escenas.length) {
@@ -698,7 +742,10 @@
       return `<div class="gl-esc">${i + 1}. ${enc}</div>${bloques}`;
     }).join('');
 
-    const aviso = objetivo && Math.abs(desfase) >= 0.5
+    // Misma tolerancia que toleranciaDe() del generador (proyecto.js). Va
+    // copiada porque el shell y el generador se compilan por separado; si
+    // cambias una, cambia la otra.
+    const aviso = objetivo && Math.abs(desfase) * 60 >= Math.max(5, Math.min(30, objetivoSeg * 0.1))
       ? `<b style="color:${desfase > 0 ? '#8F3A11' : '#8A5300'}"> · ${Math.abs(desfase).toFixed(1)} min de ${desfase > 0 ? 'más' : 'menos'}</b>`
       : '';
 

@@ -10,7 +10,7 @@ import { useReorder } from "./hooks.js";
 import { ICONS } from "./iconos.jsx";
 import { IMPACTOS, TIPOS_PROYECTO } from "./narrativa.js";
 import { ALCANCES, BLANCO, CONOCIMIENTOS, DEMO, MEDIOS, formatoSugerido, normalizeCfg,
-         objetivoDe, perfilVacio, porSegundo } from "./proyecto.js";
+         objetivoSegDe, perfilVacio, porSegundo } from "./proyecto.js";
 import { EMBEDDED, descargarArchivo } from "./puente.js";
 import { AIR_COLOR, INK, NAVY, PALETTE } from "./theme.js";
 import { Aviso, Btn, btn, Campo, Campos, Card, Chips, Formatos, inp, inpStyle,
@@ -40,8 +40,11 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
   const rows = computeRows(cfg);
   const total = rows.length ? rows[rows.length - 1].tout : 0;
   // Lo que de verdad pone el presupuesto en perspectiva: cuánto cuesta cada
-  // segundo que sobrevive al corte final.
-  const segundos = Math.round((objetivoDe(cfg) || 0) * 60) || rows.reduce((a, r) => a + (r.dur || 0), 0);
+  // segundo que sobrevive al corte final. Se divide entre la DURACIÓN OBJETIVO
+  // —lo que la pieza debe durar terminada— y, si no hay objetivo, entre lo que
+  // suma la escaleta. Nunca entre la duración del guion: el guion es un
+  // borrador de esa duración, no la duración de entrega.
+  const segundos = objetivoSegDe(cfg) || rows.reduce((a, r) => a + (r.dur || 0), 0);
   const costoSegundo = porSegundo(cfg.perfil?.presupuesto, segundos);
 
   const q = busqueda.trim().toLowerCase();

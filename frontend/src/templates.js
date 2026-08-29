@@ -38,9 +38,13 @@ export const narrativeCatalog = [
 
 // Modo de proyecto: 'live' (programa en vivo / grabado como en vivo, el flujo
 // original de circuito cerrado) o 'narrative' (producción por escenas y planos).
+// `chip` es la etiqueta del encabezado del proyecto, donde sobra el ancho.
+// `corto` es la de la TARJETA de Inicio: ahí la columna mide 228 px y el chip
+// largo se comía el renglón entero hasta empujar los botones fuera de la
+// tarjeta, que los recortaba a la mitad (.proj-card lleva overflow:hidden).
 export const PROJECT_MODES = {
-    live: { label: 'Programa en vivo', chip: 'MODO · PROGRAMA EN VIVO' },
-    narrative: { label: 'Producción narrativa', chip: 'MODO · PRODUCCIÓN NARRATIVA' },
+    live: { label: 'Programa en vivo', chip: 'MODO · PROGRAMA EN VIVO', corto: 'EN VIVO' },
+    narrative: { label: 'Producción narrativa', chip: 'MODO · PRODUCCIÓN NARRATIVA', corto: 'NARRATIVA' },
 };
 // Catálogos del PERFIL del proyecto. Son copia de los del generador
 // (narrativa.js IMPACTOS y proyecto.js MEDIOS): el shell y el generador se
@@ -140,8 +144,14 @@ export function makeTemplate(kind, profile = {}) {
     const exterior = profile.location === 'ext';
     const talents = (profile.talents || []).map((t) => ({ ...t, name: (t.name || '').trim() })).filter((t) => t.name);
     const camaras = Array.from({ length: camCount }, (_, i) => camera(i + 1, i === 0 ? 'Plano General' : 'Plano Medio'));
+    // PROYECTO VACÍO = VACÍO DE VERDAD (2026-08-28). Antes, aunque la plantilla
+    // pidiera cero cámaras, el proyecto nacía con un(a) conductor(a) y el equipo
+    // básico ya puestos; el usuario pidió empezar con el lienzo en blanco y
+    // agregar él lo que haga falta. Las demás plantillas (podcast, entrevista…)
+    // siguen sembrando su gente: ahí el contenido ES la plantilla.
+    const vacio = kind === 'vacio' && !talents.length && !profile.crew?.length;
     // Talentos como entes propios (conductores/invitados en el plano del set).
-    const talentos = (talents.length ? talents : [{ name: 'Conductor(a)', tipo: 'conductor' }])
+    const talentos = (talents.length ? talents : vacio ? [] : [{ name: 'Conductor(a)', tipo: 'conductor' }])
         .map((t) => ({ id: uid('tal'), nombre: t.name, tipo: t.tipo === 'invitado' ? 'invitado' : 'conductor' }));
     // Un micrófono de solapa asignado a cada talento; si la plantilla pide más
     // micrófonos, los extra quedan dinámicos sin asignar. En exteriores todos
@@ -164,7 +174,10 @@ export function makeTemplate(kind, profile = {}) {
         ? [['Set estudio', 'int'], ['Locación exterior', 'ext']]
         : exterior ? [['Locación exterior', 'ext']] : [['Set principal', 'int']]
     ).map(([nombre, locacion]) => ({
-        id: uid('set'), nombre, locacion, mesaVisible: locacion === 'int',
+        // Sin mesa de serie: se agrega desde Mobiliario, como cualquier otro
+        // mueble (2026-08-28). El punto de foco marca a dónde apuntan las
+        // cámaras y las luces mientras no haya nada.
+        id: uid('set'), nombre, locacion, mesaVisible: false,
         setLayout: { pos: {}, rot: {} }, iluminacion: null, muebles: [],
     }));
     const extras = spec.extras();
@@ -177,18 +190,19 @@ export function makeTemplate(kind, profile = {}) {
         return segment(name, dur, fuente);
     });
     // Crew elegido en el asistente (o el básico) + talentos con nombre propio.
-    const crewIds = profile.crew?.length ? profile.crew : DEFAULT_CREW;
+    const crewIds = profile.crew?.length ? profile.crew : vacio ? [] : DEFAULT_CREW;
     const personal = crewIds
         .map((id) => CREW_CATALOG.find((r) => r.id === id))
         .filter(Boolean)
         .map((r) => ({ id: uid('role'), rol: r.rol, icon: r.icon }));
     if (talents.length) {
-        personal.push(...talents.map((t) => ({
-            id: uid('role'),
-            rol: `${t.name} · ${t.tipo === 'invitado' ? 'Invitado(a)' : 'Conductor(a)'}`,
-            icon: 'conductor',
-        })));
-    } else {
+        personal.push(...talents.map((t) => {
+            // "Ana · Conductor(a)". Si el nombre YA es el papel (las plantillas
+            // de set siembran gente sin nombre propio), no se repite dos veces.
+            const papel = t.tipo === 'invitado' ? 'Invitado(a)' : 'Conductor(a)';
+            return { id: uid('role'), rol: t.name === papel ? papel : `${t.name} · ${papel}`, icon: 'conductor' };
+        }));
+    } else if (!vacio) {
         personal.push({ id: uid('role'), rol: 'Conductor(a)', icon: 'conductor' });
     }
     const subtitulo = profile.subtitle

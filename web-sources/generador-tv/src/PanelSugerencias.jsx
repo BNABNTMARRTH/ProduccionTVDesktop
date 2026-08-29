@@ -2,6 +2,17 @@ import React, { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { revisar, NIVELES } from "./sugerencias.js";
 
+// Plural en español, que no es "agregarle una s": las palabras agudas
+// terminadas en -ón pierden el acento y ganan -es (precaución → precauciones),
+// y las terminadas en consonante también (error → errores). Antes salía
+// "6 precaucións" en el encabezado del panel.
+const plural = (palabra, n) => {
+  if (n === 1) return palabra;
+  if (/ón$/.test(palabra)) return palabra.replace(/ón$/, "ones");
+  if (/[aeiou]$/.test(palabra)) return `${palabra}s`;
+  return `${palabra}es`;
+};
+
 // Panel flotante de SUGERENCIAS. Aparece solo cuando el usuario pulsa el botón
 // 💡 y nunca toca el proyecto: dice qué problema ve, por qué y qué hacer. La
 // decisión es del autor — recomendar sin bloquear.
@@ -53,7 +64,7 @@ export function PanelSugerencias({ cfg, setCfg, onClose, embebido = false }) {
           {cuenta.map(({ n, total }) => (
             <span key={n} className="rounded-full px-2 py-0.5 text-xs font-bold"
               style={{ background: COLOR[n].fondo, color: COLOR[n].texto }}>
-              {total} {NIVELES[n].etiqueta.toLowerCase()}{total === 1 ? "" : n === "error" ? "es" : "s"}
+              {total} {plural(NIVELES[n].etiqueta.toLowerCase(), total)}
             </span>
           ))}
         </div>
@@ -64,7 +75,7 @@ export function PanelSugerencias({ cfg, setCfg, onClose, embebido = false }) {
           <p className="m-0 text-xs" style={{ color: "var(--tinta-media)", lineHeight: 1.65 }}>
             {todos.length
               ? "Ignoraste todo lo que había. Cierra y vuelve a abrir el panel para verlo de nuevo."
-              : <>No veo nada que señalar en lo que llevas. Reviso el <b>ritmo y variedad de tus planos</b>, el <b>audio</b>, la <b>duración contra el objetivo</b>, el <b>equipo</b> y los <b>retornos de video</b>. Sigue escribiendo y vuelve a preguntarme.</>}
+              : <>No veo nada que señalar en lo que llevas. Reviso el <b>ritmo y variedad de tus planos</b>, el <b>audio</b>, la <b>duración contra el objetivo</b>, el <b>equipo</b>, los <b>retornos de video</b> y si la <b>duración y los cortes le quedan al medio y al público</b> que pusiste en el perfil. Sigue escribiendo y vuelve a preguntarme.</>}
           </p>
         ) : avisos.map((a) => (
           <div key={a.id} className="rounded-xl border p-3"

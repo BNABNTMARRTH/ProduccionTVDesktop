@@ -59,6 +59,13 @@ export const MuebleIcon = ({ tipo, width = 58, height = 26 }) => (
 export function GlyphMueble({ tipo }) {
   const tela = "#93A5BC", asiento = "#C9D4E2", borde = "#5F7189";
   switch (tipo) {
+    // Las mesas usan las tintas del PLANO (no las de la tela) porque son la
+    // superficie de trabajo del set: así se apagan con el tema, igual que la
+    // mesa fija a la que sustituyen.
+    case "mesa":
+      return (<g><rect x="-56" y="-23" width="112" height="46" rx="6" fill="var(--plano-objeto)" stroke="var(--plano-objeto-borde)" strokeWidth="2" /><rect x="-47" y="-14" width="94" height="28" rx="4" fill="none" stroke="var(--plano-objeto-borde)" strokeWidth="1.2" opacity="0.5" /></g>);
+    case "mesaRedonda":
+      return (<g><circle r="34" fill="var(--plano-objeto)" stroke="var(--plano-objeto-borde)" strokeWidth="2" /><circle r="24" fill="none" stroke="var(--plano-objeto-borde)" strokeWidth="1.2" opacity="0.5" /></g>);
     case "podio":
       return (<g><path d="M-17 -12 L17 -12 L12 12 L-12 12 Z" fill="#B4845C" stroke="#8A6543" strokeWidth="2" /><rect x="-13" y="-17" width="26" height="7" rx="2.5" fill="#8A6543" /></g>);
     case "sillon2":

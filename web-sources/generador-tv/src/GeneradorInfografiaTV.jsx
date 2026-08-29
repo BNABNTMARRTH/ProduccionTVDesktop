@@ -200,14 +200,27 @@ export default function GeneradorInfografiaTV() {
       if (event.data?.type === "producciontv:set-mode" && MODOS.includes(event.data.mode)) {
         setModo(event.data.mode);
       }
+      // Los botones de la barra del shell: aquí está el historial, así que la
+      // orden llega de fuera y la ejecuta quien sí puede.
+      if (event.data?.type === "producciontv:undo") undo();
+      if (event.data?.type === "producciontv:redo") redo();
+      if (event.data?.type === "producciontv:toggle-guia") setGuia((v) => (v ? null : "ficha"));
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [cfg, reset]);
+  }, [cfg, reset, undo, redo]);
 
   useEffect(() => {
     window.parent.postMessage({ type: "producciontv:infografia-state", cfg }, "*");
   }, [cfg]);
+
+  // El estado de los botones que el shell dibuja por nosotros: si hay algo que
+  // deshacer o rehacer y si la guía está abierta. Sin este aviso quedarían
+  // siempre apagados (o siempre encendidos), que es peor que no tenerlos.
+  useEffect(() => {
+    if (!EMBEDDED) return;
+    window.parent.postMessage({ type: "producciontv:tool-ui", canUndo, canRedo, guia: !!guia }, "*");
+  }, [canUndo, canRedo, guia]);
 
   const persistProyectos = async (list) => {
     setProyectos(list);
@@ -240,7 +253,7 @@ export default function GeneradorInfografiaTV() {
   const tab = (m, Icono, label) => (
     <button onClick={() => setModo(m)}
       className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold"
-      style={modo === m ? { background: "#fff", color: NAVY } : { background: "transparent", color: "#C6D4E6" }}>
+      style={modo === m ? { background: "#fff", color: NAVY } : { background: "transparent", color: "var(--tinta-media)" }}>
       <Icono size={15} /> {label}
     </button>
   );
@@ -288,11 +301,18 @@ export default function GeneradorInfografiaTV() {
 
       {/* La barra es un MATERIAL translúcido, no una franja opaca: el contenido
           pasa por debajo. Antes era azul marino sólido y era la costura más
-          visible entre el marco de la app y esta pantalla. */}
-      <div className="app-toolbar no-print sticky top-0 z-10 flex flex-wrap items-center gap-2 px-4 py-2"
-        style={{ background: "rgba(255,255,255,.72)", backdropFilter: "blur(24px) saturate(180%)",
-                 WebkitBackdropFilter: "blur(24px) saturate(180%)", borderBottom: "1px solid var(--filo)" }}>
-        <Clapperboard size={17} color="var(--sorpresa-t)" />
+          visible entre el marco de la app y esta pantalla.
+
+          DENTRO DEL ESCRITORIO NO EXISTE (2026-08-28): era la SEGUNDA franja
+          en la cabeza de la ventana —repetía el nombre de la app y dejaba un
+          hueco contra la del shell—. Sus únicos botones útiles ahí (deshacer,
+          rehacer y la guía) ahora viven en la barra única del shell y llegan
+          por el puente: producciontv:undo / :redo / :toggle-guia. En la web
+          (PWA), donde no hay shell, la barra sigue siendo la de siempre. */}
+      {!EMBEDDED && <div className="app-toolbar no-print sticky top-0 z-10 flex flex-wrap items-center gap-2 px-4 py-2"
+        style={{ background: "var(--vidrio-a)", backdropFilter: "blur(24px) saturate(180%)",
+                 WebkitBackdropFilter: "blur(24px) saturate(180%)", borderBottom: "1px solid var(--vidrio-borde)" }}>
+        <Clapperboard size={17} color="var(--gel-t)" />
         <span className="app-title cond font-bold uppercase" style={{ fontSize: 17, letterSpacing: ".05em", color: "var(--tinta)" }}>
           Producción TV
         </span>
@@ -305,7 +325,7 @@ export default function GeneradorInfografiaTV() {
         )}
         {/* Dentro del escritorio manda la barra de etapas; estas pestañas solo
             tienen sentido en la versión web, que no la tiene. */}
-        {!EMBEDDED && <div className="mode-tabs flex gap-1 rounded-lg p-1" style={{ background: "rgba(255,255,255,.12)" }}>
+        {!EMBEDDED && <div className="mode-tabs flex gap-1 rounded-lg p-1" style={{ background: "var(--vidrio-b)" }}>
           {/* En la app de escritorio Set y Escaleta tienen pestaña propia en la
               barra lateral; en la web (PWA) se muestran aquí. */}
           {!readonly && tab("editar", Pencil, "Editar")}
@@ -324,7 +344,7 @@ export default function GeneradorInfografiaTV() {
             {copiado ? <><Check size={15} /> ¡Enlace copiado!</> : <><Share2 size={15} /> Compartir</>}
           </button>
         )}
-      </div>
+      </div>}
 
       {readonly && (
         <div className="no-print flex flex-wrap items-center justify-center gap-2 px-3 py-2 text-sm"

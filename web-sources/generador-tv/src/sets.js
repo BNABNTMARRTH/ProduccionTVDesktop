@@ -5,9 +5,14 @@
 import { uid } from "./util.js";
 import { posicionesParaLuces } from "./iluminacion.js";
 
+// Un set NACE VACÍO: piso, muro y el punto de foco, nada más. La mesa fija que
+// venía de serie salía en todos los proyectos la necesitaran o no, y no se
+// podía mover de forma ni duplicar; ahora se agrega desde Mobiliario, junto
+// con la mesa redonda (ver MUEBLES_CATALOGO). Los proyectos anteriores
+// conservan la suya: el valor por omisión al MIGRAR sigue siendo true.
 export const setNuevo = (n = 1) => ({
   id: `set-${uid()}`, nombre: n === 1 ? "Set principal" : `Set ${n}`,
-  locacion: "int", mesaVisible: true,
+  locacion: "int", mesaVisible: false,
   setLayout: { pos: {}, rot: {} }, iluminacion: null, muebles: [],
 });
 

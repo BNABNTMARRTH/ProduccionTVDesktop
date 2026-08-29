@@ -9,7 +9,7 @@
 // app — 91 botones sin un solo estado de "presionado".
 import React, { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { INK, NAVY, PALETTE } from "./theme.js";
+import { INK, PALETTE } from "./theme.js";
 import { FORMATOS, repartoCalculado } from "./proyecto.js";
 
 // ── Compatibilidad ────────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ export function TarjetaAyuda({ id, titulo, pasos }) {
     <>
       <button type="button" onClick={() => setAbierta(true)} title="¿Cómo funciona esta pestaña?"
         aria-label="¿Cómo funciona esta pestaña?"
-        className="b b-2 b-ic no-print" style={{ borderRadius: "50%", color: NAVY, fontWeight: 800 }}>?</button>
+        className="b b-2 b-ic no-print" style={{ borderRadius: "50%", fontWeight: 800 }}>?</button>
       {abierta && (
         <div className="no-print fixed inset-0 z-50 grid place-items-center" style={{ background: "rgba(6,14,28,.45)" }} onClick={cerrar}>
           <div onClick={(e) => e.stopPropagation()} className="rounded-2xl text-white shadow-2xl"

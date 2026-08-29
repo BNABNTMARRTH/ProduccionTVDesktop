@@ -7,7 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,17 +22,27 @@ type App struct {
 	projectID    string
 	projectJSON  string
 	openFileJSON string // contenido de un .ptv abierto con doble clic antes de que el frontend arranque
+	toolView     string // módulo desanclado que vive solo en esta ventana ("" = ventana de proyecto completa)
+	watchStop    chan struct{}
 }
 
 // NewApp creates a new App application struct
-func NewApp(projectID string, projectJSON string, openFileJSON string) *App {
-	return &App{projectID: projectID, projectJSON: projectJSON, openFileJSON: openFileJSON}
+func NewApp(projectID string, projectJSON string, openFileJSON string, toolView string) *App {
+	return &App{projectID: projectID, projectJSON: projectJSON, openFileJSON: openFileJSON, toolView: toolView}
 }
 
 // startup is called when the app starts. The context is saved
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	a.registerWindow()
+}
+
+// shutdown corre al cerrarse la ventana: suelta la marca de "proyecto abierto"
+// para que la próxima vez que se pique la tarjeta se abra una ventana nueva.
+func (a *App) shutdown(ctx context.Context) {
+	a.StopWatch()
+	a.releaseWindow()
 }
 
 // handleFileOpen recibe la ruta de un proyecto .ptv abierto desde Finder
@@ -58,43 +70,341 @@ func (a *App) GetLaunchContext() map[string]string {
 	}
 	opened := a.openFileJSON
 	a.openFileJSON = ""
-	return map[string]string{"mode": mode, "projectID": a.projectID, "projectJSON": a.projectJSON, "openedFile": opened}
+	if a.toolView != "" {
+		mode = "tool"
+	}
+	return map[string]string{"mode": mode, "projectID": a.projectID, "projectJSON": a.projectJSON, "openedFile": opened, "tool": a.toolView}
 }
 
-// OpenProjectWindow launches a second app process. Wails v2 has one native
-// window per process, so this gives every project a genuinely independent
-// macOS window while the launcher remains open.
-func (a *App) OpenProjectWindow(projectID string, projectJSON string) error {
+/* ------------- Una sola ventana por proyecto (registro de PIDs) -------------
+Cada ventana es un PROCESO aparte: Wails v2 tiene una ventana nativa por
+proceso, y así cada proyecto vive de verdad en su propia ventana de macOS.
+El costo es que los procesos no se conocen entre sí, y por eso picarle otra
+vez a la tarjeta abría una COPIA del proyecto que ya estaba abierto.
+
+La solución es un buzón compartido: al arrancar, cada ventana de proyecto deja
+su PID en un archivito con el nombre del proyecto. Antes de abrir, el lanzador
+lo lee: si ese proceso sigue vivo lo trae al frente; si ya no existe, la marca
+está vieja, se tira y se abre una ventana nueva. Vive en la carpeta de caché
+del sistema porque es estado de ejecución, no trabajo del usuario: si se borra
+no se pierde nada, y lo peor que pasa es abrir una ventana de más. */
+
+// windowsDir devuelve (creándola si hace falta) la carpeta del registro.
+func windowsDir() (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		base = os.TempDir()
+	}
+	dir := filepath.Join(base, "ProduccionTV", "ventanas")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+// claveVentana identifica lo que ESTA ventana tiene abierto: el proyecto
+// entero, o un módulo suelto de ese proyecto. Los ids de proyecto los genera
+// uid() y nunca traen guiones bajos, así que "__" separa sin ambigüedad.
+func claveVentana(projectID, toolView string) string {
+	id := sanitizeProjectID(projectID)
+	if id == "" || toolView == "" {
+		return id
+	}
+	return id + "__" + sanitizeProjectID(toolView)
+}
+
+// windowMarkPath es la ruta de la marca de una ventana ("" si la clave no sirve).
+func windowMarkPath(clave string) string {
+	id := sanitizeProjectID(clave)
+	if id == "" {
+		return ""
+	}
+	dir, err := windowsDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, id+".pid")
+}
+
+// registerWindow anota que ESTA ventana tiene abierto su proyecto.
+func (a *App) registerWindow() {
+	path := windowMarkPath(claveVentana(a.projectID, a.toolView))
+	if path == "" {
+		return
+	}
+	_ = os.WriteFile(path, []byte(strconv.Itoa(os.Getpid())), 0o644)
+}
+
+// releaseWindow borra la marca al cerrarse. Solo borra la SUYA: si otra
+// ventana ya reclamó el proyecto, la marca es de esa y no se toca.
+func (a *App) releaseWindow() {
+	path := windowMarkPath(claveVentana(a.projectID, a.toolView))
+	if path == "" {
+		return
+	}
+	if data, err := os.ReadFile(path); err == nil {
+		if pid, err := strconv.Atoi(strings.TrimSpace(string(data))); err == nil && pid != os.Getpid() {
+			return
+		}
+	}
+	_ = os.Remove(path)
+}
+
+// FocusProjectWindow trae al frente la ventana que ya tiene abierto el
+// proyecto y devuelve true. Devuelve false si no hay ninguna — y de paso
+// limpia la marca si el proceso anotado ya se cerró.
+func (a *App) FocusProjectWindow(projectID string) bool {
+	return a.focusWindow(claveVentana(projectID, ""))
+}
+
+// FocusToolWindow trae al frente la ventana suelta de un módulo, si existe.
+func (a *App) FocusToolWindow(projectID string, toolView string) bool {
+	return a.focusWindow(claveVentana(projectID, toolView))
+}
+
+/* Indirección para poder PROBAR la decisión de arriba sin AppKit: las pruebas
+   sustituyen estas dos y simulan una ventana viva que no se deja enfocar. */
+var (
+	procesoVivo   = processAlive
+	traerAlFrente = activateProcess
+)
+
+func (a *App) focusWindow(clave string) bool {
+	path := windowMarkPath(clave)
+	if path == "" {
+		return false
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil || pid <= 0 {
+		_ = os.Remove(path)
+		return false
+	}
+	// La propia ventana no se "trae al frente" a sí misma desde el lanzador.
+	if pid == os.Getpid() {
+		return false
+	}
+	/* ¿SIGUE VIVA? Esa es la única pregunta que decide si hay que abrir otra
+	   ventana — y NO es la misma que "¿pude traerla al frente?".
+
+	   Hasta 2026-08-28 se usaban como si fueran lo mismo: si activateProcess
+	   devolvía false se borraba la marca y se abría una ventana NUEVA. Pero
+	   desde macOS 14 la activación es cooperativa y falla con la ventana
+	   perfectamente viva (lo dice el propio activate_darwin.go). El resultado
+	   era una SEGUNDA ventana del mismo módulo o del mismo proyecto: las dos
+	   escribiendo el mismo .ptv y pisándose el trabajo entre ellas. Es lo que
+	   hacía que arrastrar pestañas a ventanas "se rompiera a los pocos usos".
+
+	   Ahora la marca solo se tira cuando el proceso de verdad ya no está. Si
+	   está vivo pero no se deja enfocar, la ventana EXISTE: no se duplica. */
+	if !procesoVivo(pid) {
+		_ = os.Remove(path)
+		return false
+	}
+	traerAlFrente(pid)
+	return true
+}
+
+// ListOpenProjects devuelve los ids de los proyectos que ya tienen una
+// ventana abierta, para que el lanzador los marque en su tarjeta. De paso
+// barre las marcas viejas que dejó una ventana que se cerró de golpe.
+func (a *App) ListOpenProjects() []string {
+	out := []string{}
+	dir, err := windowsDir()
+	if err != nil {
+		return out
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return out
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".pid") {
+			continue
+		}
+		path := filepath.Join(dir, e.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+		if err != nil || pid <= 0 || !processAlive(pid) {
+			_ = os.Remove(path)
+			continue
+		}
+		// Un módulo suelto (proyecto__modulo) cuenta como que el proyecto
+		// está abierto: para el lanzador, la tarjeta se marca igual.
+		clave := strings.TrimSuffix(e.Name(), ".pid")
+		if corte := strings.Index(clave, "__"); corte >= 0 {
+			clave = clave[:corte]
+		}
+		if !slices.Contains(out, clave) {
+			out = append(out, clave)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// OpenProjectWindow abre el proyecto en su propia ventana. Si YA está abierto
+// en otra ventana no abre una copia: trae esa al frente. Devuelve true cuando
+// abrió una ventana nueva y false cuando reutilizó la que ya estaba, para que
+// la interfaz pueda decir cuál de las dos cosas pasó.
+func (a *App) OpenProjectWindow(projectID string, projectJSON string) (bool, error) {
 	if strings.TrimSpace(projectID) == "" {
-		return nil
+		return false, nil
+	}
+	if a.FocusProjectWindow(projectID) {
+		return false, nil
 	}
 	projectFile, err := os.CreateTemp("", "producciontv-project-*.json")
 	if err != nil {
-		return err
+		return false, err
 	}
 	projectPath := projectFile.Name()
 	if _, err := projectFile.WriteString(projectJSON); err != nil {
 		_ = projectFile.Close()
 		_ = os.Remove(projectPath)
-		return err
+		return false, err
 	}
 	if err := projectFile.Close(); err != nil {
 		_ = os.Remove(projectPath)
-		return err
+		return false, err
 	}
 	executable, err := os.Executable()
 	if err != nil {
 		_ = os.Remove(projectPath)
-		return err
+		return false, err
 	}
 	cmd := exec.Command(executable, "--project="+projectID, "--project-file="+projectPath)
 	cmd.Env = os.Environ()
 	if err := cmd.Start(); err != nil {
 		_ = os.Remove(projectPath)
-		return err
+		return false, err
 	}
 	go func() { _ = cmd.Wait() }()
-	return nil
+	return true, nil
+}
+
+// OpenToolWindow despega un módulo del proyecto y lo abre en su propia ventana
+// de macOS (la pestaña que arrastraste fuera de la barra). Es el mismo truco
+// que OpenProjectWindow —un proceso nuevo— pero arrancado en modo módulo, así
+// que esa ventana muestra SOLO esa herramienta. Si ese módulo ya tenía ventana,
+// se trae al frente en lugar de abrir otra.
+func (a *App) OpenToolWindow(projectID string, toolView string, projectJSON string) (bool, error) {
+	if strings.TrimSpace(projectID) == "" || strings.TrimSpace(toolView) == "" {
+		return false, nil
+	}
+	if a.FocusToolWindow(projectID, toolView) {
+		return false, nil
+	}
+	projectFile, err := os.CreateTemp("", "producciontv-project-*.json")
+	if err != nil {
+		return false, err
+	}
+	projectPath := projectFile.Name()
+	if _, err := projectFile.WriteString(projectJSON); err != nil {
+		_ = projectFile.Close()
+		_ = os.Remove(projectPath)
+		return false, err
+	}
+	if err := projectFile.Close(); err != nil {
+		_ = os.Remove(projectPath)
+		return false, err
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		_ = os.Remove(projectPath)
+		return false, err
+	}
+	cmd := exec.Command(executable, "--project="+projectID, "--project-file="+projectPath, "--tool="+toolView)
+	cmd.Env = os.Environ()
+	if err := cmd.Start(); err != nil {
+		_ = os.Remove(projectPath)
+		return false, err
+	}
+	go func() { _ = cmd.Wait() }()
+	return true, nil
+}
+
+// CloseWindow cierra ESTA ventana. La usa el botón "volver a la pestaña" de
+// una ventana de módulo suelto: guarda, trae al frente la del proyecto y se va.
+func (a *App) CloseWindow() {
+	if a.ctx != nil {
+		runtime.Quit(a.ctx)
+	}
+}
+
+/* ---------------- Aviso de cambios entre ventanas ----------------
+Con un módulo desanclado en su propia ventana hay DOS ventanas escribiendo el
+mismo proyecto. La fuente de verdad es el .ptv del disco y gana el último
+guardado; lo que faltaba era que la otra ventana se enterara sin tener que
+hacerle clic. Esto vigila el archivo y avisa al frontend en cuanto cambia.
+Es un vistazo a la fecha del archivo cada segundo: no lee ni parsea nada
+mientras no haya cambiado. */
+
+// WatchProject empieza a vigilar el .ptv del proyecto de esta ventana.
+func (a *App) WatchProject(projectID string) {
+	a.StopWatch()
+	id := sanitizeProjectID(projectID)
+	if id == "" || a.ctx == nil {
+		return
+	}
+	dir, err := projectsDir()
+	if err != nil {
+		return
+	}
+	path := filepath.Join(dir, id+".ptv")
+	parar := make(chan struct{})
+	a.watchStop = parar
+	go func() {
+		ultima := time.Time{}
+		if info, err := os.Stat(path); err == nil {
+			ultima = info.ModTime()
+		}
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-parar:
+				return
+			case <-ticker.C:
+				info, err := os.Stat(path)
+				if err != nil || !info.ModTime().After(ultima) {
+					continue
+				}
+				ultima = info.ModTime()
+				data, err := os.ReadFile(path)
+				if err != nil {
+					continue
+				}
+				runtime.EventsEmit(a.ctx, "producciontv:proyecto-en-disco", string(data))
+			}
+		}
+	}()
+}
+
+// StopWatch apaga el vigilante (al cerrar la ventana o cambiar de proyecto).
+func (a *App) StopWatch() {
+	if a.watchStop != nil {
+		close(a.watchStop)
+		a.watchStop = nil
+	}
+}
+
+// SetWindowTitle pone el nombre del proyecto en la barra de la ventana. Con
+// varias ventanas abiertas, el título es lo ÚNICO que las distingue en
+// Mission Control y en el menú Ventana, así que lo manda el frontend, que es
+// quien sabe de verdad qué proyecto terminó cargando.
+func (a *App) SetWindowTitle(title string) {
+	title = strings.TrimSpace(title)
+	if title == "" || a.ctx == nil {
+		return
+	}
+	runtime.WindowSetTitle(a.ctx, title)
 }
 
 // Print opens the native print panel. On macOS, the PDF menu in that panel
@@ -110,7 +420,11 @@ func (a *App) Print() {
 // es el shell y se activaría la terminal; en el flujo real siempre es el
 // lanzador o la instancia que importó el .ptv.)
 func (a *App) FocusLauncher() error {
-	if activateProcess(os.Getppid()) {
+	// Mismo criterio que focusWindow: si el lanzador sigue vivo NO se abre
+	// otro, aunque macOS no nos deje traerlo al frente. Duplicarlo dejaba dos
+	// ventanas de Inicio compitiendo por la misma lista de proyectos.
+	if padre := os.Getppid(); procesoVivo(padre) {
+		traerAlFrente(padre)
 		return nil
 	}
 	executable, err := os.Executable()

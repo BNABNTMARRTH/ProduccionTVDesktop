@@ -71,8 +71,12 @@ button{font:inherit}
 .desktop-shell{position:relative;z-index:1;display:flex;height:100%;background:transparent}
 .workspace{min-width:0;min-height:0;flex:1;display:flex;flex-direction:column;background:transparent}
 /* El atributo hidden debe ganar aunque el elemento tenga display propio */
-.workspace-header[hidden],.frame-wrap[hidden],.home-view[hidden],.production-view[hidden]{display:none!important}
-.workspace-header{height:54px;flex:none;display:flex;align-items:center;gap:10px;padding:0 16px;background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));
+.workspace-header[hidden],.frame-wrap[hidden],.home-view[hidden],.tpl-view[hidden],.production-view[hidden]{display:none!important}
+/* UNA SOLA BARRA (2026-08-28): identidad · navegación · acciones. Antes esta
+   franja solo llevaba el nombre y los botones, y debajo colgaban otras dos
+   tiras (pestañas y secciones) que además dejaban un hueco contra la barra
+   que dibujaba la herramienta dentro del iframe. Ahora todo cabe aquí. */
+.workspace-header{min-height:54px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px 0 16px;background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));
   -webkit-backdrop-filter:blur(28px) saturate(185%);backdrop-filter:blur(28px) saturate(185%);
   border:1px solid var(--vidrio-borde);border-radius:18px;margin:14px 14px 0;
   box-shadow:inset 0 1px 0 var(--vidrio-filo),0 12px 28px -20px rgba(0,0,0,.35)}
@@ -80,16 +84,31 @@ button{font:inherit}
    palabra debajo (rediseño 2026-08-11). Sustituye a las pestañas de texto. */
 /* La barra es un MATERIAL translúcido, no una pared opaca: el fondo de la app
    se transparenta a través de ella y le da profundidad sin ocupar más espacio. */
-.rail{position:relative;flex:none;width:96px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 9px 14px;background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));
+.rail{position:relative;flex:none;width:96px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:55px 9px 14px;background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));
   -webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
   border:1px solid var(--vidrio-borde);border-radius:22px;margin:14px 0 14px 14px;
   box-shadow:inset 0 1px 0 var(--vidrio-filo),0 20px 44px -26px rgba(0,0,0,.4);
-  overflow-y:auto;scrollbar-width:none}
+  overflow-y:auto;scrollbar-width:none;
+  transition:width .34s cubic-bezier(.3,.85,.25,1),margin .34s cubic-bezier(.3,.85,.25,1),padding .34s cubic-bezier(.3,.85,.25,1),border-width .34s,opacity .22s ease}
 /* Filo superior claro: la luz que atrapa el borde del material. */
 
 .rail[hidden]{display:none!important}
 .rail::-webkit-scrollbar{display:none}
-.rail-logo{width:34px;height:34px;flex:none;object-fit:cover;border-radius:10px;margin-bottom:9px;box-shadow:0 4px 12px #0006}
+/* EL LOGO, INTERRUPTOR VIAJERO (2026-08-29). No es hijo de la barra sino del
+   shell: así puede estar sobre la barra cuando está abierta y sobre el
+   encabezado cuando está cerrada, viajando entre ambos sitios en vez de
+   aparecer y desaparecer. Los 55px de padding-top de .rail son el hueco que le
+   guarda la barra. Que el logo NUNCA se vaya es lo que arregla el viejo botón
+   ⤢: siempre hay por dónde volver. */
+.rail-logo{position:absolute;z-index:6;left:45px;top:27px;width:34px;height:34px;padding:0;border:0;background:transparent;cursor:pointer;
+  transition:left .34s cubic-bezier(.3,.85,.25,1),top .34s cubic-bezier(.3,.85,.25,1),width .34s cubic-bezier(.3,.85,.25,1),height .34s cubic-bezier(.3,.85,.25,1)}
+.rail-logo img{width:100%;height:100%;display:block;object-fit:cover;border-radius:10px;box-shadow:0 4px 12px #0006;transition:filter .16s ease,border-radius .34s ease}
+.rail-logo:hover:not(:disabled) img{filter:brightness(1.1)}
+.rail-logo:active:not(:disabled) img{filter:brightness(.94)}
+.rail-logo:disabled{cursor:default}
+.rail-logo:focus-visible{outline:2px solid var(--gel-t);outline-offset:3px;border-radius:12px}
+/* El aro: la onda que suelta el logo al tragarse los botones y al soltarlos. */
+.rail-logo-aro{position:absolute;inset:-5px;border-radius:15px;border:2px solid var(--gel);opacity:0;pointer-events:none}
 .rail button{position:relative;width:78px;flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:9px 2px 7px;border:0;border-radius:15px;background:transparent;color:var(--tinta-baja);cursor:pointer;transition:transform .11s cubic-bezier(.2,.7,.3,1),background .18s,color .18s}
 .rail button[hidden]{display:none}
 .rail button .ic{position:relative;width:40px;height:40px;display:grid;place-items:center;border-radius:13px;color:#6F6A61;background:linear-gradient(165deg,var(--vidrio-a),var(--vidrio-b));border:1px solid var(--vidrio-borde);box-shadow:inset 0 1px 0 var(--vidrio-filo);transition:transform .11s cubic-bezier(.2,.7,.3,1),background .16s ease,color .16s ease,box-shadow .16s ease}
@@ -115,22 +134,79 @@ button{font:inherit}
 .rail button:active{transform:scale(.965)}
 .rail button:focus-visible{outline:2px solid var(--gel-t);outline-offset:2px}
 .save-status{color:var(--tinta-baja);font-size:11px;font-weight:700;white-space:nowrap}
+/* EL CARRIL CENTRAL de la barra: aquí viven las pestañas de los módulos
+   desanclados y las secciones de la etapa. Se encoge y se desliza en
+   horizontal antes que empujar al nombre o a los botones fuera de la barra. */
+.header-nav{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:4px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+.header-nav::-webkit-scrollbar{display:none}
+/* Se desvanece por la derecha SOLO cuando hay más de lo que cabe: un corte
+   limpio se leería como el final de la lista. */
+.header-nav.desborda{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)}
 /* Ruta de producción: preproducción → producción, lo cumplido en verde */
 /* Secciones de la etapa activa. Solo aparece cuando la etapa tiene más de una:
    una barra con un solo botón no es una elección, es ruido. */
-.secciones{flex:none;display:flex;align-items:center;gap:4px;padding:7px 14px;background:transparent;padding:10px 20px 0;overflow-x:auto;scrollbar-width:none}
-.secciones::-webkit-scrollbar{display:none}
+.secciones{flex:none;display:flex;align-items:center;gap:4px;padding:0;background:transparent}
 .secciones[hidden]{display:none}
+/* Con pestañas al lado, una línea separa las dos navegaciones: las pestañas
+   dicen QUÉ MÓDULO miras y las secciones DÓNDE estás dentro del proyecto. */
+.pestanas:not([hidden])+.secciones{border-left:1px solid var(--vidrio-borde);margin-left:5px;padding-left:9px}
 .secciones button{border:1px solid var(--vidrio-borde);background:var(--vidrio-b);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:var(--tinta-media);border-radius:999px;padding:6px 13px;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:transform .11s cubic-bezier(.2,.7,.3,1),background .16s ease,color .16s ease}
 .secciones button:hover{color:var(--tinta);background:var(--vidrio-a)}
 .secciones button.active{color:#fff;background:linear-gradient(165deg,var(--gel),var(--gel-f));border-color:var(--gel-f);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 5px 12px -6px var(--gel)}
 .secciones button:active{transform:scale(.965)}
 .secciones button:focus-visible{outline:2px solid var(--gel-t);outline-offset:2px}
-.header-actions{margin-left:auto;display:flex;align-items:center;gap:10px}.workspace-header .offline-badge{font-size:10px;font-weight:700;color:#0F7A45;background:#E8F7EE;border:1px solid #A8DCC0;border-radius:999px;padding:5px 9px;cursor:pointer}.workspace-header .offline-badge:hover{background:#D9F0E4;border-color:#7FCBA3;color:#0B5C34}
+/* LAS PESTAÑAS DEL PROYECTO (desanclar módulos, como DaVinci o Premiere).
+   La barra no existe mientras no haya nada desanclado: una barra con una
+   sola pestaña no es una elección, es ruido (misma regla que .secciones).
+   La pestaña activa se ilumina con la GELATINA de su etapa, así que
+   desanclar el guion pone verde la app entera: la identidad no se rompe. */
+.pestanas{flex:none;display:flex;align-items:center;gap:3px;padding:0}
+.pestanas[hidden]{display:none}
+/* Píldoras, ya no solapas: dentro de la barra una solapa no tendría a qué
+   pegarse por abajo. La activa se distingue de una sección activa por el
+   contorno: la pestaña se DIBUJA con la gelatina, la sección se RELLENA. */
+.pestana{position:relative;flex:0 1 auto;min-width:0;display:flex;align-items:center;gap:6px;padding:5px 7px 5px 11px;border:1px solid var(--vidrio-borde);border-radius:999px;background:var(--vidrio-b);color:var(--tinta-media);font-size:11.5px;font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;touch-action:none;transition:background .16s ease,color .16s ease,opacity .12s ease}
+.pestana:hover{color:var(--tinta);background:var(--vidrio-a)}
+.pestana.activa{color:var(--gel-t);background:var(--vidrio-a);border-color:var(--gel);box-shadow:inset 0 0 0 1px var(--gel)}
+.pestana:focus-visible{outline:2px solid var(--gel-t);outline-offset:-2px}
+.pestana.fija{padding-right:12px}
+.pestana.activa .pestana-ic{color:var(--gel-t)}
+.pestana-ic{display:grid;place-items:center;flex:none;color:var(--gel-t)}
+.pestana:not(.activa) .pestana-ic{color:var(--tinta-baja)}
+.pestana-txt{min-width:0;max-width:132px;overflow:hidden;text-overflow:ellipsis}
+.pestana-x,.pestana-ventana{flex:none;display:grid;place-items:center;border:0;border-radius:6px;padding:2px;background:transparent;color:var(--tinta-baja);cursor:pointer}
+.pestana-x:hover,.pestana-ventana:hover{background:var(--hueco-fondo);color:var(--tinta)}
+/* El botón de "sácala a su ventana": se ve SIEMPRE, no solo al pasar por
+   encima. Esconderlo lo dejaría tan invisible como el gesto que sustituye. */
+.pestana-ventana:hover{color:var(--gel-t)}
+.pestana:not(.activa) .pestana-ventana{opacity:.75}
+/* Mientras la arrastras fuera, la pestaña se despega a la vista: es la
+   señal de que al soltar se va a convertir en una ventana aparte. */
+.pestana.sacando{opacity:.55;transform:translateY(-6px) scale(.97);box-shadow:0 12px 26px -12px rgba(0,0,0,.5)}
+.pestanas.soltando-fuera::after{content:"Suelta para abrirla en su propia ventana";margin-left:12px;align-self:center;padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:700;color:#fff;background:var(--gel-f);white-space:nowrap}
+.pestana-mas{flex:none;align-self:center;display:grid;place-items:center;margin-left:4px;border:1px solid var(--vidrio-borde);border-radius:8px;padding:5px;background:var(--vidrio-b);color:var(--tinta-media);cursor:pointer}
+.pestana-mas:hover{background:var(--vidrio-a);color:var(--tinta)}
+.menu-modulos{position:fixed;z-index:90;min-width:214px;display:flex;flex-direction:column;padding:6px;border:1px solid var(--vidrio-borde);border-radius:13px;background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);box-shadow:inset 0 1px 0 var(--vidrio-filo),0 22px 54px -22px rgba(0,0,0,.5)}
+.menu-nota{margin:2px 6px 6px;max-width:210px;font-size:10.5px;line-height:1.45;color:var(--tinta-baja)}
+.menu-modulos button{display:flex;align-items:center;gap:9px;border:0;border-radius:9px;padding:8px 10px;background:transparent;color:var(--tinta);font:inherit;font-size:12.5px;font-weight:600;text-align:left;cursor:pointer}
+.menu-modulos button:hover{background:var(--hueco-fondo)}
+.menu-modulos button svg{flex:none;color:var(--gel-t)}
+.header-actions{flex:none;display:flex;align-items:center;gap:8px}
+/* Deshacer · rehacer · guía: son de la herramienta, no del shell, así que van
+   apartados por una línea de los botones de la ventana. */
+.header-sep{display:flex;align-items:center;gap:6px;padding-left:9px;border-left:1px solid var(--vidrio-borde)}
+.header-sep[hidden]{display:none!important}
+.header-actions button:disabled{opacity:.32;cursor:default;filter:none}
+.header-actions #guia-btn.on{color:#fff;background:linear-gradient(165deg,var(--gel),var(--gel-f));border-color:var(--gel-f)}.workspace-header .offline-badge{flex:none;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:700;color:#0F7A45;background:#E8F7EE;border:1px solid #A8DCC0;border-radius:999px;padding:5px 9px;cursor:pointer}.workspace-header .offline-badge:hover{background:#D9F0E4;border-color:#7FCBA3;color:#0B5C34}
 .header-actions button{display:grid;place-items:center;border:1px solid var(--vidrio-borde);background:linear-gradient(165deg,var(--vidrio-a),var(--vidrio-b));color:var(--tinta-media);border-radius:10px;padding:7px;cursor:pointer;box-shadow:inset 0 1px 0 var(--vidrio-filo)}.header-actions button:hover{color:var(--tinta);filter:brightness(1.1)}
 .export-toast{position:absolute;z-index:30;right:24px;bottom:22px;max-width:360px;padding:10px 14px;border:1px solid #A8DCC0;border-radius:10px;background:#E8F7EE;color:#0F7A45;font-size:12px;font-weight:700;box-shadow:0 14px 34px #0007;opacity:0;transform:translateY(10px);pointer-events:none;transition:.18s}.export-toast.show{opacity:1;transform:none}.export-toast.error{border-color:#F2C9C9;background:#FDECEC;color:var(--e5-t)}
 .frame-wrap{position:relative;min-height:0;flex:1;margin:0;border:0;overflow:hidden;background:transparent}
 iframe{display:block;width:100%;height:100%;border:0;background:transparent}
+/* Los paneles de las pestañas se apilan en el mismo hueco y solo se muestra
+   el de la pestaña activa. Los demás siguen MONTADOS (por eso conservan su
+   estado), nada más ocultos: por eso es display:none y no una descarga. */
+.frame-wrap iframe.panel{position:absolute;inset:0}
+.frame-wrap iframe.panel[hidden]{display:none}
 .loading{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--tinta-baja);background:var(--yeso);transition:opacity .15s}.loading.hidden{opacity:0;pointer-events:none}
 .loading span{width:18px;height:18px;border:2px solid rgba(23,21,18,.16);border-top-color:var(--gel);border-radius:50%;animation:spin .7s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
 /* Inicio */
@@ -165,19 +241,50 @@ iframe{display:block;width:100%;height:100%;border:0;background:transparent}
 .proj-thumb:focus-visible{outline:2px solid var(--gel-t);outline-offset:-2px}
 .continue-card .proj-thumb{border:1px solid var(--linea);border-radius:11px;cursor:default}
 .proj-tag{position:absolute;top:8px;left:8px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:999px;background:var(--gel-t);color:#fff}
+/* "Abierto": este proyecto ya tiene su ventana. Picarle lleva a ESA ventana,
+   no abre una copia. Va sobre la miniatura, no en el pie, porque el pie ya
+   está repartido entre el modo y los botones. */
+.proj-abierto{position:absolute;top:8px;right:8px;display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:800;letter-spacing:.3px;padding:3px 8px 3px 7px;border-radius:999px;color:#fff;background:var(--e2-f);box-shadow:0 2px 8px -2px rgba(0,0,0,.45)}
+.proj-abierto::before{content:"";width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.35)}
 .proj-meta{padding:10px 12px 2px;min-width:0}
 .proj-meta strong{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .proj-meta small{display:block;margin-top:3px;font-size:10.5px;color:var(--tinta-baja);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* EL PIE DE LA TARJETA. Dos piezas que se disputan 216 px: la etiqueta de
+   modo y los botones. Los BOTONES mandan (flex:none): son la parte que se
+   toca, y antes la etiqueta —que iba en nowrap y no cedía— los empujaba
+   fuera de la tarjeta, donde overflow:hidden los partía a la mitad. Ahora la
+   que cede es la etiqueta, que además ya viene en su versión corta. */
 .proj-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px 11px}
-.proj-badge{font-size:9.5px;font-weight:800;letter-spacing:.4px;padding:3px 8px;border-radius:999px;color:#bfe0ff;background:var(--linea);border:1px solid #24567f;white-space:nowrap}
-.proj-badge.narrative{color:#ffd9a8;background:#3a2410;border-color:#7a531f}
-.proj-acts{display:flex;gap:6px;opacity:0;transition:.15s ease}
+.proj-badge{min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;font-size:9.5px;font-weight:800;letter-spacing:.4px;padding:3px 8px;border-radius:999px;white-space:nowrap;
+  color:var(--e1-t);background:var(--vidrio-b);border:1px solid var(--vidrio-borde)}
+.proj-badge.narrative{color:var(--e3-t)}
+.proj-acts{flex:none;display:flex;gap:6px;opacity:0;transition:.15s ease}
 .proj-card:hover .proj-acts,.proj-card:focus-within .proj-acts{opacity:1}
-.proj-acts button{display:grid;place-items:center;border:0;background:#172c48;color:#bcd0e9;border-radius:7px;padding:5px 6px;cursor:pointer}
-.proj-acts button:hover{background:var(--vidrio-b);color:var(--tinta)}
-.proj-acts button.confirm-delete{background:#c92f32;color:#fff;font-weight:800;font-size:10px;padding:5px 8px;animation:confirm-pulse .9s ease-in-out infinite}
-@keyframes confirm-pulse{50%{background:#e13a3d}}
+.proj-acts button{display:grid;place-items:center;border:1px solid var(--vidrio-borde);background:var(--vidrio-b);color:var(--tinta-media);border-radius:7px;padding:5px 6px;cursor:pointer}
+.proj-acts button:hover{background:var(--vidrio-a);color:var(--tinta)}
+.proj-acts button:focus-visible{outline:2px solid var(--gel-t);outline-offset:2px}
+.proj-acts button.confirm-delete{border-color:var(--e5-f);background:var(--e5-f);color:#fff;font-weight:800;font-size:10px;padding:5px 8px;animation:confirm-pulse .9s ease-in-out infinite}
+@keyframes confirm-pulse{50%{background:var(--e5)}}
 .empty-projects{grid-column:1/-1;padding:52px 10px;text-align:center;color:var(--tinta-baja);font-size:13px;line-height:1.7}
+
+/* GALERÍA DE PLANTILLAS DE SET. La tarjeta la manda el PLANO: ocupa la mitad
+   de arriba y es lo primero que se lee, porque la pregunta que se está
+   contestando aquí es "¿cómo se ve ese espacio?", no "¿cómo se llama?". */
+.tpl-view{height:100%;overflow:auto;padding:30px 34px 42px;background:radial-gradient(circle at 6% -10%,rgba(240,78,152,.10),transparent 42%),var(--yeso)}
+.tpl-grid{max-width:1500px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:16px}
+.tpl-card{display:flex;flex-direction:column;background:var(--vidrio-a);border-radius:13px;overflow:hidden;transition:.15s ease;box-shadow:0 0 0 1px var(--linea),0 1px 2px rgba(26,24,34,.05)}
+.tpl-card:hover{transform:translateY(-2px);box-shadow:0 0 0 1px var(--gel),0 10px 26px -14px rgba(23,21,18,.22)}
+.tpl-thumb{position:relative;aspect-ratio:49/30;overflow:hidden;background:var(--vidrio-b);border-bottom:1px solid var(--linea);cursor:pointer}
+.tpl-thumb svg{width:100%!important;height:auto!important;display:block;border:0!important;border-radius:0!important}
+.tpl-thumb:focus-visible{outline:2px solid var(--gel-t);outline-offset:-2px}
+.tpl-body{padding:11px 13px 4px;min-width:0}
+.tpl-body strong{display:block;font-size:14px;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+.tpl-resumen{display:block;margin-top:2px;font-size:11px;font-weight:700;color:var(--gel-t)}
+.tpl-body p{margin:7px 0 0;font-size:11.5px;line-height:1.5;color:var(--tinta-media)}
+.tpl-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px 12px}
+.tpl-foot small{font-size:10.5px;color:var(--tinta-baja);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tpl-foot button{flex:none;border:1px solid var(--gel-t);background:linear-gradient(165deg,var(--gel),var(--gel-f));color:#fff;border-radius:8px;padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+.tpl-foot button:active{transform:scale(.965)}
 .home-credit{max-width:1500px;margin:34px auto 0;text-align:center;color:var(--tinta-baja);font-size:12px}.home-credit strong{color:var(--tinta-media)}
 /* Papelera de proyectos */
 .trash-link{width:100%;margin-top:8px;border:0;background:transparent;color:var(--tinta-baja);font-size:11px;font-weight:700;cursor:pointer;padding:6px}
@@ -186,18 +293,20 @@ iframe{display:block;width:100%;height:100%;border:0;background:transparent}
 .trash-card{width:min(560px,calc(100vw - 48px));max-height:calc(100vh - 80px);overflow:auto;display:flex;flex-direction:column;padding:22px 24px;border:1px solid var(--vidrio-borde);border-radius:18px;color:var(--tinta);background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);box-shadow:inset 0 1px 0 var(--vidrio-filo),0 30px 80px -30px rgba(0,0,0,.55)}
 .trash-head{display:flex;align-items:center;justify-content:space-between}
 .trash-head h2{margin:0;font-size:20px}
-.trash-head button{border:0;background:transparent;color:#7d94b5;font-size:16px;cursor:pointer}
-.trash-head button:hover{color:#fff}
-.trash-note{margin:6px 0 14px;color:#8094af;font-size:12px;line-height:1.5}
+.trash-head button{border:0;background:transparent;color:var(--tinta-baja);font-size:16px;cursor:pointer}
+.trash-head button:hover{color:var(--tinta)}
+.trash-note{margin:6px 0 14px;color:var(--tinta-media);font-size:12px;line-height:1.5}
 .trash-list{display:flex;flex-direction:column}
-.trash-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid #213650}
+.trash-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--linea)}
 .trash-item>span{display:flex;flex-direction:column;min-width:0}
 .trash-item strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .trash-item small{font-size:10px;color:var(--tinta-baja)}
-.trash-item button{border:0;background:#172c48;color:#bcd0e9;border-radius:6px;padding:6px 9px;cursor:pointer;margin-left:6px}
-.trash-item button:hover{background:var(--vidrio-b)}
-.trash-item button.confirm-delete{background:#c92f32;color:#fff;font-weight:800;animation:confirm-pulse .9s ease-in-out infinite}
-.project-search{width:100%;margin:0 0 10px;border:1px solid #263c5c;background:var(--vidrio-a);color:#e7eef8;border-radius:9px;padding:8px 10px;font:inherit;font-size:13px}
+.trash-item button{border:1px solid var(--vidrio-borde);background:var(--vidrio-b);color:var(--tinta-media);border-radius:6px;padding:6px 9px;cursor:pointer;margin-left:6px}
+.trash-item button:hover{background:var(--vidrio-a);color:var(--tinta)}
+.trash-item button.confirm-delete{border-color:var(--e5-f);background:var(--e5-f);color:#fff;font-weight:800;animation:confirm-pulse .9s ease-in-out infinite}
+.project-search{width:100%;margin:0 0 10px;border:1px solid var(--vidrio-borde);background:var(--hueco-fondo);color:var(--tinta);border-radius:9px;padding:8px 10px;font:inherit;font-size:13px}
+.project-search::placeholder{color:var(--tinta-baja)}
+.project-search:focus-visible{outline:2px solid var(--gel-t);outline-offset:1px}
 .project-search::placeholder{color:var(--tinta-baja)}
 .project-search:focus{outline:2px solid var(--gel-t);outline-offset:1px}
 button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-offset:2px}
@@ -234,11 +343,68 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
 .set-live{background:#fff;border-radius:10px;padding:6px;border:1px solid #2b405d}
 .set-live svg{width:100%;display:block}
 .set-live-note{margin:10px 0 0;color:var(--tinta-media);font-size:11px;text-align:center}.validation-summary{margin:7px 0 14px;color:var(--tinta-media);font-size:11px}.checks-list{display:flex;flex-direction:column;gap:7px;max-height:65vh;overflow:auto}.check{display:flex;align-items:flex-start;gap:8px;border:1px solid #39495f;background:var(--vidrio-b);border-radius:8px;padding:8px;font-size:11px;color:#aebdd2}.check span{width:18px;height:18px;flex:none;display:grid;place-items:center;border-radius:50%;font-weight:800}.check.error span{background:#7a292d;color:#ffc2c4}.check.warn span{background:#725817;color:#ffe294}.check.info span{background:#1a4e81;color:#b8dcff}.check.ok span{background:#1d673c;color:#c7ffda}.production-empty{height:100%;display:grid;place-content:center;text-align:center;color:#8194ae}.production-empty h1{color:#fff}
-.desktop-shell.focus-mode .workspace-header,.desktop-shell.focus-mode .secciones,.desktop-shell.focus-mode .rail{display:none}.desktop-shell.focus-mode .frame-wrap{margin:0;border-radius:0;border:0}
+/* ============ LA BARRA DE ETAPAS SE METE AL LOGO ==========================
+   Sustituye al "modo pantalla completa" del botón ⤢ (2026-08-29), que escondía
+   de golpe la barra lateral Y el encabezado: sin etapas, sin pestañas y sin
+   secciones no quedaba forma de cambiar de módulo, y la salida (Esc) no estaba
+   escrita en ningún sitio. Ahora el encabezado no se toca nunca y el logo
+   —siempre visible— es el interruptor.
+
+   La coreografía va en dos tiempos, y ese orden es lo que la hace legible:
+   1. .plegando   → los botones VUELAN al logo (la barra sigue abierta, así que
+                    nada se mueve de sitio: solo se ven irse).
+   2. .rail-plegado → ya vacía, la barra se encoge y el logo se muda al
+                    encabezado. Al desplegar es al revés: primero se abre el
+                    hueco y luego los botones brotan del logo (.desplegando).
+   El destino del vuelo (--vx/--vy) lo mide main.js en píxeles reales antes de
+   plegar; --i es el turno de cada botón en la fila. */
+.rail button{--vx:0px;--vy:-150px;--i:0}
+
+.desktop-shell.rail-plegado .rail{width:0;margin-left:0;padding-left:0;padding-right:0;border-width:0;opacity:0;overflow:hidden;pointer-events:none;visibility:hidden;
+  transition:width .34s cubic-bezier(.3,.85,.25,1),margin .34s cubic-bezier(.3,.85,.25,1),padding .34s cubic-bezier(.3,.85,.25,1),border-width .34s,opacity .2s ease,visibility 0s .34s}
+/* El logo aterriza en el encabezado, un poco más chico: ahí es una firma, no
+   un rótulo. El encabezado le abre sitio con el mismo compás. */
+.desktop-shell.rail-plegado .rail-logo{left:27px;top:26px;width:30px;height:30px}
+.desktop-shell.rail-plegado .rail-logo img{border-radius:9px}
+.workspace-header{transition:padding-left .34s cubic-bezier(.3,.85,.25,1)}
+.desktop-shell.rail-plegado .workspace-header{padding-left:54px}
+
+.desktop-shell.plegando .rail button{animation:etapa-al-logo .3s cubic-bezier(.6,.02,.75,.3) forwards;animation-delay:calc(var(--i) * 38ms)}
+@keyframes etapa-al-logo{
+  0%{transform:translate(0,0) scale(1);opacity:1}
+  65%{opacity:.55}
+  100%{transform:translate(var(--vx),var(--vy)) scale(.14) rotate(-8deg);opacity:0}
+}
+/* Al salir rebotan un pelo (el cubic-bezier se pasa de 1): es lo que da la
+   sensación de que el logo los ESCUPE en vez de dibujarlos. */
+.desktop-shell.desplegando .rail button{animation:etapa-desde-logo .38s cubic-bezier(.18,.9,.3,1.25) backwards;animation-delay:calc(var(--i) * 38ms)}
+@keyframes etapa-desde-logo{
+  0%{transform:translate(var(--vx),var(--vy)) scale(.14) rotate(-8deg);opacity:0}
+  35%{opacity:1}
+  100%{transform:translate(0,0) scale(1) rotate(0);opacity:1}
+}
+/* La reacción del logo: se hincha al tragar y suelta un aro al abrirse. */
+#logo-btn.traga img{animation:logo-traga .44s cubic-bezier(.3,1.5,.4,1)}
+@keyframes logo-traga{0%{transform:scale(1)}30%{transform:scale(1.18)}62%{transform:scale(.92)}100%{transform:scale(1)}}
+#logo-btn.traga .rail-logo-aro{animation:aro-entra .5s ease-out}
+@keyframes aro-entra{0%{opacity:0;transform:scale(1.7)}45%{opacity:.85}100%{opacity:0;transform:scale(.7)}}
+#logo-btn.suelta .rail-logo-aro{animation:aro-sale .55s ease-out}
+@keyframes aro-sale{0%{opacity:.9;transform:scale(.7)}100%{opacity:0;transform:scale(1.9)}}
+/* Quien pidió menos movimiento recibe el mismo resultado, sin el viaje. */
+@media(prefers-reduced-motion:reduce){
+  .rail,.rail-logo,.rail-logo img,.workspace-header{transition:none}
+  .desktop-shell.plegando .rail button,.desktop-shell.desplegando .rail button,
+  #logo-btn.traga img,#logo-btn.traga .rail-logo-aro,#logo-btn.suelta .rail-logo-aro{animation:none}
+}
 .desktop-shell.launcher-window .workspace{background:var(--yeso)}
+/* VENTANA DE UN MÓDULO DESANCLADO: solo la herramienta. Ni rail ni pestañas —
+   no hay nada que navegar aquí— y el marco se pega a la orilla para que la
+   herramienta se quede con toda la pantalla del segundo monitor. */
+.desktop-shell.tool-window .rail,.desktop-shell.tool-window .rail-logo,.desktop-shell.tool-window .pestanas,.desktop-shell.tool-window .secciones{display:none!important}
+.desktop-shell.tool-window .workspace-header{margin:14px 14px 0}
 /* Chip de modo del proyecto + navegación diferenciada */
-.workspace-header .mode-chip{font-size:10px;font-weight:800;letter-spacing:.5px;color:#bfe0ff;background:var(--linea);border:1px solid #24567f;border-radius:999px;padding:5px 9px;white-space:nowrap}
-.workspace-header .mode-chip.narrative{color:#ffd9a8;background:#3a2410;border-color:#7a531f}
+.workspace-header .mode-chip{font-size:10px;font-weight:800;letter-spacing:.5px;color:var(--e1-t);background:var(--vidrio-b);border:1px solid var(--vidrio-borde);border-radius:999px;padding:5px 9px;white-space:nowrap}
+.workspace-header .mode-chip.narrative{color:var(--e3-t)}
 .workspace-header .mode-chip:empty{display:none}
 /* Caja de nuevo proyecto: nombre y modo, nada más (sustituye al wizard) */
 .np-overlay{position:fixed;z-index:90;inset:0;display:grid;place-items:center;padding:24px;background:rgba(23,21,18,.34);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
@@ -310,13 +476,18 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
 .tour-next{background:#1D6FD1;color:#fff}
 .tour-card .tour-next:hover,.tour-card .tour-back:hover{filter:brightness(1.08)}
 .template-hint{margin:-6px 0 12px;color:#7f93ae;font-size:12px}
-.welcome-overlay{position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:24px;background:rgba(239,238,243,.80);backdrop-filter:blur(16px);transition:opacity .18s ease}.welcome-overlay.closing{opacity:0;pointer-events:none}.welcome-card{position:relative;width:min(520px,calc(100vw - 48px));display:flex;flex-direction:column;align-items:center;text-align:center;padding:38px;border-radius:22px;background:var(--vidrio-a);overflow:hidden;box-shadow:0 0 0 1px var(--linea),0 26px 70px -30px rgba(26,24,34,.55)}.welcome-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(110% 45% at 50% 0,rgba(240,78,152,.16),transparent 62%)}.welcome-card>*{position:relative;z-index:1}.welcome-card img{width:104px;height:104px;object-fit:cover;border-radius:24px;margin-bottom:22px;box-shadow:0 14px 34px -14px rgba(26,24,34,.4)}.welcome-card h1{margin:9px 0 10px;font-size:32px;color:var(--tinta);font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:700;letter-spacing:.02em;text-transform:uppercase}.welcome-card p{max-width:410px;margin:0;color:var(--tinta-media);font-size:15px;line-height:1.65}.welcome-card p strong{color:var(--tinta)}.welcome-card button{margin-top:26px;min-width:170px;border:1px solid var(--gel-t);border-radius:9px;padding:12px 22px;background:linear-gradient(165deg,var(--gel),var(--gel-f));color:#fff;font-weight:700;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 8px 18px -9px var(--gel)}.welcome-card button:hover{background:linear-gradient(165deg,var(--gel),var(--gel-f))}
-@media(max-width:1000px){.rail{width:60px}.rail button em{display:none}.rail button .ic{width:36px;height:36px}}
-@media(max-width:1150px){.save-status{display:none}.continue-card{grid-template-columns:1fr}.production-layout{grid-template-columns:1fr}}
+/* EL VELO DE LA BIENVENIDA. Iba pintado de blanco fijo (rgba(239,238,243,.8)),
+   y ese blanco NO seguía al tema: en modo oscuro tapaba la app entera de
+   blanco y encima le dejaba el texto claro del tema — el título quedaba en
+   1.4:1, prácticamente invisible. Ahora el velo es el yeso del tema, así que
+   se apaga con él y el texto vuelve a leerse. */
+.welcome-overlay{position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--yeso) 84%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);transition:opacity .18s ease}.welcome-overlay.closing{opacity:0;pointer-events:none}.welcome-card{position:relative;width:min(520px,calc(100vw - 48px));display:flex;flex-direction:column;align-items:center;text-align:center;padding:38px;border-radius:22px;background:var(--vidrio-a);overflow:hidden;box-shadow:0 0 0 1px var(--linea),0 26px 70px -30px rgba(26,24,34,.55)}.welcome-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(110% 45% at 50% 0,rgba(240,78,152,.16),transparent 62%)}.welcome-card>*{position:relative;z-index:1}.welcome-card img{width:104px;height:104px;object-fit:cover;border-radius:24px;margin-bottom:22px;box-shadow:0 14px 34px -14px rgba(26,24,34,.4)}.welcome-card h1{margin:9px 0 10px;font-size:32px;color:var(--tinta);font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:700;letter-spacing:.02em;text-transform:uppercase}.welcome-card p{max-width:410px;margin:0;color:var(--tinta-media);font-size:15px;line-height:1.65}.welcome-card p strong{color:var(--tinta)}.welcome-card button{margin-top:26px;min-width:170px;border:1px solid var(--gel-t);border-radius:9px;padding:12px 22px;background:linear-gradient(165deg,var(--gel),var(--gel-f));color:#fff;font-weight:700;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 8px 18px -9px var(--gel)}.welcome-card button:hover{background:linear-gradient(165deg,var(--gel),var(--gel-f))}
+@media(max-width:1000px){.rail{width:60px}.rail-logo{left:27px}.rail button em{display:none}.rail button .ic{width:36px;height:36px}}
+@media(max-width:1150px){.save-status,.workspace-header .mode-chip{display:none}.continue-card{grid-template-columns:1fr}.production-layout{grid-template-columns:1fr}}
 /* Contenedor donde se montan los documentos multipágina antes de imprimir */
 #print-host{display:none}
 @media print{
-  .workspace-header,.secciones,.rail{display:none!important}
+  .workspace-header,.secciones,.pestanas,.rail,.rail-logo{display:none!important}
   .desktop-shell{display:block!important;background:#fff!important}
   .workspace{display:block!important;background:#fff!important}
   .frame-wrap{position:fixed!important;inset:0!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:#fff!important}
@@ -357,7 +528,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .secciones{background:var(--vidrio-b);-webkit-backdrop-filter:none;backdrop-filter:none}
 }
 @media (prefers-contrast:more){
-  .rail,.workspace-header,.secciones{border-color:rgba(178,209,245,.4)}
+  .rail,.workspace-header,.secciones,.pestana{border-color:rgba(178,209,245,.4)}
   .rail button{color:#a3b7d4}
   .secciones button{color:#c3d4ea;box-shadow:0 0 0 1px rgba(178,209,245,.4) inset}
 }

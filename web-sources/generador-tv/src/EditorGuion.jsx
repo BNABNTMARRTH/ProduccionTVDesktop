@@ -19,13 +19,27 @@ import {
   medidasDe, normalizarEncabezado, personajesDe,
   MARCADORES, aplicarMarca, quitarMarca, trozosMarcados, moverMarcas, guionATexto,
 } from "./guion.js";
-import { objetivoDe } from "./proyecto.js";
+import { objetivoSegDe, toleranciaDe } from "./proyecto.js";
 import { Btn, TarjetaAyuda } from "./ui.jsx";
 import { descargarArchivo, EMBEDDED } from "./puente.js";
-import { INK, NAVY } from "./theme.js";
+
 import { fmt, parseDur, uid } from "./util.js";
 
-const PAPEL = { background: "#fff", color: "#12212f", fontFamily: '"Courier New", Courier, monospace' };
+const PAPEL = { background: "var(--hoja)", color: "var(--hoja-tinta)", fontFamily: '"Courier New", Courier, monospace' };
+
+/* LA HOJA TIENE SU PROPIO TEMA (2026-08-28). Antes era blanca siempre, con el
+   argumento de que es lo que se imprime, y por eso todo lo que iba encima
+   llevaba tintas de papel FIJAS. El argumento valía para la impresora y no
+   para los ojos: una hoja blanca a pantalla completa dentro de una app oscura
+   deslumbra, y un guion se mira mucho más de lo que se imprime.
+
+   Ahora la hoja se apaga con el tema —papel cálido, tinta clara— y al imprimir
+   vuelve a ser blanca. Las tintas viven en index.css, bajo `.hoja-tema`, junto
+   a los colores de las etiquetas de tipo y de los marcatextos, que son los que
+   se rompen al cambiar el fondo. Aquí solo se nombran. */
+const TINTA_PAPEL = "var(--hoja-tinta)";
+const TINTA_PAPEL_BAJA = "var(--hoja-tinta-baja)";
+const LINEA_PAPEL = "var(--hoja-linea)";
 
 // Los estilos que DEBEN ser idénticos en el área de escritura y en la capa del
 // marcatextos: si uno solo cambia, el resaltado se desalinea de las letras.
@@ -37,7 +51,7 @@ const tipografia = (bloque, t) => ({
   textAlign: t.align,
   textTransform: t.mayus ? "uppercase" : "none",
   fontStyle: bloque.tipo === "parentesis" ? "italic" : "normal",
-  color: bloque.tipo === "transicion" ? "var(--tinta-media)" : INK,
+  color: bloque.tipo === "transicion" ? TINTA_PAPEL_BAJA : TINTA_PAPEL,
   padding: bloque.tipo === "dialogo" || bloque.tipo === "parentesis" ? "0" : "6px 0 0",
   border: 0,
   margin: 0,
@@ -70,7 +84,7 @@ export function EditorGuion({ cfg, setCfg }) {
     window.parent.postMessage({ type: "producciontv:print-document",
       html: `<section class="sheet">${hoja}</section>`, css }, "*");
   };
-  const objetivoMin = objetivoDe(cfg);
+  const objetivoSeg = objetivoSegDe(cfg);
   const [foco, setFoco] = useState(null);          // id del bloque a enfocar
   const [sugiere, setSugiere] = useState(null);    // {bloqueId, opciones}
   const [activa, setActiva] = useState(null);      // escena donde está el cursor
@@ -190,8 +204,9 @@ export function EditorGuion({ cfg, setCfg }) {
     } else setSugiere(null);
   };
 
-  const totalMin = medidas.segundos / 60;
-  const desfase = objetivoMin ? totalMin - objetivoMin : 0;
+  // Desfase contra el objetivo, en SEGUNDOS (ver toleranciaDe en proyecto.js).
+  const desfase = objetivoSeg ? medidas.segundos - objetivoSeg : 0;
+  const tolerancia = toleranciaDe(objetivoSeg);
 
   const irA = (id) => {
     const el = document.getElementById(`esc-${id}`);
@@ -199,14 +214,14 @@ export function EditorGuion({ cfg, setCfg }) {
   };
 
   return (
-    <div className="scrollwrap overflow-auto px-2 py-4" style={{ background: "var(--vidrio-b)" }}>
+    <div className="scrollwrap hoja-tema overflow-auto px-2 py-4" style={{ background: "var(--vidrio-b)" }}>
       <div className="mx-auto grid gap-4 xl:grid-cols-[250px_minmax(0,1fr)] 2xl:grid-cols-[250px_minmax(0,900px)_minmax(340px,1fr)]"
         style={{ maxWidth: "100%" }}>
       {/* Índice de escenas: solo aparece cuando hay ancho para él. Antes ese
           espacio se quedaba vacío a los lados de la página. */}
       <aside className="no-print hidden xl:block">
-        <div className="sticky top-2 rounded-xl p-3" style={{ background: "#fff", border: "1px solid var(--linea)" }}>
-          <div className="mb-2 text-xs font-bold uppercase" style={{ color: "var(--tinta-baja)", letterSpacing: 1 }}>
+        <div className="sticky top-2 rounded-xl p-3" style={{ background: "var(--vidrio-a)", border: "1px solid var(--vidrio-borde)" }}>
+          <div className="mb-2 text-xs font-bold uppercase" style={{ color: "var(--tinta-media)", letterSpacing: 1 }}>
             Escenas ({escenas.length})
           </div>
           <div className="flex flex-col gap-1">
@@ -214,14 +229,14 @@ export function EditorGuion({ cfg, setCfg }) {
               <button key={e.id} type="button" onClick={() => irA(e.id)}
                 className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs"
                 style={{ color: "var(--tinta)", background: "transparent" }}>
-                <b style={{ color: "var(--tinta-baja)", minWidth: 14 }}>{i + 1}</b>
+                <b style={{ color: "var(--tinta-media)", minWidth: 14 }}>{i + 1}</b>
                 <span className="flex-1" style={{ lineHeight: 1.35 }}>
-                  {e.encabezado || <em style={{ color: "var(--tinta-baja)" }}>Sin encabezado</em>}
+                  {e.encabezado || <em style={{ color: "var(--tinta-media)" }}>Sin encabezado</em>}
                 </span>
-                <span style={{ color: "var(--tinta-baja)" }}>{fmt(e.dur || 0)}</span>
+                <span style={{ color: "var(--tinta-media)" }}>{fmt(e.dur || 0)}</span>
               </button>
             ))}
-            {!escenas.length && <p className="m-0 text-xs" style={{ color: "var(--tinta-baja)" }}>Todavía no hay escenas.</p>}
+            {!escenas.length && <p className="m-0 text-xs" style={{ color: "var(--tinta-media)" }}>Todavía no hay escenas.</p>}
           </div>
           {editable && (
             <button type="button" onClick={() => agregarEscena(escenas[escenas.length - 1]?.id)}
@@ -250,13 +265,13 @@ export function EditorGuion({ cfg, setCfg }) {
           <span className="mono" style={{ fontSize: 17, fontWeight: 600, color: "var(--tinta)" }}>{fmt(medidas.segundos)}</span>
           <span style={{ fontSize: 11.5, letterSpacing: ".09em", textTransform: "uppercase", color: "var(--tinta-baja)" }}>en pantalla</span>
         </div>
-        {objetivoMin ? (
-          <span style={{ fontSize: 11.5, color: "var(--tinta-baja)" }}>objetivo {objetivoMin} min</span>
+        {objetivoSeg ? (
+          <span style={{ fontSize: 11.5, color: "var(--tinta-baja)" }}>objetivo {fmt(objetivoSeg)}</span>
         ) : null}
-        {objetivoMin > 0 && Math.abs(desfase) >= 0.5 && (
+        {objetivoSeg > 0 && Math.abs(desfase) >= tolerancia && (
           <span className="rounded-full px-2 py-0.5 text-xs font-bold"
             style={desfase > 0 ? { background: "color-mix(in srgb, var(--e5) 14%, var(--yeso))", color: "var(--e5-t)" } : { background: "color-mix(in srgb, var(--e3) 15%, var(--yeso))", color: "var(--e3-t)" }}>
-            {desfase > 0 ? `${Math.abs(desfase).toFixed(1)} min de más` : `${Math.abs(desfase).toFixed(1)} min de menos`}
+            {`${fmt(Math.abs(desfase))} de ${desfase > 0 ? "más" : "menos"}`}
           </span>
         )}
         <span className="flex-1" />
@@ -295,9 +310,17 @@ export function EditorGuion({ cfg, setCfg }) {
       </div>
 
       {/* La página */}
-      <div className="rounded-xl px-10 py-8 shadow-sm" style={{ ...PAPEL, border: "1px solid var(--linea)" }}>
+      {/* La página. El margen IZQUIERDO es más ancho: es el de encuadernación
+          del formato (1.5" a la izquierda, 1" a la derecha, ahí van las
+          perforaciones) y es también el que le da lugar a las etiquetas de
+          tipo. Con el margen angosto de antes, ACCIÓN y TRANSICIÓN se salían
+          de la hoja y caían sobre la pared: en modo oscuro, tinta oscura
+          sobre negro. Ahora las cinco etiquetas caen sobre el papel. */}
+      <div className="rounded-xl py-8 shadow-sm"
+        style={{ ...PAPEL, border: `1px solid ${LINEA_PAPEL}`,
+          paddingLeft: "clamp(84px, 11%, 118px)", paddingRight: "clamp(28px, 7%, 76px)" }}>
         {!escenas.length && (
-          <p className="m-0 text-center text-sm" style={{ color: "#7c8a9c" }}>
+          <p className="m-0 text-center text-sm" style={{ color: TINTA_PAPEL_BAJA }}>
             Todavía no hay escenas. Empieza la primera aquí abajo.
           </p>
         )}
@@ -306,7 +329,7 @@ export function EditorGuion({ cfg, setCfg }) {
           <section key={esc.id} id={`esc-${esc.id}`} className="mb-7" style={{ scrollMarginTop: 12 }}>
             {/* Encabezado de escena */}
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold" style={{ color: "var(--tinta-baja)", minWidth: 22 }}>{i + 1}</span>
+              <span className="text-xs font-bold" style={{ color: TINTA_PAPEL_BAJA, minWidth: 22 }}>{i + 1}</span>
               <input
                 value={esc.encabezado || ""}
                 disabled={!editable}
@@ -315,17 +338,17 @@ export function EditorGuion({ cfg, setCfg }) {
                 onBlur={(e) => upEscena(esc.id, { encabezado: normalizarEncabezado(e.target.value) })}
                 placeholder="INT. LUGAR – DÍA"
                 className="w-full border-0 bg-transparent py-1 text-sm font-bold outline-none"
-                style={{ fontFamily: PAPEL.fontFamily, letterSpacing: 0.5, color: "var(--tinta)" }}
+                style={{ fontFamily: PAPEL.fontFamily, letterSpacing: 0.5, color: TINTA_PAPEL }}
               />
-              <span className="no-print text-xs" style={{ color: "var(--tinta-baja)", whiteSpace: "nowrap" }}>{fmt(esc.dur || 0)}</span>
+              <span className="no-print text-xs" style={{ color: TINTA_PAPEL_BAJA, whiteSpace: "nowrap" }}>{fmt(esc.dur || 0)}</span>
               {editable && escenas.length > 1 && (
                 <button type="button" onClick={() => borrarEscena(esc.id)} title="Borrar esta escena"
-                  className="no-print grid h-6 w-6 place-items-center rounded" style={{ color: "#b45", background: "#fff" }}>
+                  className="no-print grid h-6 w-6 place-items-center rounded" style={{ color: "var(--hoja-borrar)", background: "var(--hoja)" }}>
                   <Trash2 size={13} />
                 </button>
               )}
             </div>
-            <div style={{ height: 1, background: "var(--linea)", margin: "2px 0 10px" }} />
+            <div style={{ height: 1, background: LINEA_PAPEL, margin: "2px 0 10px" }} />
 
             {/* Cuerpo del guion */}
             {guionDe(esc).map((b) => {
@@ -339,7 +362,7 @@ export function EditorGuion({ cfg, setCfg }) {
                   {(b.marcas || []).length > 0 && (
                     <div aria-hidden="true" style={{ ...tipografia(b, t), position: "absolute", inset: 0, color: "transparent", pointerEvents: "none", whiteSpace: "pre-wrap", overflowWrap: "break-word" }}>
                       {trozosMarcados(b.texto, b.marcas).map((tr, i) => (
-                        <span key={i} style={tr.color ? { background: MARCADORES[tr.color].color, borderRadius: 2 } : undefined}>{tr.texto}</span>
+                        <span key={i} style={tr.color ? { background: `var(--marca-${tr.color})`, borderRadius: 2 } : undefined}>{tr.texto}</span>
                       ))}
                     </div>
                   )}
@@ -360,21 +383,21 @@ export function EditorGuion({ cfg, setCfg }) {
                       claro se perdían y no se distinguía acción de diálogo. */}
                   <span className="no-print" style={{
                     position: "absolute", left: -74, top: 8, fontSize: 9.5, fontWeight: 800,
-                    letterSpacing: 0.7, textTransform: "uppercase", color: t.color,
-                    fontFamily: "system-ui, sans-serif", pointerEvents: "none", opacity: .95,
+                    letterSpacing: 0.7, textTransform: "uppercase", color: `var(--tipo-${b.tipo}, ${t.color})`,
+                    fontFamily: "system-ui, sans-serif", pointerEvents: "none",
                   }}>{t.nombre}</span>
 
                   {sugiere?.bloqueId === b.id && (
                     <div className="no-print" style={{
                       position: "absolute", zIndex: 5, left: 0, top: "100%",
-                      background: "#fff", border: "1px solid var(--linea)", borderRadius: 8,
+                      background: "var(--hoja-alza)", border: `1px solid ${LINEA_PAPEL}`, borderRadius: 8,
                       boxShadow: "0 8px 20px rgba(12,28,48,.14)", overflow: "hidden",
                     }}>
                       {sugiere.opciones.map((op) => (
                         <button key={op} type="button"
                           onMouseDown={(e) => { e.preventDefault(); upBloque(esc.id, b.id, { texto: op }); setSugiere(null); }}
                           className="block w-full px-3 py-1.5 text-left text-xs font-bold"
-                          style={{ fontFamily: "system-ui, sans-serif", color: "var(--tinta)" }}>
+                          style={{ fontFamily: "system-ui, sans-serif", color: TINTA_PAPEL }}>
                           {op}
                         </button>
                       ))}
@@ -387,7 +410,7 @@ export function EditorGuion({ cfg, setCfg }) {
             {editable && (
               <button type="button" onClick={() => agregarEscena(esc.id)}
                 className="no-print mt-3 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold"
-                style={{ background: "var(--vidrio-b)", color: "var(--tinta)", fontFamily: "system-ui, sans-serif" }}>
+                style={{ background: "var(--hoja-hueco)", color: TINTA_PAPEL, fontFamily: "system-ui, sans-serif" }}>
                 <Plus size={13} /> Escena nueva aquí
               </button>
             )}
@@ -413,16 +436,16 @@ export function EditorGuion({ cfg, setCfg }) {
           if (!esc) return null;
           const i = escenas.indexOf(esc);
           const campo = (etiqueta, valor, alPoner, placeholder) => (
-            <label className="block text-xs font-bold uppercase" style={{ color: "var(--tinta-baja)", letterSpacing: 0.6 }}>
+            <label className="block text-xs font-bold uppercase" style={{ color: "var(--tinta-media)", letterSpacing: 0.6 }}>
               {etiqueta}
               <input value={valor || ""} disabled={!editable} placeholder={placeholder}
                 onChange={(e) => alPoner(e.target.value)}
                 className="mt-1 w-full rounded-md border px-2 py-1.5 text-sm font-normal normal-case"
-                style={{ borderColor: "var(--linea)", color: "var(--tinta)", fontFamily: "system-ui, sans-serif" }} />
+                style={{ borderColor: "var(--vidrio-borde)", background: "var(--hueco-fondo)", color: "var(--tinta)", fontFamily: "system-ui, sans-serif" }} />
             </label>
           );
           return (
-            <div className="sticky top-2 flex flex-col gap-3 rounded-xl p-3" style={{ background: "#fff", border: "1px solid var(--linea)" }}>
+            <div className="sticky top-2 flex flex-col gap-3 rounded-xl p-3" style={{ background: "var(--vidrio-a)", border: "1px solid var(--vidrio-borde)" }}>
               <div className="text-xs font-bold uppercase" style={{ color: "var(--tinta)", letterSpacing: 1 }}>
                 Escena {i + 1}
               </div>
@@ -431,7 +454,7 @@ export function EditorGuion({ cfg, setCfg }) {
               {campo("Función en la historia", esc.funcion, (v) => upEscena(esc.id, { funcion: v }), "Presenta el mundo")}
               {campo("¿Qué cambia aquí?", esc.cambio, (v) => upEscena(esc.id, { cambio: v }), "Lo que ya no vuelve a ser igual")}
               {campo("Personajes", esc.personajes, (v) => upEscena(esc.id, { personajes: v }), "Doña Rosa, Marco")}
-              <p className="m-0 text-xs" style={{ color: "var(--tinta-baja)", lineHeight: 1.45 }}>
+              <p className="m-0 text-xs" style={{ color: "var(--tinta-media)", lineHeight: 1.45 }}>
                 Son los mismos campos de la escaleta: lo que escribas aquí aparece allá.
               </p>
             </div>

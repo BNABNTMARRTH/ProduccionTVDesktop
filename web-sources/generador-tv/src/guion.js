@@ -14,12 +14,15 @@
 // convertidas a porcentaje del ancho para que se vean igual en pantalla y al
 // imprimir. La regla de oro del oficio: 1 página ≈ 1 minuto de pantalla.
 
+// El `color` es el de la ETIQUETA que el editor pinta al margen del bloque.
+// Va sobre la HOJA, que es blanca en los dos temas, así que son tonos oscuros
+// medidos contra blanco (todos ≥ 4.5:1, que es lo que pide un texto chico).
 export const TIPOS = {
   accion: { nombre: 'Acción', sangria: 0, ancho: 100, caja: 61, mayus: false, align: 'left', color: '#2E7D5B' },
   personaje: { nombre: 'Personaje', sangria: 37, ancho: 63, caja: 38, mayus: true, align: 'left', color: '#1D6FD1' },
   parentesis: { nombre: 'Paréntesis', sangria: 31, ancho: 69, caja: 25, mayus: false, align: 'left', color: '#8A5CD6' },
   dialogo: { nombre: 'Diálogo', sangria: 22, ancho: 62, caja: 35, mayus: false, align: 'left', color: '#B4232A' },
-  transicion: { nombre: 'Transición', sangria: 0, ancho: 100, caja: 61, mayus: true, align: 'right', color: '#B36A00' },
+  transicion: { nombre: 'Transición', sangria: 0, ancho: 100, caja: 61, mayus: true, align: 'right', color: '#9A5B00' },
 };
 
 export const ORDEN_TIPOS = ['accion', 'personaje', 'parentesis', 'dialogo', 'transicion'];
@@ -45,7 +48,19 @@ export const bloqueNuevo = (tipo = 'accion', texto = '') => ({ id: `g${Math.rand
 
 // Un guion vacío arranca con una línea de acción: la página en blanco de un
 // guion nunca empieza por un diálogo.
-export const guionDe = (escena) => (Array.isArray(escena?.guion) && escena.guion.length ? escena.guion : [bloqueNuevo()]);
+//
+// OJO CON EL ID de ese primer bloque. Antes se creaba con bloqueNuevo(), que
+// sortea un id AL AZAR en cada llamada — y guionDe() se llama en cada pintado
+// y otra vez al guardar. Resultado: el bloque que veías en pantalla y el que
+// buscaba el guardado tenían ids distintos, la escritura no encontraba a quién
+// aplicarse y se tiraba, dejando en su lugar un bloque vacío. Es decir: en una
+// escena todavía en blanco, lo que escribías desaparecía y quedaba la plantilla.
+// El id ahora se deriva de la escena, así que es el MISMO en los dos lados.
+export const guionDe = (escena) => (
+  Array.isArray(escena?.guion) && escena.guion.length
+    ? escena.guion
+    : [{ id: `g0-${escena?.id || 'escena'}`, tipo: 'accion', texto: '' }]
+);
 
 /* ----------------------------- Medidas ----------------------------- */
 // Cuántos renglones ocupa un bloque al imprimirse, según el ancho de su caja

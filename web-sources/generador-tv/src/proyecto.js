@@ -17,7 +17,33 @@ import { uid } from "./util.js";
 // Duración OBJETIVO del proyecto, en minutos (0 = sin definir). Los proyectos
 // hechos con el asistente en vivo (retirado) la guardaban en programa.durMin:
 // se sigue leyendo para no perderla.
-export const objetivoDe = (cfg) => Number(cfg?.duracionObjetivoMin || cfg?.programa?.durMin || 0) || 0;
+/* DURACIÓN OBJETIVO — cuánto DEBE durar el proyecto terminado.
+
+   Se guarda en SEGUNDOS, en `duracionObjetivoSeg`. Antes se guardaba en
+   minutos ENTEROS y eso dejaba fuera a media producción escolar: un spot de
+   30", una cápsula de 50", un reel de 90". Lo más chico que se podía escribir
+   era 1 minuto, así que esas piezas se quedaban sin objetivo — y sin objetivo
+   no hay aviso de "te estás pasando" ni costo por segundo confiable.
+
+   `duracionObjetivoMin` (minutos) es el campo viejo. Se sigue leyendo para no
+   romper los proyectos ya guardados; solo se vuelve a escribir cuando el
+   objetivo cae en minutos exactos. */
+export const objetivoSegDe = (cfg) => {
+  const seg = Number(cfg?.duracionObjetivoSeg);
+  if (Number.isFinite(seg) && seg > 0) return Math.round(seg);
+  const min = Number(cfg?.duracionObjetivoMin || cfg?.programa?.durMin || 0) || 0;
+  return Math.round(min * 60);
+};
+
+/* CUÁNTO SE VALE DESVIARSE del objetivo antes de avisar. Va con el tamaño de
+   la pieza: media hora aguanta medio minuto de sobra sin que nadie lo note,
+   pero una cápsula de 30 segundos no — ahí 20 segundos son dos tercios de
+   todo. Un décimo de la pieza, nunca menos de 5 s ni más de 30 s. */
+export const toleranciaDe = (objetivoSeg) => Math.max(5, Math.min(30, (objetivoSeg || 0) * 0.1));
+
+// El mismo dato en minutos. Puede salir fraccionario (50 s = 0.83 min), así
+// que para MOSTRARLO usa siempre segundos con fmt(); esto es para comparar.
+export const objetivoDe = (cfg) => objetivoSegDe(cfg) / 60;
 
 export const esNarrativo = (cfg) => cfg?.modo === "narrative";
 

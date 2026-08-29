@@ -83,18 +83,20 @@ export function VistaSet({ cfg, setCfg }) {
       return rest.length ? { ...c, sets: rest, setActivo: rest[0].id } : c;
     }, { commit: true });
   };
-  const chip = { borderColor: "#C8D2DE", color: "#33445F", background: "#fff" };
+  // Los chips de esta vista viven sobre la mesa de trabajo, así que siguen
+  // al tema como el resto de la app (antes eran blancos fijos).
+  const chip = { borderColor: "var(--vidrio-borde)", color: "var(--tinta)", background: "var(--vidrio-a)" };
 
   return (
     <div className="scrollwrap overflow-auto px-2 py-4">
-      <div className="vista-foco mx-auto flex flex-col gap-3 bg-white shadow-lg" style={{ width: "100%", padding: 16, borderRadius: 8 }}>
+      <div className="vista-foco mx-auto flex flex-col gap-3" style={{ width: "100%", padding: 16 }}>
         <Box title={`Set / Estudio — planta física${sets.length > 1 ? ` (${sets.length} sets)` : ""}`}>
           {editable && (
             <div className="no-print flex flex-wrap items-center gap-1.5" style={{ marginBottom: 8 }}>
               {sets.map((s) => (
                 <button key={s.id} onClick={() => elegirSet(s.id)}
                   className="rounded-lg border px-2.5 py-1 text-xs font-bold"
-                  style={s.id === activo.id ? { background: NAVY, borderColor: NAVY, color: "#fff" } : chip}>
+                  style={s.id === activo.id ? { background: "var(--gel-f)", borderColor: "var(--gel-f)", color: "#fff" } : chip}>
                   {s.nombre} {s.locacion === "ext" ? "· EXT" : "· INT"}
                 </button>
               ))}
@@ -125,11 +127,19 @@ export function VistaSet({ cfg, setCfg }) {
                 <option value="int">Estudio (interior)</option>
                 <option value="ext">Locación exterior</option>
               </select>
-              <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "#33445F" }}>
-                <input type="checkbox" checked={activo.mesaVisible !== false}
-                  onChange={(e) => upActivo({ mesaVisible: e.target.checked }, { commit: true })} />
-                Mesa / escritorio en el set
-              </label>
+              {/* LA MESA FIJA es cosa de proyectos anteriores. Desde 2026-08-28
+                  la mesa se agrega abajo, en Mobiliario, donde se mueve, se
+                  gira, se duplica y además hay mesa redonda. Esta casilla se
+                  queda solo para poder apagar la de los proyectos que ya la
+                  traían; en un set nuevo ni siquiera aparece. */}
+              {activo.mesaVisible !== false && (
+                <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "var(--tinta)" }}
+                  title="La mesa fija de los proyectos anteriores. Quítala y agrégala abajo, en Mobiliario: ahí se mueve, se gira y puedes elegir mesa redonda.">
+                  <input type="checkbox" checked
+                    onChange={() => upActivo({ mesaVisible: false }, { commit: true })} />
+                  Mesa fija (heredada)
+                </label>
+              )}
               {/* Los rótulos que se dibujan EN el plano. Antes vivían en Datos
                   generales, junto al título del proyecto; aquí se ve al momento
                   lo que uno escribe. */}
@@ -145,11 +155,11 @@ export function VistaSet({ cfg, setCfg }) {
                   className="rounded-lg border px-2 py-1 text-xs font-bold"
                   style={{ ...chip, width: 170 }} placeholder="Texto de la mesa…" />
               )}
-              <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "#33445F" }} title="Muestra u oculta todos los nombres. Doble clic sobre una etiqueta del plano la oculta individualmente. Mantén el puntero encima de un icono para ver su nombre.">
+              <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "var(--tinta)" }} title="Muestra u oculta todos los nombres. Doble clic sobre una etiqueta del plano la oculta individualmente. Mantén el puntero encima de un icono para ver su nombre.">
                 <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
                 Mostrar etiquetas
               </label>
-              <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "#33445F" }} title="Muestra u oculta los conos de cámara, luz y boom.">
+              <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "var(--tinta)" }} title="Muestra u oculta los conos de cámara, luz y boom.">
                 <input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} />
                 Mostrar guías
               </label>
@@ -168,7 +178,7 @@ export function VistaSet({ cfg, setCfg }) {
               )}
               {sets.length > 1 && (
                 <button onClick={eliminarSet} className="rounded-lg border px-2.5 py-1 text-xs font-bold"
-                  style={{ borderColor: confirmaDel ? "#E0312F" : "#C8D2DE", color: confirmaDel ? "#E0312F" : "#8A97A8", background: "#fff" }}>
+                  style={{ borderColor: confirmaDel ? "var(--e5-f)" : "var(--vidrio-borde)", color: confirmaDel ? "var(--e5-t)" : "var(--tinta-media)", background: "var(--vidrio-a)" }}>
                   {confirmaDel ? "¿Eliminar este set y sus luces?" : "Eliminar set"}
                 </button>
               )}
@@ -178,13 +188,20 @@ export function VistaSet({ cfg, setCfg }) {
             </div>
           )}
           <div className="no-print" style={{ marginBottom: 8 }}>
-            <span className="text-xs" style={{ color: "#5B6B82" }}>
+            <span className="text-xs" style={{ color: "var(--tinta-media)" }}>
               Arrastra talentos, mesa, micrófonos, luces y cámaras; lo direccional gira con su manija (doble clic en la manija: volver al automático).
-              {activo.mesaVisible === false ? " Sin mesa, el punto de foco marca a dónde apuntan cámaras y luces." : ""}
+              {activo.mesaVisible === false ? " El punto de foco marca a dónde apuntan cámaras y luces; la mesa se agrega abajo, en Mobiliario." : ""}
             </span>
           </div>
-          <EstudioCenital key={activo.id} cfg={cfg} set={activo} cams={cams} editable={editable} setCfg={setCfg}
-            showLabels={showLabels} showGuides={showGuides} />
+          {/* `lienzo-tema` marca este plano como superficie de TRABAJO, y es lo
+              único que hace que se apague en modo oscuro. El MISMO dibujo sale
+              en la infografía, que es una hoja y se imprime: ahí no lleva la
+              clase y se queda blanco. Al imprimir desde aquí también vuelve a
+              papel (ver @media print en index.css). */}
+          <div className="lienzo-tema">
+            <EstudioCenital key={activo.id} cfg={cfg} set={activo} cams={cams} editable={editable} setCfg={setCfg}
+              showLabels={showLabels} showGuides={showGuides} />
+          </div>
         </Box>
         <Box title={`Mobiliario de ${activo.nombre}${(activo.muebles || []).length ? ` (${activo.muebles.length})` : ""}`}>
           {editable ? (
@@ -194,10 +211,10 @@ export function VistaSet({ cfg, setCfg }) {
                 {Object.entries(MUEBLES_CATALOGO).map(([id, d]) => (
                   <button key={id} onClick={() => agregarMueble(id)} title={`Agregar ${d.es} al set`}
                     className="flex flex-col items-center gap-0.5 rounded-lg border px-2.5 py-1.5"
-                    style={{ borderColor: "#C8D2DE", background: "#fff", minWidth: 96, cursor: "pointer" }}>
+                    style={{ borderColor: "var(--vidrio-borde)", background: "var(--vidrio-a)", minWidth: 96, cursor: "pointer" }}>
                     <MuebleIcon tipo={id} />
-                    <span className="text-xs font-bold" style={{ color: "#33445F" }}>{d.es}</span>
-                    <span style={{ fontSize: 9, color: "#8A97A8", fontWeight: 700 }}>
+                    <span className="text-xs font-bold" style={{ color: "var(--tinta)" }}>{d.es}</span>
+                    <span style={{ fontSize: 9, color: "var(--tinta-media)", fontWeight: 700 }}>
                       {d.cap > 1 ? `${d.cap} plazas` : "1 plaza"}
                     </span>
                   </button>
@@ -206,7 +223,7 @@ export function VistaSet({ cfg, setCfg }) {
               {(activo.muebles || []).length > 0 && (
                 <>
                   <SecTitle>En el set ({(activo.muebles || []).length}) — siéntales talentos</SecTitle>
-                  <p className="text-xs" style={{ color: "#8A97A8", margin: 0 }}>
+                  <p className="text-xs" style={{ color: "var(--tinta-media)", margin: 0 }}>
                     El talento sentado se dibuja sobre el mueble y deja de aparecer suelto en el plano; cada quien solo ocupa un lugar.
                   </p>
                 </>
@@ -215,15 +232,15 @@ export function VistaSet({ cfg, setCfg }) {
                 const def = MUEBLES_CATALOGO[m.tipo] || { es: m.tipo, cap: 1 };
                 const ocupantes = m.ocupantes || [];
                 return (
-                  <div key={m.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2" style={{ borderColor: "#DDE4EC" }}>
+                  <div key={m.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2" style={{ borderColor: "var(--linea)" }}>
                     <MuebleIcon tipo={m.tipo} width={48} height={22} />
                     <div className="flex flex-col" style={{ minWidth: 118 }}>
-                      <span className="text-xs font-bold" style={{ color: "#33445F" }}>{def.es}</span>
+                      <span className="text-xs font-bold" style={{ color: "var(--tinta)" }}>{def.es}</span>
                       <span style={{ fontSize: 11, letterSpacing: 2, color: NAVY }} title={`${ocupantes.length} de ${def.cap} plazas ocupadas`}>
-                        {"●".repeat(ocupantes.length)}<span style={{ color: "#C8D2DE" }}>{"○".repeat(Math.max(0, def.cap - ocupantes.length))}</span>
+                        {"●".repeat(ocupantes.length)}<span style={{ color: "var(--tinta-media)" }}>{"○".repeat(Math.max(0, def.cap - ocupantes.length))}</span>
                       </span>
                     </div>
-                    <span className="text-xs font-bold" style={{ color: "#8A97A8" }}>Sentar:</span>
+                    <span className="text-xs font-bold" style={{ color: "var(--tinta-media)" }}>Sentar:</span>
                     {(cfg.talentos || []).map((t) => {
                       const dentro = ocupantes.includes(t.id);
                       const lleno = !dentro && ocupantes.length >= def.cap;
@@ -234,31 +251,31 @@ export function VistaSet({ cfg, setCfg }) {
                           className="rounded-lg border px-2 py-0.5 text-xs font-bold"
                           style={dentro
                             ? { background: col, borderColor: col, color: "#fff" }
-                            : { background: "#fff", borderColor: "#C8D2DE", color: "#33445F", opacity: lleno ? 0.4 : 1 }}>
+                            : { background: "var(--vidrio-a)", borderColor: "var(--vidrio-borde)", color: "var(--tinta)", opacity: lleno ? 0.4 : 1 }}>
                           {dentro ? "✓" : "+"} {trunc(t.nombre, 16)}
                         </button>
                       );
                     })}
                     {!(cfg.talentos || []).length && (
-                      <span className="text-xs" style={{ color: "#8A97A8" }}>No hay talentos: créalos en la pestaña Editar.</span>
+                      <span className="text-xs" style={{ color: "var(--tinta-media)" }}>No hay talentos: créalos en la pestaña Editar.</span>
                     )}
                     <span className="flex-1" />
                     <button onClick={() => quitarMueble(m.id)} title="Quitar este mueble del set"
                       className="flex items-center justify-center rounded-lg border"
-                      style={{ width: 26, height: 26, borderColor: "#E5CACA", color: "#C0392B", background: "#fff", cursor: "pointer" }}>
+                      style={{ width: 26, height: 26, borderColor: "color-mix(in srgb, var(--e5) 40%, transparent)", color: "var(--e5-t)", background: "var(--vidrio-a)", cursor: "pointer" }}>
                       <Trash2 size={13} />
                     </button>
                   </div>
                 );
               })}
               {!(activo.muebles || []).length && (
-                <p className="text-xs" style={{ color: "#5B6B82", margin: 0 }}>
+                <p className="text-xs" style={{ color: "var(--tinta-media)", margin: 0 }}>
                   Aún no hay muebles en este set: haz clic en uno de arriba y luego arrástralo en el plano.
                 </p>
               )}
             </div>
           ) : (
-            <p className="text-xs" style={{ color: "#5B6B82", margin: 0 }}>
+            <p className="text-xs" style={{ color: "var(--tinta-media)", margin: 0 }}>
               {(activo.muebles || []).map((m) => (MUEBLES_CATALOGO[m.tipo] || { es: m.tipo }).es).join(" · ") || "Sin mobiliario."}
             </p>
           )}
