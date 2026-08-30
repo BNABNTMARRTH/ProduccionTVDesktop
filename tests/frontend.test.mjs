@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeTemplate, infografiaFromDiagram, templateDefaults, SCHEMA_VERSION, normalizeMode } from '../frontend/src/templates.js';
 import { PLANTILLAS_SET, cfgDePlantilla, plantillaPorId } from '../frontend/src/plantillas.js';
+import { construirPrograma, pasoEn } from '../frontend/src/production.js';
 import {
   LUZ_CATALOGO, SETUPS_ILUMINACION, SETUPS_EXTERIOR, RECOMENDADAS_POR_PLANTILLA,
   getSetup, instanciarSetup, instanciarElemento, posicionesParaLuces,
@@ -1234,4 +1235,57 @@ test('escribir en una escena en blanco guarda el texto, no lo tira', () => {
   assert.equal(guardado.length, 1);
   // Y una vez guardado, el guion existente manda sobre el bloque por omisión.
   assert.equal(guionDe({ ...escena, guion: guardado })[0].texto, 'LO QUE ESCRIBI');
+});
+
+/* ---- EL PROGRAMA DEL ENSAYO: la escaleta aplanada en una línea de tiempo ----
+   Es lo que el director mira mientras el programa corre, así que tiene que
+   decir la verdad en cada segundo. */
+
+const escaleta = () => [
+  { id: 's1', segmento: 'Open Show', dur: 20, fuente: 'cam1' },
+  { id: 's2', segmento: 'Titulares', dur: 60, fuente: 'cam2', tomas: [
+      { id: 't1', tipo: 'camara', dur: 15, alAire: 'cam2', texto: 'Titular 1 a cámara' },
+      { id: 't2', tipo: 'grafico', dur: 20, alAire: 'cam3', grafico: 'Lower third' },
+  ] },
+  { id: 's3', segmento: 'Comerciales', dur: 30, fuente: 'corte' },
+];
+
+test('el programa aplana la escaleta: los cues mandan en el detalle, la escaleta en el total', () => {
+  const { pasos, total } = construirPrograma({ escaleta: escaleta() });
+  assert.equal(total, 110, 'el total es la suma de las duraciones de la escaleta');
+  // Open Show · cue 1 · cue 2 · el resto de Titulares · Comerciales
+  assert.deepEqual(pasos.map((p) => p.dur), [20, 15, 20, 25, 30]);
+  assert.deepEqual(pasos.map((p) => p.t0), [0, 20, 35, 55, 80]);
+  assert.equal(pasos[1].texto, 'Titular 1 a cámara');
+  assert.equal(pasos[2].grafico, 'Lower third');
+});
+
+test('un segmento sin cues es UN paso, y lo que los cues no llenan no se pierde', () => {
+  const { pasos } = construirPrograma({ escaleta: escaleta() });
+  const deTitulares = pasos.filter((p) => p.segNombre === 'Titulares');
+  assert.equal(deTitulares.length, 3, 'dos cues y el sobrante del segmento');
+  assert.equal(deTitulares.reduce((a, p) => a + p.dur, 0), 60, 'los tres suman la duración de la escaleta');
+});
+
+test('el previo por omisión es lo que viene: lo que un director deja preparado', () => {
+  const { pasos } = construirPrograma({ escaleta: escaleta() });
+  assert.equal(pasos[0].previo, pasos[1].aire);
+  assert.equal(pasos.at(-1).previo, '', 'el último no tiene siguiente que preparar');
+});
+
+test('pasoEn dice en qué va el programa a cada segundo, y al final se queda en el último', () => {
+  const programa = construirPrograma({ escaleta: escaleta() });
+  assert.equal(pasoEn(programa, 0).segNombre, 'Open Show');
+  assert.equal(pasoEn(programa, 19.9).segNombre, 'Open Show');
+  assert.equal(pasoEn(programa, 20).texto, 'Titular 1 a cámara', 'el corte cae en el segundo exacto');
+  assert.equal(pasoEn(programa, 90).segNombre, 'Comerciales');
+  assert.equal(pasoEn(programa, 999).segNombre, 'Comerciales', 'pasado el final no se sale de la lista');
+  assert.equal(pasoEn(construirPrograma({ escaleta: [] }), 5), null, 'sin escaleta no hay paso');
+});
+
+test('una escaleta con duraciones en cero no tumba el programa', () => {
+  const programa = construirPrograma({ escaleta: [{ id: 'x', segmento: 'Vacío', dur: 0, fuente: 'cam1' }] });
+  assert.equal(programa.total, 0);
+  assert.equal(programa.pasos.length, 1);
+  assert.equal(pasoEn(programa, 0).segNombre, 'Vacío');
 });

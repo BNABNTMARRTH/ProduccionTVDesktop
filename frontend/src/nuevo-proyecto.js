@@ -16,8 +16,6 @@
 // ya tiene claro el brief, lo deja capturado desde el minuto cero. Lo mismo se
 // edita después en la etapa 1.
 
-// Escapa lo que el usuario escribe antes de volver a inyectarlo en el HTML.
-const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const chip = (valor, activos) =>
     `<button type="button" class="np-chip${activos.includes(valor) ? ' on' : ''}" data-valor="${esc(valor)}" aria-pressed="${activos.includes(valor)}">${esc(valor)}</button>`;
 
@@ -36,6 +34,9 @@ const MODOS = [
 
 import { INTENCIONES, MEDIOS, perfilVacio } from './templates.js';
 import { cfgDePlantilla } from './plantillas.js';
+// Escapa lo que el usuario escribe antes de volver a inyectarlo en el HTML.
+// Es la MISMA de constants.js: había dos copias idénticas del mismo escape.
+import { esc } from './constants.js';
 
 export function createNuevoProyecto({ onCreate }) {
     let abierto = false;

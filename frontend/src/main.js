@@ -4,7 +4,7 @@ import appIcon from './assets/images/produccion-tv-256.png';
 import { icono } from './iconos.js';
 import { CloseWindow, DeleteProjectFile, DeleteTrashFile, FocusLauncher, FocusProjectWindow, GetLaunchContext, ListOpenProjects, ListTrashFiles, LoadAllProjects, LoadProjectFile, OpenProjectWindow, OpenToolWindow, Print, ReadTrashFile, SaveBase64File, SaveProjectFile, SaveTextFile, SetWindowTitle, WatchProject } from '../wailsjs/go/main/App';
 import { EventsOn, WindowIsFullscreen, WindowUnfullscreen } from '../wailsjs/runtime/runtime';
-import { templateCatalog, makeTemplate, diagramFromConfig, infografiaFromDiagram, uid, PROJECT_MODES, normalizeMode } from './templates.js';
+import { makeTemplate, diagramFromConfig, infografiaFromDiagram, uid, PROJECT_MODES, normalizeMode } from './templates.js';
 import { createProductionView } from './production.js';
 import { createNuevoProyecto } from './nuevo-proyecto.js';
 import { createTour } from './tour.js';
@@ -114,27 +114,45 @@ El proyecto se recorre por ETAPAS de producción, no por herramientas
 (reorganización 2026-08-24). La barra lateral muestra las etapas; cuando una
 etapa tiene más de una sección, aparece la barra de secciones bajo el
 encabezado. Cada vista pertenece a UNA sola etapa, para que siempre se sepa
-dónde está uno. */
+dónde está uno.
+
+DOS NÚMEROS DISTINTOS, y antes se usaba uno solo para las dos cosas:
+  · `n`   es el NÚMERO QUE SE VE en la esquina del botón. Solo lo llevan las
+          cuatro etapas del recorrido; Documentos y Ensayo van tras el
+          separador, fuera de la cuenta.
+  · `gel` es la TEMPERATURA de la pantalla (la escala de style.css, 1 azul
+          "una idea" → 5 rojo "al aire"). La llevan TODAS.
+Confundirlos costaba la identidad entera de la app: como Documentos y Ensayo
+no tienen `n`, el gel caía al 1 por omisión y la pantalla volvía al azul de la
+primera etapa justo en las dos donde el proyecto ya es real. El rojo del tally
+no se veía nunca. */
 const ETAPAS = [
-    { id: 'perfil', n: '1', etiqueta: 'Perfil', icono: 'perfil',
+    { id: 'perfil', n: '1', gel: '1', etiqueta: 'Perfil', icono: 'perfil',
       ayuda: 'Quién habla, qué dice y a quién (⌘1)',
       secciones: [['perfil', 'Datos y mensaje']] },
-    { id: 'guion', n: '2', etiqueta: 'Guion', icono: 'guion',
+    { id: 'guion', n: '2', gel: '2', etiqueta: 'Guion', icono: 'guion',
       ayuda: 'Qué pasa, en qué orden y cómo se ve cada toma (⌘2)',
       secciones: [['guionLiterario', 'Guion literario', 'narrative'], ['escaleta', 'Escaleta y guion técnico'], ['tiempos', 'Tiempos']] },
-    { id: 'necesidades', n: '3', etiqueta: 'Necesidades', icono: 'necesidades',
+    { id: 'necesidades', n: '3', gel: '3', etiqueta: 'Necesidades', icono: 'necesidades',
       ayuda: 'Todo lo que hay que conseguir: gente y equipo (⌘3)',
       secciones: [['necesidades', 'Personas y equipo'], ['diagrama', 'Ruta de señal']] },
-    { id: 'planeacion', n: '4', etiqueta: 'Planeación', icono: 'planeacion',
+    { id: 'planeacion', n: '4', gel: '4', etiqueta: 'Planeación', icono: 'planeacion',
       ayuda: 'Cómo se organiza el rodaje: plano del set y la infografía del proyecto (⌘4)',
       secciones: [['set', 'Plano del set'], ['infografias', 'Infografía']] },
-    { id: 'salida', etiqueta: 'Documentos', icono: 'salida',
+    { id: 'salida', gel: '5', etiqueta: 'Documentos', icono: 'salida',
       ayuda: 'El resultado: el paquete de entrega y las hojas para imprimir (⌘5)',
       secciones: [['exportar', 'Exportar']] },
-    { id: 'ensayo', etiqueta: 'Ensayo', icono: 'ensayo', soloVivo: true,
+    { id: 'ensayo', gel: '5', soloVivo: true, etiqueta: 'Ensayo', icono: 'ensayo',
       ayuda: 'En vivo: cronómetro, tally y teleprompter (⌘6)',
       secciones: [['production', 'En vivo']] },
 ];
+
+// UNA SOLA REGLA para "esta etapa no va en este modo". Antes vivía repartida
+// en tres sitios que podían decir cosas distintas —una tabla por modo, una
+// bandera en la etapa y un filtro suelto en el menú de módulos— y por eso ⌘6
+// abría el Ensayo en un proyecto narrativo, donde la etapa está escondida a
+// propósito. Ahora la bandera vive con la etapa y todos preguntan aquí.
+const etapaOculta = (etapa, modo) => !!etapa?.soloVivo && modo === 'narrative';
 
 // Vistas del LANZADOR: no pertenecen a ningún proyecto (son la ventana de
 // Inicio). No llevan cabecera y comparten la barra lateral de Inicio.
@@ -473,17 +491,33 @@ const barraPestanas = document.querySelector('#pestanas');
 // Señales REALES de que una etapa ya tiene lo suyo. No se inventa avance: una
 // etapa sin señal medible simplemente no se marca.
 const ETAPA_LISTA = {
-    perfil: (cfg) => !!(cfg?.narrativa || cfg?.duracionObjetivoSeg || cfg?.duracionObjetivoMin),
-    guion: (cfg) => (cfg?.escaleta || []).some((seg) => (seg.tomas || []).length),
+    // EL PERFIL ya tiene lo suyo en cuanto el proyecto dice qué quiere decir, a
+    // quién, o cuánto va a durar. Antes solo miraba la duración y el tipo
+    // narrativo: se podía llenar el brief entero —mensaje, intención, receptor,
+    // medios, presupuesto— y la etapa no se marcaba nunca, que es justo lo
+    // contrario de lo que promete la paloma.
+    perfil: (cfg) => {
+        const p = cfg?.perfil || {};
+        return !!(p.mensaje || p.receptor || p.emisor || p.intencion?.length || p.medios?.length
+            || cfg?.narrativa || cfg?.duracionObjetivoSeg || cfg?.duracionObjetivoMin);
+    },
+    // EL GUION tiene DOS formas, y cualquiera de las dos cuenta: el rundown
+    // técnico (las tomas de cada bloque) y el guion literario (los bloques de
+    // texto de cada escena). Antes solo contaba el rundown, así que un proyecto
+    // narrativo —donde la sección principal de la etapa ES el guion literario—
+    // podía tener el guion escrito completo y seguir sin marcar.
+    // Se pide texto de verdad: una escena en blanco trae un bloque vacío de
+    // plantilla, y ese no es guion escrito.
+    guion: (cfg) => (cfg?.escaleta || []).some((seg) => (seg.tomas || []).length
+        || (seg.guion || []).some((b) => String(b?.texto || '').trim())),
     necesidades: (cfg, diagram) => (diagram?.edges || []).length > 0,
     planeacion: (cfg) => (cfg?.sets || []).some((x) => (x.muebles || []).length || x.iluminacion || Object.keys(x.setLayout?.pos || {}).length),
     salida: (cfg) => !!cfg?.exportado,
     ensayo: (cfg) => !!cfg?.ensayado,
 };
 
-// Diferencias por modo: en narrativo el ensayo en vivo no aplica y algunas
-// secciones cambian de nombre (la misma herramienta cambia de función).
-const ETAPAS_OCULTAS = { narrative: ['ensayo'] };
+// Diferencias por modo: algunas secciones cambian de nombre porque la misma
+// herramienta cambia de función. (Qué etapa no aplica lo dice etapaOculta.)
 const SECCION_ETIQUETAS = { narrative: { set: 'Plano de la locación', escaleta: 'Guion técnico y storyboard', diagrama: 'Escena' } };
 
 // Última sección visitada de cada etapa, para volver donde uno la dejó.
@@ -505,10 +539,9 @@ function renderModo() {
         chip.title = `Modo del proyecto: ${PROJECT_MODES[modo].label}. Se elige al crearlo y define las herramientas disponibles.`;
         chip.classList.toggle('narrative', modo === 'narrative');
     }
-    const ocultas = ETAPAS_OCULTAS[modo] || [];
     railButtons.forEach((b) => {
         const etapa = etapaPorId(b.dataset.etapa);
-        b.hidden = ocultas.includes(b.dataset.etapa) || (etapa?.soloVivo && modo === 'narrative');
+        b.hidden = etapaOculta(etapa, modo);
         b.classList.toggle('done', !!ETAPA_LISTA[b.dataset.etapa]?.(latestInfografia, latestDiagram));
     });
 }
@@ -522,7 +555,7 @@ function renderNav() {
     // pantalla — la luz que baña la pared, el vidrio del rail, los botones y
     // el foco de los campos. La app se calienta conforme el proyecto se vuelve
     // real: 1 azul (una idea) → 5 rojo (al aire).
-    document.documentElement.dataset.etapa = etapa?.n || '1';
+    document.documentElement.dataset.etapa = etapa?.gel || '1';
     // Una sola sección: no hay nada que elegir, la barra sobra.
     const modo = normalizeMode(latestInfografia?.modo);
     const lista = seccionesDe(etapa, modo);
@@ -555,6 +588,20 @@ function marcarDesborde() {
     });
 }
 window.addEventListener('resize', marcarDesborde);
+
+/* HITOS de la ruta (ensayado / exportado): las palomas ✓ de la barra lateral.
+Los pone el shell, NO la herramienta —ensayar y exportar son cosas del shell—,
+así que la copia del proyecto que tiene cada herramienta montada no los trae.
+Cuando esa herramienta devolvía su cfg, el hito se perdía y la paloma se
+apagaba sola: hacías el ensayo, tocabas cualquier campo del guion y el ✓ del
+Ensayo desaparecía. Por eso los hitos se arrastran a lo que llega de fuera.
+Solo se encienden, nunca se apagan, así que conservarlos es siempre correcto. */
+const HITOS = ['ensayado', 'exportado'];
+const conHitos = (cfg) => {
+    if (!cfg || !latestInfografia) return cfg;
+    const faltan = HITOS.filter((h) => latestInfografia[h] && !cfg[h]);
+    return faltan.length ? { ...cfg, ...Object.fromEntries(faltan.map((h) => [h, true])) } : cfg;
+};
 
 // Marca un hito de la ruta (ensayado/exportado) la primera vez que ocurre.
 function marcaHito(campo) {
@@ -888,7 +935,13 @@ const production = createProductionView({
 
 // Recorrido guiado de primera vez (y repetible desde el botón ❔ del header).
 const TOUR_KEY = 'producciontv:desktop:tour-hecho';
-const tour = createTour({ selectView });
+// El recorrido no puede enseñar una etapa que este proyecto no tiene: en un
+// proyecto narrativo el paso del Ensayo en vivo señalaba un botón escondido y
+// la tarjeta se quedaba flotando en el centro hablando de una cabina de TV.
+const tour = createTour({
+    selectView,
+    vistaDisponible: (vista) => !etapaOculta(etapaPorId(ETAPA_DE_VISTA[vista]), normalizeMode(latestInfografia?.modo)),
+});
 
 /* =======================================================================
    PESTAÑAS Y PANELES
@@ -918,8 +971,11 @@ const etiquetaModulo = (vista) => {
     }
     return toolInfo[vista]?.title || vista;
 };
+// Cada módulo lleva el icono de SU etapa; el Ensayo, el del aire. Si algún día
+// hubiera un módulo fuera del recorrido, la pestaña va sin icono y ya (icono()
+// devuelve cadena vacía y pestanas.js lo tiene previsto).
 const iconoModulo = (vista) => (vista === 'production' ? 'produccion'
-    : ETAPAS.find((e) => e.secciones.some(([v]) => v === vista))?.icono || 'infografias');
+    : ETAPAS.find((e) => e.secciones.some(([v]) => v === vista))?.icono || '');
 
 const pestanas = crearPestanas({
     barra: barraPestanas,
@@ -960,7 +1016,11 @@ function panelDe(vista) {
 // entonces se ignora lo que ella emita, que es el eco de esto mismo.
 function hidratarPanel(panel, vista) {
     if (!activeProject || !panel) return;
-    if (panel.esVista) { production.render(); panel.sello = selloEstado; return; }
+    // El Ensayo no es un iframe: se pinta solo. Vale tanto para su pestaña
+    // (panel.esVista) como para su VENTANA suelta, donde el que lo muestra es
+    // el panel principal. Sin esta segunda mitad, la ventana de En vivo no se
+    // enteraba de lo que guardaba la ventana del proyecto.
+    if (panel.esVista || vista === 'production') { production.render(); panel.sello = selloEstado; return; }
     const enviar = () => {
         const w = panel.el?.contentWindow;
         if (!w) return;
@@ -1133,7 +1193,7 @@ function menuDeModulos(ancla) {
     const modo = normalizeMode(latestInfografia?.modo);
     const disponibles = DESANCLABLES
         .filter((v) => !pestanas.tiene(v))
-        .filter((v) => v !== 'production' || modo !== 'narrative');
+        .filter((v) => !etapaOculta(etapaPorId(ETAPA_DE_VISTA[v]), modo));
     if (!disponibles.length) { showToast('Ya están desanclados todos los módulos'); return; }
     const menu = document.createElement('div');
     menu.className = 'menu-modulos';
@@ -1163,6 +1223,12 @@ function cargarEnPrincipal(view, forceReload = false) {
 }
 
 function selectView(view, forceReload = false) {
+    // LO QUE EL MODO ESCONDE NO SE ABRE POR NINGÚN CAMINO. Aquí, y no en cada
+    // atajo, porque esta es la única puerta: por ella pasan la barra lateral,
+    // ⌘1–⌘6, el recorrido guiado y el menú de módulos. En un proyecto
+    // narrativo el Ensayo en vivo no existe; que ⌘6 lo abriera igual —y de
+    // paso encendiera en la barra un botón oculto— era eso, una puerta trasera.
+    if (etapaOculta(etapaPorId(ETAPA_DE_VISTA[view]), normalizeMode(latestInfografia?.modo))) return;
     // Si ese módulo ya vive en su propia pestaña, navegar hacia él es ir a esa
     // pestaña: no tiene caso montarlo dos veces.
     if (pestanas.tiene(view)) { activarPestana(view); return; }
@@ -1177,7 +1243,7 @@ function selectView(view, forceReload = false) {
 }
 
 /* ----------------------------- Exportación ----------------------------- */
-// Toda la exportación vive en la pestaña Exportar (⌘7); el shell solo presta
+// Toda la exportación vive en la etapa Documentos (⌘5); el shell solo presta
 // los servicios que el WebView no tiene: impresión nativa y captura PNG.
 
 // Captura un elemento del iframe como PNG de alta resolución, ignorando la UI
@@ -1191,11 +1257,6 @@ function captureElementPNG(element, backgroundColor = '#fff') {
 
 async function nativePrint() {
     try { await Print(); } catch (error) { showToast(error?.message || 'No se pudo abrir el panel de impresión', true); }
-}
-
-async function printCurrentTool() {
-    document.documentElement.classList.remove('printing-document'); // imprimir la herramienta, no el último documento montado
-    await nativePrint();
 }
 
 // El panel que está al frente: es el que se imprime y el que se captura.
@@ -1217,10 +1278,22 @@ async function printDocumentHTML(html, css) {
     // documento de impresión y hay que anularlo desde la propia raíz.
     document.documentElement.classList.add('printing-document');
     await nativePrint();
-    // El contenido se conserva mientras el panel de impresión esté abierto (la
-    // vista previa re-renderiza al cambiar opciones); cada nueva impresión lo
-    // reemplaza o limpia la bandera.
+    // El contenido se conserva mientras el panel de impresión esté abierto: su
+    // vista previa vuelve a leer el documento al cambiar de opciones. Quién lo
+    // apaga, más abajo (soltarImpresion): el panel es del sistema y no avisa
+    // cuando se cierra, así que la señal es que el usuario vuelva a tocar la
+    // app. Antes NADIE lo apagaba —el único que lo hacía colgaba de un mensaje
+    // que ninguna herramienta manda ya— y el documento entero se quedaba
+    // montado en memoria, y la bandera puesta, hasta cerrar la ventana.
 }
+
+// El panel de impresión ya no está: se suelta el documento montado.
+function soltarImpresion() {
+    if (!document.documentElement.classList.contains('printing-document')) return;
+    document.documentElement.classList.remove('printing-document');
+    document.querySelector('#print-host')?.replaceChildren();
+}
+document.addEventListener('pointerdown', soltarImpresion, true);
 
 /* ----------------------------- Mensajes de las herramientas ----------------------------- */
 
@@ -1240,13 +1313,6 @@ window.addEventListener('message', async (event) => {
     // herramienta, y reenviarlos los ejecutaría dos veces.
     if (data.type === 'producciontv:atajo') {
         atajoDelCaparazon(data.tecla || {});
-        return;
-    }
-
-    // Las herramientas piden el panel nativo de impresión a través del shell
-    // (window.print no funciona dentro del WebView).
-    if (data.type === 'producciontv:print') {
-        await printCurrentTool();
         return;
     }
 
@@ -1324,9 +1390,10 @@ window.addEventListener('message', async (event) => {
         con hora nueva; la OTRA ventana veía un archivo "más reciente", lo
         adoptaba y le arrancaba de las manos lo que su usuario estaba
         escribiendo. Sin cambio real no hay guardado, y se acaba el ping-pong. */
-        const texto = JSON.stringify(data.cfg);
+        const entrante = conHitos(data.cfg);
+        const texto = JSON.stringify(entrante);
         if (texto === JSON.stringify(latestInfografia)) { panel.sello = selloEstado; return; }
-        latestInfografia = data.cfg;
+        latestInfografia = entrante;
         localStorage.setItem(AUTOSAVE_KEY, texto);
         // El panel que escribió ya está al día; los demás quedan atrasados y
         // se pondrán al corriente cuando se asomen (ver ponerAlDia).
@@ -1381,8 +1448,10 @@ renderRecent();
 
 // Al volver a Inicio (o al recuperar el foco) se vuelve a preguntar qué
 // proyectos siguen abiertos: puede que el usuario acabe de cerrar una ventana.
-window.addEventListener('focus', () => refrescarAbiertos());
-document.addEventListener('visibilitychange', () => { if (!document.hidden) refrescarAbiertos(); });
+// Solo el lanzador: es el único que pinta esas tarjetas.
+const revisarAbiertos = () => { if (shell.classList.contains('launcher-window')) refrescarAbiertos(); };
+window.addEventListener('focus', revisarAbiertos);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) revisarAbiertos(); });
 
 document.querySelector('#new-project-focus').onclick = () => nuevoProyecto.open();
 document.querySelector('[data-accion="nuevo"]').onclick = () => nuevoProyecto.open();
@@ -1604,9 +1673,18 @@ function atajoDelCaparazon(tecla) {
     }
     if (!(metaKey || ctrlKey)) return false;
     if (key.toLowerCase() === 's') { flushSaveNow(); return true; }
+    /* UNA VENTANA DE MÓDULO ES UN SOLO MÓDULO, y punto. Ni se desancla nada
+    dentro de ella ni se cambia de etapa: ahí no hay barra, ni pestañas, ni
+    secciones que gobernar, y su título y su chip dicen de qué módulo es.
+    Sin este freno, ⌘D montaba un SEGUNDO iframe del mismo módulo en la misma
+    ventana —dos copias vivas del proyecto peleándose, con una barra de
+    pestañas escondida detrás del CSS—, y ⌘1–⌘6 cambiaban la herramienta por
+    debajo dejando el título mintiendo. */
+    const ventanaDeModulo = shell.classList.contains('tool-window');
     // ⌘D: desanclar lo que estás viendo en su propia pestaña.
     if (key.toLowerCase() === 'd' && shell.classList.contains('project-window')) {
-        desanclar(vistaVisible()); return true;
+        if (!ventanaDeModulo) desanclar(vistaVisible());
+        return true;
     }
     // ⌘W: cerrar la pestaña activa (el módulo vuelve al recorrido). La
     // pestaña Proyecto no se cierra: cerrarla sería cerrar el proyecto.
@@ -1614,10 +1692,12 @@ function atajoDelCaparazon(tecla) {
         if (shell.classList.contains('tool-window')) { volverAlProyecto(); return true; }
         if (pestanas.activa !== PRINCIPAL) { reanclar(pestanas.activa); return true; }
     }
-    // ⌘1–⌘6: una etapa por número, en el orden de la barra lateral.
+    // ⌘1–⌘6: una etapa por número, en el orden de la barra lateral. Si el modo
+    // del proyecto la esconde, selectView la deja pasar de largo.
     const atajo = ETAPAS[Number(key) - 1];
     if (atajo && key >= '1' && key <= '6') {
-        selectView(ultimaSeccion[atajo.id] || primeraVista(atajo, normalizeMode(latestInfografia?.modo)));
+        const modo = normalizeMode(latestInfografia?.modo);
+        if (!ventanaDeModulo) selectView(ultimaSeccion[atajo.id] || primeraVista(atajo, modo));
         return true;
     }
     return false;
@@ -1625,13 +1705,6 @@ function atajoDelCaparazon(tecla) {
 
 document.addEventListener('keydown', (event) => {
     if (atajoDelCaparazon(event)) event.preventDefault();
-});
-
-// El lanzador refleja los cambios hechos desde las ventanas de proyecto.
-window.addEventListener('storage', (event) => {
-    if (event.key !== PROJECTS_KEY || shell.classList.contains('project-window')) return;
-    projects = readJSON(PROJECTS_KEY, []);
-    renderRecent();
 });
 
 // Reconciliación entre ventanas vía disco: al recuperar el foco, el lanzador
@@ -1686,7 +1759,11 @@ function montarVentanaDeModulo(vista) {
     const chip = document.querySelector('#mode-chip');
     if (chip) { chip.textContent = etiquetaModulo(vista); chip.classList.remove('narrative'); }
     conGo(SetWindowTitle, `${etiquetaModulo(vista)} — ${activeProject?.name || 'Producción TV'}`);
-    cargarEnPrincipal(vista, true);
+    // El nombre del proyecto en la barra: aquí no hay herramienta que conteste
+    // con un guardado que lo pusiera de rebote, así que se pinta a mano.
+    renderRecent();
+    if (vista === 'production') { panelPrincipal.vista = vista; production.render(); }
+    else cargarEnPrincipal(vista, true);
 }
 
 async function volverAlProyecto() {
@@ -1757,8 +1834,16 @@ async function initializeWindow() {
         // escriben el mismo .ptv. Vigilarlo es lo que hace que una se entere
         // de lo que guardó la otra sin tener que hacerle clic.
         conGo(WatchProject, project.id);
-        // Ventana de un módulo suelto: solo esa herramienta y ya.
-        if (context.mode === 'tool' && toolInfo[context.tool]) {
+        /* Ventana de un módulo suelto: solo ese módulo y ya.
+        Se pregunta por DESANCLABLES y no por toolInfo, que es la lista de las
+        herramientas de iframe. El Ensayo se puede desanclar pero NO es un
+        iframe, así que no estaba en toolInfo: al sacarlo a su propia ventana
+        esta condición fallaba, la ventana se caía al camino de abajo y se
+        abría una SEGUNDA VENTANA COMPLETA del mismo proyecto —con su barra de
+        etapas, parada en Perfil— mientras el módulo se perdía por el camino.
+        Dos ventanas enteras escribiendo el mismo .ptv es justo lo que la app
+        se pasó semanas evitando. */
+        if (context.mode === 'tool' && DESANCLABLES.includes(context.tool)) {
             montarVentanaDeModulo(context.tool);
             return;
         }

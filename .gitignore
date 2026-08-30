@@ -3,6 +3,10 @@ frontend/dist/
 frontend/wailsjs/
 frontend/package.json.md5
 build/bin/
+# El apartadero de compilar.sh: solo existe mientras dura una compilación.
+build/_copias-a-salvo/
+# `go build` a secas deja el binario suelto en la raíz; la app va en build/bin.
+/ProduccionTVDesktop
 web-sources/generador-tv/dist/
 web-sources/generador-tv/node_modules/
 *.log

@@ -172,8 +172,6 @@ export function crearPestanas({
         abrir(id) { if (!hay(id)) abiertas.push(id); render(); },
         cerrar(id) { abiertas = abiertas.filter((x) => x !== id); if (activa === id) activa = PRINCIPAL; render(); },
         activar(id) { activa = hay(id) || id === PRINCIPAL ? id : PRINCIPAL; render(); },
-        // Para ⌘1..⌘9: la 1 es siempre Proyecto.
-        porNumero(n) { return n === 1 ? PRINCIPAL : abiertas[n - 2] || null; },
         render,
     };
 }

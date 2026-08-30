@@ -299,8 +299,6 @@ iframe{display:block;width:100%;height:100%;border:0;background:transparent}
 .tpl-foot button:active{transform:scale(.965)}
 .home-credit{max-width:1500px;margin:34px auto 0;text-align:center;color:var(--tinta-baja);font-size:12px}.home-credit strong{color:var(--tinta-media)}
 /* Papelera de proyectos */
-.trash-link{width:100%;margin-top:8px;border:0;background:transparent;color:var(--tinta-baja);font-size:11px;font-weight:700;cursor:pointer;padding:6px}
-.trash-link:hover{color:var(--tinta)}
 .trash-overlay{position:fixed;z-index:95;inset:0;display:grid;place-items:center;padding:24px;background:rgba(3,10,20,.72);backdrop-filter:blur(12px)}
 .trash-card{width:min(560px,calc(100vw - 48px));max-height:calc(100vh - 80px);overflow:auto;display:flex;flex-direction:column;padding:22px 24px;border:1px solid var(--vidrio-borde);border-radius:18px;color:var(--tinta);background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);box-shadow:inset 0 1px 0 var(--vidrio-filo),0 30px 80px -30px rgba(0,0,0,.55)}
 .trash-head{display:flex;align-items:center;justify-content:space-between}
@@ -331,10 +329,6 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
   -webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%);
   border:1px solid var(--vidrio-borde);
   box-shadow:inset 0 1px 0 var(--vidrio-filo),0 18px 40px -22px rgba(0,0,0,.35)}.checklist-card{padding:18px}.checklist-card h2{margin:0}
-/* Pestañas del panel derecho de Producción: checklist ⇄ set en vivo */
-
-.checklist-card.collapsed{display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px 8px}
-
 /* Teleprompter de pantalla completa */
 .prompter-overlay{position:fixed;inset:0;z-index:80;background:#000;display:flex;flex-direction:column}
 .prompter-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0b1626;border-bottom:1px solid var(--linea);color:#cdd9ec;flex-wrap:wrap}
@@ -354,7 +348,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
 .pp-pad{height:34vh}
 .set-live{background:#fff;border-radius:10px;padding:6px;border:1px solid #2b405d}
 .set-live svg{width:100%;display:block}
-.set-live-note{margin:10px 0 0;color:var(--tinta-media);font-size:11px;text-align:center}.validation-summary{margin:7px 0 14px;color:var(--tinta-media);font-size:11px}.checks-list{display:flex;flex-direction:column;gap:7px;max-height:65vh;overflow:auto}.check{display:flex;align-items:flex-start;gap:8px;border:1px solid #39495f;background:var(--vidrio-b);border-radius:8px;padding:8px;font-size:11px;color:#aebdd2}.check span{width:18px;height:18px;flex:none;display:grid;place-items:center;border-radius:50%;font-weight:800}.check.error span{background:#7a292d;color:#ffc2c4}.check.warn span{background:#725817;color:#ffe294}.check.info span{background:#1a4e81;color:#b8dcff}.check.ok span{background:#1d673c;color:#c7ffda}.production-empty{height:100%;display:grid;place-content:center;text-align:center;color:#8194ae}.production-empty h1{color:#fff}
+.set-live-note{margin:10px 0 0;color:var(--tinta-media);font-size:11px;text-align:center}.checks-list{display:flex;flex-direction:column;gap:7px;max-height:65vh;overflow:auto}.check{display:flex;align-items:flex-start;gap:8px;border:1px solid #39495f;background:var(--vidrio-b);border-radius:8px;padding:8px;font-size:11px;color:#aebdd2}.check span{width:18px;height:18px;flex:none;display:grid;place-items:center;border-radius:50%;font-weight:800}.check.error span{background:#7a292d;color:#ffc2c4}.check.warn span{background:#725817;color:#ffe294}.check.info span{background:#1a4e81;color:#b8dcff}.check.ok span{background:#1d673c;color:#c7ffda}.production-empty{height:100%;display:grid;place-content:center;text-align:center;color:#8194ae}.production-empty h1{color:#fff}
 /* ============ LA BARRA DE ETAPAS SE METE AL LOGO ==========================
    Sustituye al "modo pantalla completa" del botón ⤢ (2026-08-29), que escondía
    de golpe la barra lateral Y el encabezado: sin etapas, sin pestañas y sin
@@ -496,7 +490,6 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
 .tour-back{background:#223a5e;color:#dfe8f5}
 .tour-next{background:#1D6FD1;color:#fff}
 .tour-card .tour-next:hover,.tour-card .tour-back:hover{filter:brightness(1.08)}
-.template-hint{margin:-6px 0 12px;color:#7f93ae;font-size:12px}
 /* EL VELO DE LA BIENVENIDA. Iba pintado de blanco fijo (rgba(239,238,243,.8)),
    y ese blanco NO seguía al tema: en modo oscuro tapaba la app entera de
    blanco y encima le dejaba el texto claro del tema — el título quedaba en
@@ -536,9 +529,6 @@ Tres reglas que la app no tenía y que se notan en cada clic:
 button:active,.header-actions button:active,.op:active{transform:scale(.97)}
 button{transition:transform .11s cubic-bezier(.2,.7,.3,1),background .16s ease,color .16s ease,box-shadow .16s ease}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--gel-t);outline-offset:2px}
-/* Al arrastrar, el cursor dice que algo está agarrado. */
-[draggable="true"]:active,.dragging{cursor:grabbing}
-
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
   button:active{transform:none}

@@ -924,21 +924,10 @@ window.addEventListener('message',event=>{
       if (t === 'claro' || t === 'oscuro') document.documentElement.dataset.tema = t;
       else delete document.documentElement.dataset.tema;
     }
-  if(event.data&&event.data.type==='producciontv:request-project'){
-    window.parent.postMessage({
-      type:'producciontv:project-data',
-      requestId:event.data.requestId,
-      filename:'diagrama-senal.json',
-      content:JSON.stringify(state,null,2)
-    },'*');
-  }
   if(event.data&&event.data.type==='producciontv:hydrate-diagram'){
     const s=event.data.state||{nodes:[],edges:[],zones:[],notes:[],seq:1};s.zones=s.zones||[];s.notes=s.notes||[];s.seq=s.seq||999;state=s;sel=null;syncFromInfografia(event.data.cfg);fitToScreen();
   }
   if(event.data&&event.data.type==='producciontv:sync-infografia')syncFromInfografia(event.data.cfg);
-  if(event.data&&event.data.type==='producciontv:load-diagram'&&event.data.state){
-    const s=event.data.state;s.zones=s.zones||[];s.notes=s.notes||[];s.seq=s.seq||999;state=s;sel=null;render();save();fitToScreen();
-  }
 });
 
 /* ---------- pan / fondo ---------- */

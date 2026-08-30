@@ -21,9 +21,33 @@ DESTINO="build/bin/${NOMBRE} ${VERSION}.app"
 export PATH="$PATH:$HOME/go/bin"
 command -v wails >/dev/null || { echo "✗ falta wails en el PATH"; exit 1; }
 
+# LAS COPIAS DE ANTES SE PONEN A SALVO. `wails build -clean` no limpia solo lo
+# suyo: BORRA build/bin ENTERO, y ahí viven todas las versiones compiladas hasta
+# hoy. Compilar sin esto se llevaba por delante el historial de la app en un
+# comando y sin preguntar. Se apartan, se compila, y vuelven a su sitio pase lo
+# que pase (el trap las devuelve aunque la compilación truene a la mitad).
+GUARDA="build/_copias-a-salvo"
+devolver() {
+  [ -d "$GUARDA" ] || return 0
+  mkdir -p build/bin
+  for app in "$GUARDA"/*.app; do
+    if [ -e "$app" ]; then mv -f "$app" build/bin/; fi
+  done
+  rmdir "$GUARDA" 2>/dev/null || true
+}
+trap devolver EXIT
+GUARDADAS=0
+mkdir -p build/bin "$GUARDA"
+for app in build/bin/*.app; do
+  if [ -e "$app" ]; then mv -f "$app" "$GUARDA"/; GUARDADAS=$((GUARDADAS + 1)); fi
+done
+if [ "$GUARDADAS" -gt 0 ]; then echo "▸ $GUARDADAS copias anteriores puestas a salvo en $GUARDA"; fi
+
 echo "▸ Compilando ${NOMBRE} ${VERSION} para ${PLATAFORMA}…"
 wails build -platform "$PLATAFORMA" -clean
 
+devolver
+trap - EXIT
 rm -rf "$DESTINO"
 mv "build/bin/${NOMBRE}.app" "$DESTINO"
 

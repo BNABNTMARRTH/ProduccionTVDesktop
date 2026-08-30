@@ -15,26 +15,11 @@ const COLORS = ['#1D6FD1', '#1FA14E', '#F07F13', '#8B5CF6', '#E0312F', '#0E9F9E'
 const SECTION_DEFAULTS = ['estudio', 'escaleta', 'personal', 'timeline']
     .map((id) => ({ id, abierto: true }));
 
-export const templateCatalog = [
-    { id: 'vacio', icon: '＋', name: 'Proyecto vacío', detail: 'Comienza sin cámaras ni equipos' },
-    { id: 'podcast', icon: '◉', name: 'Podcast', detail: '2 cámaras · 4 micrófonos · conversación' },
-    { id: 'noticiero', icon: '▤', name: 'Noticiero', detail: '3 cámaras · VTR · gráficos · cortes' },
-    { id: 'entrevista', icon: '◌', name: 'Entrevista', detail: '3 cámaras · 3 micrófonos · invitado' },
-    { id: 'streaming', icon: '⌁', name: 'Streaming', detail: '2 cámaras · presentación · plataforma' },
-    { id: 'multicamara', icon: '▦', name: 'Evento multicámara', detail: '5 cámaras · 4 micrófonos · cobertura' },
-];
-
-// Tipos de producción narrativa. Los `id` coinciden con TIPOS_PROYECTO del
-// generador (narrativa.js), así que al sembrarlos en cfg.narrativa.tipo el
-// Se guarda el tipo narrativo elegido, si viene.
-export const narrativeCatalog = [
-    { id: 'ficcion', icon: '🎬', name: 'Película / Cortometraje', detail: 'Ficción por escenas y planos' },
-    { id: 'videoclip', icon: '🎵', name: 'Videoclip', detail: 'La canción da la estructura temporal' },
-    { id: 'documental', icon: '🎥', name: 'Documental', detail: 'Sujetos reales, evidencia y punto de vista' },
-    { id: 'publicidad', icon: '📢', name: 'Publicidad narrativa', detail: 'Persuadir en poco tiempo' },
-    { id: 'stopmotion', icon: '🧸', name: 'Stop motion', detail: 'Animación cuadro por cuadro' },
-    { id: 'experimental', icon: '🌀', name: 'Experimental', detail: 'Pieza sensorial o no lineal' },
-];
+/* Las plantillas de PROYECTO viven en TEMPLATE_SPECS, más abajo. Aquí había
+además dos catálogos de tarjetas —templateCatalog y narrativeCatalog— que
+llenaban las pantallas del wizard de 9 pasos; ese wizard se tiró el 11-ago-2026
+(ver nuevo-proyecto.js) y desde entonces nadie los leía. La galería de sets de
+hoy la arma plantillas.js, con el plano de verdad y no con un icono. */
 
 // Modo de proyecto: 'live' (programa en vivo / grabado como en vivo, el flujo
 // original de circuito cerrado) o 'narrative' (producción por escenas y planos).

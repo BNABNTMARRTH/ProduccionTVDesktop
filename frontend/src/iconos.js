@@ -6,23 +6,14 @@
 // texto de su botón (`currentColor`), así el icono se ilumina solo cuando su
 // herramienta está activa.
 //
-// Uso:  elemento.innerHTML = icono('set');            // tamaño por defecto
-//       elemento.innerHTML = icono('set', 34);        // tamaño en píxeles
+// Uso:  elemento.innerHTML = icono('perfil');         // tamaño por defecto
+//       elemento.innerHTML = icono('perfil', 34);     // tamaño en píxeles
+//
+// Aquí SOLO viven los dibujos que la app pide de verdad. Antes quedaban los de
+// la organización anterior —cuando la barra listaba herramientas y no etapas—
+// y ya nadie los llamaba: set, escaleta, diagrama, infografías, inicio.
 
 const TRAZOS = {
-  // Infografías: la hoja completa del proyecto (documento con datos).
-  infografias: '<rect x="3.5" y="3" width="17" height="18" rx="2.5"/><path d="M7.5 8h9M7.5 16.5v-3M11 16.5v-5.5M14.5 16.5v-2"/>',
-  // Set: el espacio físico visto desde arriba (mesa al centro, cámaras a los lados).
-  set: '<rect x="3" y="4.5" width="18" height="15" rx="2"/><rect x="9" y="9.5" width="6" height="4" rx="1"/><path d="M6 17.5l2-2M18 17.5l-2-2"/><circle cx="6" cy="7.5" r="1"/><circle cx="18" cy="7.5" r="1"/>',
-  // Escaleta: la lista ordenada de lo que pasa y cuánto dura.
-  escaleta: '<path d="M4 6.5h3M4 12h3M4 17.5h3M10 6.5h10M10 12h10M10 17.5h7"/>',
-  // Diagrama: la ruta de la señal, cajas conectadas por cable.
-  diagrama: '<rect x="2.5" y="8.5" width="6" height="7" rx="1.5"/><rect x="15.5" y="4" width="6" height="6" rx="1.5"/><rect x="15.5" y="14" width="6" height="6" rx="1.5"/><path d="M8.5 12h3.5V7h3.5M12 12v5h3.5"/>',
-  // Producción: al aire (el punto rojo emitiendo).
-  produccion: '<circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/><path d="M6.5 6.5a7.8 7.8 0 000 11M17.5 6.5a7.8 7.8 0 010 11M3.5 3.5a12 12 0 000 17M20.5 3.5a12 12 0 010 17"/>',
-  // Exportar: sacar el documento de la app.
-  exportar: '<path d="M12 3.5v11m0 0l-4-4m4 4l4-4M4.5 16.5v2a2 2 0 002 2h11a2 2 0 002-2v-2"/>',
-
   // --- Etapas del flujo de producción (reorganización 2026-08-24) ---
   // Perfil: la ficha de identidad del proyecto (quién habla y a quién).
   perfil: '<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><circle cx="9" cy="10" r="2.2"/><path d="M5.8 16.5c.5-1.7 1.7-2.6 3.2-2.6s2.7.9 3.2 2.6M15 9.5h3.2M15 13h3.2"/>',
@@ -30,13 +21,18 @@ const TRAZOS = {
   necesidades: '<path d="M8 4.5h8a1.5 1.5 0 011.5 1.5v14A1.5 1.5 0 0116 21.5H8A1.5 1.5 0 016.5 20V6A1.5 1.5 0 018 4.5z"/><path d="M9.5 4.5V3h5v1.5M9.3 9.5l1.2 1.2 2.2-2.4M9.3 15l1.2 1.2 2.2-2.4"/>',
   // Planeación: el calendario del rodaje.
   planeacion: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3.5v3M16 3.5v3M8 14h3M8 17h6"/>',
+  // Guion: la lista ordenada de lo que pasa y cuánto dura (la escaleta).
+  guion: '<path d="M4 6.5h3M4 12h3M4 17.5h3M10 6.5h10M10 12h10M10 17.5h7"/>',
+  // Documentos: sacar el paquete terminado de la app.
+  salida: '<path d="M12 3.5v11m0 0l-4-4m4 4l4-4M4.5 16.5v2a2 2 0 002 2h11a2 2 0 002-2v-2"/>',
+  // Producción / Ensayo: al aire (el punto rojo emitiendo).
+  produccion: '<circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/><path d="M6.5 6.5a7.8 7.8 0 000 11M17.5 6.5a7.8 7.8 0 010 11M3.5 3.5a12 12 0 000 17M20.5 3.5a12 12 0 010 17"/>',
 
   // --- Piezas de Inicio (se usan al rediseñar el lanzador) ---
   proyecto: '<path d="M3 9.5h18v9.5a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 19z"/><path d="M3.6 9.5l1.2-4.3 17 2.2-.5 2.1"/><path d="M8.6 9.2L7.4 5.4M13.6 9.9l-1.2-3.8"/>',
   nuevo: '<path d="M12 5.5v13M5.5 12h13"/>',
   importar: '<path d="M12 20.5v-11m0 0l-4 4m4-4l4 4M4.5 7.5v-2a2 2 0 012-2h11a2 2 0 012 2v2"/>',
   papelera: '<path d="M4 6.5h16M9.5 6.5V4.5h5v2M6.5 6.5l1 13h9l1-13M10 10v6M14 10v6"/>',
-  inicio: '<path d="M4 10.5L12 4l8 6.5V19a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 19z"/><path d="M9.5 20.5v-6h5v6"/>',
   ayuda: '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.6a2.5 2.5 0 114 2.2c-.9.6-1.6 1-1.6 2M12 16.6v.4"/>',
   // Desanclar: sacar el módulo del marco y ponerlo en su propia pestaña.
   // La hoja chica se despega de la grande y sale por la esquina de arriba.
@@ -49,17 +45,11 @@ const TRAZOS = {
   mas: '<path d="M12 5.5v13M5.5 12h13"/>',
 };
 
-// Nombres alternativos: el resto de la app llama 'production' a la pestaña En vivo.
-TRAZOS.production = TRAZOS.produccion;
-// Etapas que reutilizan un icono ya existente en lugar de duplicar el dibujo:
-// el guion ES la escaleta, la salida ES exportar y el ensayo ES el aire.
-TRAZOS.guion = TRAZOS.escaleta;
-TRAZOS.salida = TRAZOS.exportar;
+// El ensayo ES el aire: mismo dibujo, no una copia del trazo.
+TRAZOS.ensayo = TRAZOS.produccion;
 // Sol y luna del interruptor de tema.
 TRAZOS.sol = '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M4.2 12H2M22 12h-2.2M6.3 6.3 4.8 4.8M19.2 19.2l-1.5-1.5M17.7 6.3l1.5-1.5M4.8 19.2l1.5-1.5"/>';
 TRAZOS.luna = '<path d="M20.2 14.4A8.4 8.4 0 1 1 9.6 3.8a6.6 6.6 0 0 0 10.6 10.6z"/>';
-
-TRAZOS.ensayo = TRAZOS.produccion;
 
 // Sacar a su propia ventana: una ventana de escritorio con su barra de título
 // y una flecha que sale. Es el gesto de arrastrar la pestaña afuera, hecho botón.
@@ -71,8 +61,6 @@ TRAZOS.deshacer = '<path d="M4 8.5h9.5a5.5 5.5 0 1 1 0 11H8"/><path d="M7.5 5 4 
 TRAZOS.rehacer = '<path d="M20 8.5h-9.5a5.5 5.5 0 1 0 0 11H16"/><path d="M16.5 5 20 8.5 16.5 12"/>';
 // Guía: la brújula que dice cómo se hace esta pieza y qué le falta.
 TRAZOS.guia = '<circle cx="12" cy="12" r="9"/><path d="m15.2 8.8-1.9 4.5-4.5 1.9 1.9-4.5z"/>';
-
-export const NOMBRES_ICONOS = Object.keys(TRAZOS);
 
 export function icono(nombre, tamano = 24) {
   const trazo = TRAZOS[nombre];

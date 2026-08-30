@@ -33,11 +33,17 @@ func main() {
 		if name := projectName(projectJSON); name != "" {
 			title = name
 		}
-		// Una ventana de módulo suelto dice de qué módulo es y de qué proyecto:
-		// "Guion — Noticiero FCC". Con varias abiertas, es lo que las distingue.
-		if toolView != "" {
-			title = toolView + " — " + title
-		}
+		/* Una ventana de módulo suelto termina diciendo de qué módulo es y de
+		qué proyecto: "Escaleta y guion técnico — Noticiero FCC". Ese nombre lo
+		pone el FRONTEND con SetWindowTitle en cuanto carga, porque es el único
+		que tiene la tabla de nombres de los módulos.
+
+		Aquí NO se arma: lo que Go tiene a mano es el id interno de la vista
+		("escaleta", "production"), y ponerlo en la barra de la ventana dejaba a
+		la vista un pedazo del código de la app hasta que el frontend lo
+		corregía. Copiar la tabla de nombres a Go sería tener dos verdades que
+		se separan a la primera. Así que la ventana nace con el nombre del
+		proyecto —que ya es suficiente para distinguirla— y se completa sola. */
 	}
 
 	// Create application with options

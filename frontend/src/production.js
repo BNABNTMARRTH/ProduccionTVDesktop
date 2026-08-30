@@ -15,12 +15,16 @@ function validations(cfg, diagram) {
     const sources = new Set([...(config.camaras || []), ...(config.extras || [])].map((x) => x.id));
     const result = [];
 
+    // Los nombres los escribe el usuario y esto termina en innerHTML: van
+    // escapados. Un segmento llamado "Bloque <en vivo>" partía la lista en dos
+    // y se llevaba por delante los avisos que venían después.
     if (!(config.camaras || []).length) result.push(['error', 'No hay cámaras configuradas.']);
     if (!(config.microfonos || []).length) result.push(['warn', 'No hay micrófonos configurados.']);
     (config.escaleta || []).forEach((s) => {
-        if (!sources.has(s.fuente)) result.push(['error', `“${s.segmento}” no tiene una fuente válida.`]);
-        if (!s.dur) result.push(['warn', `“${s.segmento}” tiene duración 00:00.`]);
-        if (s.dur > 900) result.push(['warn', `“${s.segmento}” supera 15 minutos.`]);
+        const nombre = esc(s.segmento || 'Segmento sin nombre');
+        if (!sources.has(s.fuente)) result.push(['error', `“${nombre}” no tiene una fuente válida.`]);
+        if (!s.dur) result.push(['warn', `“${nombre}” tiene duración 00:00.`]);
+        if (s.dur > 900) result.push(['warn', `“${nombre}” supera 15 minutos.`]);
     });
 
     const diag = diagram || { nodes: [], edges: [] };
@@ -28,17 +32,15 @@ function validations(cfg, diagram) {
     (diag.edges || []).forEach((e) => { used.add(e.from.node); used.add(e.to.node); });
     (diag.nodes || [])
         .filter((n) => ['camara', 'microfono', 'fuente'].includes(n.type))
-        .forEach((n) => { if (!used.has(n.id)) result.push(['warn', `${n.label} todavía no está conectado en el diagrama.`]); });
+        .forEach((n) => { if (!used.has(n.id)) result.push(['warn', `${esc(n.label)} todavía no está conectado en el diagrama.`]); });
     if (!(diag.nodes || []).some((n) => n.type === 'encoder')) result.push(['info', 'El diagrama no incluye un encoder/PC.']);
     return result;
 }
 
-// Set en vivo: plano cenital con tally sincronizado a la escaleta. Rojo = la
-// cámara del segmento al aire, verde = la del siguiente; si la fuente al aire
-// no es cámara (VTR/corte), nadie enciende y se muestra un letrero.
-// El plano con el tally puesto. Ya no lo maneja la escaleta: lo maneja quien
-// ensaya, picándole a la cámara que quiere al aire. En un ensayo lo que se
-// practica es el corte, no seguir un rundown minuto a minuto.
+// El plano cenital con el TALLY puesto: rojo la que está al aire, verde la de
+// previo. Lo manda el paso del programa, y encima de eso lo que el operador
+// haya tomado a mano. Si la fuente al aire no es una cámara (VTR, gráficos,
+// corte a comerciales), no se enciende ninguna: no hay cámara que iluminar.
 function liveSetSVG(cfg, air, preview) {
     if (!window.PTVSheets) return '<p class="set-live-note">El plano del set no está disponible.</p>';
     return window.PTVSheets.planoSvg(cfg, {
@@ -59,7 +61,7 @@ canta —"entra CAM 2", "lanza el gráfico", "corte a comercial"—. Si no los
 tiene, el paso es el segmento entero. Cuando los cues no llenan la duración del
 segmento, el sobrante se queda como un paso del propio segmento en vez de
 desaparecer: la escaleta manda en el total, los cues en el detalle. */
-function construirPrograma(cfg) {
+export function construirPrograma(cfg) {
     const pasos = [];
     let t = 0;
     const empujar = (paso, dur) => { pasos.push({ ...paso, t0: t, dur }); t += dur; };
@@ -94,7 +96,7 @@ function construirPrograma(cfg) {
 }
 
 // En qué paso va el programa a los `t` segundos de haber arrancado.
-function pasoEn(programa, t) {
+export function pasoEn(programa, t) {
     const { pasos } = programa;
     if (!pasos.length) return null;
     if (t >= programa.total) return pasos[pasos.length - 1];
@@ -286,7 +288,7 @@ export function createProductionView({ container, getProject, getInfografia, get
 
                     <div class="vivo-transporte">
                         <button id="vivo-play" class="vivo-play" ${hayPrograma ? '' : 'disabled'}
-                            title="${hayPrograma ? 'Arrancar el programa (barra espaciadora)' : 'Esta escaleta todavía no tiene segmentos'}">
+                            title="${hayPrograma ? 'Arrancar o pausar el programa (barra espaciadora)' : 'Esta escaleta todavía no tiene segmentos'}">
                             <b id="vivo-play-t">▶ Arrancar</b>
                         </button>
                         <button id="vivo-reset" class="vivo-reset" ${hayPrograma ? '' : 'disabled'}
@@ -375,7 +377,7 @@ export function createProductionView({ container, getProject, getInfografia, get
         container.querySelector('#go-home')?.addEventListener('click', onGoHome);
         container.querySelector('#open-prompter').onclick = openPrompter;
         nodos.play?.addEventListener('click', alternar);
-        container.querySelector('#vivo-reset')?.addEventListener('click', reiniciar);
+        container.querySelector('#vivo-reset')?.addEventListener('click', () => reiniciar());
         // Un "take" de verdad: la que entra pasa a AIRE y la que estaba se va
         // a PREVIO, que es como se comporta un switcher. Con el programa
         // corriendo esto es lo que DE VERDAD tomaste, y si no es lo que pedía
@@ -406,6 +408,8 @@ export function createProductionView({ container, getProject, getInfografia, get
     programa al aire no se detiene porque el director mire otra cosa. Por eso
     el estado vive en el cierre y no en el DOM, y `render()` lo reencuentra
     tal como estaba. */
+    const terminado = () => nodos.programa?.total > 0 && acumulado >= nodos.programa.total;
+
     function alternar() {
         if (!nodos.programa?.pasos.length) return;
         if (corriendo) {
@@ -413,6 +417,12 @@ export function createProductionView({ container, getProject, getInfografia, get
             corriendo = false;
             clearInterval(reloj);
         } else {
+            /* CON EL PROGRAMA TERMINADO, ▶ VUELVE A EMPEZAR. Antes el botón se
+            quedaba muerto al llegar al final: el reloj seguía latiendo cinco
+            veces por segundo con `corriendo` en true, así que el primer clic
+            lo "pausaba" en el segundo final y el siguiente lo "arrancaba" ahí
+            mismo — o sea, nada. La única salida era el ↺, y nadie lo sabía. */
+            if (terminado()) reiniciar({ pintar: false });
             arranque = performance.now();
             corriendo = true;
             marcarEnsayado();
@@ -422,14 +432,33 @@ export function createProductionView({ container, getProject, getInfografia, get
         refrescar();
     }
 
-    function reiniciar() {
+    function reiniciar({ pintar = true } = {}) {
         acumulado = 0;
         arranque = performance.now();
         air = null;
         preview = null;
         pasoActual = -1;
-        refrescar();
+        if (pintar) refrescar();
     }
+
+    /* LA BARRA ESPACIADORA arranca y pausa, como en cualquier mesa de control.
+    El botón la prometía en su propio letrero desde el primer día y no existía.
+    Va en el documento porque el foco anda por toda la tarjeta, y con tres
+    frenos: si el Ensayo no se está viendo no es suyo, si el usuario está
+    escribiendo la barra es un espacio, y si el teleprompter está abierto la
+    barra ya es suya (rodar/pausar el guion). */
+    function esCampo(el) {
+        return !!el && (el.isContentEditable
+            || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(el.tagName));
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== ' ' || e.metaKey || e.ctrlKey || e.altKey) return;
+        if (container.hidden || !container.isConnected) return;
+        if (document.querySelector('.prompter-overlay')) return;
+        if (esCampo(e.target)) return;
+        e.preventDefault();
+        alternar();
+    });
 
     /* ---- EL REFRESCO -----------------------------------------------------
     Cinco veces por segundo, y toca SOLO el texto que cambia. Volver a dibujar
@@ -442,11 +471,20 @@ export function createProductionView({ container, getProject, getInfografia, get
         const t = Math.min(transcurrido(), programa.total);
         const paso = pasoEn(programa, t);
         const fin = t >= programa.total && programa.total > 0;
+        // Se acabó: el reloj se detiene solo. Un programa que terminó no sigue
+        // corriendo, y dejar el intervalo vivo era refrescar cinco veces por
+        // segundo una pantalla que ya no cambia, para siempre.
+        if (fin && corriendo) {
+            corriendo = false;
+            acumulado = programa.total;
+            clearInterval(reloj);
+        }
 
         nodos.t.textContent = formatTime(t);
         nodos.t.classList.toggle('corriendo', corriendo);
         nodos.avance.style.width = `${programa.total ? Math.min(100, (t / programa.total) * 100) : 0}%`;
-        if (nodos.playT) nodos.playT.textContent = fin ? '■ Terminó' : corriendo ? 'Ⅱ Pausa' : acumulado ? '▶ Seguir' : '▶ Arrancar';
+        // El letrero dice lo que va a pasar si le picas, no lo que ya pasó.
+        if (nodos.playT) nodos.playT.textContent = fin ? '▶ Otra vez' : corriendo ? 'Ⅱ Pausa' : acumulado ? '▶ Seguir' : '▶ Arrancar';
         nodos.play?.classList.toggle('on', corriendo);
 
         if (!paso) return;

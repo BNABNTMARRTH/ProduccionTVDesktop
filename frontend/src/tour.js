@@ -6,7 +6,7 @@
 // importar qué herramienta esté cargando detrás. Desde 2026-08-24 la app se
 // organiza por etapas, así que el recorrido apunta a los botones de etapa.
 
-const PASOS = [
+const TODOS = [
   { view: 'perfil', target: null,
     titulo: '👋 Bienvenido a tu primera producción',
     cuerpo: 'Este recorrido te muestra, paso a paso, cómo usar cada sección para pasar de una idea a una producción audiovisual terminada. Puedes saltarlo cuando quieras y repetirlo después.' },
@@ -43,11 +43,14 @@ const PASOS = [
     fin: '¡Entendido!' },
 ];
 
-export function createTour({ selectView }) {
+// `vistaDisponible` dice si un paso aplica a ESTE proyecto: el modo narrativo
+// no tiene Ensayo en vivo, y enseñarlo era señalar un botón que no está.
+export function createTour({ selectView, vistaDisponible = () => true }) {
   let overlay = null;
 
   function start() {
     if (overlay) return;
+    const PASOS = TODOS.filter((p) => !p.view || vistaDisponible(p.view));
     let i = 0;
     overlay = document.createElement('div');
     overlay.className = 'tour-overlay';
