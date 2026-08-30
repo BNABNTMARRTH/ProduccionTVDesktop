@@ -136,6 +136,10 @@
   /* Guion literario: formato tradicional, Courier y sangrías del oficio. */
   .cat2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#16365F;border-bottom:2px solid #16365F;padding-bottom:3px;margin:14px 0 8px}
 </style>
+<!-- Accesibilidad (contraste alto / menos movimiento). Va al final del head
+     para que sus tokens manden sobre los de esta herramienta.
+     Ver tools/shared/accesibilidad.css. -->
+<link rel="stylesheet" href="../shared/accesibilidad.css">
 </head>
 <body>
 <div class="pared" aria-hidden="true"></div>
@@ -164,6 +168,7 @@
 
 <script src="../shared/sheets.js"></script>
 <script src="../shared/atajos.js"></script>
+<script src="../shared/ajustes.js"></script>
 <script>
 (() => {
   'use strict';

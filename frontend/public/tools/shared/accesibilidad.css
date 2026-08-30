@@ -1,0 +1,77 @@
+/* ACCESIBILIDAD: contraste alto y menos movimiento (2026-08-30)
+   ---------------------------------------------------------------------------
+   Esta hoja la cargan LOS CUATRO documentos de la app —el caparazón y las tres
+   herramientas— porque los cuatro comparten los mismos tokens de color
+   (--yeso, --tinta, --vidrio-…). Una sola copia, una sola verdad: si estuviera
+   duplicada en cada uno, se separarían a la primera.
+
+   Quién enciende esto: la Configuración del caparazón estampa data-contraste y
+   data-movimiento en su propio <html>, y se lo manda a cada herramienta por el
+   puente de mensajes (ver shared/ajustes.js). Las herramientas son documentos
+   aparte y no heredan nada del marco que las contiene. */
+
+/* ---- CONTRASTE ALTO ------------------------------------------------------
+   El problema que resuelve, dicho por quien usa la app: "no distingo dónde
+   está el botón". La app está hecha de VIDRIO —fondos translúcidos, bordes de
+   luz, un grano encima—, y el vidrio es precioso y de bajo contraste: el borde
+   de un botón puede quedar en 1.2:1 contra la pared. Aquí el vidrio se vuelve
+   sólido, el borde se vuelve tinta y el grano se apaga.
+
+   Se toca SOLO la paleta, no la forma: los colores de etapa (--gel) y los
+   rellenos de los botones activos se quedan como están, porque son los que
+   dicen dónde estás y ésos ya contrastan. */
+:root[data-contraste="alto"]{
+  --vidrio-a:#FFFFFF; --vidrio-b:#F2EEE6;
+  --vidrio-borde:#171512; --vidrio-filo:transparent;
+  --linea:rgba(23,21,18,.38);
+  --tinta-media:#2B2823; --tinta-baja:#2B2823;
+  --hueco-fondo:#FFFFFF; --hueco-borde:#171512;
+  --grano:0;
+}
+@media (prefers-color-scheme: dark){
+  :root[data-contraste="alto"]:not([data-tema="claro"]){
+    --vidrio-a:#000000; --vidrio-b:#121110;
+    --vidrio-borde:#F2EFE9; --vidrio-filo:transparent;
+    --linea:rgba(255,255,255,.45);
+    --tinta-media:#F2EFE9; --tinta-baja:#E4E0D8;
+    --hueco-fondo:#000000; --hueco-borde:#F2EFE9;
+  }
+}
+:root[data-contraste="alto"][data-tema="oscuro"]{
+  --vidrio-a:#000000; --vidrio-b:#121110;
+  --vidrio-borde:#F2EFE9; --vidrio-filo:transparent;
+  --linea:rgba(255,255,255,.45);
+  --tinta-media:#F2EFE9; --tinta-baja:#E4E0D8;
+  --hueco-fondo:#000000; --hueco-borde:#F2EFE9;
+}
+
+/* El desenfoque de fondo es lo que más difumina el borde de un control: al
+   quitarlo, el token sólido de arriba se ve tal cual. */
+:root[data-contraste="alto"] *{
+  -webkit-backdrop-filter:none!important; backdrop-filter:none!important;
+}
+/* El borde de un control pasa de 1 px de luz a 2 px de tinta. Los que llevan
+   `border:0` no se ven afectados (sin estilo de borde, el ancho no pinta), así
+   que esto no le inventa marcos a lo que a propósito no los tiene. */
+:root[data-contraste="alto"] button,
+:root[data-contraste="alto"] input,
+:root[data-contraste="alto"] select,
+:root[data-contraste="alto"] textarea{ border-width:2px!important; }
+/* Y el foco del teclado, que es el otro "¿dónde estoy?". */
+:root[data-contraste="alto"] :focus-visible{
+  outline:3px solid var(--gel-t)!important; outline-offset:2px!important;
+}
+
+/* ---- MENOS MOVIMIENTO ----------------------------------------------------
+   Lo mismo que hace el sistema con "Reducir movimiento", pero a mano: hay
+   quien no lo tiene puesto en el Mac y aun así necesita que la pantalla se
+   quede quieta. No se apagan del todo (0s cancelaría los eventos de fin de
+   animación); se dejan en un instante. */
+:root[data-movimiento="poco"] *,
+:root[data-movimiento="poco"] *::before,
+:root[data-movimiento="poco"] *::after{
+  animation-duration:.01ms!important;
+  animation-iteration-count:1!important;
+  transition-duration:.01ms!important;
+  scroll-behavior:auto!important;
+}

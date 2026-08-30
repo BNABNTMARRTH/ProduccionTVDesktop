@@ -300,7 +300,7 @@ iframe{display:block;width:100%;height:100%;border:0;background:transparent}
 .home-credit{max-width:1500px;margin:34px auto 0;text-align:center;color:var(--tinta-baja);font-size:12px}.home-credit strong{color:var(--tinta-media)}
 /* Papelera de proyectos */
 .trash-overlay{position:fixed;z-index:95;inset:0;display:grid;place-items:center;padding:24px;background:rgba(3,10,20,.72);backdrop-filter:blur(12px)}
-.trash-card{width:min(560px,calc(100vw - 48px));max-height:calc(100vh - 80px);overflow:auto;display:flex;flex-direction:column;padding:22px 24px;border:1px solid var(--vidrio-borde);border-radius:18px;color:var(--tinta);background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);box-shadow:inset 0 1px 0 var(--vidrio-filo),0 30px 80px -30px rgba(0,0,0,.55)}
+.trash-card{width:min(560px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;padding:22px 24px;border:1px solid var(--vidrio-borde);border-radius:18px;color:var(--tinta);background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);box-shadow:inset 0 1px 0 var(--vidrio-filo),0 30px 80px -30px rgba(0,0,0,.55)}
 .trash-head{display:flex;align-items:center;justify-content:space-between}
 .trash-head h2{margin:0;font-size:20px}
 .trash-head button{border:0;background:transparent;color:var(--tinta-baja);font-size:16px;cursor:pointer}
@@ -314,11 +314,85 @@ iframe{display:block;width:100%;height:100%;border:0;background:transparent}
 .trash-item button{border:1px solid var(--vidrio-borde);background:var(--vidrio-b);color:var(--tinta-media);border-radius:6px;padding:6px 9px;cursor:pointer;margin-left:6px}
 .trash-item button:hover{background:var(--vidrio-a);color:var(--tinta)}
 .trash-item button.confirm-delete{border-color:var(--e5-f);background:var(--e5-f);color:#fff;font-weight:800;animation:confirm-pulse .9s ease-in-out infinite}
+
+/* ======================= CONFIGURACIÓN Y ACCESIBILIDAD =======================
+   Se abre desde el engrane, en el encabezado de un proyecto y en la barra de
+   Inicio. Lo importante de esta pantalla: la tiene que poder usar justamente
+   quien todavía NO ha agrandado la interfaz. Por eso aquí dentro nada baja de
+   13 px, los controles son cajas grandes con su explicación al lado (no chips
+   sueltos), y lo elegido se marca con relleno de color y no solo con un borde.
+   El panel se agranda con todo lo demás en cuanto se elige un tamaño: la
+   escala vive en el <html>, así que la vista previa es la pantalla entera. */
+.aj-overlay[hidden]{display:none!important}
+.aj-overlay{position:fixed;z-index:96;inset:0;display:grid;place-items:center;padding:24px;background:rgba(3,10,20,.72);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.aj-card{width:min(620px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:6px;padding:22px 26px 24px;border:1px solid var(--vidrio-borde);border-radius:18px;color:var(--tinta);background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);box-shadow:inset 0 1px 0 var(--vidrio-filo),0 30px 80px -30px rgba(0,0,0,.55)}
+.aj-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.aj-head h2{margin:0;display:flex;align-items:center;gap:9px;font-size:21px}
+.aj-head h2 svg{color:var(--gel-t)}
+.aj-head .aj-cerrar{border:0;background:transparent;color:var(--tinta-baja);font-size:18px;line-height:1;padding:6px 8px;cursor:pointer}
+.aj-head .aj-cerrar:hover{color:var(--tinta)}
+
+.aj-bloque{padding:14px 0 4px;border-top:1px solid var(--linea)}
+.aj-bloque:first-of-type{border-top:0;padding-top:6px}
+.aj-bloque h3{margin:0 0 12px;font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--gel-t)}
+.aj-label{display:block;margin:0 0 8px;font-size:13px;font-weight:700}
+.aj-pista{margin:10px 0 0;font-size:12.5px;line-height:1.55;color:var(--tinta-media)}
+.aj-nota{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--linea);font-size:12px;line-height:1.5;color:var(--tinta-baja)}
+
+/* EL TAMAÑO. Cinco pasos con nombre, no un deslizador: quien no alcanza a leer
+   tampoco atina a un deslizador fino, y un porcentaje suelto no dice nada. */
+.aj-escalas{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.aj-escala{display:flex;flex-direction:column;align-items:center;gap:2px;padding:11px 4px;border:1px solid var(--vidrio-borde);border-radius:11px;background:var(--vidrio-b);color:var(--tinta-media);cursor:pointer}
+.aj-escala b{font-size:15px;font-weight:800}
+.aj-escala span{font-size:10.5px;text-align:center;line-height:1.25}
+.aj-escala:hover{background:var(--vidrio-a);color:var(--tinta)}
+.aj-escala.on{border-color:var(--gel-f);background:linear-gradient(165deg,var(--gel),var(--gel-f));color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+
+/* LA MUESTRA: las tres cosas que se pidió poder agrandar —una etiqueta, una
+   caja de texto y un botón—, juntas y con nombre, para que se vea de qué se
+   está hablando sin tener que salir a buscarlo. */
+.aj-muestra{margin-top:12px;padding:12px 14px 14px;border:1px dashed var(--hueco-borde);border-radius:12px;background:var(--hueco-fondo)}
+.aj-muestra-rot{display:block;margin-bottom:9px;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--tinta-baja)}
+.aj-muestra>div{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.aj-muestra label{font-size:12.5px;font-weight:700;color:var(--tinta-media)}
+.aj-muestra input{flex:1;min-width:130px;border:1px solid var(--vidrio-borde);background:var(--vidrio-a);color:var(--tinta);border-radius:8px;padding:7px 9px;font:inherit;font-size:12.5px}
+.aj-muestra button{border:1px solid var(--gel-t);background:linear-gradient(165deg,var(--gel),var(--gel-f));color:#fff;border-radius:8px;padding:7px 14px;font-size:12.5px;font-weight:700;cursor:default}
+
+/* LOS INTERRUPTORES. Toda la fila es el botón —no un cuadrito de 14 px al que
+   hay que apuntar—, y cada uno lleva debajo para qué sirve, en una frase. */
+.aj-switch{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:12px;width:100%;margin-top:10px;padding:12px 14px;border:1px solid var(--vidrio-borde);border-radius:12px;background:var(--vidrio-b);color:var(--tinta);text-align:left;cursor:pointer}
+.aj-switch:hover{background:var(--vidrio-a)}
+.aj-switch-caja{position:relative;flex:none;width:40px;height:23px;margin-top:1px;border-radius:999px;background:var(--hueco-fondo);border:1px solid var(--hueco-borde);transition:background .16s ease,border-color .16s ease}
+.aj-switch-caja i{position:absolute;top:3px;left:3px;width:15px;height:15px;border-radius:50%;background:var(--tinta-baja);transition:transform .18s cubic-bezier(.3,.85,.25,1),background .16s ease}
+.aj-switch.on .aj-switch-caja{background:var(--gel-f);border-color:var(--gel-f)}
+.aj-switch.on .aj-switch-caja i{transform:translateX(17px);background:#fff}
+.aj-switch-txt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.aj-switch-txt strong{font-size:13.5px}
+.aj-switch-txt small{font-size:12px;line-height:1.5;color:var(--tinta-media)}
+
+/* EL TEMA, con sus TRES estados. El de "el del sistema" no existía en ningún
+   sitio: el botón de sol/luna solo alterna entre claro y oscuro, así que quien
+   elegía uno se quedaba sin poder volver a seguir al Mac. */
+.aj-temas{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.aj-tema{display:flex;flex-direction:column;align-items:center;gap:2px;padding:11px 6px;border:1px solid var(--vidrio-borde);border-radius:11px;background:var(--vidrio-b);color:var(--tinta-media);cursor:pointer}
+.aj-tema b{font-size:13px}
+.aj-tema span{font-size:10.5px}
+.aj-tema:hover{background:var(--vidrio-a);color:var(--tinta)}
+.aj-tema.on{border-color:var(--gel-f);background:linear-gradient(165deg,var(--gel),var(--gel-f));color:#fff}
+
+.aj-atajos{margin:0;display:flex;flex-direction:column;gap:0}
+.aj-atajos>div{display:grid;grid-template-columns:132px minmax(0,1fr);gap:12px;align-items:baseline;padding:7px 0;border-top:1px solid var(--linea)}
+.aj-atajos>div:first-child{border-top:0}
+.aj-atajos dt{font-size:12.5px;font-weight:800;color:var(--tinta)}
+.aj-atajos dd{margin:0;font-size:12.5px;line-height:1.5;color:var(--tinta-media)}
+
+@media(max-width:640px){
+  .aj-escalas{grid-template-columns:repeat(3,1fr)}
+  .aj-atajos>div{grid-template-columns:1fr;gap:2px}
+}
 .project-search{width:100%;margin:0 0 10px;border:1px solid var(--vidrio-borde);background:var(--hueco-fondo);color:var(--tinta);border-radius:9px;padding:8px 10px;font:inherit;font-size:13px}
 .project-search::placeholder{color:var(--tinta-baja)}
 .project-search:focus-visible{outline:2px solid var(--gel-t);outline-offset:1px}
-.project-search::placeholder{color:var(--tinta-baja)}
-.project-search:focus{outline:2px solid var(--gel-t);outline-offset:1px}
 button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-offset:2px}
 /* ENSAYO (modo en vivo) — LA ÚNICA PANTALLA QUE SIGUE OSCURA, y es a propósito.
    Se usa en un foro a oscuras, con el switcher y el teleprompter: una pantalla
@@ -424,7 +498,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
 /* Caja de nuevo proyecto: nombre y modo, nada más (sustituye al wizard) */
 .np-overlay{position:fixed;z-index:90;inset:0;display:grid;place-items:center;padding:24px;background:rgba(23,21,18,.34);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .np-overlay[hidden]{display:none!important}
-.np-card{position:relative;width:min(560px,calc(100vw - 48px));padding:26px 28px 24px;
+.np-card{position:relative;width:min(560px,100%);max-height:100%;overflow:auto;padding:26px 28px 24px;
   border:1px solid var(--vidrio-borde);border-radius:20px;color:var(--tinta);
   background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));
   -webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
@@ -495,7 +569,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
    blanco y encima le dejaba el texto claro del tema — el título quedaba en
    1.4:1, prácticamente invisible. Ahora el velo es el yeso del tema, así que
    se apaga con él y el texto vuelve a leerse. */
-.welcome-overlay{position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--yeso) 84%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);transition:opacity .18s ease}.welcome-overlay.closing{opacity:0;pointer-events:none}.welcome-card{position:relative;width:min(520px,calc(100vw - 48px));display:flex;flex-direction:column;align-items:center;text-align:center;padding:38px;border-radius:22px;background:var(--vidrio-a);overflow:hidden;box-shadow:0 0 0 1px var(--linea),0 26px 70px -30px rgba(26,24,34,.55)}.welcome-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(110% 45% at 50% 0,rgba(240,78,152,.16),transparent 62%)}.welcome-card>*{position:relative;z-index:1}.welcome-card img{width:104px;height:104px;object-fit:cover;border-radius:24px;margin-bottom:22px;box-shadow:0 14px 34px -14px rgba(26,24,34,.4)}.welcome-card h1{margin:9px 0 10px;font-size:32px;color:var(--tinta);font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:700;letter-spacing:.02em;text-transform:uppercase}.welcome-card p{max-width:410px;margin:0;color:var(--tinta-media);font-size:15px;line-height:1.65}.welcome-card p strong{color:var(--tinta)}.welcome-card button{margin-top:26px;min-width:170px;border:1px solid var(--gel-t);border-radius:9px;padding:12px 22px;background:linear-gradient(165deg,var(--gel),var(--gel-f));color:#fff;font-weight:700;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 8px 18px -9px var(--gel)}.welcome-card button:hover{background:linear-gradient(165deg,var(--gel),var(--gel-f))}
+.welcome-overlay{position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--yeso) 84%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);transition:opacity .18s ease}.welcome-overlay.closing{opacity:0;pointer-events:none}.welcome-card{position:relative;width:min(520px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;align-items:center;text-align:center;padding:38px;border-radius:22px;background:var(--vidrio-a);overflow:hidden;box-shadow:0 0 0 1px var(--linea),0 26px 70px -30px rgba(26,24,34,.55)}.welcome-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(110% 45% at 50% 0,rgba(240,78,152,.16),transparent 62%)}.welcome-card>*{position:relative;z-index:1}.welcome-card img{width:104px;height:104px;object-fit:cover;border-radius:24px;margin-bottom:22px;box-shadow:0 14px 34px -14px rgba(26,24,34,.4)}.welcome-card h1{margin:9px 0 10px;font-size:32px;color:var(--tinta);font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:700;letter-spacing:.02em;text-transform:uppercase}.welcome-card p{max-width:410px;margin:0;color:var(--tinta-media);font-size:15px;line-height:1.65}.welcome-card p strong{color:var(--tinta)}.welcome-card button{margin-top:26px;min-width:170px;border:1px solid var(--gel-t);border-radius:9px;padding:12px 22px;background:linear-gradient(165deg,var(--gel),var(--gel-f));color:#fff;font-weight:700;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 8px 18px -9px var(--gel)}.welcome-card button:hover{background:linear-gradient(165deg,var(--gel),var(--gel-f))}
 @media(max-width:1000px){.rail{width:60px}.rail-logo{left:27px;--viaje-x:-2px}.rail button em{display:none}.rail button .ic{width:36px;height:36px}}
 @media(max-width:1150px){.save-status,.workspace-header .mode-chip{display:none}.continue-card{grid-template-columns:1fr}.production-layout{grid-template-columns:1fr}}
 /* Contenedor donde se montan los documentos multipágina antes de imprimir */

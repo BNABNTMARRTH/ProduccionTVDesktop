@@ -12,6 +12,7 @@ import { crearPestanas, PRINCIPAL } from './pestanas.js';
 import { DEMO_PROJECT_ID, makeDemoProject } from './demo.js';
 import { MAX_PROJECTS, STORAGE_KEYS, esc } from './constants.js';
 import { PLANTILLAS_SET, cfgDePlantilla, resumenDePlantilla } from './plantillas.js';
+import { crearAjustes, enPxCss } from './ajustes.js';
 
 /* ----------------------------- Estado ----------------------------- */
 
@@ -206,6 +207,12 @@ document.querySelector('#app').innerHTML = `
         <button id="open-trash" title="Los proyectos eliminados se pueden restaurar desde aquí">
           <span class="ic">${icono('papelera', 26)}</span><em>Papelera</em>
         </button>
+        <!-- La configuración también AQUÍ, y no solo dentro de un proyecto:
+             quien no alcanza a leer la pantalla tiene que poder agrandarla
+             ANTES de abrir nada. -->
+        <button id="ajustes-home" title="Configuración: tamaño de la letra y los botones, contraste, tema y atajos">
+          <span class="ic">${icono('ajustes', 26)}</span><em>Configuración</em>
+        </button>
       </div>
       <div class="rail-group" id="rail-tools">
       ${ETAPAS.map((e, i) => `${e.id === 'salida' ? '<div class="rail-sep"></div>' : ''}
@@ -238,6 +245,7 @@ document.querySelector('#app').innerHTML = `
             <button id="guia-btn" title="Guía: cómo se hace este tipo de pieza y qué le falta a la tuya" aria-label="Guía">${icono('guia', 17)}</button>
           </span>
           <button id="tema-btn" title="Cambiar entre claro y oscuro">${icono('sol', 17)}</button>
+          <button id="ajustes-btn" title="Configuración: tamaño de la letra y los botones, contraste, tema y atajos">${icono('ajustes', 17)}</button>
           <button id="tour-btn" title="Recorrido guiado: cómo usar la app paso a paso">${icono('ayuda', 17)}</button>
           <button id="desanclar-btn" title="Desanclar esta sección en su propia pestaña (⌘D). Después puedes arrastrar la pestaña fuera para abrirla en otra ventana.">${icono('desanclar', 17)}</button>
         </div>
@@ -307,44 +315,19 @@ const toolInfo = {
     exportar: { title: 'Exportar', description: 'Configura qué exportar, en qué formato, qué secciones incluir y en qué orden', src: './tools/exportar/index.html' },
 };
 
-/* ---- TEMA CLARO / OSCURO ----------------------------------------------
-   Tres estados a propósito: si el usuario no elige, se respeta lo que tenga
-   puesto el sistema; si elige, manda lo suyo y se recuerda.
-   El contenido vive en un IFRAME, que es otro documento y no hereda el tema:
-   hay que mandárselo por el mismo puente que ya usa todo lo demás. */
-const TEMA_LLAVE = 'ptv:tema';
-const leerTema = () => { try { return localStorage.getItem(TEMA_LLAVE) || ''; } catch { return ''; } };
-const prefiereOscuro = () => !!window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-
-/* LO QUE SE ESTÁ VIENDO AHORA. La única verdad es el DOM, no lo guardado.
-   Antes el botón calculaba el siguiente tema leyendo localStorage, y si el
-   almacenamiento no persiste —pasa en algunos WebView, y ahí setItem lanza y
-   el try/catch se lo traga— siempre calculaba el MISMO destino: funcionaba
-   una vez y se atoraba. Leyendo el DOM alterna aunque no se pueda guardar
-   nada; lo único que se pierde entonces es recordarlo al reabrir. */
-const temaActual = () => document.documentElement.dataset.tema
-  || (prefiereOscuro() ? 'oscuro' : 'claro');
-
-function aplicarTema(tema) {
-  if (tema) document.documentElement.dataset.tema = tema;
-  else delete document.documentElement.dataset.tema;
-  const oscuro = temaActual() === 'oscuro';
-  const btn = document.querySelector('#tema-btn');
-  if (btn) {
-    btn.innerHTML = icono(oscuro ? 'luna' : 'sol', 17);
-    btn.title = oscuro ? 'Cambiar a claro' : 'Cambiar a oscuro';
-  }
-  // Al iframe hay que decírselo: no comparte hoja de estilos con el marco.
-  document.querySelectorAll('iframe').forEach((f) => {
-    try { f.contentWindow?.postMessage({ type: 'producciontv:tema', tema: temaActual() }, '*'); } catch {}
-  });
-}
-
-function alternarTema() {
-  const nuevo = temaActual() === 'oscuro' ? 'claro' : 'oscuro';
-  try { localStorage.setItem(TEMA_LLAVE, nuevo); } catch {}
-  aplicarTema(nuevo);
-}
+/* ---- AJUSTES: tema, tamaño, contraste y movimiento --------------------
+   Todo eso vive en ajustes.js, que es también quien pinta el panel de
+   Configuración. Aquí solo se enchufa: al aplicarse un ajuste hay que
+   repintar el botón de sol/luna del encabezado. El resto —estampar la raíz y
+   avisarle a cada herramienta— lo hace el módulo. */
+const ajustes = crearAjustes({
+    alAplicar: ({ tema }) => {
+        const btn = document.querySelector('#tema-btn');
+        if (!btn) return;
+        btn.innerHTML = icono(tema === 'oscuro' ? 'luna' : 'sol', 17);
+        btn.title = tema === 'oscuro' ? 'Cambiar a claro' : 'Cambiar a oscuro';
+    },
+});
 
 const shell = document.querySelector('.desktop-shell');
 const frame = document.querySelector('#tool-frame');
@@ -390,6 +373,11 @@ const railPlegado = () => shell.classList.contains('rail-plegado');
 // Mide el vuelo con la barra DESPLEGADA (es el único momento en que las
 // posiciones son de verdad) y lo deja escrito en cada botón. Las medidas se
 // reaprovechan al desplegar: la geometría vertical de la barra es la misma.
+//
+// enPxCss() está por el TAMAÑO de la Configuración: se aplica con `zoom` en la
+// raíz, y bajo zoom lo que se mide de la pantalla ya viene multiplicado — si
+// ese número vuelve al CSS se multiplica otra vez. Sin la división, al 150 %
+// los botones volaban un 50 % de más y se pasaban de largo el logo.
 function medirVuelo() {
     const logo = logoBtn.getBoundingClientRect();
     const cx = logo.left + logo.width / 2;
@@ -397,8 +385,8 @@ function medirVuelo() {
     const botones = botonesRail();
     botones.forEach((boton, i) => {
         const caja = boton.getBoundingClientRect();
-        boton.style.setProperty('--vx', `${Math.round(cx - (caja.left + caja.width / 2))}px`);
-        boton.style.setProperty('--vy', `${Math.round(cy - (caja.top + caja.height / 2))}px`);
+        boton.style.setProperty('--vx', `${Math.round(enPxCss(cx - (caja.left + caja.width / 2)))}px`);
+        boton.style.setProperty('--vy', `${Math.round(enPxCss(cy - (caja.top + caja.height / 2)))}px`);
         boton.style.setProperty('--i', i);
     });
     return botones.length;
@@ -1002,7 +990,7 @@ function panelDe(vista) {
         marco.className = 'panel';
         marco.title = `${etiquetaModulo(vista)} — Producción TV`;
         marco.setAttribute('allow', 'clipboard-read; clipboard-write');
-        marco.addEventListener('load', () => { aplicarTema(leerTema()); setTimeout(() => hidratarPanel(panel, vista), 80); });
+        marco.addEventListener('load', () => { ajustes.mandarA(marco.contentWindow); setTimeout(() => hidratarPanel(panel, vista), 80); });
         marco.src = toolInfo[vista].src;
         frameWrap.appendChild(marco);
         panel.el = marco;
@@ -1024,15 +1012,16 @@ function hidratarPanel(panel, vista) {
     const enviar = () => {
         const w = panel.el?.contentWindow;
         if (!w) return;
-        // EL TEMA VIAJA CON CADA HIDRATACIÓN. Antes se mandaba solo en el
-        // evento `load` del iframe, y ahí llegaba demasiado pronto: la
-        // herramienta monta sus escuchas después de cargar, así que el mensaje
-        // caía en el vacío y TODAS las herramientas arrancaban en claro aunque
-        // la app estuviera en oscuro — solo se corregía si el usuario picaba
-        // el botón de tema. Se notaba sobre todo en el plano del set, que es
-        // casi todo lienzo. La hidratación se manda dos veces (ya y a los
-        // 220 ms), así que el tema llega sí o sí.
-        w.postMessage({ type: 'producciontv:tema', tema: temaActual() }, '*');
+        // LOS AJUSTES VIAJAN CON CADA HIDRATACIÓN (el tema, el contraste y el
+        // movimiento). Antes el tema se mandaba solo en el evento `load` del
+        // iframe, y ahí llegaba demasiado pronto: la herramienta monta sus
+        // escuchas después de cargar, así que el mensaje caía en el vacío y
+        // TODAS las herramientas arrancaban en claro aunque la app estuviera
+        // en oscuro — solo se corregía si el usuario picaba el botón de tema.
+        // Se notaba sobre todo en el plano del set, que es casi todo lienzo.
+        // La hidratación se manda dos veces (ya y a los 220 ms), así que
+        // llegan sí o sí.
+        ajustes.mandarA(w);
         const info = toolInfo[vista];
         if (info?.src.includes('/infografias/')) w.postMessage({ type: 'producciontv:load-infografia', cfg: latestInfografia, mode: info.mode || 'editar' }, '*');
         if (vista === 'diagrama') w.postMessage({ type: 'producciontv:hydrate-diagram', state: latestDiagram, cfg: latestInfografia }, '*');
@@ -1201,9 +1190,15 @@ function menuDeModulos(ancla) {
         + disponibles.map((v) => `
         <button data-modulo="${v}">${icono(iconoModulo(v), 15)}<span>${esc(etiquetaModulo(v))}</span></button>`).join('');
     document.body.appendChild(menu);
+    /* Todo en PÍXELES DE CSS, que es el idioma en el que se van a escribir el
+       left y el top. `getBoundingClientRect` y `innerWidth` hablan en píxeles
+       de PANTALLA (ya multiplicados por la escala de la Configuración) y
+       `offsetWidth` en los de CSS: mezclarlos ponía el menú fuera de la
+       ventana en cuanto se agrandaba la interfaz. Ver medirVuelo. */
     const caja = ancla.getBoundingClientRect();
-    menu.style.left = `${Math.min(caja.left, window.innerWidth - menu.offsetWidth - 12)}px`;
-    menu.style.top = `${caja.bottom + 6}px`;
+    const izquierdaTope = enPxCss(window.innerWidth) - menu.offsetWidth - 12;
+    menu.style.left = `${Math.min(enPxCss(caja.left), izquierdaTope)}px`;
+    menu.style.top = `${enPxCss(caja.bottom + 6)}px`;
     const cerrar = () => { menu.remove(); document.removeEventListener('pointerdown', fuera, true); };
     const fuera = (e) => { if (!menu.contains(e.target)) cerrar(); };
     setTimeout(() => document.addEventListener('pointerdown', fuera, true), 0);
@@ -1436,7 +1431,7 @@ window.addEventListener('message', async (event) => {
 
 frame.addEventListener('load', () => {
     loading.classList.add('hidden');
-    aplicarTema(leerTema());
+    ajustes.mandarA(frame.contentWindow);
     setTimeout(() => hidratarPanel(panelPrincipal, activeView), 80);
 });
 railButtons.forEach((button) => button.onclick = () => {
@@ -1486,13 +1481,12 @@ const pedirAHerramienta = (type) => panelAlFrente()?.el?.contentWindow?.postMess
 document.querySelector('#undo-btn').onclick = () => pedirAHerramienta('producciontv:undo');
 document.querySelector('#redo-btn').onclick = () => pedirAHerramienta('producciontv:redo');
 document.querySelector('#guia-btn').onclick = () => pedirAHerramienta('producciontv:toggle-guia');
-document.querySelector('#tema-btn').onclick = alternarTema;
-// Arranque: se aplica lo elegido (o nada, y entonces manda el sistema). Y si
-// el usuario cambia el tema del Mac con la app abierta, la app lo sigue —
-// mientras no haya elegido a mano.
-aplicarTema(leerTema());
-window.matchMedia?.('(prefers-color-scheme: dark)')
-  .addEventListener?.('change', () => { if (!leerTema()) aplicarTema(''); });
+document.querySelector('#tema-btn').onclick = () => ajustes.alternarTema();
+// La Configuración se abre desde los dos sitios: el encabezado de un proyecto
+// y la barra de Inicio. Lo segundo importa: quien no alcanza a leer la pantalla
+// tiene que poder agrandarla antes de abrir un proyecto.
+document.querySelector('#ajustes-btn')?.addEventListener('click', () => ajustes.abrir());
+document.querySelector('#ajustes-home')?.addEventListener('click', () => ajustes.abrir());
 document.querySelector('#tour-btn').onclick = () => {
     localStorage.setItem(TOUR_KEY, '1');
     desplegarRail();   // el recorrido señala los botones de etapa: deben verse
@@ -1660,6 +1654,7 @@ function atajoDelCaparazon(tecla) {
     const { key = '', metaKey, ctrlKey, shiftKey } = tecla;
     if (key === 'Escape') {
         if (welcomeOverlay && document.body.contains(welcomeOverlay)) { closeWelcome(); return true; }
+        if (ajustes.estaAbierto()) { ajustes.cerrar(); return true; }
         if (nuevoProyecto.isOpen()) { nuevoProyecto.close(); return true; }
         desplegarRail();   // la salida de emergencia: Esc siempre trae las etapas
         return false;

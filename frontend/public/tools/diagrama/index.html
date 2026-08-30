@@ -151,9 +151,14 @@
     html,body,.app,.main{height:auto;overflow:visible;background:#fff}
   }
 </style>
+<!-- Accesibilidad (contraste alto / menos movimiento). Va al final del head
+     para que sus tokens manden sobre los de esta herramienta.
+     Ver tools/shared/accesibilidad.css. -->
+<link rel="stylesheet" href="../shared/accesibilidad.css">
 </head>
 <body>
 <script src="../shared/atajos.js"></script>
+<script src="../shared/ajustes.js"></script>
 <div class="app">
   <div class="top">
     <span class="brand"><span class="led"></span>Diagrama de señal · En vivo</span>

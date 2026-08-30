@@ -59,6 +59,9 @@ TRAZOS.plantillas = '<rect x="3" y="6.5" width="13" height="14" rx="2"/><path d=
 // Deshacer / rehacer: la flecha que regresa y la que vuelve a avanzar.
 TRAZOS.deshacer = '<path d="M4 8.5h9.5a5.5 5.5 0 1 1 0 11H8"/><path d="M7.5 5 4 8.5 7.5 12"/>';
 TRAZOS.rehacer = '<path d="M20 8.5h-9.5a5.5 5.5 0 1 0 0 11H16"/><path d="M16.5 5 20 8.5 16.5 12"/>';
+// Configuración: el engrane de toda la vida. Es el icono que la gente busca
+// cuando algo no se ve bien, así que no se inventa nada nuevo.
+TRAZOS.ajustes = '<circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l1.8-1.4-1.9-3.2-2.2.9a7.6 7.6 0 0 0-2.6-1.5L14.2 3H9.8l-.3 2.3a7.6 7.6 0 0 0-2.6 1.5l-2.2-.9-1.9 3.2L4.6 10.5a7.6 7.6 0 0 0 0 3l-1.8 1.4 1.9 3.2 2.2-.9a7.6 7.6 0 0 0 2.6 1.5l.3 2.3h4.4l.3-2.3a7.6 7.6 0 0 0 2.6-1.5l2.2.9 1.9-3.2z"/>';
 // Guía: la brújula que dice cómo se hace esta pieza y qué le falta.
 TRAZOS.guia = '<circle cx="12" cy="12" r="9"/><path d="m15.2 8.8-1.9 4.5-4.5 1.9 1.9-4.5z"/>';
 

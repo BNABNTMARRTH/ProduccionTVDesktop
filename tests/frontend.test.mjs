@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { makeTemplate, infografiaFromDiagram, templateDefaults, SCHEMA_VERSION, normalizeMode } from '../frontend/src/templates.js';
 import { PLANTILLAS_SET, cfgDePlantilla, plantillaPorId } from '../frontend/src/plantillas.js';
 import { construirPrograma, pasoEn } from '../frontend/src/production.js';
+import { normalizarAjustes, ESCALAS } from '../frontend/src/ajustes.js';
 import {
   LUZ_CATALOGO, SETUPS_ILUMINACION, SETUPS_EXTERIOR, RECOMENDADAS_POR_PLANTILLA,
   getSetup, instanciarSetup, instanciarElemento, posicionesParaLuces,
@@ -1288,4 +1289,41 @@ test('una escaleta con duraciones en cero no tumba el programa', () => {
   assert.equal(programa.total, 0);
   assert.equal(programa.pasos.length, 1);
   assert.equal(pasoEn(programa, 0).segNombre, 'Vacío');
+});
+
+/* ---- LOS AJUSTES DE ACCESIBILIDAD ----
+   Se leen del disco, o sea que pueden venir de una versión anterior, de otra
+   ventana o simplemente rotos. Un tamaño inventado dejaría la app en un zoom
+   del que no se puede salir, porque el propio panel tampoco se leería. */
+
+test('los ajustes vacíos son los de fábrica: nada elegido, todo normal', () => {
+  assert.deepEqual(normalizarAjustes(), { tema: '', escala: 1, contraste: 'normal', movimiento: 'normal' });
+});
+
+test('un tamaño que no está en la lista vuelve al 100%', () => {
+  assert.equal(normalizarAjustes({ escala: 9 }).escala, 1);
+  assert.equal(normalizarAjustes({ escala: '1.5' }).escala, 1, 'el texto no cuenta: la escala es un número');
+  assert.equal(normalizarAjustes({ escala: 1.5 }).escala, 1.5);
+});
+
+test('el tema solo admite sus tres estados, y el tercero es no elegir', () => {
+  assert.equal(normalizarAjustes({ tema: 'oscuro' }).tema, 'oscuro');
+  assert.equal(normalizarAjustes({ tema: 'claro' }).tema, 'claro');
+  assert.equal(normalizarAjustes({ tema: 'morado' }).tema, '', 'lo que no existe = manda el sistema');
+});
+
+test('los interruptores solo se encienden con su palabra exacta', () => {
+  assert.equal(normalizarAjustes({ contraste: 'alto' }).contraste, 'alto');
+  assert.equal(normalizarAjustes({ contraste: true }).contraste, 'normal');
+  assert.equal(normalizarAjustes({ movimiento: 'poco' }).movimiento, 'poco');
+  assert.equal(normalizarAjustes({ movimiento: 'nada' }).movimiento, 'normal');
+});
+
+test('los pasos de tamaño empiezan en 100% y suben sin saltarse a nadie', () => {
+  assert.equal(ESCALAS[0].v, 1, 'el primero es el tamaño de siempre');
+  ESCALAS.forEach((e, i) => {
+    assert.ok(e.nombre, `el paso ${i + 1} necesita nombre: un porcentaje suelto no dice nada`);
+    if (i) assert.ok(e.v > ESCALAS[i - 1].v, 'la lista va de menor a mayor');
+  });
+  assert.ok(ESCALAS.at(-1).v <= 2, 'más del doble no cabe en una ventana de trabajo');
 });

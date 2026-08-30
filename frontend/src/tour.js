@@ -6,6 +6,8 @@
 // importar qué herramienta esté cargando detrás. Desde 2026-08-24 la app se
 // organiza por etapas, así que el recorrido apunta a los botones de etapa.
 
+import { enPxCss } from './ajustes.js';
+
 const TODOS = [
   { view: 'perfil', target: null,
     titulo: '👋 Bienvenido a tu primera producción',
@@ -110,7 +112,18 @@ export function createTour({ selectView, vistaDisponible = () => true }) {
       const paso = PASOS[i];
       const target = paso.target ? document.querySelector(paso.target) : null;
       if (target && target.offsetParent !== null) {
-        const r = target.getBoundingClientRect();
+        /* TODO EN PÍXELES DE CSS. `getBoundingClientRect`, `innerWidth` e
+           `innerHeight` miden la PANTALLA —y con la interfaz agrandada desde
+           Configuración eso ya viene multiplicado por la escala—, mientras que
+           un `left` escrito en el CSS se multiplica otra vez al pintarse. Sin
+           convertir, el hueco iluminado se iba a un lado del botón que quería
+           señalar. `offsetWidth` ya está en píxeles de CSS. Ver ajustes.js. */
+        const c = target.getBoundingClientRect();
+        const r = { left: enPxCss(c.left), top: enPxCss(c.top),
+                    width: enPxCss(c.width), height: enPxCss(c.height),
+                    bottom: enPxCss(c.bottom) };
+        const anchoVentana = enPxCss(window.innerWidth);
+        const altoVentana = enPxCss(window.innerHeight);
         const pad = 6;
         hole.style.display = 'block';
         hole.style.left = `${r.left - pad}px`;
@@ -122,9 +135,9 @@ export function createTour({ selectView, vistaDisponible = () => true }) {
         const cw = card.offsetWidth || 360;
         const ch = card.offsetHeight || 200;
         let left = r.left + r.width / 2 - cw / 2;
-        left = Math.max(12, Math.min(left, window.innerWidth - cw - 12));
+        left = Math.max(12, Math.min(left, anchoVentana - cw - 12));
         let top = r.bottom + 12;
-        if (top + ch > window.innerHeight - 12) top = Math.max(12, r.top - ch - 12);
+        if (top + ch > altoVentana - 12) top = Math.max(12, r.top - ch - 12);
         card.style.left = `${left}px`;
         card.style.top = `${top}px`;
         card.style.transform = 'none';
