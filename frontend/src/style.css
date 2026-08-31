@@ -113,7 +113,7 @@ button{font:inherit}
    así que ahí el viaje es (−2,−3). */
 .rail-logo{position:absolute;z-index:6;left:45px;top:27px;width:34px;height:34px;--viaje-x:-20px;--viaje-y:-3px;padding:0;border:0;background:transparent;cursor:pointer;
   transform:translate3d(0,0,0);
-  transition:transform .4s cubic-bezier(.32,.72,.24,1)}
+  transition:transform .34s cubic-bezier(.32,.72,.24,1)}
 .rail-logo img{width:100%;height:100%;display:block;object-fit:cover;border-radius:10px;box-shadow:0 4px 12px #0006;transition:filter .16s ease}
 .rail-logo:hover:not(:disabled) img{filter:brightness(1.1)}
 .rail-logo:active:not(:disabled) img{filter:brightness(.94)}
@@ -439,12 +439,20 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
    2. .rail-plegado → ya vacía, la barra se encoge y el logo se muda al
                     encabezado. Al desplegar es al revés: primero se abre el
                     hueco y luego los botones brotan del logo (.desplegando).
+
+   MIENTRAS DURA EL VUELO, LA BARRA DEJA DE SER UNA CAJA CON SCROLL. Un
+   contenedor que recorta obliga al navegador a pintar a mano lo que se mueve
+   dentro —seis iconos encogiendo y girando, encima de un cristal con
+   desenfoque— en vez de dejárselo a la tarjeta gráfica. Y de paso los botones
+   llegan hasta el logo sin que el borde de arriba los corte.
    El destino del vuelo (--vx/--vy) lo mide main.js en píxeles reales antes de
    plegar; --i es el turno de cada botón en la fila. */
 .rail button{--vx:0px;--vy:-150px;--i:0}
+.desktop-shell.plegando .rail,
+.desktop-shell.desplegando .rail{overflow:visible}
 
 .desktop-shell.rail-plegado .rail{width:0;margin-left:0;padding-left:0;padding-right:0;border-width:0;opacity:0;overflow:hidden;pointer-events:none;visibility:hidden;
-  transition:width .34s cubic-bezier(.3,.85,.25,1),margin .34s cubic-bezier(.3,.85,.25,1),padding .34s cubic-bezier(.3,.85,.25,1),border-width .34s,opacity .2s ease,visibility 0s .34s}
+  transition:width .28s cubic-bezier(.3,.85,.25,1),margin .28s cubic-bezier(.3,.85,.25,1),padding .28s cubic-bezier(.3,.85,.25,1),border-width .28s,opacity .18s ease,visibility 0s .28s}
 /* El logo aterriza en el encabezado, un poco más chico: ahí es una firma, no
    un rótulo. El encabezado le abre sitio con el mismo compás.
    LA ESPERA DE .1s ES SOLO DE IDA (va en el estado de destino, así que al
@@ -452,28 +460,34 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
    herramienta se reacomode ANTES de empezar a moverse. Viajar encima de ese
    trabajo era lo que se veía trabado. De vuelta no hace falta esperar: ahí el
    logo sale al mismo tiempo que los botones y no va solo. */
-.desktop-shell.rail-plegado .rail-logo{transform:translate3d(var(--viaje-x),var(--viaje-y),0) scale(.882);transition-delay:.1s}
+.desktop-shell.rail-plegado .rail-logo{transform:translate3d(var(--viaje-x),var(--viaje-y),0) scale(.882);transition-delay:.05s}
 /* Y NO REAPARECEN. Al quitar .plegando la animación deja de aplicarse y los
    botones volvían de golpe a tamaño y opacidad completos, visibles otra vez
    durante los .34s que tarda la barra en cerrarse: un parpadeo justo cuando
    el logo empieza a moverse. Ya se los tragó el logo; que sigan tragados. */
 .desktop-shell.rail-plegado .rail button{opacity:0}
-.workspace-header{transition:padding-left .34s cubic-bezier(.3,.85,.25,1)}
+.workspace-header{transition:padding-left .28s cubic-bezier(.3,.85,.25,1)}
 .desktop-shell.rail-plegado .workspace-header{padding-left:54px}
 
-.desktop-shell.plegando .rail button{animation:etapa-al-logo .3s cubic-bezier(.6,.02,.75,.3) forwards;animation-delay:calc(var(--i) * 38ms)}
+/* EL VUELO VA EN translate3d Y NO EN translate, y esto no es un adorno: con un
+   desplazamiento plano el navegador puede decidir pintar cada cuadro a mano, y
+   pintar a mano seis iconos que encogen y giran encima de un cristal con
+   desenfoque es justo lo que se veía a tirones. En 3D se le pide una capa
+   propia a la tarjeta gráfica desde el primer cuadro. `will-change` se lo
+   avisa de antemano para que la capa no se cree a mitad del vuelo. */
+.desktop-shell.plegando .rail button{animation:etapa-al-logo .26s cubic-bezier(.6,.02,.75,.3) forwards;animation-delay:calc(var(--i) * 22ms);will-change:transform,opacity}
 @keyframes etapa-al-logo{
-  0%{transform:translate(0,0) scale(1);opacity:1}
+  0%{transform:translate3d(0,0,0) scale(1);opacity:1}
   65%{opacity:.55}
-  100%{transform:translate(var(--vx),var(--vy)) scale(.14) rotate(-8deg);opacity:0}
+  100%{transform:translate3d(var(--vx),var(--vy),0) scale(.14) rotate(-8deg);opacity:0}
 }
 /* Al salir rebotan un pelo (el cubic-bezier se pasa de 1): es lo que da la
    sensación de que el logo los ESCUPE en vez de dibujarlos. */
-.desktop-shell.desplegando .rail button{animation:etapa-desde-logo .38s cubic-bezier(.18,.9,.3,1.25) backwards;animation-delay:calc(var(--i) * 38ms)}
+.desktop-shell.desplegando .rail button{animation:etapa-desde-logo .3s cubic-bezier(.18,.9,.3,1.25) backwards;animation-delay:calc(var(--i) * 22ms);will-change:transform,opacity}
 @keyframes etapa-desde-logo{
-  0%{transform:translate(var(--vx),var(--vy)) scale(.14) rotate(-8deg);opacity:0}
+  0%{transform:translate3d(var(--vx),var(--vy),0) scale(.14) rotate(-8deg);opacity:0}
   35%{opacity:1}
-  100%{transform:translate(0,0) scale(1) rotate(0);opacity:1}
+  100%{transform:translate3d(0,0,0) scale(1) rotate(0);opacity:1}
 }
 /* La reacción del logo: se hincha al tragar y suelta un aro al abrirse. */
 #logo-btn.traga img{animation:logo-traga .44s cubic-bezier(.3,1.5,.4,1)}

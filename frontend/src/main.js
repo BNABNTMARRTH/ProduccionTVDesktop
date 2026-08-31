@@ -365,8 +365,8 @@ Regla de oro tras el error del botón ⤢: PLEGAR NO PUEDE DEJARTE SIN SALIDA.
 El logo se queda siempre a la vista —se muda al encabezado—, el encabezado con
 sus pestañas y secciones no se toca, y Esc también despliega. */
 const logoBtn = document.querySelector('#logo-btn');
-const VUELO_MS = 300;   // lo que tarda un botón en entrar (o salir) del logo
-const PASO_MS = 38;     // el retraso entre un botón y el siguiente: la fila
+const VUELO_MS = 260;   // lo que tarda un botón en entrar (o salir) del logo
+const PASO_MS = 22;     // el retraso entre un botón y el siguiente: la fila
 
 // Los botones que SE VEN: la barra tiene dos grupos (Inicio y etapas) y solo
 // uno está a la vista, y dentro de él el modo del proyecto esconde algunos.
@@ -382,22 +382,71 @@ const railPlegado = () => shell.classList.contains('rail-plegado');
 // raíz, y bajo zoom lo que se mide de la pantalla ya viene multiplicado — si
 // ese número vuelve al CSS se multiplica otra vez. Sin la división, al 150 %
 // los botones volaban un 50 % de más y se pasaban de largo el logo.
+/* PRIMERO SE MIDE TODO, Y DESPUÉS SE ESCRIBE TODO. Nunca alternando.
+Ésta era la causa de que la animación arrancara a tirones. Antes el bucle hacía
+medir → escribir → medir → escribir…: cada escritura invalida el diseño de la
+página, así que la siguiente medición obliga al navegador a RECALCULARLA
+ENTERA antes de poder contestar. Seis botones = seis recálculos completos, y
+completos incluye el documento de la herramienta que vive en el iframe. Todo
+eso caía en el mismo cuadro en el que empieza el vuelo, y el vuelo salía ya
+atrasado. Separado en dos pasadas, el recálculo es UNO. */
 function medirVuelo() {
+    const botones = botonesRail();
     const logo = logoBtn.getBoundingClientRect();
     const cx = logo.left + logo.width / 2;
     const cy = logo.top + logo.height / 2;
-    const botones = botonesRail();
-    botones.forEach((boton, i) => {
+    const vuelos = botones.map((boton) => {
         const caja = boton.getBoundingClientRect();
-        boton.style.setProperty('--vx', `${Math.round(enPxCss(cx - (caja.left + caja.width / 2)))}px`);
-        boton.style.setProperty('--vy', `${Math.round(enPxCss(cy - (caja.top + caja.height / 2)))}px`);
+        return { x: Math.round(enPxCss(cx - (caja.left + caja.width / 2))),
+                 y: Math.round(enPxCss(cy - (caja.top + caja.height / 2))) };
+    });
+    botones.forEach((boton, i) => {
+        boton.style.setProperty('--vx', `${vuelos[i].x}px`);
+        boton.style.setProperty('--vy', `${vuelos[i].y}px`);
         boton.style.setProperty('--i', i);
     });
     return botones.length;
 }
 
+/* MIENTRAS LA BARRA SE MUEVE, LA HERRAMIENTA NO SE REACOMODA.
+El marco de la herramienta es OTRO DOCUMENTO entero: cada píxel que cambia de
+ancho le obliga a recalcular su página completa — y al plegar la barra eso
+pasaba en CADA CUADRO de la animación. Es la parte cara de toda la maniobra, y
+se notaba justo cuando el logo empieza a viajar.
+
+Así que durante la maniobra se le fija el ancho que va a tener CON LA BARRA
+CERRADA, que es el mayor de los dos: al cerrar, el contenido se va descubriendo
+por la derecha; al abrir, la barra lo va tapando. Ni un recálculo. Congelarlo en
+el más estrecho dejaría un hueco a la derecha. Al terminar se le devuelve el
+ancho automático y se reacomoda UNA vez. */
+// Partida en dos por lo mismo que medirVuelo: la que LEE va antes que todas
+// las escrituras de la maniobra, y así el navegador recalcula la página UNA
+// vez en total y no una por cada cosa que le preguntamos.
+function anchoCongelado() {
+    if (frameWrap.hidden || !frameWrap.clientWidth) return 0;
+    const caja = rail.getBoundingClientRect();
+    const extra = caja.width > 1
+        ? enPxCss(caja.width) + (parseFloat(getComputedStyle(rail).marginLeft) || 0)
+        : 0;
+    return Math.round(frameWrap.clientWidth + extra);
+}
+
+function congelarHerramienta(ancho) {
+    if (!(ancho > 0)) return;
+    panelesVivos().forEach((p) => { if (p && !p.esVista && p.el) p.el.style.width = `${ancho}px`; });
+}
+
+function descongelarHerramienta() {
+    panelesVivos().forEach((p) => { if (p && !p.esVista && p.el) p.el.style.width = ''; });
+}
+
 let railTimer;
 let railTragar;
+let railDeshielo;   // cuándo se le devuelve el ancho automático a la herramienta
+
+// Lo que tarda la barra en encogerse o abrirse (los .28s del CSS) más margen:
+// es el rato durante el cual la herramienta va con el ancho congelado.
+const ENCOGE_MS = 280 + 120;
 
 function pintarLogo() {
     const plegado = railPlegado();
@@ -421,10 +470,19 @@ function plegarRail() {
     // El logo da el respingo cuando le está entrando el primer botón, no antes.
     railTragar = setTimeout(() => logoBtn.classList.add('traga'), VUELO_MS * 0.55);
     railTimer = setTimeout(() => {
+        // La herramienta se congela JUSTO AQUÍ y no antes: mientras los botones
+        // vuelan no cambia de tamaño nada, así que congelarla desde el
+        // principio solo le costaría un reacomodo de balde. Se mide con la
+        // barra todavía abierta —es cuando se sabe cuánto va a liberar— y se
+        // escribe después, para que el navegador recalcule una sola vez.
+        const ancho = anchoCongelado();
         shell.classList.remove('plegando');
         logoBtn.classList.remove('traga');
+        congelarHerramienta(ancho);
         shell.classList.add('rail-plegado');   // ahora sí: la barra se encoge
         pintarLogo();
+        clearTimeout(railDeshielo);
+        railDeshielo = setTimeout(descongelarHerramienta, ENCOGE_MS);
     }, VUELO_MS + n * PASO_MS);
 }
 
@@ -432,7 +490,11 @@ function desplegarRail() {
     // Vale también a media entrada: si te arrepientes mientras los botones se
     // están metiendo, salen de vuelta en lugar de dejarte esperando.
     if (!railPlegado() && !shell.classList.contains('plegando')) return;
-    clearTimeout(railTimer); clearTimeout(railTragar);
+    clearTimeout(railTimer); clearTimeout(railTragar); clearTimeout(railDeshielo);
+    // Aquí sí desde el primer instante: al desplegar, la barra empieza a
+    // abrirse ya (el hueco primero, los botones después).
+    congelarHerramienta(anchoCongelado());
+    railDeshielo = setTimeout(descongelarHerramienta, ENCOGE_MS);
     shell.classList.remove('rail-plegado', 'plegando');   // la barra se abre…
     shell.classList.add('desplegando');                   // …y los botones brotan del logo
     logoBtn.classList.remove('traga');
@@ -448,7 +510,8 @@ function desplegarRail() {
 // Sin animación: para cuando la vista cambia sola (Inicio no tiene encabezado
 // donde parar el logo, así que ahí la barra siempre va abierta).
 function restablecerRail() {
-    clearTimeout(railTimer); clearTimeout(railTragar);
+    clearTimeout(railTimer); clearTimeout(railTragar); clearTimeout(railDeshielo);
+    descongelarHerramienta();
     shell.classList.remove('rail-plegado', 'plegando', 'desplegando');
     logoBtn.classList.remove('traga', 'suelta');
 }
