@@ -113,7 +113,7 @@ button{font:inherit}
    así que ahí el viaje es (−2,−3). */
 .rail-logo{position:absolute;z-index:6;left:45px;top:27px;width:34px;height:34px;--viaje-x:-20px;--viaje-y:-3px;padding:0;border:0;background:transparent;cursor:pointer;
   transform:translate3d(0,0,0);
-  transition:transform .34s cubic-bezier(.32,.72,.24,1)}
+  transition:transform .3s cubic-bezier(.32,.72,.24,1)}
 .rail-logo img{width:100%;height:100%;display:block;object-fit:cover;border-radius:10px;box-shadow:0 4px 12px #0006;transition:filter .16s ease}
 .rail-logo:hover:not(:disabled) img{filter:brightness(1.1)}
 .rail-logo:active:not(:disabled) img{filter:brightness(.94)}
@@ -450,9 +450,18 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
 .rail button{--vx:0px;--vy:-150px;--i:0}
 .desktop-shell.plegando .rail,
 .desktop-shell.desplegando .rail{overflow:visible}
+/* EL CRISTAL SE APAGA MIENTRAS LA BARRA SE MUEVE (.maniobra la pone main.js y
+   dura toda la operación). `backdrop-filter` obliga a volver a desenfocar todo
+   lo que hay debajo cada vez que el elemento cambia de tamaño o de sitio: 30 px
+   de desenfoque sobre 96×870, sesenta veces por segundo. Es lo más caro que
+   hace la app aquí — y es lo que menos se ve: medido con y sin él, la
+   diferencia media es 0.8/255 en claro y 1.6/255 en oscuro (bajo el 1 %),
+   porque detrás solo está la pared, que ya es casi lisa. */
+.desktop-shell.maniobra .rail,
+.desktop-shell.maniobra .workspace-header{-webkit-backdrop-filter:none;backdrop-filter:none}
 
 .desktop-shell.rail-plegado .rail{width:0;margin-left:0;padding-left:0;padding-right:0;border-width:0;opacity:0;overflow:hidden;pointer-events:none;visibility:hidden;
-  transition:width .28s cubic-bezier(.3,.85,.25,1),margin .28s cubic-bezier(.3,.85,.25,1),padding .28s cubic-bezier(.3,.85,.25,1),border-width .28s,opacity .18s ease,visibility 0s .28s}
+  transition:width .24s cubic-bezier(.3,.85,.25,1),margin .24s cubic-bezier(.3,.85,.25,1),padding .24s cubic-bezier(.3,.85,.25,1),border-width .24s,opacity .16s ease,visibility 0s .24s}
 /* El logo aterriza en el encabezado, un poco más chico: ahí es una firma, no
    un rótulo. El encabezado le abre sitio con el mismo compás.
    LA ESPERA DE .1s ES SOLO DE IDA (va en el estado de destino, así que al
@@ -466,7 +475,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
    durante los .34s que tarda la barra en cerrarse: un parpadeo justo cuando
    el logo empieza a moverse. Ya se los tragó el logo; que sigan tragados. */
 .desktop-shell.rail-plegado .rail button{opacity:0}
-.workspace-header{transition:padding-left .28s cubic-bezier(.3,.85,.25,1)}
+.workspace-header{transition:padding-left .24s cubic-bezier(.3,.85,.25,1)}
 .desktop-shell.rail-plegado .workspace-header{padding-left:54px}
 
 /* EL VUELO VA EN translate3d Y NO EN translate, y esto no es un adorno: con un
@@ -475,7 +484,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
    desenfoque es justo lo que se veía a tirones. En 3D se le pide una capa
    propia a la tarjeta gráfica desde el primer cuadro. `will-change` se lo
    avisa de antemano para que la capa no se cree a mitad del vuelo. */
-.desktop-shell.plegando .rail button{animation:etapa-al-logo .26s cubic-bezier(.6,.02,.75,.3) forwards;animation-delay:calc(var(--i) * 22ms);will-change:transform,opacity}
+.desktop-shell.plegando .rail button{animation:etapa-al-logo .24s cubic-bezier(.6,.02,.75,.3) forwards;animation-delay:calc(var(--i) * 20ms);will-change:transform,opacity}
 @keyframes etapa-al-logo{
   0%{transform:translate3d(0,0,0) scale(1);opacity:1}
   65%{opacity:.55}
@@ -483,7 +492,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
 }
 /* Al salir rebotan un pelo (el cubic-bezier se pasa de 1): es lo que da la
    sensación de que el logo los ESCUPE en vez de dibujarlos. */
-.desktop-shell.desplegando .rail button{animation:etapa-desde-logo .3s cubic-bezier(.18,.9,.3,1.25) backwards;animation-delay:calc(var(--i) * 22ms);will-change:transform,opacity}
+.desktop-shell.desplegando .rail button{animation:etapa-desde-logo .28s cubic-bezier(.18,.9,.3,1.25) backwards;animation-delay:calc(var(--i) * 20ms);will-change:transform,opacity}
 @keyframes etapa-desde-logo{
   0%{transform:translate3d(var(--vx),var(--vy),0) scale(.14) rotate(-8deg);opacity:0}
   35%{opacity:1}

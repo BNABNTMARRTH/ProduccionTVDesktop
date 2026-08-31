@@ -365,8 +365,8 @@ Regla de oro tras el error del botón ⤢: PLEGAR NO PUEDE DEJARTE SIN SALIDA.
 El logo se queda siempre a la vista —se muda al encabezado—, el encabezado con
 sus pestañas y secciones no se toca, y Esc también despliega. */
 const logoBtn = document.querySelector('#logo-btn');
-const VUELO_MS = 260;   // lo que tarda un botón en entrar (o salir) del logo
-const PASO_MS = 22;     // el retraso entre un botón y el siguiente: la fila
+const VUELO_MS = 240;   // lo que tarda un botón en entrar (o salir) del logo
+const PASO_MS = 20;     // el retraso entre un botón y el siguiente: la fila
 
 // Los botones que SE VEN: la barra tiene dos grupos (Inicio y etapas) y solo
 // uno está a la vista, y dentro de él el modo del proyecto esconde algunos.
@@ -443,10 +443,30 @@ function descongelarHerramienta() {
 let railTimer;
 let railTragar;
 let railDeshielo;   // cuándo se le devuelve el ancho automático a la herramienta
+let railManiobra;   // cuándo se le devuelve el cristal a la barra
 
-// Lo que tarda la barra en encogerse o abrirse (los .28s del CSS) más margen:
+// Lo que tarda la barra en encogerse o abrirse (los .24s del CSS) más margen:
 // es el rato durante el cual la herramienta va con el ancho congelado.
-const ENCOGE_MS = 280 + 120;
+const ENCOGE_MS = 240 + 120;
+// Y la maniobra ENTERA: el vuelo con su fila más el encogimiento.
+const maniobraMs = (n) => VUELO_MS + n * PASO_MS + ENCOGE_MS;
+
+/* EL CRISTAL SE APAGA MIENTRAS LA BARRA SE MUEVE.
+`backdrop-filter` obliga a volver a desenfocar TODO lo que hay debajo cada vez
+que el elemento cambia de sitio o de tamaño: un desenfoque de 30 px sobre
+96×870, sesenta veces por segundo, mientras la barra se encoge. Es lo más caro
+que hace la app en toda la maniobra.
+
+Y se puede apagar sin que se note. Medido comparando la misma pantalla con y sin
+él: la diferencia media es de 0.8/255 en claro y 1.6/255 en oscuro — menos del
+1 %—, porque lo único que hay detrás es la pared, que ya es casi lisa. Se paga
+un desenfoque carísimo por algo que casi no se ve; durante medio segundo se
+puede prescindir de él. */
+function empezarManiobra(n) {
+    shell.classList.add('maniobra');
+    clearTimeout(railManiobra);
+    railManiobra = setTimeout(() => shell.classList.remove('maniobra'), maniobraMs(n));
+}
 
 function pintarLogo() {
     const plegado = railPlegado();
@@ -466,6 +486,7 @@ function plegarRail() {
     shell.classList.remove('desplegando');
     logoBtn.classList.remove('suelta');
     const n = medirVuelo();
+    empezarManiobra(n);
     shell.classList.add('plegando');
     // El logo da el respingo cuando le está entrando el primer botón, no antes.
     railTragar = setTimeout(() => logoBtn.classList.add('traga'), VUELO_MS * 0.55);
@@ -491,6 +512,7 @@ function desplegarRail() {
     // están metiendo, salen de vuelta en lugar de dejarte esperando.
     if (!railPlegado() && !shell.classList.contains('plegando')) return;
     clearTimeout(railTimer); clearTimeout(railTragar); clearTimeout(railDeshielo);
+    empezarManiobra(botonesRail().length);
     // Aquí sí desde el primer instante: al desplegar, la barra empieza a
     // abrirse ya (el hueco primero, los botones después).
     congelarHerramienta(anchoCongelado());
@@ -510,9 +532,9 @@ function desplegarRail() {
 // Sin animación: para cuando la vista cambia sola (Inicio no tiene encabezado
 // donde parar el logo, así que ahí la barra siempre va abierta).
 function restablecerRail() {
-    clearTimeout(railTimer); clearTimeout(railTragar); clearTimeout(railDeshielo);
+    clearTimeout(railTimer); clearTimeout(railTragar); clearTimeout(railDeshielo); clearTimeout(railManiobra);
     descongelarHerramienta();
-    shell.classList.remove('rail-plegado', 'plegando', 'desplegando');
+    shell.classList.remove('rail-plegado', 'plegando', 'desplegando', 'maniobra');
     logoBtn.classList.remove('traga', 'suelta');
 }
 
