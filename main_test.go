@@ -265,8 +265,65 @@ func TestClaveVentanaSeparaProyectoDeModulo(t *testing.T) {
 	if got := claveVentana("project-x", "guionLiterario"); got != "project-x__guionLiterario" {
 		t.Fatalf("ventana de módulo: %q", got)
 	}
-	if got := claveVentana("", "guionLiterario"); got != "" {
-		t.Fatalf("sin proyecto no hay clave: %q", got)
+	// Sin proyecto es la ventana de INICIO, y también se anota: desde que
+	// Inicio se convierte en el proyecto no queda un lanzador padre al que
+	// volver, así que hay que poder encontrar la ventana de Inicio que exista.
+	if got := claveVentana("", ""); got != claveInicio {
+		t.Fatalf("ventana de Inicio: %q", got)
+	}
+	if got := claveVentana("", "guionLiterario"); got != claveInicio {
+		t.Fatalf("un módulo sin proyecto no existe: es Inicio, no una clave a medias: %q", got)
+	}
+	// La clave de Inicio no puede chocar nunca con un id de proyecto: los
+	// genera uid() y siempre empiezan por "project-".
+	if !strings.HasPrefix(claveInicio, "_") {
+		t.Fatalf("la clave reservada tiene que empezar por _ : %q", claveInicio)
+	}
+}
+
+func TestInicioNoCuentaComoProyectoAbierto(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if err := os.WriteFile(windowMarkPath(claveInicio), []byte(strconv.Itoa(os.Getpid())), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	original := procesoVivo
+	procesoVivo = func(int) bool { return true }
+	defer func() { procesoVivo = original }()
+	// La marca está VIVA, así que no se barre: si Inicio contara como
+	// proyecto, el lanzador pintaría una tarjeta fantasma.
+	if abiertos := NewApp("", "", "", "").ListOpenProjects(); len(abiertos) != 0 {
+		t.Fatalf("Inicio no es un proyecto, y quedó %v", abiertos)
+	}
+}
+
+func TestListOpenToolsSoloDevuelveModulosVivosDeSuProyecto(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	// "Vivo" de verdad significa "hay una app NUESTRA con ese pid" (ver
+	// pidAlive), y el binario de pruebas no es una app registrada: ni su
+	// propio pid pasaría. Se sustituye la pregunta, que para eso existe.
+	original := procesoVivo
+	procesoVivo = func(pid int) bool { return pid != 999999 }
+	defer func() { procesoVivo = original }()
+	vivo := strconv.Itoa(os.Getpid())
+	marcas := map[string]string{
+		"project-x__escaleta":  vivo,
+		"project-x__diagrama":  vivo,
+		"project-x__exportar":  "999999", // muerto: se barre
+		"project-y__escaleta":  vivo,     // de OTRO proyecto
+		"project-x":            vivo,     // la ventana del proyecto, no un módulo
+		claveInicio:            vivo,
+	}
+	for clave, pid := range marcas {
+		if err := os.WriteFile(windowMarkPath(clave), []byte(pid), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := NewApp("", "", "", "").ListOpenTools("project-x")
+	if len(got) != 2 || got[0] != "diagrama" || got[1] != "escaleta" {
+		t.Fatalf("módulos en ventana de project-x = %v, se esperaba [diagrama escaleta]", got)
+	}
+	if NewApp("", "", "", "").ListOpenTools("") != nil && len(NewApp("", "", "", "").ListOpenTools("")) != 0 {
+		t.Fatalf("sin proyecto no hay módulos")
 	}
 }
 

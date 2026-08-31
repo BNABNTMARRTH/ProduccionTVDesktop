@@ -2,7 +2,7 @@ import './style.css';
 import html2canvas from 'html2canvas';
 import appIcon from './assets/images/produccion-tv-256.png';
 import { icono } from './iconos.js';
-import { CloseWindow, DeleteProjectFile, DeleteTrashFile, FocusLauncher, FocusProjectWindow, GetLaunchContext, ListOpenProjects, ListTrashFiles, LoadAllProjects, LoadProjectFile, LoadSettings, OpenProjectWindow, OpenToolWindow, Print, ReadTrashFile, SaveBase64File, SaveProjectFile, SaveSettings, SaveTextFile, SetWindowTitle, WatchProject } from '../wailsjs/go/main/App';
+import { ClaimProject, CloseWindow, DeleteProjectFile, DeleteTrashFile, FocusLauncher, FocusProjectWindow, FocusToolWindow, GetLaunchContext, ListOpenProjects, ListOpenTools, ListTrashFiles, LoadAllProjects, LoadProjectFile, LoadSettings, OpenProjectWindow, OpenToolWindow, Print, ReadTrashFile, SaveBase64File, SaveProjectFile, SaveSettings, SaveTextFile, SetWindowTitle, WatchProject } from '../wailsjs/go/main/App';
 import { EventsOn, WindowIsFullscreen, WindowUnfullscreen } from '../wailsjs/runtime/runtime';
 import { makeTemplate, diagramFromConfig, infografiaFromDiagram, uid, PROJECT_MODES, normalizeMode } from './templates.js';
 import { createProductionView } from './production.js';
@@ -535,6 +535,12 @@ function renderModo() {
         const etapa = etapaPorId(b.dataset.etapa);
         b.hidden = etapaOculta(etapa, modo);
         b.classList.toggle('done', !!ETAPA_LISTA[b.dataset.etapa]?.(latestInfografia, latestDiagram));
+        // Una etapa cuyas secciones se fueron TODAS a otras ventanas sigue en
+        // la barra —picarla te lleva a esa ventana— pero se ve apagada, para
+        // que no parezca que aquí hay algo que no hay.
+        const fuera = !!etapa && seccionesDe(etapa, modo).every(([v]) => modulosEnVentana.has(v));
+        b.classList.toggle('fuera', fuera);
+        b.title = fuera ? `${etapa.ayuda} · abierto en otra ventana` : (etapa?.ayuda || '');
     });
 }
 
@@ -554,7 +560,7 @@ function renderNav() {
     // La barra de secciones es del recorrido por etapas: solo la pestaña
     // Proyecto la usa. Y las secciones ya desancladas salen de la lista.
     const enPrincipal = pestanas.activa === PRINCIPAL;
-    const visibles = lista.filter(([v]) => !pestanas.tiene(v));
+    const visibles = lista.filter(([v]) => !pestanas.tiene(v) && !modulosEnVentana.has(v));
     if (!etapa || visibles.length < 2 || header.hidden || !enPrincipal) { secciones.hidden = true; marcarDesborde(); return; }
     const rot = SECCION_ETIQUETAS[modo] || {};
     secciones.hidden = false;
@@ -680,11 +686,29 @@ async function dejarPantallaCompleta() {
 // trabajo quedaba repartido en dos. OpenProjectWindow devuelve true cuando
 // realmente abrió una ventana nueva, para poder decir cuál de las dos pasó.
 async function launchProjectWindow(id) {
-    localStorage.setItem(ACTIVE_KEY, id);
     const project = projects.find((item) => item.id === id);
     if (!project) { showToast('El proyecto solicitado ya no existe', true); return; }
-    // Vale igual si abre una ventana nueva o trae al frente la que ya estaba:
-    // en los dos casos hay que estar en el mismo escritorio para verla.
+    localStorage.setItem(ACTIVE_KEY, id);
+    /* COMO LA PANTALLA DE INICIO DE WORD: esta MISMA ventana se convierte en el
+    proyecto. No nace una ventana nueva, y eso resuelve de raíz lo de pantalla
+    completa —macOS le da a cada ventana a pantalla completa un escritorio
+    propio, y la nueva nacía en otro, donde no se veía: parecía que el proyecto
+    se había abierto "en segundo plano"—. Ahora el proyecto ocupa la pantalla al
+    instante, sin salir de pantalla completa ni cambiar de escritorio.
+    Para volver a Inicio, el botón del nombre llama una ventana NUEVA en ese
+    estado (ver irAInicio), que es también lo que hace Word. */
+    if (shell.classList.contains('launcher-window')) {
+        const tomada = await conGo(ClaimProject, id, JSON.stringify(project));
+        if (tomada) { montarProyecto(project); return; }
+        // Ese proyecto ya vive en otra ventana y Go la trajo al frente. Aquí no
+        // pasa nada: dos ventanas sobre el mismo .ptv se pisan el trabajo.
+        showToast(`“${project.name}” ya estaba abierto: te llevé a esa ventana`);
+        refrescarAbiertos();
+        return;
+    }
+    /* Desde una ventana que YA tiene proyecto —pasa al abrir un .ptv con doble
+    clic en Finder mientras trabajas— el proyecto nuevo va a su propia ventana:
+    convertir ésta te dejaría sin lo que estabas haciendo. */
     await dejarPantallaCompleta();
     try {
         const abrioNueva = await OpenProjectWindow(id, JSON.stringify(project));
@@ -772,6 +796,36 @@ async function refrescarAbiertos({ redibujar = true } = {}) {
     const igual = nuevo.size === proyectosAbiertos.size && [...nuevo].every((id) => proyectosAbiertos.has(id));
     proyectosAbiertos = nuevo;
     if (redibujar && !igual && activeView === 'home') renderRecent();
+}
+
+/* ---- QUÉ MÓDULOS SE FUERON A SU PROPIA VENTANA --------------------------
+Un módulo que ya vive en otra ventana NO puede seguir estando también en el
+recorrido de ésta. Si sigue, hay dos copias vivas del mismo documento y se
+pisan entre sí — que es exactamente el fallo que dejaba inservible desanclar
+(ver "quien no se ve, no escribe" en el manejador de mensajes) y que volvía a
+entrar por la puerta de las ventanas: sacabas el Guion a su ventana y el Guion
+seguía ahí, en la barra de secciones de la ventana principal.
+
+Así que desaparece de aquí —de la barra de secciones y del menú del "+"— y
+navegar hacia él trae al frente SU ventana en vez de montarlo otra vez.
+
+Quién lo sabe: Go, que lleva el registro de ventanas; los procesos no se
+conocen entre sí. Se vuelve a preguntar al recuperar el foco, que es cuando
+puede haberse cerrado esa ventana y toca devolver el módulo al recorrido. */
+let modulosEnVentana = new Set();
+
+async function refrescarModulosEnVentana() {
+    if (!activeProject
+        || !shell.classList.contains('project-window')
+        || shell.classList.contains('tool-window')) return;
+    const vistas = (await conGo(ListOpenTools, activeProject.id)) || [];
+    const nuevo = new Set(vistas);
+    const igual = nuevo.size === modulosEnVentana.size && [...nuevo].every((v) => modulosEnVentana.has(v));
+    if (igual) return;
+    modulosEnVentana = nuevo;
+    // Si lo que estabas viendo acaba de irse a su ventana, hay que moverse.
+    if (modulosEnVentana.has(vistaVisible())) selectView(vistaHermana(vistaVisible()));
+    else pintarEspacio();
 }
 
 // Miniatura de un proyecto: su plano cenital REAL, dibujado por el mismo
@@ -946,7 +1000,7 @@ const production = createProductionView({
     getProject: () => activeProject,
     getInfografia: () => latestInfografia,
     getDiagram: () => latestDiagram,
-    onGoHome: () => selectView('home'),
+    onGoHome: () => irAInicio(),
     onEnsayo: () => marcaHito('ensayado'),
 });
 
@@ -1147,6 +1201,20 @@ function activarPestana(id) {
     ponerAlDia(panel, id);
 }
 
+/* A DÓNDE CAER cuando la vista que estabas mirando deja de estar disponible
+—porque se desancló a una pestaña o se fue a su propia ventana—. Primero una
+hermana de su misma etapa, que es lo menos desorientador; si la etapa entera se
+vació, la primera vista libre del recorrido. Antes esto caía a 'perfil' a
+secas, y si perfil también estaba desanclado se montaba dos veces. */
+function vistaHermana(vista) {
+    const modo = normalizeMode(latestInfografia?.modo);
+    const libre = (v) => v !== vista && !pestanas.tiene(v) && !modulosEnVentana.has(v);
+    const etapa = etapaPorId(ETAPA_DE_VISTA[vista]);
+    return seccionesDe(etapa, modo).map(([v]) => v).find(libre)
+        || ETAPAS.filter((e) => !etapaOculta(e, modo)).flatMap((e) => seccionesDe(e, modo).map(([v]) => v)).find(libre)
+        || 'perfil';
+}
+
 // DESANCLAR: el módulo sale del recorrido por etapas y se queda en su propia
 // pestaña. Si ya estaba desanclado, simplemente se va a esa pestaña.
 function desanclar(vista) {
@@ -1158,10 +1226,7 @@ function desanclar(vista) {
     }
     // La pestaña Proyecto se queda en la sección hermana, no en un hueco.
     if (activeView === vista) {
-        const etapa = etapaPorId(ETAPA_DE_VISTA[vista]);
-        const modo = normalizeMode(latestInfografia?.modo);
-        const hermana = seccionesDe(etapa, modo).map(([v]) => v).find((v) => v !== vista && !pestanas.tiene(v));
-        activeView = hermana || 'perfil';
+        activeView = vistaHermana(vista);
         cargarEnPrincipal(activeView);
     }
     activarPestana(vista);
@@ -1197,8 +1262,15 @@ async function sacarAVentana(vista) {
     activarPestana(PRINCIPAL);
     try {
         const abrioNueva = await OpenToolWindow(activeProject.id, vista, JSON.stringify(activeProject));
+        /* Y AQUÍ DESAPARECE DE ESTA VENTANA. Se apunta al momento, sin esperar
+        a preguntarle a Go: la ventana nueva tarda un instante en anotarse en el
+        registro, y en ese hueco el módulo volvería a asomarse en la barra de
+        secciones. Al recuperar el foco se coteja con Go y se corrige solo. */
+        modulosEnVentana.add(vista);
+        if (vistaVisible() === vista) selectView(vistaHermana(vista));
+        else pintarEspacio();
         showToast(abrioNueva
-            ? `“${etiquetaModulo(vista)}” se abrió en su propia ventana`
+            ? `“${etiquetaModulo(vista)}” se abrió en su propia ventana y salió de ésta`
             : `“${etiquetaModulo(vista)}” ya tenía ventana: te llevé a ella`);
     } catch (error) {
         showToast(error?.message || 'No se pudo abrir la ventana del módulo', true);
@@ -1211,7 +1283,7 @@ function menuDeModulos(ancla) {
     document.querySelector('.menu-modulos')?.remove();
     const modo = normalizeMode(latestInfografia?.modo);
     const disponibles = DESANCLABLES
-        .filter((v) => !pestanas.tiene(v))
+        .filter((v) => !pestanas.tiene(v) && !modulosEnVentana.has(v))
         .filter((v) => !etapaOculta(etapaPorId(ETAPA_DE_VISTA[v]), modo));
     if (!disponibles.length) { showToast('Ya están desanclados todos los módulos'); return; }
     const menu = document.createElement('div');
@@ -1254,8 +1326,16 @@ function selectView(view, forceReload = false) {
     // narrativo el Ensayo en vivo no existe; que ⌘6 lo abriera igual —y de
     // paso encendiera en la barra un botón oculto— era eso, una puerta trasera.
     if (etapaOculta(etapaPorId(ETAPA_DE_VISTA[view]), normalizeMode(latestInfografia?.modo))) return;
-    // Si ese módulo ya vive en su propia pestaña, navegar hacia él es ir a esa
-    // pestaña: no tiene caso montarlo dos veces.
+    // Si ese módulo ya vive en su propia VENTANA, navegar hacia él es ir a esa
+    // ventana. Montarlo aquí otra vez sería tener dos copias del mismo
+    // documento peleándose, que es justo lo que se quiso evitar al sacarlo.
+    if (modulosEnVentana.has(view)) {
+        conGo(FocusToolWindow, activeProject?.id || '', view);
+        showToast(`“${etiquetaModulo(view)}” está en su propia ventana: te llevé a ella`);
+        return;
+    }
+    // Si ya vive en su propia pestaña, navegar hacia él es ir a esa pestaña:
+    // no tiene caso montarlo dos veces.
     if (pestanas.tiene(view)) { activarPestana(view); return; }
     if (pestanas.activa !== PRINCIPAL) pestanas.activar(PRINCIPAL);
     activeView = view;
@@ -1464,9 +1544,20 @@ frame.addEventListener('load', () => {
     ajustes.mandarA(frame.contentWindow);
     setTimeout(() => hidratarPanel(panelPrincipal, activeView), 80);
 });
+/* CADA ETAPA RECUERDA EN QUÉ SECCIÓN LA DEJASTE — salvo que esa sección se
+haya ido a su propia ventana. Si no, picar la etapa te sacaba SIEMPRE a la otra
+ventana y no había manera de llegar a las secciones que sí siguen aquí: en
+Necesidades, con la Ruta de señal fuera, no se podía volver a Personas y equipo.
+Cuando TODAS se fueron sí se va a la otra ventana, que es lo único que queda. */
 railButtons.forEach((button) => button.onclick = () => {
     const etapa = etapaPorId(button.dataset.etapa);
-    if (etapa) selectView(ultimaSeccion[etapa.id] || primeraVista(etapa, normalizeMode(latestInfografia?.modo)));
+    if (!etapa) return;
+    const modo = normalizeMode(latestInfografia?.modo);
+    const aqui = (v) => !!v && !modulosEnVentana.has(v);
+    const recordada = ultimaSeccion[etapa.id];
+    const lista = seccionesDe(etapa, modo).map(([v]) => v);
+    selectView((aqui(recordada) && recordada) || lista.find(aqui)
+        || recordada || primeraVista(etapa, modo));
 });
 document.querySelector('#desanclar-btn').onclick = () => desanclar(vistaVisible());
 renderRecent();
@@ -1482,15 +1573,20 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) revi
 // la ventana que ya estaba abierta se quedaba como estaba y, en cuanto tocabas
 // cualquier ajuste aquí, escribía encima y se perdía el cambio de la otra.
 window.addEventListener('focus', () => ajustes.sincronizar());
+// Y qué módulos siguen en su propia ventana: si una se cerró, su módulo vuelve
+// solo al recorrido de esta ventana.
+window.addEventListener('focus', () => refrescarModulosEnVentana());
 
 document.querySelector('#new-project-focus').onclick = () => nuevoProyecto.open();
 document.querySelector('[data-accion="nuevo"]').onclick = () => nuevoProyecto.open();
 document.querySelector('[data-accion="proyectos"]').onclick = () => selectView('home');
 document.querySelector('[data-accion="plantillas"]').onclick = () => selectView('plantillas');
 document.querySelector('#tpl-vacio').onclick = () => nuevoProyecto.open();
-/* EL NOMBRE DEL PROYECTO funciona como la pestaña Archivo de Word: desde una
-ventana de proyecto trae al frente la ventana ORIGINAL de Inicio (el lanzador),
-no una copia; si ya se cerró, Go abre una nueva.
+/* EL NOMBRE DEL PROYECTO funciona como la pestaña Archivo de Word: te devuelve
+a Inicio. Y como en Word, Inicio viene en una VENTANA NUEVA —esta ventana era
+Inicio y se convirtió en el proyecto, así que no hay ninguna esperando detrás—.
+Si ya tuvieras otra ventana de Inicio abierta, se trae ésa al frente en vez de
+abrir una tercera (ver FocusLauncher en app.go).
 
 EN PANTALLA COMPLETA NO HACÍA NADA, y no era culpa del botón: macOS le da a
 cada ventana a pantalla completa un ESCRITORIO propio, y traer al frente una
@@ -1797,6 +1893,63 @@ async function volverAlProyecto() {
     conGo(CloseWindow);
 }
 
+/* -------- CONVERTIR ESTA VENTANA EN LA VENTANA DE UN PROYECTO --------
+Pasa por dos caminos y tiene que hacer exactamente lo mismo en los dos:
+  · al arrancar, cuando la ventana nace ya con un proyecto (--project=…), y
+  · en caliente, cuando la ventana de INICIO se convierte en el proyecto al
+    picarle a su tarjeta (ver launchProjectWindow).
+Estaba escrito solo para el primero, dentro de initializeWindow; sacarlo aquí
+es lo que permite el segundo sin tener dos copias que se separen. */
+
+// El proyecto pasa a ser EL de esta ventana (memoria, caché y disco).
+function adoptarProyecto(project) {
+    projects = [project, ...projects.filter((item) => item.id !== project.id)];
+    persistProjects();
+    saveProjectToDisk(project);
+    activeProject = project;
+    activeProjectId = project.id;
+    latestInfografia = project.cfg;
+    latestDiagram = project.diagram || diagramFromConfig(project.cfg);
+    localStorage.setItem(ACTIVE_KEY, project.id);
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(latestInfografia));
+    localStorage.setItem(DIAGRAM_KEY, JSON.stringify(latestDiagram));
+    if (welcomeOverlay && document.body.contains(welcomeOverlay)) welcomeOverlay.remove();
+    // Las dos ventanas —la del proyecto y la de un módulo desanclado— escriben
+    // el mismo .ptv. Vigilarlo es lo que hace que una se entere de lo que
+    // guardó la otra sin tener que hacerle clic.
+    conGo(WatchProject, project.id);
+}
+
+// …y la ventana se viste de ventana de proyecto y abre por donde toca.
+function montarProyecto(project) {
+    adoptarProyecto(project);
+    shell.classList.remove('launcher-window');
+    shell.classList.add('project-window');
+    // El nombre del proyecto va en la barra de la ventana: con varias abiertas
+    // es lo único que las distingue en Mission Control y en el menú Ventana.
+    conGo(SetWindowTitle, project.name);
+    renderRecent();
+    // La primera ventana de proyecto arranca con el recorrido guiado, que
+    // conduce la navegación desde la etapa 1 (Perfil).
+    const primerRecorrido = !localStorage.getItem(TOUR_KEY);
+    // Los proyectos nuevos aterrizan en la escaleta/rundown (bandera
+    // cfg.abrirEnEscaleta, de un solo uso). El recorrido guiado, si es la
+    // primera vez, tiene prioridad y arranca en la vista por defecto.
+    const abrirEscaleta = !!latestInfografia?.abrirEnEscaleta;
+    if (abrirEscaleta) { latestInfografia = { ...latestInfografia }; delete latestInfografia.abrirEnEscaleta; }
+    selectView(!primerRecorrido && abrirEscaleta ? 'escaleta' : 'perfil', true);
+    if (primerRecorrido) {
+        localStorage.setItem(TOUR_KEY, '1');
+        // El recorrido señala los botones de etapa: si la barra quedó recogida
+        // dentro del logo, primero se abre.
+        setTimeout(() => { desplegarRail(); tour.start(); }, 450);
+    }
+    if (abrirEscaleta) scheduleSave();
+    // Al final, y no antes: si el módulo por el que abre resulta estar en otra
+    // ventana, esto lo detecta y se mueve al hermano.
+    refrescarModulosEnVentana();
+}
+
 /* ----------------------------- Arranque ----------------------------- */
 
 // Carga los proyectos desde ~/Documents/ProduccionTV (fuente de verdad). Si el
@@ -1844,56 +1997,20 @@ async function initializeWindow() {
             showToast('El proyecto solicitado ya no existe', true);
             return;
         }
-        projects = [project, ...projects.filter((item) => item.id !== project.id)];
-        persistProjects();
-        saveProjectToDisk(project);
-        activeProject = project;
-        activeProjectId = project.id;
-        latestInfografia = project.cfg;
-        latestDiagram = project.diagram || diagramFromConfig(project.cfg);
-        localStorage.setItem(ACTIVE_KEY, project.id);
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(latestInfografia));
-        localStorage.setItem(DIAGRAM_KEY, JSON.stringify(latestDiagram));
-        if (welcomeOverlay && document.body.contains(welcomeOverlay)) welcomeOverlay.remove();
-        // Las dos ventanas —la del proyecto y la de un módulo desanclado—
-        // escriben el mismo .ptv. Vigilarlo es lo que hace que una se entere
-        // de lo que guardó la otra sin tener que hacerle clic.
-        conGo(WatchProject, project.id);
-        /* Ventana de un módulo suelto: solo ese módulo y ya.
-        Se pregunta por DESANCLABLES y no por toolInfo, que es la lista de las
-        herramientas de iframe. El Ensayo se puede desanclar pero NO es un
-        iframe, así que no estaba en toolInfo: al sacarlo a su propia ventana
-        esta condición fallaba, la ventana se caía al camino de abajo y se
-        abría una SEGUNDA VENTANA COMPLETA del mismo proyecto —con su barra de
-        etapas, parada en Perfil— mientras el módulo se perdía por el camino.
-        Dos ventanas enteras escribiendo el mismo .ptv es justo lo que la app
-        se pasó semanas evitando. */
         if (context.mode === 'tool' && DESANCLABLES.includes(context.tool)) {
+            /* Ventana de un módulo suelto: solo ese módulo y ya.
+            Se pregunta por DESANCLABLES y no por toolInfo, que es la lista de
+            las herramientas de iframe. El Ensayo se puede desanclar pero NO es
+            un iframe, así que no estaba en toolInfo: al sacarlo a su propia
+            ventana esta condición fallaba, la ventana se caía al camino de
+            abajo y se abría una SEGUNDA VENTANA COMPLETA del mismo proyecto
+            —con su barra de etapas, parada en Perfil— mientras el módulo se
+            perdía por el camino. */
+            adoptarProyecto(project);
             montarVentanaDeModulo(context.tool);
             return;
         }
-        shell.classList.add('project-window');
-        // El nombre del proyecto va en la barra de la ventana: con varias
-        // abiertas es lo único que las distingue en Mission Control y en el
-        // menú Ventana (antes todas decían "Producción TV — Proyecto").
-        conGo(SetWindowTitle, project.name);
-        renderRecent();
-        // La primera ventana de proyecto arranca con el recorrido guiado, que
-        // conduce la navegación desde la etapa 1 (Perfil).
-        const primerRecorrido = !localStorage.getItem(TOUR_KEY);
-        // Los proyectos nuevos aterrizan en la escaleta/rundown
-        // (bandera cfg.abrirEnEscaleta, de un solo uso). El recorrido guiado, si
-        // es la primera vez, tiene prioridad y arranca en la vista por defecto.
-        const abrirEscaleta = !!latestInfografia?.abrirEnEscaleta;
-        if (abrirEscaleta) { latestInfografia = { ...latestInfografia }; delete latestInfografia.abrirEnEscaleta; }
-        selectView(!primerRecorrido && abrirEscaleta ? 'escaleta' : 'perfil', true);
-        if (primerRecorrido) {
-            localStorage.setItem(TOUR_KEY, '1');
-            // El recorrido señala los botones de etapa: si la barra quedó
-            // recogida dentro del logo, primero se abre.
-            setTimeout(() => { desplegarRail(); tour.start(); }, 450);
-        }
-        if (abrirEscaleta) scheduleSave();
+        montarProyecto(project);
         return;
     }
 

@@ -102,12 +102,23 @@ func windowsDir() (string, error) {
 	return dir, nil
 }
 
-// claveVentana identifica lo que ESTA ventana tiene abierto: el proyecto
-// entero, o un módulo suelto de ese proyecto. Los ids de proyecto los genera
-// uid() y nunca traen guiones bajos, así que "__" separa sin ambigüedad.
+/* claveVentana identifica lo que ESTA ventana tiene abierto: Inicio, un
+proyecto entero, o un módulo suelto de ese proyecto. Los ids de proyecto los
+genera uid() y siempre empiezan por "project-", así que "__" separa sin
+ambigüedad y el "_" del principio queda reservado para Inicio.
+
+La de Inicio se anota desde el 30-ago, cuando Inicio pasó a CONVERTIRSE en el
+proyecto (ver ClaimProject): ya no queda un lanzador padre al que volver, así
+que para regresar a Inicio hay que saber si existe una ventana de Inicio viva
+o hay que abrir una. */
+const claveInicio = "_inicio"
+
 func claveVentana(projectID, toolView string) string {
 	id := sanitizeProjectID(projectID)
-	if id == "" || toolView == "" {
+	if id == "" {
+		return claveInicio
+	}
+	if toolView == "" {
 		return id
 	}
 	return id + "__" + sanitizeProjectID(toolView)
@@ -231,18 +242,95 @@ func (a *App) ListOpenProjects() []string {
 			continue
 		}
 		pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
-		if err != nil || pid <= 0 || !processAlive(pid) {
+		if err != nil || pid <= 0 || !procesoVivo(pid) {
 			_ = os.Remove(path)
 			continue
 		}
 		// Un módulo suelto (proyecto__modulo) cuenta como que el proyecto
 		// está abierto: para el lanzador, la tarjeta se marca igual.
 		clave := strings.TrimSuffix(e.Name(), ".pid")
+		// Las claves reservadas (Inicio) no son proyectos.
+		if strings.HasPrefix(clave, "_") {
+			continue
+		}
 		if corte := strings.Index(clave, "__"); corte >= 0 {
 			clave = clave[:corte]
 		}
 		if !slices.Contains(out, clave) {
 			out = append(out, clave)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+/* ClaimProject: ESTA ventana deja de ser Inicio y pasa a ser la del proyecto.
+Es lo que hace que Inicio "se transforme" en el proyecto, como la pantalla de
+inicio de Word, en vez de abrir otra ventana detrás. La ganancia no es solo
+estética: al no nacer una ventana nueva, no hay que salir de pantalla completa
+—macOS le da a cada ventana a pantalla completa un escritorio propio, y la
+nueva nacía en otro, donde no se veía—.
+
+Devuelve false si ese proyecto YA está abierto en otra ventana; entonces esa se
+trae al frente y aquí no pasa nada, que es lo correcto: dos ventanas sobre el
+mismo .ptv se pisan el trabajo. */
+func (a *App) ClaimProject(projectID string, projectJSON string) bool {
+	id := sanitizeProjectID(projectID)
+	if id == "" {
+		return false
+	}
+	if a.FocusProjectWindow(id) {
+		return false
+	}
+	a.releaseWindow() // esta ventana deja de ser la de Inicio…
+	a.projectID = id
+	a.projectJSON = projectJSON
+	a.toolView = ""
+	a.registerWindow() // …y pasa a ser la del proyecto
+	return true
+}
+
+/* ListOpenTools dice qué módulos de un proyecto están abiertos en su propia
+ventana. La ventana del proyecto lo pregunta para SACARLOS de su recorrido: un
+módulo que ya vive en otra ventana no puede seguir estando también aquí, o
+vuelven a existir dos copias vivas del mismo documento peleándose — que es el
+fallo que se arregló el 29-ago con las pestañas y volvía por la puerta de las
+ventanas. */
+func (a *App) ListOpenTools(projectID string) []string {
+	out := []string{}
+	id := sanitizeProjectID(projectID)
+	if id == "" {
+		return out
+	}
+	dir, err := windowsDir()
+	if err != nil {
+		return out
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return out
+	}
+	prefijo := id + "__"
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".pid") {
+			continue
+		}
+		clave := strings.TrimSuffix(e.Name(), ".pid")
+		if !strings.HasPrefix(clave, prefijo) {
+			continue
+		}
+		path := filepath.Join(dir, e.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+		if err != nil || pid <= 0 || !procesoVivo(pid) {
+			_ = os.Remove(path)
+			continue
+		}
+		if vista := strings.TrimPrefix(clave, prefijo); vista != "" && !slices.Contains(out, vista) {
+			out = append(out, vista)
 		}
 	}
 	sort.Strings(out)
@@ -413,18 +501,19 @@ func (a *App) Print() {
 	runtime.WindowPrint(a.ctx)
 }
 
-// FocusLauncher trae al frente la ventana ORIGINAL de inicio, como la
-// pantalla de inicio de Word: el lanzador es el proceso padre que abrió esta
-// ventana de proyecto. Si el lanzador ya se cerró, se abre uno nuevo.
-// (En desarrollo, si la ventana se lanzó a mano desde una terminal, el padre
-// es el shell y se activaría la terminal; en el flujo real siempre es el
-// lanzador o la instancia que importó el .ptv.)
+/* FocusLauncher trae al frente una ventana de Inicio, y si no hay ninguna abre
+una nueva. Es lo que hace el botón del nombre del proyecto.
+
+Antes activaba el PROCESO PADRE, dando por hecho que el lanzador seguía vivo
+detrás. Desde que Inicio se convierte en el proyecto (ClaimProject) eso dejó de
+ser cierto: no queda ningún lanzador detrás, y el padre pasa a ser launchd —que
+existe siempre, así que se "activaba" y no pasaba nada—. Ahora se pregunta por
+el registro de ventanas, igual que para los proyectos.
+
+Word hace justo esto: la pantalla de inicio se convierte en tu documento, y si
+después quieres volver a inicio te da una ventana nueva en ese estado. */
 func (a *App) FocusLauncher() error {
-	// Mismo criterio que focusWindow: si el lanzador sigue vivo NO se abre
-	// otro, aunque macOS no nos deje traerlo al frente. Duplicarlo dejaba dos
-	// ventanas de Inicio compitiendo por la misma lista de proyectos.
-	if padre := os.Getppid(); procesoVivo(padre) {
-		traerAlFrente(padre)
+	if a.focusWindow(claveInicio) {
 		return nil
 	}
 	executable, err := os.Executable()
@@ -432,6 +521,7 @@ func (a *App) FocusLauncher() error {
 		return err
 	}
 	cmd := exec.Command(executable)
+	cmd.Env = os.Environ()
 	if err := cmd.Start(); err != nil {
 		return err
 	}

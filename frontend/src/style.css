@@ -128,6 +128,9 @@ button{font:inherit}
 .rail-num{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-size:9.5px;font-weight:700;font-style:normal;background:var(--vidrio-a);color:var(--tinta-baja);border:1px solid var(--vidrio-borde)}
 .rail button.active .rail-num{color:#fff;background:var(--gel);border-color:rgba(255,255,255,.7)}
 /* Etapa cumplida: paloma verde en la esquina del icono. */
+/* Etapa que se fue a otra ventana: sigue ahí y picarla te lleva allá, pero
+   apagada para que no parezca que aquí hay algo que no hay. */
+.rail button.fuera{opacity:.5}
 .rail button.done .rail-num{color:var(--tinta-baja);background:transparent;border:1.5px dashed rgba(23,21,18,.28)}
 
 .rail-sep{width:44px;height:1px;background:var(--linea);margin:9px 0 8px;flex:none}
