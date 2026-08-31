@@ -439,6 +439,59 @@ func (a *App) FocusLauncher() error {
 	return nil
 }
 
+/* --------------------------- Ajustes de la app ---------------------------
+Tamaño de la interfaz, contraste, movimiento y tema. Viven en un ARCHIVO y no
+en el localStorage del WebView, y la razón es la de siempre en esta app: CADA
+VENTANA ES UN PROCESO. Lo que una guarda en su almacenamiento, las otras no lo
+ven — y peor, la siguiente que guarde escribe encima con lo suyo, que está
+viejo. Era justo lo que pasaba: cambiabas el tamaño en Inicio, la ventana del
+proyecto seguía como estaba, y en cuanto tocabas cualquier ajuste ahí, el
+tamaño nuevo se perdía.
+
+El disco es la única verdad que comparten, igual que con los proyectos. Va en
+Application Support y no en la caché: la caché se puede vaciar sola, y perder
+el tamaño de letra que alguien necesita para poder leer no es un detalle. */
+
+// ajustesPath es la ruta del archivo de ajustes (creando su carpeta).
+func ajustesPath() (string, error) {
+	base, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(base, "ProduccionTV")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "ajustes.json"), nil
+}
+
+// LoadSettings devuelve los ajustes guardados ("" si todavía no hay).
+func (a *App) LoadSettings() (string, error) {
+	path, err := ajustesPath()
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", nil
+	}
+	return string(data), nil
+}
+
+// SaveSettings los escribe (primero a .tmp y luego rename, para que otra
+// ventana nunca lea un archivo a medio escribir).
+func (a *App) SaveSettings(content string) error {
+	path, err := ajustesPath()
+	if err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(content), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
 /* ------------------- Persistencia de proyectos en disco -------------------
 La fuente de verdad de los proyectos es ~/Documents/ProduccionTV: un archivo
 .ptv por proyecto (mismo paquete que exporta la app, compartible tal cual).

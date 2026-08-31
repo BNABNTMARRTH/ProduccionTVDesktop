@@ -83,7 +83,14 @@ export const escalaAplicada = () => Number(document.documentElement.style.zoom) 
    de la pantalla. */
 export const enPxCss = (medida) => medida / escalaAplicada();
 
-export function crearAjustes({ alAplicar } = {}) {
+/* `leerDeDisco` / `escribirEnDisco` los pone main.js con las funciones de Go.
+   Son opcionales: sin ellas (en las pruebas, o abriendo el HTML suelto) todo
+   sigue funcionando contra localStorage, solo que sin compartirse entre
+   ventanas. */
+export function crearAjustes({ alAplicar, leerDeDisco, escribirEnDisco } = {}) {
+    // Se arranca con lo que hay en localStorage —que es instantáneo y evita
+    // que la app parpadee al tamaño equivocado— y enseguida se coteja con el
+    // disco, que es la verdad compartida (ver sincronizar()).
     let a = leer();
 
     /* EL TEMA QUE SE ESTÁ VIENDO. Tres estados a propósito: sin elección manda
@@ -94,7 +101,31 @@ export function crearAjustes({ alAplicar } = {}) {
         || (prefiereOscuro() ? 'oscuro' : 'claro');
 
     function guardar() {
-        try { localStorage.setItem(LLAVE, JSON.stringify(a)); } catch { /* no persiste: se aplica igual */ }
+        const texto = JSON.stringify(a);
+        try { localStorage.setItem(LLAVE, texto); } catch { /* no persiste: se aplica igual */ }
+        // Y al disco, que es lo que ven las OTRAS ventanas.
+        escribirEnDisco?.(texto);
+    }
+
+    /* PONERSE AL DÍA CON LO QUE HAYA EN EL DISCO.
+       Cada ventana es un proceso con su propio almacenamiento: la que estaba
+       abierta no se entera de que otra cambió el tamaño, y en cuanto tocaba
+       cualquier ajuste escribía encima con lo suyo, que estaba viejo. Aquí se
+       lee el archivo y se adopta si trae algo distinto.
+       Se llama al arrancar y CADA VEZ QUE LA VENTANA RECIBE EL FOCO, que es
+       justo el momento en que el usuario vuelve a ella a mirar. */
+    async function sincronizar() {
+        if (!leerDeDisco) return;
+        let texto = '';
+        try { texto = (await leerDeDisco()) || ''; } catch { return; }
+        if (!texto) { escribirEnDisco?.(JSON.stringify(a)); return; }
+        let enDisco;
+        try { enDisco = normalizar(JSON.parse(texto)); } catch { return; }
+        if (JSON.stringify(enDisco) === JSON.stringify(a)) return;
+        a = enDisco;
+        try { localStorage.setItem(LLAVE, JSON.stringify(a)); } catch { /* da igual */ }
+        aplicar();
+        if (!capa.hidden) pinta();
     }
 
     // Una herramienta recién montada no sabe nada: hay que contárselo entero.
@@ -147,11 +178,20 @@ export function crearAjustes({ alAplicar } = {}) {
         ['Barra espaciadora', 'En Ensayo: arrancar y pausar el programa'],
     ];
 
-    const interruptor = (campo, valor, titulo, cuerpo) => {
-        const on = a[campo] === valor;
+    /* DOS COSAS DISTINTAS, y antes se sacaban de la misma cuenta:
+         · si el interruptor SE VE encendido  → ¿lo puesto es el valor de "sí"?
+         · qué PONE al picarlo                → lo contrario de lo que hay.
+       Se le pasaba un solo valor —el de destino— y el "encendido" se calculaba
+       comparando lo actual contra él, o sea contra lo que TODAVÍA no es: daba
+       falso siempre. El contraste alto se aplicaba de verdad, pero la palanca
+       se quedaba gris, y desde fuera eso se lee como "no registró el cambio".
+       Por eso se le dicen los dos valores por su nombre. */
+    const interruptor = (campo, siEncendido, siApagado, titulo, cuerpo) => {
+        const on = a[campo] === siEncendido;
+        const destino = on ? siApagado : siEncendido;
         return `
         <button class="aj-switch${on ? ' on' : ''}" role="switch" aria-checked="${on}"
-                data-campo="${campo}" data-valor="${valor}" data-foco="${campo}">
+                data-campo="${campo}" data-valor="${destino}" data-foco="${campo}">
           <span class="aj-switch-caja" aria-hidden="true"><i></i></span>
           <span class="aj-switch-txt"><strong>${esc(titulo)}</strong><small>${esc(cuerpo)}</small></span>
         </button>`;
@@ -189,9 +229,9 @@ export function crearAjustes({ alAplicar } = {}) {
               </div>
             </div>
 
-            ${interruptor('contraste', a.contraste === 'alto' ? 'normal' : 'alto', 'Contraste alto',
+            ${interruptor('contraste', 'alto', 'normal', 'Contraste alto',
                 'Quita el vidrio translúcido: fondos sólidos y bordes marcados, para ver dónde empieza y dónde acaba cada botón.')}
-            ${interruptor('movimiento', a.movimiento === 'poco' ? 'normal' : 'poco', 'Menos movimiento',
+            ${interruptor('movimiento', 'poco', 'normal', 'Menos movimiento',
                 'Deja la pantalla quieta: sin el vuelo de los botones al logo ni el resto de las animaciones.')}
           </section>
 
@@ -215,8 +255,8 @@ export function crearAjustes({ alAplicar } = {}) {
             </dl>
           </section>
 
-          <p class="aj-nota">Todo esto se guarda en esta computadora y vale para toda la app.
-            Las ventanas que ya estén abiertas lo toman al reabrirlas.</p>
+          <p class="aj-nota">Se aplica al momento y vale para toda la app, herramientas incluidas.
+            Si tienes otra ventana abierta, se pone al día en cuanto vuelvas a ella.</p>
         </div>`;
 
         capa.querySelector('.aj-cerrar').onclick = cerrar;
@@ -249,12 +289,14 @@ export function crearAjustes({ alAplicar } = {}) {
     // el usuario cambia el tema del Mac con la app abierta, la app lo sigue —
     // mientras no haya elegido uno a mano.
     aplicar();
+    sincronizar();
     window.matchMedia?.('(prefers-color-scheme: dark)')
         .addEventListener?.('change', () => { if (!a.tema) aplicar(); });
 
     return {
         abrir,
         cerrar,
+        sincronizar,
         estaAbierto: () => !capa.hidden,
         mandarA,
         temaEfectivo,

@@ -2,7 +2,7 @@ import './style.css';
 import html2canvas from 'html2canvas';
 import appIcon from './assets/images/produccion-tv-256.png';
 import { icono } from './iconos.js';
-import { CloseWindow, DeleteProjectFile, DeleteTrashFile, FocusLauncher, FocusProjectWindow, GetLaunchContext, ListOpenProjects, ListTrashFiles, LoadAllProjects, LoadProjectFile, OpenProjectWindow, OpenToolWindow, Print, ReadTrashFile, SaveBase64File, SaveProjectFile, SaveTextFile, SetWindowTitle, WatchProject } from '../wailsjs/go/main/App';
+import { CloseWindow, DeleteProjectFile, DeleteTrashFile, FocusLauncher, FocusProjectWindow, GetLaunchContext, ListOpenProjects, ListTrashFiles, LoadAllProjects, LoadProjectFile, LoadSettings, OpenProjectWindow, OpenToolWindow, Print, ReadTrashFile, SaveBase64File, SaveProjectFile, SaveSettings, SaveTextFile, SetWindowTitle, WatchProject } from '../wailsjs/go/main/App';
 import { EventsOn, WindowIsFullscreen, WindowUnfullscreen } from '../wailsjs/runtime/runtime';
 import { makeTemplate, diagramFromConfig, infografiaFromDiagram, uid, PROJECT_MODES, normalizeMode } from './templates.js';
 import { createProductionView } from './production.js';
@@ -321,6 +321,10 @@ const toolInfo = {
    repintar el botón de sol/luna del encabezado. El resto —estampar la raíz y
    avisarle a cada herramienta— lo hace el módulo. */
 const ajustes = crearAjustes({
+    // Los ajustes viven en un archivo, no en el almacenamiento de esta ventana:
+    // cada ventana es un proceso y no ve lo que guardan las demás (ver app.go).
+    leerDeDisco: () => conGo(LoadSettings),
+    escribirEnDisco: (texto) => conGo(SaveSettings, texto),
     alAplicar: ({ tema }) => {
         const btn = document.querySelector('#tema-btn');
         if (!btn) return;
@@ -648,6 +652,28 @@ async function createProject(profile) {
     await launchProjectWindow(project.id);
 }
 
+/* PANTALLA COMPLETA Y VENTANAS NUEVAS: hay que salir antes.
+macOS le da a cada ventana a pantalla completa un ESCRITORIO propio, y una
+ventana nueva nace en el escritorio NORMAL. Desde un Inicio a pantalla completa,
+el proyecto se abría donde no se veía: parecía que se había abierto "en segundo
+plano" o que no había pasado nada. Y al revés era lo mismo — por eso el botón
+del nombre del proyecto tampoco encontraba Inicio.
+
+No se puede poner una ventana "encima" de otra a pantalla completa: en ese
+escritorio no cabe nada más. La única forma de que la nueva salga al frente es
+que las dos vivan en el mismo escritorio, así que primero se sale.
+
+La espera es para el deslizamiento del sistema: pedir una ventana a media
+transición se pierde. */
+async function dejarPantallaCompleta() {
+    try {
+        if (await WindowIsFullscreen()) {
+            WindowUnfullscreen();
+            await new Promise((listo) => setTimeout(listo, 700));
+        }
+    } catch { /* fuera de Wails no hay ventana a la que preguntarle */ }
+}
+
 // Abrir un proyecto NO significa siempre abrir una ventana. Si ese proyecto
 // ya está abierto, Go trae esa ventana al frente y no crea una copia: antes
 // picarle a la tarjeta abría una segunda ventana del mismo proyecto y el
@@ -657,6 +683,9 @@ async function launchProjectWindow(id) {
     localStorage.setItem(ACTIVE_KEY, id);
     const project = projects.find((item) => item.id === id);
     if (!project) { showToast('El proyecto solicitado ya no existe', true); return; }
+    // Vale igual si abre una ventana nueva o trae al frente la que ya estaba:
+    // en los dos casos hay que estar en el mismo escritorio para verla.
+    await dejarPantallaCompleta();
     try {
         const abrioNueva = await OpenProjectWindow(id, JSON.stringify(project));
         showToast(abrioNueva
@@ -1160,6 +1189,7 @@ async function sacarAVentana(vista) {
     // Antes de despegarla, lo que esté sin guardar tiene que estar en disco:
     // la ventana nueva arranca leyendo de ahí.
     flushSaveNow({ callado: true });
+    await dejarPantallaCompleta();   // si no, nace en otro escritorio y no se ve
     const panel = paneles.get(vista);
     if (panel && !panel.esVista) panel.el.remove();
     paneles.delete(vista);
@@ -1447,6 +1477,11 @@ renderRecent();
 const revisarAbiertos = () => { if (shell.classList.contains('launcher-window')) refrescarAbiertos(); };
 window.addEventListener('focus', revisarAbiertos);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) revisarAbiertos(); });
+// Y al volver a esta ventana se cotejan los ajustes con el disco: puede que en
+// OTRA ventana hayan cambiado el tamaño de la letra o el contraste. Sin esto,
+// la ventana que ya estaba abierta se quedaba como estaba y, en cuanto tocabas
+// cualquier ajuste aquí, escribía encima y se perdía el cambio de la otra.
+window.addEventListener('focus', () => ajustes.sincronizar());
 
 document.querySelector('#new-project-focus').onclick = () => nuevoProyecto.open();
 document.querySelector('[data-accion="nuevo"]').onclick = () => nuevoProyecto.open();
@@ -1466,12 +1501,7 @@ para el deslizamiento del sistema: pedir el frente a media transición se
 pierde, y volvías a quedarte con la sensación de que el botón no sirve. */
 async function irAInicio() {
     if (!shell.classList.contains('project-window')) { selectView('home'); return; }
-    try {
-        if (await WindowIsFullscreen()) {
-            WindowUnfullscreen();
-            await new Promise((listo) => setTimeout(listo, 700));
-        }
-    } catch { /* fuera de Wails no hay ventana a la que preguntarle */ }
+    await dejarPantallaCompleta();
     conGo(FocusLauncher);
 }
 document.querySelector('#active-name').onclick = irAInicio;
