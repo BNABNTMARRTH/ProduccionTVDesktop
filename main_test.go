@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -403,5 +404,201 @@ func TestSeIntentaTraerAlFrenteLaVentanaViva(t *testing.T) {
 	}
 	if pedido != 777 {
 		t.Fatalf("se pidió traer al frente el proceso %d y no el 777", pedido)
+	}
+}
+
+/* La mesa de luz en el disco. Lo que se prueba no es "guarda y lee" sino las
+   tres decisiones de diseño que la sostienen, porque son las que se pueden
+   romper sin que nada truene:
+     · la ficha y la imagen son DOS archivos, y guardar solo etiquetas no
+       vuelve a escribir la imagen (que es lo pesado);
+     · borrar NO destruye: se va a la papelera y se puede rescatar;
+     · una ficha sin su imagen no rompe nada, devuelve vacío. */
+func TestMesaDeLuzGuardaFichaEImagenPorSeparado(t *testing.T) {
+	t.Setenv("HOME", t.TempDir()) // aísla ~/Documents/ProduccionTV del usuario real
+	app := &App{}
+
+	// Un JPEG mínimo de verdad (los dos primeros bytes son la firma SOI).
+	const jpegBase64 = "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=="
+	dataURL := "data:image/jpeg;base64," + jpegBase64
+
+	if err := app.SaveReference("ref-uno", `{"id":"ref-uno","plano":"Primer Plano"}`, dataURL); err != nil {
+		t.Fatalf("no guardó: %v", err)
+	}
+
+	dir, err := referencesDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ficha := filepath.Join(dir, "ref-uno.json")
+	imagen := filepath.Join(dir, "ref-uno.jpg")
+	infoAntes, err := os.Stat(imagen)
+	if err != nil {
+		t.Fatalf("la imagen no quedó en su propio archivo: %v", err)
+	}
+	if _, err := os.Stat(ficha); err != nil {
+		t.Fatalf("la ficha no quedó en su propio archivo: %v", err)
+	}
+
+	// La lista trae la ficha, no la imagen.
+	fichas, err := app.ListReferences()
+	if err != nil || len(fichas) != 1 {
+		t.Fatalf("esperaba 1 ficha, hubo %d (err %v)", len(fichas), err)
+	}
+	if !strings.Contains(fichas[0], "Primer Plano") {
+		t.Fatalf("la ficha no trae sus etiquetas: %s", fichas[0])
+	}
+
+	// Cambiar SOLO etiquetas no debe tocar el .jpg. Es la razón de partirlo en
+	// dos: retocar una etiqueta no puede costar reescribir la imagen entera.
+	if err := app.SaveReference("ref-uno", `{"id":"ref-uno","plano":"Plano General"}`, ""); err != nil {
+		t.Fatal(err)
+	}
+	infoDespues, err := os.Stat(imagen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !infoAntes.ModTime().Equal(infoDespues.ModTime()) {
+		t.Fatal("guardar solo etiquetas reescribió la imagen")
+	}
+
+	// La imagen completa vuelve como data URL lista para un <img src>.
+	vuelta, err := app.LoadReferenceImage("ref-uno")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vuelta != dataURL {
+		t.Fatalf("la imagen no volvió igual:\n  fue:   %.40s…\n  volvió: %.40s…", dataURL, vuelta)
+	}
+}
+
+func TestMesaDeLuzBorrarMandaAPapeleraYNoDestruye(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	app := &App{}
+	dataURL := "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAj/2Q=="
+	if err := app.SaveReference("ref-dos", `{"id":"ref-dos"}`, dataURL); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.DeleteReference("ref-dos"); err != nil {
+		t.Fatal(err)
+	}
+	if fichas, _ := app.ListReferences(); len(fichas) != 0 {
+		t.Fatalf("la referencia seguía en la fototeca: %d", len(fichas))
+	}
+	trash, _ := trashDir()
+	entradas, _ := os.ReadDir(trash)
+	var json, jpg bool
+	for _, e := range entradas {
+		if strings.HasSuffix(e.Name(), ".json") {
+			json = true
+		}
+		if strings.HasSuffix(e.Name(), ".jpg") {
+			jpg = true
+		}
+	}
+	if !json || !jpg {
+		t.Fatalf("borrar destruyó en vez de mandar a la papelera (ficha=%v imagen=%v)", json, jpg)
+	}
+}
+
+func TestMesaDeLuzFichaSinImagenNoRompe(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	app := &App{}
+	// Ficha sin imagen: pasa si alguien borró el .jpg desde el Finder.
+	if err := app.SaveReference("ref-tres", `{"id":"ref-tres"}`, ""); err != nil {
+		t.Fatal(err)
+	}
+	img, err := app.LoadReferenceImage("ref-tres")
+	if err != nil {
+		t.Fatalf("una ficha huérfana devolvió error en vez de vacío: %v", err)
+	}
+	if img != "" {
+		t.Fatalf("esperaba vacío, volvió %.30s…", img)
+	}
+	// Y un id con trampa no se sale de la carpeta.
+	if err := app.SaveReference("../../fuera", `{}`, ""); err != nil {
+		t.Fatal(err)
+	}
+	dir, _ := referencesDir()
+	if _, err := os.Stat(filepath.Join(dir, "....fuera.json")); err == nil {
+		t.Log("el id se limpió a un nombre inofensivo dentro de la carpeta")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "..", "..", "fuera.json")); err == nil {
+		t.Fatal("un id con ../ escribió FUERA de la carpeta de referencias")
+	}
+}
+
+/* La agenda en el disco. Mismo criterio que la mesa de luz: se prueban las
+   decisiones que se pueden romper en silencio, no que "guarda y lee". */
+func TestAgendaGuardaLeeYBorraSinDestruir(t *testing.T) {
+	t.Setenv("HOME", t.TempDir()) // aísla ~/Documents/ProduccionTV del usuario real
+	app := &App{}
+
+	if err := app.SaveContact("con-uno", `{"id":"con-uno","nombre":"Ana Ríos","rol":"Camarógrafo"}`); err != nil {
+		t.Fatalf("no guardó: %v", err)
+	}
+	fichas, err := app.ListContacts()
+	if err != nil || len(fichas) != 1 {
+		t.Fatalf("esperaba 1 contacto, hubo %d (err %v)", len(fichas), err)
+	}
+	if !strings.Contains(fichas[0], "Camarógrafo") {
+		t.Fatalf("la ficha perdió sus datos: %s", fichas[0])
+	}
+
+	// Guardar otra vez REEMPLAZA, no duplica: es la misma persona.
+	if err := app.SaveContact("con-uno", `{"id":"con-uno","nombre":"Ana Ríos","rol":"Directora de fotografía"}`); err != nil {
+		t.Fatal(err)
+	}
+	fichas, _ = app.ListContacts()
+	if len(fichas) != 1 {
+		t.Fatalf("volver a guardar duplicó la ficha: %d", len(fichas))
+	}
+	if !strings.Contains(fichas[0], "Directora de fotografía") {
+		t.Fatal("no se quedó con la versión nueva")
+	}
+
+	// Borrar manda a la papelera: los datos de alguien cuestan meses de conocerlo.
+	if err := app.DeleteContact("con-uno"); err != nil {
+		t.Fatal(err)
+	}
+	if fichas, _ := app.ListContacts(); len(fichas) != 0 {
+		t.Fatalf("seguía en la agenda: %d", len(fichas))
+	}
+	trash, _ := trashDir()
+	entradas, _ := os.ReadDir(trash)
+	rescatable := false
+	for _, e := range entradas {
+		if strings.HasPrefix(e.Name(), "con-uno") && strings.HasSuffix(e.Name(), ".json") {
+			rescatable = true
+		}
+	}
+	if !rescatable {
+		t.Fatal("borrar destruyó en vez de mandar a la papelera")
+	}
+}
+
+func TestAgendaNoSeSaleDeSuCarpeta(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	app := &App{}
+	if err := app.SaveContact("../../fuera", `{}`); err != nil {
+		t.Fatal(err)
+	}
+	dir, _ := contactsDir()
+	if _, err := os.Stat(filepath.Join(dir, "..", "..", "fuera.json")); err == nil {
+		t.Fatal("un id con ../ escribió FUERA de la carpeta de contactos")
+	}
+	// Y la agenda y la fototeca no se mezclan aunque vivan al lado.
+	if err := app.SaveReference("ref-x", `{"id":"ref-x"}`, ""); err != nil {
+		t.Fatal(err)
+	}
+	contactos, _ := app.ListContacts()
+	for _, c := range contactos {
+		if strings.Contains(c, "ref-x") {
+			t.Fatal("una referencia apareció dentro de la agenda")
+		}
+	}
+	refs, _ := app.ListReferences()
+	if len(refs) != 1 {
+		t.Fatalf("la fototeca debería tener 1 y tiene %d", len(refs))
 	}
 }

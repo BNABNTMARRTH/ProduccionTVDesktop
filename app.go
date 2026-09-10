@@ -813,6 +813,232 @@ func (a *App) DeleteTrashFile(name string) error {
 	return nil
 }
 
+/* ------------------------------ Mesa de luz ------------------------------
+La biblioteca de referencias visuales vive FUERA de los proyectos, en
+~/Documents/ProduccionTV/Referencias, y son dos razones distintas:
+
+  · UNA FOTOTECA ES DE QUIEN LA JUNTA, no de un proyecto. La misma imagen
+    sirve para el noticiero de hoy y para el documental del año que viene;
+    guardarla dentro de un .ptv la encerraría en uno solo y la duplicaría en
+    cada uno que la use.
+  · UN .ptv TIENE QUE SEGUIR SIENDO TEXTO. Con mil cuadros adentro pesaría
+    cientos de megas, y el iPad —que abre el proyecto entero en memoria— no
+    lo levanta. Así el proyecto solo guarda a QUÉ referencia apunta.
+
+Cada referencia son DOS archivos, y la división es la que hace que la mesa
+abra rápido con cientos de imágenes:
+    <id>.json  etiquetas + MINIATURA (se lee siempre, al abrir la mesa)
+    <id>.jpg   la imagen completa (se lee solo cuando la abres en grande)
+Leer trescientas miniaturas de 10 KB es instantáneo; leer trescientas
+imágenes completas no lo sería. */
+
+// referencesDir devuelve (creándola si hace falta) la carpeta de la mesa de luz.
+func referencesDir() (string, error) {
+	dir, err := projectsDir()
+	if err != nil {
+		return "", err
+	}
+	ref := filepath.Join(dir, "Referencias")
+	if err := os.MkdirAll(ref, 0o755); err != nil {
+		return "", err
+	}
+	return ref, nil
+}
+
+// ListReferences lee la ficha (.json) de todas las referencias. Devuelve el
+// texto tal cual: quien las pinta ya sabe leerlas y aquí no hay que entenderlas.
+func (a *App) ListReferences() ([]string, error) {
+	dir, err := referencesDir()
+	if err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	out := []string{}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".json") {
+			continue
+		}
+		if data, err := os.ReadFile(filepath.Join(dir, e.Name())); err == nil {
+			out = append(out, string(data))
+		}
+	}
+	return out, nil
+}
+
+// SaveReference guarda la ficha y, si viene, la imagen completa.
+// imageDataURL vacío = solo se están cambiando etiquetas: no se toca el .jpg,
+// que es lo pesado. Cambiar una etiqueta escribe 10 KB, no 300.
+func (a *App) SaveReference(id string, meta string, imageDataURL string) error {
+	id = sanitizeProjectID(id)
+	if id == "" {
+		return nil
+	}
+	dir, err := referencesDir()
+	if err != nil {
+		return err
+	}
+	if imageDataURL != "" {
+		if comma := strings.IndexByte(imageDataURL, ','); comma >= 0 {
+			imageDataURL = imageDataURL[comma+1:]
+		}
+		data, err := base64.StdEncoding.DecodeString(imageDataURL)
+		if err != nil {
+			return err
+		}
+		if err := writeAtomic(filepath.Join(dir, id+".jpg"), data); err != nil {
+			return err
+		}
+	}
+	return writeAtomic(filepath.Join(dir, id+".json"), []byte(meta))
+}
+
+// LoadReferenceImage devuelve la imagen completa como data URL, lista para un
+// <img src>. Cadena vacía si ya no está (una referencia puede sobrevivir a su
+// archivo si alguien lo borró desde el Finder, y eso no debe romper la mesa).
+func (a *App) LoadReferenceImage(id string) (string, error) {
+	id = sanitizeProjectID(id)
+	if id == "" {
+		return "", nil
+	}
+	dir, err := referencesDir()
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(filepath.Join(dir, id+".jpg"))
+	if err != nil {
+		return "", nil
+	}
+	return "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(data), nil
+}
+
+// DeleteReference no borra: manda ficha e imagen a la papelera interna, igual
+// que un proyecto. Una referencia buena cuesta encontrarla y un dedo en un
+// iPad se equivoca de cuadro con facilidad.
+func (a *App) DeleteReference(id string) error {
+	id = sanitizeProjectID(id)
+	if id == "" {
+		return nil
+	}
+	dir, err := referencesDir()
+	if err != nil {
+		return err
+	}
+	trash, err := trashDir()
+	if err != nil {
+		return err
+	}
+	marca := time.Now().Format("20060102-150405")
+	for _, ext := range []string{".json", ".jpg"} {
+		origen := filepath.Join(dir, id+ext)
+		if _, err := os.Stat(origen); err != nil {
+			continue
+		}
+		if err := os.Rename(origen, filepath.Join(trash, id+"-"+marca+ext)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+/* ------------------------------ La agenda ------------------------------
+Los contactos viven en ~/Documents/ProduccionTV/Contactos, al lado de los
+proyectos y de la fototeca, por la misma razón que ellas: tu gente no es de un
+proyecto. El camarógrafo que te salvó el rodaje de marzo te sirve en el de
+noviembre, y guardarlo dentro de un .ptv lo encerraría en uno solo.
+
+A diferencia de las referencias, aquí es UN archivo por persona y no dos: la
+foto es un retrato chico que cabe dentro de la propia ficha. No hace falta
+partirlo — una cara se reconoce a 480 px y eso pesa como una página de texto,
+mientras que un fotograma de referencia hay que poder verlo en grande.
+
+ESTO NO ES UN DIRECTORIO PÚBLICO. Es tu agenda: la gente con la que ya trabajas
+o a la que ya le llamaste, guardada en TU disco, como los contactos de tu
+teléfono. No se publica, no se sube a ningún lado y no sale de aquí. */
+
+// contactsDir devuelve (creándola si hace falta) la carpeta de la agenda.
+func contactsDir() (string, error) {
+	dir, err := projectsDir()
+	if err != nil {
+		return "", err
+	}
+	con := filepath.Join(dir, "Contactos")
+	if err := os.MkdirAll(con, 0o755); err != nil {
+		return "", err
+	}
+	return con, nil
+}
+
+// ListContacts lee la ficha de todas las personas de la agenda.
+func (a *App) ListContacts() ([]string, error) {
+	dir, err := contactsDir()
+	if err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	out := []string{}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".json") {
+			continue
+		}
+		if data, err := os.ReadFile(filepath.Join(dir, e.Name())); err == nil {
+			out = append(out, string(data))
+		}
+	}
+	return out, nil
+}
+
+// SaveContact guarda (o reemplaza) la ficha de una persona.
+func (a *App) SaveContact(id string, meta string) error {
+	id = sanitizeProjectID(id)
+	if id == "" {
+		return nil
+	}
+	dir, err := contactsDir()
+	if err != nil {
+		return err
+	}
+	return writeAtomic(filepath.Join(dir, id+".json"), []byte(meta))
+}
+
+// DeleteContact no destruye: manda la ficha a la papelera interna. Los datos de
+// contacto de alguien cuestan meses de conocer a la gente; un dedo en un iPad
+// se equivoca de fila en un segundo.
+func (a *App) DeleteContact(id string) error {
+	id = sanitizeProjectID(id)
+	if id == "" {
+		return nil
+	}
+	dir, err := contactsDir()
+	if err != nil {
+		return err
+	}
+	trash, err := trashDir()
+	if err != nil {
+		return err
+	}
+	origen := filepath.Join(dir, id+".json")
+	if _, err := os.Stat(origen); err != nil {
+		return nil
+	}
+	return os.Rename(origen, filepath.Join(trash, id+"-"+time.Now().Format("20060102-150405")+".json"))
+}
+
+// writeAtomic escribe primero a .tmp y luego renombra, para que un corte a
+// media escritura no deje media referencia en el disco.
+func writeAtomic(path string, data []byte) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
 // fileFilter deduce el filtro del diálogo a partir de la extensión, para que
 // guardar CSV/EDL/TXT desde las herramientas no fuerce el filtro JSON.
 func fileFilter(filename string) []runtime.FileFilter {
