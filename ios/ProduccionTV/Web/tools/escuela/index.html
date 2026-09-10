@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Escuela de cámara — Producción TV</title>
+<link rel="stylesheet" href="../shared/accesibilidad.css">
+<script>
+  /* EL TEMA LLEGA ANTES QUE NADA. El caparazón manda `producciontv:tema` en el
+     `load` del iframe, que ocurre antes de que corra el script del final del
+     documento; si la escucha se montara allá abajo, ese primer mensaje caería
+     en el vacío y la herramienta arrancaría en claro dentro de una app oscura. */
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'producciontv:tema') return;
+    var t = e.data.tema;
+    if (t === 'claro' || t === 'oscuro') document.documentElement.dataset.tema = t;
+    else delete document.documentElement.dataset.tema;
+  });
+</script>
+<style>
+  *{box-sizing:border-box}
+  /* ==========================================================================
+     La Escuela habla el idioma de la casa: yeso, vidrio y la gelatina de la
+     etapa. Aquí la etapa es la 1 (hora azul, "una idea"): todavía no se rueda
+     nada, se está aprendiendo a mirar.
+     ESTA NO ES UNA HOJA. No se imprime: es la MESA, un banco de pruebas. Por
+     eso sí se apaga con el tema, al revés que las hojas del guion.
+     ========================================================================== */
+  :root{
+    --yeso:#F1EEE8; --tinta:#171512; --tinta-media:#57534B; --tinta-baja:#625D55;
+    --linea:rgba(23,21,18,.08);
+    --gel:#3C8FE0; --gel-t:#1C5FA8; --gel-f:#1C5FA8;
+    --vidrio-a:rgba(255,255,255,.72); --vidrio-b:rgba(255,255,255,.44);
+    --vidrio-borde:rgba(255,255,255,.72); --vidrio-filo:rgba(255,255,255,.95);
+    --hueco-fondo:rgba(255,255,255,.55); --hueco-borde:rgba(23,21,18,.14);
+    --grano:.5;
+    --ok:#0FA05E; --alerta:#D53238;
+  }
+  /* Tres estados, como en toda la app: sin elección manda el sistema, con
+     elección manda data-tema. Los vivos (--gel) no cambian nunca; solo el tono
+     de texto --gel-t, que sobre negro necesita aclararse para poder leerse. */
+  @media (prefers-color-scheme: dark){
+    :root:not([data-tema="claro"]){
+      --yeso:#1C1A18; --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#A8A297;
+      --linea:rgba(255,255,255,.09); --gel-t:#8FC4F7;
+      --vidrio-a:rgba(255,255,255,.10); --vidrio-b:rgba(255,255,255,.045);
+      --vidrio-borde:rgba(255,255,255,.14); --vidrio-filo:rgba(255,255,255,.16);
+      --hueco-fondo:rgba(0,0,0,.28); --hueco-borde:rgba(255,255,255,.14);
+      --grano:.30; --ok:#5CE0A0; --alerta:#FF8A8E;
+    }
+  }
+  :root[data-tema="oscuro"]{
+    --yeso:#1C1A18; --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#A8A297;
+    --linea:rgba(255,255,255,.09); --gel-t:#8FC4F7;
+    --vidrio-a:rgba(255,255,255,.10); --vidrio-b:rgba(255,255,255,.045);
+    --vidrio-borde:rgba(255,255,255,.14); --vidrio-filo:rgba(255,255,255,.16);
+    --hueco-fondo:rgba(0,0,0,.28); --hueco-borde:rgba(255,255,255,.14);
+    --grano:.30; --ok:#5CE0A0; --alerta:#FF8A8E;
+  }
+
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+    background:var(--yeso);color:var(--tinta);overflow:hidden}
+
+  /* La pared: el yeso con su grano y la luz azul de la etapa 1. */
+  .pared{position:fixed;inset:0;z-index:0;pointer-events:none}
+  .pared::before{content:"";position:absolute;inset:0;
+    background:radial-gradient(70% 55% at 8% 0%,rgba(60,143,224,.20),transparent 62%),
+               radial-gradient(90% 70% at 100% 100%,rgba(60,143,224,.09),transparent 68%)}
+  .pared::after{content:"";position:absolute;inset:0;opacity:var(--grano);mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E")}
+
+  /* DOS COLUMNAS SIEMPRE. El visor manda: es lo que hay que mirar. El panel se
+     desplaza por dentro si no cabe, pero nunca se apila encima de la foto —el
+     2-sep se comprobó en el iPad que apilar se come la pantalla entera. */
+  .layout{position:relative;z-index:1;display:grid;grid-template-columns:330px minmax(0,1fr);
+    height:100vh}
+  /* PLEGAR EL PANEL — la lección de Exportar, aplicada de entrada.
+     El panel se lleva 330 px fijos. En un monitor sobra sitio; en un iPad en
+     Split View (507 pt) la foto quedaba de estampilla, que es justo lo que NO
+     se puede permitir en una herramienta cuyo único trabajo es que MIRES la
+     foto. Plegado, el visor se queda con todo el ancho. Lo que aquí se añade
+     sobre Exportar: si el hueco nace estrecho y nadie ha elegido todavía, se
+     pliega SOLO. Recordar una elección no sirve cuando aún no hay ninguna. */
+  .layout.plegado{grid-template-columns:minmax(0,1fr)}
+  .layout.plegado .panel{display:none}
+  .cab-panel{display:flex;align-items:flex-start;gap:8px}
+  .cab-panel h1{flex:1}
+  /* Tamaño de dedo: 40 px de alto es lo mínimo que se acierta sin mirar. */
+  .plegar,.abrir-panel{display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+    border:1px solid var(--vidrio-borde);border-radius:11px;padding:0 12px;min-height:40px;
+    background:var(--vidrio-b);color:var(--tinta-media);
+    font-family:inherit;font-size:13px;font-weight:700;white-space:nowrap}
+  .plegar:hover,.abrir-panel:hover{color:var(--tinta);border-color:var(--gel)}
+  .abrir-panel{position:fixed;left:14px;top:14px;z-index:6;display:none;
+    background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));
+    -webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
+    box-shadow:0 12px 28px -16px rgba(0,0,0,.5)}
+  .layout.plegado .abrir-panel{display:inline-flex}
+
+  /* ------------------------------- PANEL -------------------------------- */
+  .panel{overflow-y:auto;padding:18px 16px 28px;border-right:1px solid var(--linea);
+    background:linear-gradient(180deg,var(--vidrio-a),var(--vidrio-b));
+    backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3)}
+  .eyebrow{display:block;font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--gel-t);font-weight:700;margin-bottom:5px}
+  h1{font-size:19px;margin:0 0 4px;letter-spacing:-.01em}
+  .sub{font-size:12px;line-height:1.5;color:var(--tinta-media);margin:0 0 16px}
+
+  /* ------------------------------ FOTÓMETRO ----------------------------- */
+  /* Lo primero y lo más grande: es el instrumento que enseña a leer si la foto
+     está bien de luz. Los tres controles de abajo solo son maneras de moverlo. */
+  .foto-metro{border:1px solid var(--hueco-borde);border-radius:12px;padding:12px 12px 10px;
+    background:var(--hueco-fondo);margin-bottom:16px}
+  .fm-cifra{font-variant-numeric:tabular-nums;font-size:22px;font-weight:700;line-height:1.1;
+    letter-spacing:-.02em}
+  .fm-dice{font-size:12px;color:var(--tinta-media);margin-top:2px;min-height:16px}
+  .fm-regla{position:relative;height:26px;margin-top:9px}
+  .fm-riel{position:absolute;left:0;right:0;top:11px;height:4px;border-radius:2px;
+    background:linear-gradient(90deg,var(--alerta),var(--tinta-baja) 32%,var(--ok) 50%,
+                                     var(--tinta-baja) 68%,var(--alerta));opacity:.55}
+  .fm-marca{position:absolute;top:6px;width:1px;height:14px;background:var(--tinta);opacity:.22}
+  .fm-cero{position:absolute;left:50%;top:3px;width:2px;height:20px;margin-left:-1px;
+    background:var(--tinta);opacity:.45;border-radius:1px}
+  .fm-aguja{position:absolute;top:0;width:3px;height:26px;margin-left:-1.5px;border-radius:2px;
+    background:var(--gel-f);box-shadow:0 0 0 2px var(--hueco-fondo);
+    transition:left .16s cubic-bezier(.22,.61,.36,1)}
+  .fm-pie{display:flex;justify-content:space-between;font-size:9.5px;color:var(--tinta-baja);
+    letter-spacing:.04em;margin-top:2px}
+
+  /* ------------------------------ CONTROLES ----------------------------- */
+  .ctl{margin-bottom:15px}
+  .ctl-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:5px}
+  .ctl-nom{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--tinta-media)}
+  .ctl-val{font-variant-numeric:tabular-nums;font-size:15px;font-weight:700;color:var(--gel-t)}
+  .ctl-pie{font-size:11px;color:var(--tinta-baja);line-height:1.45;margin-top:4px;min-height:15px}
+  input[type=range]{width:100%;margin:0;accent-color:var(--gel-f);height:22px}
+
+  .nota{font-size:11px;line-height:1.55;color:var(--tinta-media);border-left:2px solid var(--gel);
+    padding:2px 0 2px 9px;margin:16px 0 14px}
+  .fila{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
+  button{font:inherit;font-size:12px;padding:7px 11px;border-radius:8px;cursor:pointer;
+    border:1px solid var(--hueco-borde);background:var(--hueco-fondo);color:var(--tinta)}
+  button:hover{border-color:var(--gel)}
+  button.on{background:linear-gradient(165deg,var(--gel),var(--gel-f));border-color:var(--gel-f);
+    color:#fff}
+  .credito{font-size:10px;color:var(--tinta-baja);line-height:1.5;margin-top:18px;
+    padding-top:12px;border-top:1px solid var(--linea)}
+
+  /* -------------------------------- VISOR ------------------------------- */
+  .visor{position:relative;display:flex;align-items:center;justify-content:center;
+    padding:20px;min-width:0;overflow:hidden}
+  .marco{position:relative;max-width:100%;max-height:100%;border-radius:6px;overflow:hidden;
+    box-shadow:0 18px 50px rgba(0,0,0,.28),0 2px 8px rgba(0,0,0,.16);cursor:crosshair;
+    background:#000;line-height:0}
+  canvas{display:block;max-width:100%;max-height:calc(100vh - 40px);width:auto;height:auto}
+  /* La cruz del punto de enfoque: donde el estudiante decidió poner el plano
+     nítido. Se dibuja en HTML y no en el lienzo para que el desenfoque no la
+     toque —lo que se enfoca no se difumina a sí mismo. */
+  .cruz{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;pointer-events:none;
+    transition:left .1s,top .1s}
+  .cruz::before,.cruz::after{content:"";position:absolute;background:#fff;
+    box-shadow:0 0 0 1px rgba(0,0,0,.55)}
+  .cruz::before{left:50%;top:0;width:1px;height:100%;margin-left:-.5px}
+  .cruz::after{top:50%;left:0;height:1px;width:100%;margin-top:-.5px}
+  .pista{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
+    font-size:11px;padding:5px 11px;border-radius:20px;white-space:nowrap;
+    background:rgba(0,0,0,.62);color:#fff;backdrop-filter:blur(8px);pointer-events:none;
+    transition:opacity .3s}
+  .cargando{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:12px;color:var(--tinta-media);background:var(--yeso);z-index:5}
+  .cargando.oculto{display:none}
+
+  /* Menos movimiento: sin transiciones. Lo pide accesibilidad de la app. */
+  :root[data-movimiento="poco"] *{transition:none!important}
+</style>
+</head>
+<body>
+<div class="pared"></div>
+<div class="layout">
+  <button class="abrir-panel" id="abrir-panel" title="Volver a abrir los controles de la cámara">☰ Controles ›</button>
+
+  <aside class="panel">
+    <span class="eyebrow">ATJ · ETAPA 1 · APRENDER A MIRAR</span>
+    <div class="cab-panel">
+      <h1>Escuela de cámara</h1>
+      <button class="plegar" id="plegar" title="Plegar los controles para ver la foto más grande">‹ Plegar</button>
+    </div>
+    <p class="sub">Una sola foto, todas las cámaras posibles. Mueve los tres controles y mira qué le pasa a la imagen antes de tenerla que tomar de verdad.</p>
+
+    <div class="foto-metro">
+      <div class="fm-cifra" id="fm-cifra">0.0 pasos</div>
+      <div class="fm-dice" id="fm-dice">Exposición correcta</div>
+      <div class="fm-regla">
+        <div class="fm-riel"></div>
+        <div class="fm-marca" style="left:0"></div>
+        <div class="fm-marca" style="left:16.6%"></div>
+        <div class="fm-marca" style="left:33.3%"></div>
+        <div class="fm-marca" style="left:66.6%"></div>
+        <div class="fm-marca" style="left:83.3%"></div>
+        <div class="fm-marca" style="left:calc(100% - 1px)"></div>
+        <div class="fm-cero"></div>
+        <div class="fm-aguja" id="fm-aguja" style="left:50%"></div>
+      </div>
+      <div class="fm-pie"><span>−3 OSCURA</span><span>0</span><span>+3 QUEMADA</span></div>
+    </div>
+
+    <div class="ctl">
+      <div class="ctl-top"><span class="ctl-nom">Diafragma</span><span class="ctl-val" id="v-dia">f/5.6</span></div>
+      <input type="range" id="s-dia" min="0" max="8" step="1" value="4">
+      <div class="ctl-pie" id="p-dia"></div>
+    </div>
+
+    <div class="ctl">
+      <div class="ctl-top"><span class="ctl-nom">Obturador</span><span class="ctl-val" id="v-obt">1/250</span></div>
+      <input type="range" id="s-obt" min="0" max="8" step="1" value="2">
+      <div class="ctl-pie" id="p-obt"></div>
+    </div>
+
+    <div class="ctl">
+      <div class="ctl-top"><span class="ctl-nom">ISO</span><span class="ctl-val" id="v-iso">100</span></div>
+      <input type="range" id="s-iso" min="0" max="6" step="1" value="0">
+      <div class="ctl-pie" id="p-iso"></div>
+    </div>
+
+    <div class="ctl">
+      <div class="ctl-top"><span class="ctl-nom">Distancia focal</span><span class="ctl-val" id="v-foc">50 mm</span></div>
+      <input type="range" id="s-foc" min="0" max="4" step="1" value="2">
+      <div class="ctl-pie" id="p-foc"></div>
+    </div>
+
+    <div class="ctl">
+      <div class="ctl-top"><span class="ctl-nom">Enfoque</span><span class="ctl-val" id="v-enf">2.5 m</span></div>
+      <div class="ctl-pie">Pica la foto donde quieras poner el plano nítido.</div>
+    </div>
+
+    <p class="nota" id="nota">—</p>
+
+    <div class="fila">
+      <button id="b-reset">Volver al inicio</button>
+      <button id="b-mapa">Ver la profundidad</button>
+    </div>
+
+    <p class="credito">
+      La foto es tuya y el mapa de distancias se calculó de ella con Vision.
+      Sensor de referencia: 36 mm (formato completo). Luz de la escena: EV 12.9,
+      medida de los datos de la toma original.
+    </p>
+  </aside>
+
+  <main class="visor">
+    <div class="marco" id="marco">
+      <canvas id="lienzo" width="600" height="800"></canvas>
+      <div class="cruz" id="cruz" hidden></div>
+      <div class="pista" id="pista">Pica donde quieras enfocar</div>
+      <div class="cargando" id="cargando">Preparando la cámara…</div>
+    </div>
+  </main>
+
+</div>
+
+<script src="../shared/atajos.js"></script>
+<script src="../shared/ajustes.js"></script>
+<script>
+/* ===========================================================================
+   EL MOTOR: una cámara de verdad, en matemáticas.
+   ---------------------------------------------------------------------------
+   No hay fotos pregrabadas. Hay UNA imagen y un mapa de a qué distancia está
+   cada punto de ella; todo lo demás —lo claro, lo oscuro, lo nítido y lo
+   desenfocado— se calcula con las mismas fórmulas que gobiernan una cámara.
+   Por eso el estudiante no memoriza resultados: entiende la causa.
+   =========================================================================== */
+
+const W = 600, H = 800;                    // resolución de trabajo del lienzo
+const D_MIN = 1.0, D_MAX = 8.0;            // metros que codifica el gris del mapa
+const SENSOR_MM = 36;                      // formato completo, el de referencia
+const NIVELES = [0, 1, 2, 4, 8, 16, 32];   // desenfoques pre-cocinados (sigma px)
+
+/* LA LUZ DE LA ESCENA no es un número inventado: sale de los datos de la foto
+   original (iPhone 12, f/1.6, 1/972 s, ISO 32).
+       EV = log2(N² / t) − log2(ISO/100)
+          = log2(1.6² × 972) − log2(32/100) = 12.9
+   Ese es el punto de exposición correcta. Cualquier combinación que dé 12.9
+   sale igual de bien: eso ES el triángulo de exposición, y aquí se puede ver. */
+const EV_ESCENA = 12.9;
+
+const DIAFRAGMAS = [1.4, 2, 2.8, 4, 5.6, 8, 11, 16, 22];
+const OBTURADORES = [1000, 500, 250, 125, 60, 30, 15, 8, 4];  // denominadores
+const ISOS = [100, 200, 400, 800, 1600, 3200, 6400];
+const FOCALES = [24, 35, 50, 85, 135];
+
+const INICIO = { dia: 4, obt: 2, iso: 0, foc: 2, enfoque: 2.5 };
+const estado = Object.assign({}, INICIO);
+
+const $ = (id) => document.getElementById(id);
+const lienzo = $('lienzo'), ctx = lienzo.getContext('2d', { willReadFrequently: true });
+
+let capas = [];            // NIVELES.length imágenes, cada una más desenfocada
+let profBytes = null;      // el gris del mapa, un byte por pixel
+let grano = null;          // ruido fijo, para que el ISO no tiemble entre cuadros
+let salida = null;         // el ImageData que se pinta
+let verMapa = false, listo = false;
+
+/* ------------------------- carga de los insumos ------------------------- */
+
+const cargarImg = (src) => new Promise((res, rej) => {
+  const im = new Image();
+  im.onload = () => res(im);
+  im.onerror = () => rej(new Error('no cargó ' + src));
+  im.src = src;
+});
+
+/* EL LIENZO SE PUEDE CONTAMINAR, Y AQUÍ ESO ES MORTAL.
+   La app no se sirve por http: en el Mac es wails:// y en el iPad ptv://app,
+   dos esquemas propios atendidos por un manejador de WebKit. Una imagen traída
+   de un esquema así puede quedar marcada como "de otro sitio", y entonces
+   getImageData —que es literalmente todo lo que hace esta herramienta— truena
+   con un error de seguridad. En pruebas por http no se ve el problema.
+   La vuelta: traerla con fetch y volverla un blob. Un blob nace del MISMO
+   origen que el documento, así que no hay nada que discutir. Si fetch no puede,
+   se intenta a la antigua y al menos no se pierde nada. */
+async function cargar(src) {
+  try {
+    const r = await fetch(src);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const url = URL.createObjectURL(await r.blob());
+    try { return await cargarImg(url); }
+    finally { setTimeout(() => URL.revokeObjectURL(url), 0); }
+  } catch (_) {
+    return cargarImg(src);
+  }
+}
+
+/* El desenfoque de canvas chupa transparencia en los bordes y deja un marco
+   negro. Se pinta la imagen en un lienzo más grande con los filos estirados
+   hacia afuera, se difumina eso, y al final se recorta el centro. */
+function capaBorrosa(img, sigma) {
+  const P = 48, cw = W + P * 2, ch = H + P * 2;
+  const pad = document.createElement('canvas'); pad.width = cw; pad.height = ch;
+  const pc = pad.getContext('2d');
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  pc.drawImage(img, 0, 0, iw, 1, P, 0, W, P);            // arriba
+  pc.drawImage(img, 0, ih - 1, iw, 1, P, H + P, W, P);   // abajo
+  pc.drawImage(img, 0, 0, 1, ih, 0, P, P, H);            // izquierda
+  pc.drawImage(img, iw - 1, 0, 1, ih, W + P, P, P, H);   // derecha
+  pc.drawImage(img, 0, 0, 1, 1, 0, 0, P, P);
+  pc.drawImage(img, iw - 1, 0, 1, 1, W + P, 0, P, P);
+  pc.drawImage(img, 0, ih - 1, 1, 1, 0, H + P, P, P);
+  pc.drawImage(img, iw - 1, ih - 1, 1, 1, W + P, H + P, P, P);
+  pc.drawImage(img, P, P, W, H);
+
+  const fin = document.createElement('canvas'); fin.width = W; fin.height = H;
+  const fc = fin.getContext('2d', { willReadFrequently: true });
+  if (sigma > 0) fc.filter = 'blur(' + sigma + 'px)';
+  fc.drawImage(pad, -P, -P);
+  return fc.getImageData(0, 0, W, H).data;
+}
+
+async function preparar() {
+  const [foto, mapa] = await Promise.all([cargar('./foto.jpg'), cargar('./profundidad.png')]);
+
+  capas = NIVELES.map((s) => capaBorrosa(foto, s));
+
+  const mc = document.createElement('canvas'); mc.width = W; mc.height = H;
+  const mctx = mc.getContext('2d', { willReadFrequently: true });
+  mctx.filter = 'blur(1.5px)';
+  mctx.drawImage(mapa, 0, 0, W, H);
+  mctx.filter = 'none';
+  const md = mctx.getImageData(0, 0, W, H).data;
+  profBytes = new Uint8Array(W * H);
+  for (let i = 0, p = 0; i < W * H; i++, p += 4) profBytes[i] = md[p];
+
+  // Ruido gaussiano aproximado (suma de dos uniformes), fijo para toda la sesión.
+  grano = new Float32Array(W * H);
+  for (let i = 0; i < grano.length; i++) grano[i] = (Math.random() + Math.random() - 1);
+
+  salida = ctx.createImageData(W, H);
+  listo = true;
+  $('cargando').classList.add('oculto');
+  pintar();
+}
+
+/* ---------------------------- las fórmulas ----------------------------- */
+
+const distanciaDe = (b) => D_MIN + (b / 255) * (D_MAX - D_MIN);
+
+// Diámetro del círculo de confusión, en píxeles de este lienzo.
+//   c = (f² / (N · (S1 − f))) · |S2 − S1| / S2      (todo en mm, sobre el sensor)
+// Es LA fórmula de la profundidad de campo: dice cuánto se derrama un punto
+// que no está en el plano de enfoque. Si vale menos de un pixel, se ve nítido.
+function cocPx(S2, S1, f, N) {
+  const s1 = S1 * 1000, s2 = S2 * 1000;
+  if (s2 <= 0 || s1 <= f) return 0;
+  const c = (f * f / (N * (s1 - f))) * Math.abs(s2 - s1) / s2;
+  return c / SENSOR_MM * W;
+}
+
+// sRGB <-> lineal: multiplicar la luz hay que hacerlo en el espacio donde la
+// luz se suma de verdad, no sobre el número que guarda el archivo.
+const aLineal = (v) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+const aSrgb  = (v) => (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055);
+
+const lutExp = new Uint8ClampedArray(256);
+const lutLo = new Uint8Array(256), lutHi = new Uint8Array(256);
+const lutFrac = new Float32Array(256);
+
+/* -------------------------------- pintar -------------------------------- */
+
+function pintar() {
+  if (!listo) return;
+
+  const N = DIAFRAGMAS[estado.dia];
+  const t = 1 / OBTURADORES[estado.obt];
+  const iso = ISOS[estado.iso];
+  const f = FOCALES[estado.foc];
+  const S1 = estado.enfoque;
+
+  // Error de exposición, en pasos. Positivo = entra menos luz de la que hace
+  // falta = foto oscura.
+  const ev = Math.log2(N * N / t) - Math.log2(iso / 100);
+  const err = ev - EV_ESCENA;
+  const ganancia = Math.pow(2, -err);
+
+  for (let v = 0; v < 256; v++) {
+    lutExp[v] = Math.round(Math.min(1, Math.max(0, aSrgb(aLineal(v / 255) * ganancia))) * 255);
+  }
+
+  /* El desenfoque solo depende de la DISTANCIA, y la distancia solo tiene 256
+     valores posibles (los del gris del mapa). Así que la cuenta cara se hace
+     256 veces por cuadro y no 480 000: para cada gris, entre qué dos capas hay
+     que mezclar y en qué proporción. */
+  for (let b = 0; b < 256; b++) {
+    const sigma = Math.min(32, cocPx(distanciaDe(b), S1, f, N) / 4);
+    let k = 0;
+    while (k < NIVELES.length - 2 && NIVELES[k + 1] < sigma) k++;
+    const a = NIVELES[k], z = NIVELES[k + 1];
+    lutLo[b] = k; lutHi[b] = k + 1;
+    lutFrac[b] = z > a ? Math.min(1, Math.max(0, (sigma - a) / (z - a))) : 0;
+  }
+
+  // El grano del ISO. Se nota más en las sombras, como en una cámara real.
+  const amp = 30 * Math.max(0, Math.log2(iso / 100)) / 6;
+
+  const out = salida.data, total = W * H;
+
+  if (verMapa) {
+    for (let i = 0, p = 0; i < total; i++, p += 4) {
+      const g = profBytes[i];
+      out[p] = out[p + 1] = out[p + 2] = g; out[p + 3] = 255;
+    }
+  } else {
+    for (let i = 0, p = 0; i < total; i++, p += 4) {
+      const b = profBytes[i];
+      const A = capas[lutLo[b]], Z = capas[lutHi[b]], fr = lutFrac[b];
+      const ru = amp * grano[i];
+      for (let c = 0; c < 3; c++) {
+        const mez = A[p + c] + (Z[p + c] - A[p + c]) * fr;
+        const ex = lutExp[mez < 0 ? 0 : mez > 255 ? 255 : mez | 0];
+        const s = ex + ru * (1 - ex / 255 * 0.6);
+        out[p + c] = s < 0 ? 0 : s > 255 ? 255 : s;
+      }
+      out[p + 3] = 255;
+    }
+  }
+  ctx.putImageData(salida, 0, 0);
+  refrescarPanel(N, iso, f, err, S1);
+}
+
+/* ------------------------------- el panel ------------------------------- */
+
+function refrescarPanel(N, iso, f, err, S1) {
+  $('v-dia').textContent = 'f/' + DIAFRAGMAS[estado.dia];
+  $('v-obt').textContent = '1/' + OBTURADORES[estado.obt];
+  $('v-iso').textContent = iso;
+  $('v-foc').textContent = f + ' mm';
+  $('v-enf').textContent = S1.toFixed(1) + ' m';
+
+  const abierto = DIAFRAGMAS.length - 1 - estado.dia;
+  $('p-dia').textContent = N <= 2.8
+    ? 'Muy abierto: entra mucha luz y el fondo se deshace.'
+    : N >= 11 ? 'Muy cerrado: entra poca luz, pero casi todo sale nítido.'
+    : 'A medio camino: hay luz y todavía se separa el fondo.';
+  $('p-obt').textContent = OBTURADORES[estado.obt] >= 250
+    ? 'Rápido: congela el movimiento, pero deja pasar poca luz.'
+    : OBTURADORES[estado.obt] <= 30
+    ? 'Lento: entra mucha luz. Cuidado, aquí ya tiembla la mano.'
+    : 'Un valor seguro para sostener la cámara a pulso.';
+  $('p-iso').textContent = iso <= 200
+    ? 'Limpio. Es donde quieres estar si hay luz.'
+    : iso >= 1600 ? 'Sensible, pero mira cómo se ensucia la imagen de grano.'
+    : 'Un punto medio razonable cuando ya falta luz.';
+  $('p-foc').textContent = f <= 35
+    ? 'Angular: cabe mucho, y casi nada se desenfoca.'
+    : f >= 85 ? 'Tele: aísla al sujeto y funde el fondo.'
+    : 'Normal: parecido a como ve el ojo.';
+
+  const abs = Math.abs(err);
+  const signo = abs < 0.05 ? '' : err > 0 ? '−' : '+';
+  $('fm-cifra').textContent = signo + abs.toFixed(1) + ' pasos';
+  $('fm-cifra').style.color = abs < 0.3 ? 'var(--ok)' : abs > 2 ? 'var(--alerta)' : 'var(--tinta)';
+  $('fm-dice').textContent = abs < 0.3 ? 'Exposición correcta.'
+    : err > 0 ? 'Le falta luz: está quedando oscura.'
+    : 'Le sobra luz: se están quemando los blancos.';
+  // La aguja: −3…+3 pasos sobre el riel. El signo se invierte porque a la
+  // izquierda va lo oscuro, y "oscuro" es error positivo.
+  $('fm-aguja').style.left = (50 - Math.max(-3, Math.min(3, err)) / 3 * 50) + '%';
+
+  const prof = cocPx(3.5, S1, f, N);   // cuánto se derrama la lámina del fondo
+  const topado = err < -0.4 && estado.obt === 0 && estado.iso === 0;
+  $('nota').textContent = topado
+    ? 'Ya estás en el obturador más rápido y el ISO más bajo, y aun así sobra luz. Así de abierto, a pleno día, hace falta un filtro ND: no hay manera de arreglarlo con la cámara sola.'
+    : abs > 2
+    ? 'Primero arregla la luz: con la foto así no se puede juzgar nada más.'
+    : prof < 2 ? 'Sale casi todo nítido. Para separar al sujeto del fondo, abre el diafragma o acércate con un lente más largo.'
+    : prof > 14 ? 'El fondo está deshecho: la lámina ya no distrae y el ojo se va derecho a la persona.'
+    : 'El fondo empieza a soltarse. Así se dirige la mirada sin mover a nadie de su sitio.';
+}
+
+/* ------------------------------- controles ------------------------------ */
+
+let pedido = null;
+const repintar = () => { if (!pedido) pedido = requestAnimationFrame(() => { pedido = null; pintar(); }); };
+
+const enlazar = (id, campo) => {
+  $(id).addEventListener('input', (e) => { estado[campo] = +e.target.value; repintar(); });
+};
+enlazar('s-dia', 'dia'); enlazar('s-obt', 'obt');
+enlazar('s-iso', 'iso'); enlazar('s-foc', 'foc');
+
+// Picar la foto = decidir dónde va el plano de enfoque. Se lee la distancia
+// real de ese punto en el mapa; no es una aproximación por zonas.
+$('marco').addEventListener('click', (e) => {
+  if (!listo) return;
+  const r = lienzo.getBoundingClientRect();
+  const x = Math.floor((e.clientX - r.left) / r.width * W);
+  const y = Math.floor((e.clientY - r.top) / r.height * H);
+  if (x < 0 || y < 0 || x >= W || y >= H) return;
+  estado.enfoque = distanciaDe(profBytes[y * W + x]);
+  const cruz = $('cruz');
+  cruz.hidden = false;
+  cruz.style.left = ((e.clientX - r.left) / r.width * 100) + '%';
+  cruz.style.top = ((e.clientY - r.top) / r.height * 100) + '%';
+  $('pista').style.opacity = '0';
+  repintar();
+});
+
+$('b-reset').addEventListener('click', () => {
+  Object.assign(estado, INICIO);
+  $('s-dia').value = INICIO.dia; $('s-obt').value = INICIO.obt;
+  $('s-iso').value = INICIO.iso; $('s-foc').value = INICIO.foc;
+  $('cruz').hidden = true; $('pista').style.opacity = '1';
+  repintar();
+});
+
+$('b-mapa').addEventListener('click', (e) => {
+  verMapa = !verMapa;
+  e.target.classList.toggle('on', verMapa);
+  e.target.textContent = verMapa ? 'Ver la foto' : 'Ver la profundidad';
+  repintar();
+});
+
+/* El panel plegado, recordado entre visitas. Vive aquí y no en los ajustes de
+   la app porque es una preferencia de ESTA pantalla, no del programa. */
+(function panelPlegable() {
+  const LLAVE = 'ptv:escuela-plegado';
+  const layout = document.querySelector('.layout');
+  const poner = (plegado) => {
+    layout.classList.toggle('plegado', plegado);
+    try { localStorage.setItem(LLAVE, plegado ? '1' : '0'); } catch (_) { /* da igual */ }
+  };
+  let guardado = null;
+  try { guardado = localStorage.getItem(LLAVE); } catch (_) { /* da igual */ }
+  // Sin elección previa manda el hueco: por debajo de 760 px el panel y la foto
+  // no caben juntos, y entre las dos cosas la que importa es la foto.
+  layout.classList.toggle('plegado',
+    guardado === null ? window.innerWidth < 760 : guardado === '1');
+  $('plegar').onclick = () => poner(true);
+  $('abrir-panel').onclick = () => poner(false);
+})();
+
+preparar().catch((err) => {
+  $('cargando').textContent = 'No pude cargar la foto: ' + err;
+});
+</script>
+</body>
+</html>

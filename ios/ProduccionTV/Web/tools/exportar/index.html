@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exportar — Producción TV</title>
+<link rel="stylesheet" href="../shared/sheets.css">
+<style>
+  *{box-sizing:border-box}
+  /* ============================================================================
+     Exportar habla el mismo idioma que la app: yeso, vidrio y la gelatina de
+     la etapa. Aquí la etapa es la 4 (2400 K, media hora antes): los documentos
+     son el último paso antes de rodar.
+     LAS HOJAS SE QUEDAN BLANCAS. Son papel y se imprimen; el tema no las toca.
+     ============================================================================ */
+  :root{
+    --yeso:#F1EEE8; --tinta:#171512; --tinta-media:#57534B; --tinta-baja:#625D55;
+    --linea:rgba(23,21,18,.08);
+    --gel:#D9602B; --gel-t:#8F3A11; --gel-f:#8F3A11;
+    --vidrio-a:rgba(255,255,255,.78); --vidrio-b:rgba(255,255,255,.52);
+    --vidrio-borde:rgba(255,255,255,.75); --vidrio-filo:rgba(255,255,255,.95);
+    --hueco-fondo:rgba(255,255,255,.55); --grano:.5;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-tema="claro"]){
+      --yeso:#1C1A18; --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#A8A297;
+      --linea:rgba(255,255,255,.09); --gel-t:#FF9A6B;
+      --vidrio-a:rgba(255,255,255,.10); --vidrio-b:rgba(255,255,255,.045);
+      --vidrio-borde:rgba(255,255,255,.14); --vidrio-filo:rgba(255,255,255,.16);
+      --hueco-fondo:rgba(0,0,0,.28); --grano:.30;
+    }
+  }
+  :root[data-tema="oscuro"]{
+    --yeso:#1C1A18; --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#A8A297;
+    --linea:rgba(255,255,255,.09); --gel-t:#FF9A6B;
+    --vidrio-a:rgba(255,255,255,.10); --vidrio-b:rgba(255,255,255,.045);
+    --vidrio-borde:rgba(255,255,255,.14); --vidrio-filo:rgba(255,255,255,.16);
+    --hueco-fondo:rgba(0,0,0,.28); --grano:.30;
+  }
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+    background:var(--yeso);color:var(--tinta)}
+  /* La pared: el yeso con su grano y la luz de la etapa. */
+  .pared{position:fixed;inset:0;z-index:0;pointer-events:none}
+  .pared::before{content:"";position:absolute;inset:0;
+    background:radial-gradient(70% 55% at 10% 0%,rgba(217,96,43,.20),transparent 62%),
+               radial-gradient(90% 70% at 100% 100%,rgba(217,96,43,.09),transparent 68%)}
+  .pared::after{content:"";position:absolute;inset:0;opacity:var(--grano);mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E")}
+  .layout{position:relative;z-index:1;display:grid;grid-template-columns:340px minmax(0,1fr);min-height:100vh}
+  /* PLEGAR EL PANEL. La hoja mide 816 px de ancho —es una carta— y el panel se
+     lleva 340 px fijos. En un monitor sobra sitio para los dos; en una tableta
+     no, y la hoja quedaba espachurrada justo cuando lo que quieres es MIRARLA.
+     Plegado, la vista previa se queda con todo el ancho, y un botón flotante
+     devuelve el panel. La elección se recuerda. */
+  /* AQUÍ NO SE APILA NUNCA. El 2-sep se probó poner el panel ARRIBA cuando la
+     ventana baja de 1180 px, para dejarle a la hoja todo el ancho. En el iPad
+     salió al revés de lo que se buscaba: el panel mide 893 x 1280 y se come la
+     pantalla entera, y la primera hoja empieza en y=1367 — o sea, fuera de la
+     vista. Reportado y medido. La columna se queda SIEMPRE en dos.
+
+     Lo que ya resolvía esto desde antes es el botón de PLEGAR: se recoge el
+     panel y la vista previa se queda con todo el ancho, y la elección se
+     recuerda. Y si el hueco es estrecho, la hoja ya no se descuadra: se encoge
+     para caber (--encaje-hoja, más abajo). */
+  .layout.plegado{grid-template-columns:minmax(0,1fr)}
+  .layout.plegado .config{display:none}
+  .cab-panel{display:flex;align-items:center;gap:8px}
+  .cab-panel h1{flex:1}
+  /* Tamaño de dedo: 40 px de alto es lo mínimo que se acierta sin mirar. */
+  .plegar,.abrir-panel{display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+    border:1px solid var(--vidrio-borde);border-radius:11px;padding:0 14px;min-height:40px;
+    background:var(--vidrio-b);color:var(--tinta-media);
+    font-family:inherit;font-size:13px;font-weight:700}
+  .plegar:hover,.abrir-panel:hover{color:var(--tinta)}
+  .abrir-panel{position:fixed;left:14px;top:14px;z-index:5;display:none;
+    background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));
+    -webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
+    box-shadow:0 12px 28px -16px rgba(0,0,0,.5)}
+  .layout.plegado .abrir-panel{display:inline-flex}
+  /* Panel de configuración */
+  .config{position:sticky;top:0;align-self:start;height:calc(100vh - 28px);margin:14px 0 14px 14px;overflow:auto;
+    display:flex;flex-direction:column;gap:18px;padding:20px 18px;color:var(--tinta);border-radius:20px;
+    background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));
+    -webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
+    border:1px solid var(--vidrio-borde);
+    box-shadow:inset 0 1px 0 var(--vidrio-filo),0 20px 44px -26px rgba(0,0,0,.4)}
+  .config h1{margin:0;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.055em;color:var(--tinta)}
+  .config h2{margin:0 0 9px;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.16em;color:var(--tinta-baja)}
+  .type-grid{display:flex;flex-direction:column;gap:8px}
+  .type-card{display:flex;flex-direction:column;gap:3px;text-align:left;border:1px solid var(--vidrio-borde);
+    background:var(--vidrio-b);color:var(--tinta);border-radius:12px;padding:11px 13px;cursor:pointer;font:inherit;
+    transition:background .18s,border-color .18s,box-shadow .18s,transform .1s cubic-bezier(.2,.7,.3,1)}
+  .type-card:hover{background:var(--vidrio-a);border-color:var(--gel)}
+  .type-card:active{transform:scale(.98)}
+  .type-card strong{font-size:13px}
+  .type-card small{color:var(--tinta-baja);font-size:11px}
+  .type-card.selected{border-color:var(--gel-f);color:#fff;
+    background:linear-gradient(165deg,var(--gel),var(--gel-f));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 15px -8px var(--gel)}
+  .type-card.selected small{color:rgba(255,255,255,.88)}
+  .sec-list{display:flex;flex-direction:column;gap:6px}
+  .sec-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center;border:1px solid var(--linea);background:var(--vidrio-b);border-radius:10px;padding:7px 9px}
+  .sec-row.off{opacity:.5}
+  .sec-row label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;cursor:pointer;min-width:0}
+  .sec-row label span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sec-row input{width:15px;height:15px;accent-color:var(--gel);flex:none}
+  .sec-row button{width:26px;height:26px;border:1px solid var(--linea);border-radius:7px;background:var(--vidrio-a);color:var(--tinta-media);cursor:pointer;font-size:12px}
+  .sec-row button:hover:not(:disabled){color:var(--tinta);border-color:var(--gel)}
+  .sec-row button:disabled{opacity:.3;cursor:default}
+  /* Sub-opciones de una sección. Hoy solo las usa "Hojas imprimibles", que
+     antes era una herramienta aparte (Guías) y hacía exactamente esto: elegir
+     qué hojas se imprimen y cuántos renglones en blanco dejarles. */
+  .sec-sub{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:-2px 0 2px 26px;padding:9px 11px;border:1px dashed var(--linea);border-radius:9px;background:var(--vidrio-b)}
+  .sec-sub label{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .sec-sub input[type=checkbox]{width:14px;height:14px;accent-color:var(--gel)}
+  .sec-sub input[type=number]{width:52px;border:1px solid var(--linea);border-radius:7px;background:var(--vidrio-a);color:var(--tinta);padding:4px 6px;font:inherit;font-size:11.5px}
+  .sec-sub .nota{width:100%;font-size:11px;color:var(--tinta-baja);line-height:1.5}
+  .pages-hint{font-size:11px;color:var(--tinta-baja);line-height:1.5;margin:6px 0 0}
+  .go{margin-top:auto;border:1px solid var(--gel-f);color:#fff;border-radius:11px;padding:13px;font-weight:700;font-size:15px;cursor:pointer;
+    background:linear-gradient(170deg,var(--gel),var(--gel-f));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 8px 18px -9px var(--gel);
+    transition:filter .18s,transform .1s cubic-bezier(.2,.7,.3,1)}
+  .go:active{transform:scale(.97)}
+  .go:hover:not(:disabled){filter:brightness(1.07)}
+  .go:disabled{opacity:.45;cursor:default}
+  /* Previsualización */
+  /* Las páginas se acomodan en tantas columnas como quepan: en pantalla grande
+     se revisan varias de un vistazo en lugar de una sola con aire a los lados. */
+  /* LAS HOJAS ENCAJAN EN SU COLUMNA. Cada hoja mide 816 px —el ancho de una
+     carta— y eso no se toca: es lo que se imprime. Lo que estaba mal era
+     dejarla salirse cuando el hueco es más angosto, que es justo lo que pasa al
+     subir el tamaño de la app: la ventana efectiva se encoge (medido: de 922 a
+     480 px al 175 %) y la hoja de 816 se salía por la derecha, descuadrada.
+
+     Ahora se mide la columna y se le pone a la hoja el factor que haga falta,
+     igual que hace el plano del set con su viewBox. `zoom` y no
+     `transform:scale` porque zoom encoge la caja y no deja hueco fantasma
+     debajo. Al imprimir se quita: ahí la hoja va a tamaño real. */
+  .preview{position:relative;z-index:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,816px),1fr));justify-items:center;align-items:start;gap:22px;padding:24px 16px 60px;overflow:auto}
+  .export-page{zoom:var(--encaje-hoja,1)}
+  @media print{ .export-page{zoom:1} }
+  .preview-title{grid-column:1/-1;align-self:stretch;text-align:center;color:var(--tinta-baja);font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase}
+  .empty{margin-top:80px;text-align:center;color:var(--tinta-media);font-size:14px;line-height:1.7}
+  @media print{
+    body{background:#fff}
+    .config,.preview-title{display:none!important}
+    .layout{display:block}
+    .preview{padding:0;gap:0;display:block;overflow:visible}
+    .page,.sheet{width:auto;min-height:auto;box-shadow:none;border-radius:0;padding:10mm 12mm;page-break-after:always}
+    .export-page:last-child{page-break-after:auto}
+  }
+  @page{size:letter;margin:8mm}
+</style>
+<!-- Estilos de las páginas del documento. Van en un bloque aparte (solo
+     selectores con clase) porque se envían junto con el HTML al shell para la
+     impresión multipágina (producciontv:print-document). -->
+<style id="page-styles">
+  .page{width:816px;min-height:1000px;background:#fff;border-radius:6px;box-shadow:0 14px 40px #0006;padding:38px 44px;position:relative;display:flex;flex-direction:column;color:#15233D;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+  .pg-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #16365F;padding-bottom:10px;margin-bottom:14px}
+  .pg-head h1{margin:0;font-size:21px;color:#16365F;text-transform:uppercase;letter-spacing:.5px}
+  .pg-head .sub{margin:3px 0 0;font-size:11px;color:#5b6b82;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+  .pg-head .org{text-align:right;font-size:11px;color:#5b6b82;font-weight:700;text-transform:uppercase}
+  .pg-foot{margin-top:auto;padding-top:18px;display:flex;justify-content:space-between;font-size:9px;color:#8a97a8;letter-spacing:1px;text-transform:uppercase}
+  .page table{width:100%;border-collapse:collapse;font-size:12px}
+  .page th{background:#16365F;color:#fff;text-transform:uppercase;font-size:10px;letter-spacing:.8px;padding:6px 8px;text-align:left}
+  .page td{border:1px solid #C8D2DE;padding:6px 8px;vertical-align:middle}
+  .page td.num{width:26px;text-align:center;color:#5b6b82;font-weight:700}
+  .chip{display:inline-block;color:#fff;font-weight:800;font-size:10.5px;border-radius:5px;padding:2px 8px}
+  .kv{display:grid;grid-template-columns:170px 1fr;font-size:12.5px}
+  .kv span{padding:8px 10px;background:#F2F5F8;border-bottom:1px solid #fff;font-weight:800;font-size:10px;text-transform:uppercase;color:#5b6b82;letter-spacing:.8px}
+  .kv b{padding:8px 10px;border-bottom:1px solid #EDF1F5}
+  .people{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .person{display:flex;align-items:center;gap:10px;border:1.5px solid #C8D2DE;border-radius:9px;padding:9px 11px}
+  .person i{width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:50%;background:#16365F;color:#fff;font-style:normal;font-size:16px}
+  .person div{min-width:0}
+  .person strong{display:block;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .person small{font-size:9.5px;color:#5b6b82;text-transform:uppercase;font-weight:700;letter-spacing:.5px}
+  /* Guion literario: formato tradicional, Courier y sangrías del oficio. */
+  /* LA CAPA DE TINTA. Va DENTRO de la página, encima de todo, y por eso se
+     imprime con ella: lo que se imprime es el outerHTML de .export-page.
+     `pointer-events` se enciende solo cuando toca escribir; el resto del tiempo
+     la capa no existe para el dedo y la hoja se desplaza normal. */
+  /* LA CAPA SIEMPRE RECIBE LOS EVENTOS, y ahí estaba mi error: con
+     `pointer-events:none` hasta encender el modo, el Apple Pencil nunca
+     alcanzaba la capa y la regla "el lápiz escribe siempre" no se cumplía nunca.
+     Ahora los recibe todos y DECIDE en el código: si no es el lápiz y no está
+     el modo, no hace preventDefault y `touch-action:pan-y` deja que el dedo
+     desplace la hoja como si la capa no existiera. */
+  .tinta{position:absolute;inset:0;width:100%;height:100%;z-index:5;touch-action:pan-y}
+  .tinta.escribiendo{touch-action:none;cursor:crosshair}
+  .export-page{position:relative}
+  .tinta-barra{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:8px}
+  .tinta-color{width:26px;height:26px;border-radius:7px;cursor:pointer;border:1px solid var(--vidrio-borde)}
+  .tinta-color[aria-pressed="true"]{border:3px solid var(--tinta)}
+  .tinta-grosor{min-height:30px;padding:0 10px;border-radius:8px;cursor:pointer;font:inherit;
+    font-size:11.5px;font-weight:700;border:1px solid var(--vidrio-borde);
+    background:var(--vidrio-b);color:var(--tinta-media)}
+  .tinta-grosor[aria-pressed="true"]{background:var(--tinta);color:var(--yeso);border-color:var(--tinta)}
+  /* LA TABLA DE PATCHEO. Es la hoja que se pega junto al switcher, así que se
+     lee de reojo y con mala luz: número grande a la izquierda, canal en
+     monospace (donde "SDI 11" y "SDI 1" no se confunden) y una casilla al final
+     porque el patcheo se verifica cable por cable antes de empezar. */
+  .patcheo td.num{font-weight:800;font-size:14px;text-align:center;background:#F2F5F8;color:#16365F}
+  .patcheo td.ok{text-align:center;font-size:15px;color:#8A97A8}
+  .patcheo tr.libre td{background:#FCFCFD}
+  .patcheo small{color:#5b6b82;font-weight:600}
+  .page td.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+  /* Lo que no se capturó NO se esconde: se deja el hueco con su raya. Media
+     hoja de producción se llena en el piso, con un plumón. */
+  .rellenar{display:inline-block;border-bottom:1px dotted #8A97A8;height:13px;vertical-align:baseline}
+  .salida{margin:6px 0 0;font-size:11.5px;color:#33445F;background:#F2F5F8;border-left:3px solid #16365F;padding:6px 9px}
+  .notas-tec{border:1px solid #C8D2DE;border-radius:6px;min-height:96px;
+    background:repeating-linear-gradient(#fff 0 25px,#EDF1F5 25px 26px)}
+  .cat2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#16365F;border-bottom:2px solid #16365F;padding-bottom:3px;margin:14px 0 8px}
+</style>
+<!-- Accesibilidad (contraste alto / menos movimiento). Va al final del head
+     para que sus tokens manden sobre los de esta herramienta.
+     Ver tools/shared/accesibilidad.css. -->
+<link rel="stylesheet" href="../shared/accesibilidad.css">
+</head>
+<body>
+<div class="pared" aria-hidden="true"></div>
+<div class="layout">
+  <button class="abrir-panel no-print" id="abrir-panel" title="Volver a abrir las opciones de exportación">⇩ Exportar ›</button>
+  <aside class="config no-print">
+    <div class="cab-panel">
+      <h1>⇩ Exportar</h1>
+      <button class="plegar" id="plegar" title="Plegar este panel para ver las hojas más grandes">‹ Plegar</button>
+    </div>
+    <section>
+      <h2>¿Qué quieres exportar?</h2>
+      <div class="type-grid" id="type-grid">
+        <button class="type-card" data-type="proyecto"><strong>◆ Proyecto editable (.ptv)</strong><small>Archivo de Producción TV: doble clic lo abre en la app, o impórtalo desde Inicio</small></button>
+        <button class="type-card selected" data-type="pdf"><strong>⎙ PDF imprimible</strong><small>Documento con las secciones elegidas, en el orden que definas</small></button>
+        <button class="type-card" data-type="png"><strong>▧ PNG por sección</strong><small>Una imagen de alta resolución por cada página del documento</small></button>
+      </div>
+    </section>
+    <section id="sections-panel">
+      <h2>Selecciona qué secciones quieres incluir</h2>
+      <div class="sec-list" id="sec-list"></div>
+      <p class="pages-hint">Usa ▲▼ para ordenar las páginas del documento. La vista previa de la derecha es exactamente lo que se genera.</p>
+
+      <h2>Escribir a mano</h2>
+      <p class="pages-hint" id="tinta-pista">Con un <b>Apple Pencil</b> escribe directo sobre la hoja: el lápiz siempre escribe y el dedo siempre desplaza, sin encender nada. Con ratón o dedo, enciende <b>Modo escritura</b>.</p>
+      <div class="tinta-barra" id="tinta-barra"></div>
+    </section>
+    <button class="go" id="go">Generar</button>
+  </aside>
+  <main class="preview" id="preview">
+    <div class="empty">Abre un proyecto para configurar su exportación.</div>
+  </main>
+</div>
+
+<script src="../shared/sheets.js"></script>
+<script src="../shared/atajos.js"></script>
+<script src="../shared/ajustes.js"></script>
+<script>
+(() => {
+  'use strict';
+  const S = window.PTVSheets;
+  const esc = S.esc, fmt = S.fmt, trunc = S.trunc;
+
+  let cfg = null, diagram = null, project = null, projectName = '';
+  let tipo = 'pdf';
+
+  // Secciones disponibles (id, etiqueta, páginas que produce)
+  const SECCIONES = [
+    { id: 'completa', label: 'Producción completa (resumen)', on: true },
+    { id: 'set', label: 'Sets (planos cenitales)', on: true },
+    { id: 'iluminacion', label: 'Iluminación', on: true },
+    { id: 'llamado', label: 'Hoja de llamado', on: true },
+    { id: 'guion', label: 'Guion literario', on: true },
+    { id: 'escaleta', label: 'Escaleta', on: true },
+    { id: 'timeline', label: 'Línea de tiempo', on: true },
+    { id: 'diagrama', label: 'Diagrama técnico', on: true },
+    { id: 'personal', label: 'Personal de operación', on: true },
+    { id: 'guias', label: 'Hojas imprimibles', on: false },
+  ];
+  let orden = SECCIONES.map((s) => ({ ...s }));
+
+  /* HOJAS IMPRIMIBLES. Antes vivían en una herramienta aparte llamada "Guías",
+     con su propia pestaña en Planeación. Era la misma función con otro nombre:
+     las mismas hojas, el mismo renderizador (PTVSheets) y el mismo destino, el
+     papel. Ahora son una sección más de Exportar, que es donde ya estaban a
+     medias — la sección existía, pero imprimía siempre las mismas siete hojas
+     y sin poder elegir. Aquí se recupera el control que tenía la herramienta:
+     cuáles hojas y cuántos renglones en blanco. */
+  const HOJAS = [
+    { id: 'perfil', label: 'Perfil' },
+    { id: 'guion', label: 'Guion literario' },
+    { id: 'escaleta', label: 'Escaleta' },
+    { id: 'camaras', label: 'Cámaras' },
+    { id: 'checklist', label: 'Checklist' },
+    { id: 'plano', label: 'Plano del set' },
+    { id: 'iluminacion', label: 'Plan de iluminación' },
+    { id: 'llamado', label: 'Hoja de llamado' },
+    { id: 'cambios', label: 'Registro de cambios' },
+  ];
+  // Las que traía encendidas la sección antes de este cambio.
+  let hojasOn = ['escaleta', 'camaras', 'checklist', 'plano', 'iluminacion', 'llamado', 'cambios'];
+  let filasExtra = 4;
+
+  /* --------------------------- Utilidades --------------------------- */
+
+  // Nombre de archivo seguro: sin acentos (NFD + quitar diacríticos) ni símbolos.
+  const slug = (s) => String(s || 'produccion').toLowerCase().normalize('NFD')
+    .replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'produccion';
+
+  const fuentesDe = () => {
+    const map = {};
+    (cfg.camaras || []).forEach((c, i) => { map[c.id] = { nombre: c.nombre || 'CAM ' + (i + 1), color: c.color || '#1D6FD1' }; });
+    (cfg.extras || []).forEach((x) => { map[x.id] = { nombre: x.nombre, color: x.color || '#64748B' }; });
+    return map;
+  };
+
+  const pgHead = (titulo, sub) => `
+    <div class="pg-head">
+      <div><h1>${esc(titulo)}</h1><p class="sub">${esc(sub)}</p></div>
+      <div class="org">${esc(cfg.organizacion || '')}<br>${esc(trunc(cfg.titulo || projectName, 42))}</div>
+    </div>`;
+
+  const pgFoot = (n, total) => `<div class="pg-foot"><span>Producción TV · ${esc(trunc(projectName || cfg.titulo || '', 40))}</span><span>${new Date().toLocaleDateString()}</span><span>Página ${n} / ${total}</span></div>`;
+
+  /* ------------------------ Páginas del documento ------------------------ */
+
+  // Perfil del proyecto: quién habla, qué dice, a quién y con cuánto. Es lo
+  // primero que se decide y lo que justifica el resto del documento, así que
+  // encabeza el resumen. Si el proyecto no lo tiene llenado, no se imprime.
+  function bloquePerfil() {
+    const p = cfg.perfil || {};
+    const lleno = (v) => (Array.isArray(v) ? v.length : String(v || '').trim());
+    if (!Object.values(p).some(lleno)) return '';
+    const dinero = (v) => (String(v || '').trim() ? '$' + Number(v).toLocaleString('es-MX') + ' MXN' : '—');
+    const fila = (k, v) => (lleno(v) ? `<span>${k}</span><b>${esc(Array.isArray(v) ? v.join(' · ') : v)}</b>` : '');
+    return `
+      <div class="cat2">Perfil del proyecto</div>
+      <div class="kv">
+        ${fila('Género', p.genero)}
+        ${fila('Formato', p.formato)}
+        ${fila('Entrega', p.entrega)}
+        ${fila('Emisor', p.emisor)}
+        ${fila('Receptor', [p.receptor, p.edad].filter(Boolean).join(' · '))}
+        ${fila('Alcance', p.alcance)}
+        ${fila('Qué sabe del tema', p.conocimiento)}
+        ${fila('Mensaje', p.mensaje)}
+        ${fila('Tono', p.tono)}
+        ${fila('Referencias', p.referencias)}
+        ${fila('Intención', p.intencion)}
+        ${fila('Medios del receptor', p.medios)}
+        ${lleno(p.presupuesto) ? `<span>Presupuesto</span><b>${dinero(p.presupuesto)}${p.presupuestoNota ? ' · ' + esc(p.presupuestoNota) : ''}</b>` : ''}
+      </div>
+      ${bloqueReparto(p)}`;
+  }
+
+  /* El reparto del presupuesto impreso. Los rangos son los de la industria
+     (Above the Line / Below the Line); si un bloque se salió, sale marcado en
+     la hoja para que se vea en la mesa, no solo en la pantalla. */
+  function bloqueReparto(p) {
+    const total = Number(String(p.presupuesto || '').replace(/[^\d.]/g, '')) || 0;
+    const r = p.reparto || {};
+    if (!total || !Object.keys(r).length) return '';
+    const BL = [
+      ['atl', 'Sobre la línea', 'guion · dirección · producción · elenco', 25, 35],
+      ['btl', 'Bajo la línea', 'rodaje · cámara · luces · locación · arte', 40, 50],
+      ['pos', 'Posproducción', 'edición · sonido · música · color', 10, 20],
+      ['imprev', 'Imprevistos', 'seguro · reserva', 5, 10],
+    ];
+    const filas = BL.map(([id, nom, det, min, max]) => {
+      const pct = Number(r[id]) || 0;
+      const fuera = pct < min || pct > max;
+      return `<tr${fuera ? ' style="background:#FFF6E6"' : ''}>
+        <td>${nom}<br><small style="color:#777">${det}</small></td>
+        <td style="text-align:right">${pct}%${fuera ? ' <b>!</b>' : ''}</td>
+        <td style="text-align:right">$${Math.round(total * pct / 100).toLocaleString('es-MX')}</td>
+        <td style="text-align:right;color:#777">${min}-${max}%</td></tr>`;
+    }).join('');
+    return `
+      <div class="cat2">Reparto del presupuesto</div>
+      <table class="tb"><thead><tr>
+        <th>Bloque</th><th style="text-align:right">%</th>
+        <th style="text-align:right">MXN</th><th style="text-align:right">Rango</th>
+      </tr></thead><tbody>${filas}</tbody></table>
+      <p style="font-size:8pt;color:#777;margin:4px 0 0">
+        Los rangos son los que usa la industria. Un bloque marcado con ! se salió del suyo.
+        Por debajo de 10% en posproducción el dinero se acaba antes de terminar la pieza.</p>`;
+  }
+
+  function pagCompleta() {
+    const total = (cfg.escaleta || []).reduce((a, r) => a + (r.dur || 0), 0);
+    const cams = cfg.camaras || [], mics = cfg.microfonos || [];
+    const extras = (cfg.extras || []).filter((x) => !x.esCorte);
+    const kv = (k, v) => `<span>${k}</span><b>${v}</b>`;
+    return `
+      ${pgHead('Producción completa', 'Resumen ejecutivo del proyecto')}
+      <div class="kv">
+        ${kv('Título', esc(cfg.titulo || projectName))}
+        ${kv('Subtítulo', esc(cfg.subtitulo || '—'))}
+        ${kv('Productora', esc(cfg.organizacion || '—'))}
+        ${kv('Duración planeada', fmt(total) + ' · ' + (cfg.escaleta || []).length + ' segmentos')}
+        ${kv('Set', esc(cfg.pantalla || '—') + ' · Mesa: ' + esc(cfg.mesa || '—'))}
+        ${kv('Color de marca', `<span class="chip" style="background:${esc(cfg.branding?.primaryColor || '#16365F')}">${esc(cfg.branding?.primaryColor || '#16365F')}</span>`)}
+      </div>
+      ${bloquePerfil()}
+      <div class="cat2">Equipo técnico</div>
+      <table>
+        <tr><th>Cámaras (${cams.length})</th><th>Micrófonos (${mics.length})</th><th>Fuentes (${extras.length})</th></tr>
+        <tr>
+          <td>${cams.map((c, i) => `<span class="chip" style="background:${esc(c.color || '#16365F')};margin:2px 3px 2px 0">${esc(c.nombre || 'CAM ' + (i + 1))}</span> <small>${esc(c.plano || '')}</small>`).join('<br>') || '—'}</td>
+          <td>${mics.map((m) => `${esc(m.nombre)} <small style="color:#5b6b82">· ${esc(m.conexion || '')}</small>`).join('<br>') || '—'}</td>
+          <td>${extras.map((x) => esc(x.nombre)).join('<br>') || '—'}</td>
+        </tr>
+      </table>
+      <div class="cat2">Personal (${(cfg.personal || []).length}${cfg.includeCamOps ? ' + ' + cams.length + ' operadores de cámara' : ''})</div>
+      <p style="font-size:12px;line-height:1.8;margin:0">${(cfg.personal || []).map((p) => esc(p.rol)).join(' · ') || '—'}</p>`;
+  }
+
+  // Una página por set del proyecto.
+  function pagsSet() {
+    const sets = S.setsDe(cfg);
+    return sets.map((s) => ({
+      name: 'set-' + slug(s.nombre),
+      html: `${pgHead('Set · ' + s.nombre, s.locacion === 'ext' ? 'Locación exterior' : '¿Qué hay en el espacio físico y quién lo opera?')}${S.planoSvg(cfg, { display: true, set: s })}`,
+    }));
+  }
+
+  // Una página de iluminación por set (solo sets con luces; si ninguno tiene,
+  // una página que lo indica).
+  function pagsIluminacion() {
+    const sets = S.setsDe(cfg);
+    const conLuces = sets.filter((s) => ((s.iluminacion && s.iluminacion.luces) || []).length);
+    if (!conLuces.length) {
+      return [{
+        name: 'iluminacion',
+        html: `${pgHead('Iluminación', 'Plan de luces del proyecto')}<p style="font-size:12px">Sin iluminación configurada — se elige en la pestaña Set de la app.</p>`,
+      }];
+    }
+    return conLuces.map((s) => {
+      const luces = s.iluminacion.luces;
+      const lista = luces.map((l) =>
+        `<span class="chip" style="background:${esc(l.color || '#16365F')};margin:2px 4px 2px 0">${esc(l.abrev || 'LUZ')}</span> ${esc(l.nombre)}${l.opcional ? ' <small style="color:#5b6b82">· opcional</small>' : ''}`
+      ).join('<br>');
+      return {
+        name: 'iluminacion-' + slug(s.nombre),
+        html: `
+          ${pgHead('Iluminación · ' + s.nombre, 'Plan de luces sobre el plano cenital')}
+          ${S.planoSvg(cfg, { display: true, set: s })}
+          <div class="cat2">Luces (${luces.length})</div>
+          <p style="font-size:12px;line-height:2;margin:0">${lista}</p>`,
+      };
+    });
+  }
+
+  function pagEscaleta() {
+    const byId = fuentesDe();
+    let t = 0;
+    const rows = (cfg.escaleta || []).map((r, i) => {
+      const tin = t; t += r.dur || 0;
+      const f = byId[r.fuente];
+      return `<tr>
+        <td class="num">${i + 1}</td>
+        <td><b>${esc(r.segmento)}</b>${r.nota ? `<br><small style="color:#5b6b82">${esc(r.nota)}</small>` : ''}</td>
+        <td>${f ? `<span class="chip" style="background:${esc(f.color)}">${esc(trunc(f.nombre, 16))}</span>` : '—'}</td>
+        <td style="text-align:center">${fmt(tin)}</td>
+        <td style="text-align:center">${fmt(t)}</td>
+        <td style="text-align:center"><b>${fmt(r.dur)}</b></td>
+      </tr>`;
+    }).join('');
+    return `
+      ${pgHead('Escaleta / Rundown', '¿Qué pasa primero, qué pasa después y cuánto dura cada bloque?')}
+      <table>
+        <tr><th>#</th><th>Segmento</th><th>Fuente</th><th style="width:64px">Entra</th><th style="width:64px">Sale</th><th style="width:64px">Dur</th></tr>
+        ${rows || '<tr><td colspan="6">Sin segmentos.</td></tr>'}
+      </table>
+      <p style="font-size:12px;margin:10px 0 0">Duración total: <b>${fmt(t)}</b></p>`;
+  }
+
+  function pagTimeline() {
+    const byId = fuentesDe();
+    const rows = cfg.escaleta || [];
+    const total = rows.reduce((a, r) => a + (r.dur || 0), 0) || 1;
+    const W = 900, BAR_Y = 40, BAR_H = 64;
+    let x = 40, t = 0, alt = 0;
+    const segs = rows.map((r) => {
+      const w = (r.dur || 0) / total * (W - 80);
+      const f = byId[r.fuente] || { nombre: '—', color: '#9AA7B5' };
+      const cx = x + w / 2;
+      const labelY = alt % 2 ? BAR_Y + BAR_H + 34 : BAR_Y - 14;
+      alt += 1;
+      const s = `
+        <rect x="${x}" y="${BAR_Y}" width="${Math.max(1, w - 1)}" height="${BAR_H}" fill="${esc(f.color)}" opacity="0.85"/>
+        <line x1="${cx}" y1="${labelY > BAR_Y ? BAR_Y + BAR_H : BAR_Y}" x2="${cx}" y2="${labelY > BAR_Y ? labelY - 20 : labelY + 4}" stroke="#9AA7B5"/>
+        <text x="${cx}" y="${labelY}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#33445F">${esc(trunc(r.segmento, 18))}</text>
+        <text x="${cx}" y="${labelY + 11}" text-anchor="middle" font-size="9" fill="#5b6b82">${fmt(t)} → ${fmt(t + (r.dur || 0))}</text>`;
+      x += w; t += r.dur || 0;
+      return s;
+    }).join('');
+    const leyenda = Object.values(byId).map((f, i) =>
+      `<g transform="translate(${40 + (i % 4) * 215} ${190 + Math.floor(i / 4) * 22})">
+        <rect width="12" height="12" rx="3" fill="${esc(f.color)}"/>
+        <text x="18" y="10" font-size="10.5" fill="#33445F">${esc(trunc(f.nombre, 26))}</text>
+      </g>`).join('');
+    const legH = 200 + Math.ceil(Object.keys(byId).length / 4) * 22;
+    return `
+      ${pgHead('Línea de tiempo', 'Distribución temporal de la producción — total ' + fmt(total))}
+      <svg viewBox="0 0 ${W} ${legH}" style="width:100%;display:block">
+        <rect x="40" y="${BAR_Y}" width="${W - 80}" height="${BAR_H}" fill="none" stroke="#C8D2DE" stroke-width="1.5"/>
+        ${segs}
+        <text x="40" y="${BAR_Y + BAR_H + 58}" font-size="10" fill="#8A97A8" letter-spacing="1">FUENTES:</text>
+        ${leyenda}
+      </svg>`;
+  }
+
+  /* LA HOJA TÉCNICA. Antes solo dibujaba las cajas y los cables: bonito de ver
+     y de poco servir en el set, porque lo que ahí se pregunta no es "cómo se
+     ve la ruta" sino "¿la Cámara 2 va en la entrada 3 o en la 4?".
+
+     Y lo peor es que el módulo YA SABÍA la respuesta. El diagrama guarda a qué
+     puerto llega cada cable (`edge.to.port`) y el nombre del canal físico que
+     escribiste en cada uno (`node.chan[puerto]`). La hoja los tiraba a la
+     basura y volvía a dibujar cajas sin números.
+
+     Ahora sale la TABLA DE PATCHEO, que es el papel que de verdad se pega al
+     lado del switcher. Y las entradas libres no se ocultan: salen con su renglón
+     en blanco, porque el patcheo se acaba de decidir en el piso, con un plumón. */
+
+  // Los puertos de un nodo, con la misma regla que el módulo: los equipos
+  // "configurables" (switcher y mezcladora) generan sus entradas según cuántas
+  // tengan, y su salida se llama Programa o Mezcla.
+  function puertosDe(n) {
+    const CONFIG = { switcher: 'video', audio: 'audio' };
+    const sig = CONFIG[n.type];
+    if (sig) {
+      const k = Math.max(1, Math.min(12, (n.props && n.props.inputs) || 4));
+      const tag = sig === 'video' ? 'Cám ' : 'Mic ';
+      const ins = [];
+      for (let i = 1; i <= k; i++) ins.push({ id: 'i' + i, side: 'in', signal: sig, label: tag + i, n: i });
+      const out = n.type === 'switcher'
+        ? { id: 'pgm', side: 'out', signal: 'video', label: 'Programa' }
+        : { id: 'mix', side: 'out', signal: 'audio', label: 'Mezcla' };
+      return ins.concat([out]);
+    }
+    const PUERTOS = {
+      camara: [{ id: 'v', side: 'out', signal: 'video', label: 'Video' }],
+      microfono: [{ id: 'a', side: 'out', signal: 'audio', label: 'Audio' }],
+      receptor: [{ id: 'in', side: 'in', signal: 'audio', label: 'RX' }, { id: 'out', side: 'out', signal: 'audio', label: 'XLR' }],
+      encoder: [{ id: 'v', side: 'in', signal: 'video', label: 'Video PGM' }, { id: 'a', side: 'in', signal: 'audio', label: 'Audio' }, { id: 'out', side: 'out', signal: 'stream', label: 'Stream' }],
+      plataforma: [{ id: 'in', side: 'in', signal: 'stream', label: 'RTMP' }],
+      monitor: [{ id: 'in', side: 'in', signal: 'video', label: 'Video' }],
+      fuente: [{ id: 'v', side: 'out', signal: 'video', label: 'Video' }],
+    };
+    return PUERTOS[n.type] || [];
+  }
+
+  // Con qué conector sale ese equipo. Es el dato que evita llegar al set con el
+  // cable equivocado, y ya estaba capturado en el módulo.
+  function conectorDe(n) {
+    if (!n) return '';
+    if (n.type === 'camara') return (n.props && n.props.connector) || 'HDMI';
+    if (n.type === 'microfono') return (n.props && n.props.conexion) || 'XLR';
+    if (n.type === 'receptor') return 'XLR';
+    if (n.type === 'fuente') return 'HDMI';
+    if (n.type === 'plataforma') return (n.props && n.props.plataforma) || 'RTMP';
+    return '';
+  }
+
+  // Una raya para escribir a mano. Lo que no se capturó no se esconde: se deja
+  // el hueco, porque media hoja de producción se llena en el piso.
+  const raya = (ancho) => `<span class="rellenar" style="min-width:${ancho}px"></span>`;
+  const oDejaRaya = (valor, ancho) => (valor ? esc(valor) : raya(ancho));
+
+  /* La tabla de patcheo de UN equipo con entradas numeradas. Es la hoja que se
+     pega junto al switcher: una fila por entrada, esté ocupada o no. */
+  function tablaPatcheo(nodo, byId, edges) {
+    const esVideo = nodo.type === 'switcher';
+    const entradas = puertosDe(nodo).filter((p) => p.side === 'in');
+    const salida = puertosDe(nodo).find((p) => p.side === 'out');
+    const chan = nodo.chan || {};
+
+    const filas = entradas.map((p) => {
+      const cable = edges.find((e) => e.to && e.to.node === nodo.id && e.to.port === p.id);
+      const origen = cable ? byId[cable.from.node] : null;
+      const libre = !origen;
+      return `<tr${libre ? ' class="libre"' : ''}>
+        <td class="num">${p.n}</td>
+        <td>${origen ? `<b>${esc(trunc(origen.label || origen.type, 30))}</b>` : raya(120)}</td>
+        <td class="mono">${oDejaRaya(chan[p.id], 90)}</td>
+        <td>${origen ? esc(conectorDe(origen)) || raya(70) : raya(70)}</td>
+        <td class="ok">☐</td>
+      </tr>`;
+    }).join('');
+
+    // A dónde va la salida: la última pregunta de la cadena.
+    const salidaCable = salida && edges.find((e) => e.from && e.from.node === nodo.id && e.from.port === salida.id);
+    const destino = salidaCable ? byId[salidaCable.to.node] : null;
+    const puertoDestino = salidaCable && destino
+      ? (puertosDe(destino).find((q) => q.id === salidaCable.to.port) || {}).label : '';
+
+    return `
+      <div class="cat2">${esVideo ? 'Entradas del switcher' : 'Entradas de la mezcladora'} · ${esc(trunc(nodo.label || '', 40))}</div>
+      <table class="patcheo">
+        <tr>
+          <th style="width:34px">In</th>
+          <th>Qué entra</th>
+          <th style="width:120px">Canal físico</th>
+          <th style="width:96px">${esVideo ? 'Sale por' : 'Conexión'}</th>
+          <th style="width:44px">✓</th>
+        </tr>
+        ${filas}
+      </table>
+      <p class="salida">
+        <b>${esc(salida ? salida.label : '')}</b> →
+        ${destino ? `${esc(trunc(destino.label || destino.type, 34))}${puertoDestino ? ` (${esc(puertoDestino)})` : ''}` : raya(150)}
+        · canal ${oDejaRaya(chan[salida && salida.id], 90)}
+      </p>`;
+  }
+
+  /* El resto de la cadena: lo que no pasa por un equipo con entradas numeradas
+     (monitores, encoder, plataforma). Va aparte porque ahí la pregunta no es
+     "¿qué entrada?" sino "¿de dónde a dónde?". */
+  function tablaEnlaces(nodos, byId, edges) {
+    const CONFIG = ['switcher', 'audio'];
+    const otros = edges.filter((e) => {
+      const b = byId[e.to && e.to.node];
+      return b && !CONFIG.includes(b.type);
+    });
+    if (!otros.length) return '';
+    const filas = otros.map((e) => {
+      const a = byId[e.from.node], b = byId[e.to.node];
+      if (!a || !b) return '';
+      const pa = (puertosDe(a).find((p) => p.id === e.from.port) || {}).label || '';
+      const pb = (puertosDe(b).find((p) => p.id === e.to.port) || {}).label || '';
+      const chan = (b.chan || {})[e.to.port] || (a.chan || {})[e.from.port] || '';
+      return `<tr>
+        <td><b>${esc(trunc(a.label || a.type, 26))}</b><small> · ${esc(pa)}</small></td>
+        <td><b>${esc(trunc(b.label || b.type, 26))}</b><small> · ${esc(pb)}</small></td>
+        <td class="mono">${oDejaRaya(chan, 90)}</td>
+        <td class="ok">☐</td>
+      </tr>`;
+    }).join('');
+    return `
+      <div class="cat2">Resto de la cadena</div>
+      <table class="patcheo">
+        <tr><th>Sale de</th><th>Entra a</th><th style="width:120px">Canal físico</th><th style="width:44px">✓</th></tr>
+        ${filas}
+      </table>`;
+  }
+
+  function pagDiagrama() {
+    const nodes = (diagram && diagram.nodes) || [];
+    const edges = (diagram && diagram.edges) || [];
+    if (!nodes.length) return `${pgHead('Diagrama técnico', 'Ruta de señal')}<p style="font-size:12px">Este proyecto aún no tiene diagrama de señal.</p>`;
+    const SIGNAL = { camara: 'video', fuente: 'video', switcher: 'video', monitor: 'video', microfono: 'audio', receptor: 'audio', audio: 'audio', encoder: 'stream', plataforma: 'stream' };
+    const COLOR = { video: '#1D6FD1', audio: '#1FA14E', stream: '#E0312F' };
+    const NW = 150, NH = 46;
+    const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
+    const minX = Math.min(...xs) - 30, minY = Math.min(...ys) - 30;
+    const w = Math.max(...xs) - minX + NW + 60, h = Math.max(...ys) - minY + NH + 60;
+    const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
+    const edgesSvg = edges.map((e) => {
+      const a = byId[e.from?.node], b = byId[e.to?.node];
+      if (!a || !b) return '';
+      const x1 = a.x - minX + NW, y1 = a.y - minY + NH / 2;
+      const x2 = b.x - minX, y2 = b.y - minY + NH / 2;
+      const c = COLOR[SIGNAL[a.type]] || '#64748B';
+      const mx = (x1 + x2) / 2;
+      return `<path d="M${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}" fill="none" stroke="${c}" stroke-width="2.5" opacity="0.85"/>`;
+    }).join('');
+    /* Los cables ahora llevan SU NÚMERO DE ENTRADA encima. Es lo que convierte
+       el dibujo en algo consultable: ver el cable ya no obliga a adivinar en
+       cuál de las cuatro entradas termina. */
+    const numsSvg = edges.map((e) => {
+      const a = byId[e.from?.node], b = byId[e.to?.node];
+      if (!a || !b) return '';
+      const p = (puertosDe(b).find((q) => q.id === e.to.port) || {});
+      if (!p.n) return '';
+      const x2 = b.x - minX, y2 = b.y - minY + NH / 2;
+      return `<g transform="translate(${x2 - 17} ${y2})">
+        <circle r="9" fill="#fff" stroke="${COLOR[SIGNAL[b.type]] || '#64748B'}" stroke-width="1.5"/>
+        <text y="3.5" text-anchor="middle" font-size="10" font-weight="800" fill="#15233D">${p.n}</text></g>`;
+    }).join('');
+    const nodesSvg = nodes.map((n) => {
+      const c = COLOR[SIGNAL[n.type]] || '#64748B';
+      const entradas = puertosDe(n).filter((q) => q.side === 'in').length;
+      const pie = (n.type === 'switcher' || n.type === 'audio')
+        ? `${entradas} entradas` : ((n.type || '').toUpperCase());
+      return `<g transform="translate(${n.x - minX} ${n.y - minY})">
+        <rect width="${NW}" height="${NH}" rx="9" fill="#fff" stroke="${c}" stroke-width="2.5"/>
+        <text x="${NW / 2}" y="20" text-anchor="middle" font-size="11.5" font-weight="800" fill="#15233D">${esc(trunc(n.label || n.type, 20))}</text>
+        <text x="${NW / 2}" y="35" text-anchor="middle" font-size="8.5" fill="#5b6b82" letter-spacing=".5">${esc(pie.toUpperCase())}</text>
+      </g>`;
+    }).join('');
+    const ley = Object.entries(COLOR).map(([sig, c], i) =>
+      `<g transform="translate(${i * 130} 0)"><line x1="0" y1="6" x2="26" y2="6" stroke="${c}" stroke-width="3"/><text x="32" y="10" font-size="11" fill="#33445F">${sig.toUpperCase()}</text></g>`).join('');
+
+    const conEntradas = nodes.filter((n) => n.type === 'switcher' || n.type === 'audio');
+    const tablas = conEntradas.map((n) => tablaPatcheo(n, byId, edges)).join('');
+
+    return `
+      ${pgHead('Diagrama técnico', 'Ruta de señal y tabla de patcheo')}
+      <svg viewBox="0 0 390 20" style="width:390px;margin-bottom:10px">${ley}</svg>
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;display:block;border:1px solid #C8D2DE;border-radius:8px;background:#FAFBFD">${edgesSvg}${numsSvg}${nodesSvg}</svg>
+      ${tablas}
+      ${tablaEnlaces(nodes, byId, edges)}
+      <div class="cat2">Notas del montaje</div>
+      <div class="notas-tec"></div>`;
+  }
+
+  function pagPersonal() {
+    const ICON = { director: '🎧', switcher: '🎚', audio: '🔊', graficos: '🖥', playback: '▶', conductor: '🎤', floor: '🎬', luces: '💡', productor: '👥', script: '✏️', custom: '👤' };
+    const people = (cfg.personal || []).map((p) =>
+      `<div class="person"><i>${ICON[p.icon] || '👤'}</i><div><strong>${esc(p.rol)}</strong><small>Operación</small></div></div>`);
+    const camOps = cfg.includeCamOps
+      ? (cfg.camaras || []).map((c, i) => `<div class="person"><i style="background:${esc(c.color || '#16365F')}">📷</i><div><strong>Operador(a) ${esc(c.nombre || 'CAM ' + (i + 1))}</strong><small>${esc(c.plano || 'Cámara')}</small></div></div>`)
+      : [];
+    return `
+      ${pgHead('Personal de operación', '¿Quién opera qué durante la producción?')}
+      <div class="people">${[...people, ...camOps].join('') || '<p>Sin personal definido.</p>'}</div>`;
+  }
+
+  // GUION LITERARIO en su forma tradicional. Se arma con las mismas escenas de
+  // la escaleta (encabezado + cuerpo). Si el proyecto no tiene guion escrito no
+  // se imprime ninguna página: no se rellena con humo.
+  // Colores del marcatextos del guion (espejo de MARCADORES en guion.js). Lo
+  // que el autor marcó en pantalla también sale impreso.
+  const MARCAS_COLOR = { verde: '#B8FF3C', amarillo: '#FFF25C', naranja: '#FFB03A', rojo: '#FF7A7A' };
+
+  // El guion literario lo arma la hoja COMPARTIDA (PTVSheets.guion), la misma
+  // que sale en Guías. Antes este archivo tenía su propia copia del formato y
+  // dos copias del mismo formato acaban separándose.
+  function pagsGuion() {
+    const hay = (cfg.escaleta || []).some((e) => (e.guion || []).some((b) => String(b.texto || '').trim()));
+    if (!hay) return [];
+    return [{ name: 'guion-literario', html: S.guion(cfg, projectName) }];
+  }
+
+  /* --------------------------- Composición --------------------------- */
+
+  // Devuelve la lista de páginas [{name, html, fillable}] según secciones y orden.
+  function buildPages() {
+    const pages = [];
+    orden.filter((s) => s.on).forEach((s) => {
+      if (s.id === 'completa') pages.push({ name: 'resumen', html: pagCompleta() });
+      if (s.id === 'set') pages.push(...pagsSet());
+      if (s.id === 'iluminacion') pages.push(...pagsIluminacion());
+      if (s.id === 'llamado') pages.push({ name: 'hoja-de-llamado', html: S.llamado(cfg, projectName), fillable: true });
+      if (s.id === 'guion') pages.push(...pagsGuion());
+      if (s.id === 'escaleta') pages.push({ name: 'escaleta', html: pagEscaleta() });
+      if (s.id === 'timeline') pages.push({ name: 'linea-de-tiempo', html: pagTimeline() });
+      if (s.id === 'diagrama') pages.push({ name: 'diagrama-tecnico', html: pagDiagrama() });
+      if (s.id === 'personal') pages.push({ name: 'personal', html: pagPersonal() });
+      if (s.id === 'guias') {
+        HOJAS.filter((h) => hojasOn.includes(h.id)).forEach((h, i) => {
+          pages.push({ name: `hoja-${i + 1}-${h.id}`, html: S[h.id](cfg, projectName, { extraRows: filasExtra }), fillable: true });
+        });
+      }
+    });
+    return pages;
+  }
+
+  /* ----------------------------- Render ----------------------------- */
+
+  function renderConfig() {
+    document.querySelectorAll('[data-type]').forEach((b) => b.classList.toggle('selected', b.dataset.type === tipo));
+    document.querySelector('#sections-panel').style.display = tipo === 'proyecto' ? 'none' : '';
+    const list = document.querySelector('#sec-list');
+    list.innerHTML = orden.map((s, i) => `
+      <div class="sec-row ${s.on ? '' : 'off'}">
+        <input type="checkbox" data-on="${i}" ${s.on ? 'checked' : ''}>
+        <label><span>${s.label}</span></label>
+        <button data-up="${i}" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button data-down="${i}" ${i === orden.length - 1 ? 'disabled' : ''}>▼</button>
+      </div>${s.id === 'guias' && s.on ? subHojas() : ''}`).join('');
+    list.querySelectorAll('[data-on]').forEach((c) => c.onchange = () => { orden[Number(c.dataset.on)].on = c.checked; render(); });
+    list.querySelectorAll('[data-hoja]').forEach((c) => c.onchange = () => {
+      const id = c.dataset.hoja;
+      hojasOn = c.checked ? [...hojasOn, id] : hojasOn.filter((x) => x !== id);
+      render();
+    });
+    const filas = list.querySelector('#filas-extra');
+    if (filas) filas.onchange = () => {
+      filasExtra = Math.max(0, Math.min(12, Number(filas.value) || 0));
+      render();
+    };
+    list.querySelectorAll('[data-up]').forEach((b) => b.onclick = () => { const i = Number(b.dataset.up); [orden[i - 1], orden[i]] = [orden[i], orden[i - 1]]; render(); });
+    list.querySelectorAll('[data-down]').forEach((b) => b.onclick = () => { const i = Number(b.dataset.down); [orden[i + 1], orden[i]] = [orden[i], orden[i + 1]]; render(); });
+    const go = document.querySelector('#go');
+    const n = buildPages().length;
+    go.textContent = tipo === 'proyecto' ? 'Exportar proyecto (.ptv)' : tipo === 'pdf' ? `Generar PDF (${n} páginas)` : `Generar ${n} PNG`;
+    go.disabled = tipo !== 'proyecto' && n === 0;
+  }
+
+  /* El panel plegado, recordado entre visitas. Va aquí y no en los ajustes de
+     la app porque es una preferencia de ESTA pantalla, no del programa. */
+  (function panelPlegable() {
+    const LLAVE = 'ptv:exportar-plegado';
+    const layout = document.querySelector('.layout');
+    const poner = (plegado) => {
+      layout.classList.toggle('plegado', plegado);
+      try { localStorage.setItem(LLAVE, plegado ? '1' : ''); } catch (e) { /* da igual */ }
+    };
+    let guardado = '';
+    try { guardado = localStorage.getItem(LLAVE) || ''; } catch (e) { /* da igual */ }
+    layout.classList.toggle('plegado', !!guardado);
+    document.querySelector('#plegar').onclick = () => poner(true);
+    document.querySelector('#abrir-panel').onclick = () => poner(false);
+  })();
+
+  // Las opciones de las hojas imprimibles, debajo de su fila.
+  function subHojas() {
+    return `
+      <div class="sec-sub">
+        ${HOJAS.map((h) => `
+          <label><input type="checkbox" data-hoja="${h.id}" ${hojasOn.includes(h.id) ? 'checked' : ''}>${h.label}</label>`).join('')}
+        <label>Renglones en blanco <input id="filas-extra" type="number" min="0" max="12" value="${filasExtra}"></label>
+        <span class="nota">Son las hojas que se llenan a mano en el set y después se capturan de regreso en la app. Los renglones en blanco son el espacio para escribir lo que salga en el rodaje.</span>
+      </div>`;
+  }
+
+  function renderPreview() {
+    const box = document.querySelector('#preview');
+    if (!cfg) return;
+    if (tipo === 'proyecto') {
+      box.innerHTML = `
+        <div class="preview-title no-print">Contenido del archivo</div>
+        <section class="page" style="min-height:auto">
+          ${pgHead('Proyecto editable', 'Archivo JSON reimportable con todo el proyecto')}
+          <div class="kv">
+            <span>Nombre</span><b>${esc(projectName || cfg.titulo || 'Proyecto')}</b>
+            <span>Infografía</span><b>${(cfg.camaras || []).length} cámaras · ${(cfg.microfonos || []).length} micrófonos · ${(cfg.escaleta || []).length} segmentos</b>
+            <span>Plano del set</span><b>${Object.keys(cfg.setLayout?.pos || {}).length ? 'Posiciones personalizadas incluidas' : 'Acomodo automático'}</b>
+            <span>Diagrama técnico</span><b>${((diagram || {}).nodes || []).length} nodos · ${((diagram || {}).edges || []).length} conexiones</b>
+          </div>
+          <p style="font-size:12px;color:#5b6b82;line-height:1.7;margin-top:14px">Este formato conserva todo: se importa de regreso en la app y se sigue editando. Es la copia de seguridad recomendada del proyecto.</p>
+        </section>`;
+      return;
+    }
+    const pages = buildPages();
+    box.innerHTML = pages.length
+      ? `<div class="preview-title no-print">Vista previa · ${pages.length} página${pages.length === 1 ? '' : 's'} — así se verá el documento</div>`
+        + pages.map((p, i) =>
+          `<section class="export-page ${p.fillable ? 'sheet' : 'page'}" data-name="${slug(projectName)}-${p.name}" style="display:flex;flex-direction:column">
+            ${p.html}${p.fillable ? S.foot(i + 1, pages.length) : pgFoot(i + 1, pages.length)}
+          </section>`).join('')
+      : '<div class="empty">Marca al menos una sección para incluir en el documento.</div>';
+    // Cada render crea hojas nuevas: hay que volver a ponerles su capa de tinta
+    // y repintar lo que ya estaba escrito.
+    if (window.engancharTinta) window.engancharTinta();
+  }
+
+  function render() { renderConfig(); renderPreview(); }
+
+  /* ----------------------------- Acciones ----------------------------- */
+
+  document.querySelectorAll('[data-type]').forEach((b) => b.onclick = () => { tipo = b.dataset.type; render(); });
+
+  // El PDF se imprime desde el shell: se le manda el HTML de las páginas con sus
+  // estilos, porque imprimir el iframe solo saca la parte visible (una pantalla).
+  async function printDocument() {
+    let sheetsCss = '';
+    try { sheetsCss = await (await fetch('../shared/sheets.css')).text(); } catch {}
+    const pagesCss = document.querySelector('#page-styles')?.textContent || '';
+    const html = [...document.querySelectorAll('.export-page')].map((el) => el.outerHTML).join('');
+    parent.postMessage({ type: 'producciontv:print-document', html, css: sheetsCss + pagesCss }, '*');
+  }
+
+  /* Mide el hueco de la vista previa y calcula el factor de encaje. Se vuelve a
+     medir con ResizeObserver, que es lo que hace que cambiar el tamaño de la app
+     —o girar el iPad— reacomode las hojas en vez de descuadrarlas. */
+  (function encajarHojas() {
+    const zona = document.querySelector('#preview');
+    if (!zona || !window.ResizeObserver) return;
+    const ANCHO_HOJA = 816;
+    /* SOLO SE ESCRIBE SI CAMBIÓ, y no es una optimización: cambiar el factor
+       cambia el alto de las hojas, eso puede hacer aparecer o desaparecer la
+       barra de desplazamiento, eso cambia el ancho, y el ResizeObserver vuelve
+       a dispararse. Sin este corte la página entra en un ciclo que no para y se
+       queda congelada. */
+    let puesto = '';
+    const medir = () => {
+      const estilo = getComputedStyle(zona);
+      const hueco = zona.clientWidth
+        - parseFloat(estilo.paddingLeft || 0) - parseFloat(estilo.paddingRight || 0);
+      if (hueco <= 0) return;
+      // Nunca por encima de 1: una hoja estirada solo se ve borrosa.
+      const factor = Math.min(1, hueco / ANCHO_HOJA).toFixed(3);
+      if (factor === puesto) return;
+      puesto = factor;
+      zona.style.setProperty('--encaje-hoja', factor);
+    };
+    medir();
+    new ResizeObserver(medir).observe(zona);
+  })();
+
+  /* ====================== ESCRIBIR A MANO SOBRE LA HOJA ======================
+     Firmar una hoja de llamado, rayar el diagrama en el set, tachar un bloque
+     que no se grabó. Es lo que se hace con las hojas de producción de verdad, y
+     hasta ahora obligaba a imprimirlas primero.
+
+     LA REGLA QUE HACE QUE SE SIENTA BIEN EN UN iPAD: el Apple Pencil escribe
+     SIEMPRE, y el dedo nunca. No hay modo que encender ni botón que recordar —
+     tocas con el lápiz y escribes, tocas con el dedo y la hoja se desplaza,
+     igual que en un cuaderno. WebKit lo permite porque cada evento dice con qué
+     lo hiciste (`pointerType`), y además ya trae el rechazo de palma: con el
+     lápiz apoyado, el toque de la mano no llega.
+
+     En el Mac no hay lápiz, así que ahí sí hace falta encender "Modo escritura"
+     para dibujar con el ratón. Misma capa, misma tinta, mismo archivo.
+
+     SE GUARDA EN EL PROYECTO (`cfg.anotaciones`), no en el navegador: la firma
+     de una hoja de llamado es parte del proyecto y tiene que viajar con el
+     .ptv, verse en el iPad si se hizo en el Mac, y seguir ahí mañana. */
+  (function tintaAMano() {
+    const COLORES = ['#15233D', '#1D6FD1', '#D92E2E', '#E5A400'];
+    const GROSORES = [{ id: 'fino', label: 'Fino', w: 1.6 }, { id: 'medio', label: 'Medio', w: 3 }, { id: 'marca', label: 'Marcador', w: 8 }];
+    let color = COLORES[0], grosor = GROSORES[1], modoEscritura = false;
+
+    const anotaciones = () => (cfg && (cfg.anotaciones = cfg.anotaciones || {})) || {};
+
+    /* Se avisa al caparazón para que guarde el .ptv, pero NO en cada punto: un
+       trazo son cientos de eventos y escribir el proyecto en cada uno dejaría
+       el disco trabajando toda la sesión. Al levantar el lápiz, y con un
+       respiro, que es cuando de verdad hay algo nuevo que guardar. */
+    let reloj = 0;
+    function guardar() {
+      clearTimeout(reloj);
+      reloj = setTimeout(() => {
+        if (cfg) parent.postMessage({ type: 'producciontv:infografia-state', cfg }, '*');
+      }, 700);
+    }
+
+    /* De los puntos a la línea. Se parte en tramos y cada tramo lleva SU grosor,
+       sacado de la presión: es lo que hace que una firma parezca una firma y no
+       un alambre. Sin presión (ratón) la presión llega en 0.5 y sale pareja. */
+    function caminos(trazo) {
+      const pts = trazo.t;
+      if (pts.length < 2) {
+        const [x, y, pr] = pts[0] || [0, 0, .5];
+        return [{ d: `M${x} ${y} l0.1 0`, w: trazo.w * (0.5 + pr) }];
+      }
+      const out = [];
+      let ini = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const cambio = Math.abs(pts[i][2] - pts[ini][2]) > 0.18;
+        if (i - ini >= 8 || cambio || i === pts.length - 1) {
+          const tramo = pts.slice(ini, i + 1);
+          const media = tramo.reduce((a, p) => a + p[2], 0) / tramo.length;
+          out.push({
+            d: 'M' + tramo.map((p) => `${p[0]} ${p[1]}`).join(' L'),
+            w: Math.max(0.5, trazo.w * (0.5 + media)),
+          });
+          ini = i - 1 >= 0 ? i - 1 : i;   // un punto de traslape: sin costura
+        }
+      }
+      return out;
+    }
+
+    function pintar(svg, trazos) {
+      svg.innerHTML = trazos.map((t) => caminos(t).map((c) =>
+        `<path d="${c.d}" fill="none" stroke="${t.c}" stroke-width="${c.w.toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"${t.c === '#E5A400' ? ' opacity="0.45"' : ''}/>`
+      ).join('')).join('');
+    }
+
+    // Enganchar una hoja: su capa de tinta, su historia y sus eventos.
+    function engancharPagina(pagina) {
+      const nombre = pagina.dataset.name;
+      if (!nombre || pagina.querySelector('.tinta')) return;
+      const w = pagina.offsetWidth || 816, h = pagina.offsetHeight || 1000;
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'tinta');
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      svg.setAttribute('preserveAspectRatio', 'none');
+      pagina.appendChild(svg);
+
+      const trazos = anotaciones()[nombre] || [];
+      pintar(svg, trazos);
+      if (modoEscritura) svg.classList.add('escribiendo');
+
+      let actual = null;
+      const punto = (e) => {
+        const r = svg.getBoundingClientRect();
+        return [
+          +((e.clientX - r.left) / r.width * w).toFixed(1),
+          +((e.clientY - r.top) / r.height * h).toFixed(1),
+          e.pressure > 0 ? e.pressure : 0.5,
+        ];
+      };
+      // El lápiz escribe siempre; el ratón y el dedo, solo en modo escritura.
+      const puedeEscribir = (e) => e.pointerType === 'pen' || modoEscritura;
+
+      svg.addEventListener('pointerdown', (e) => {
+        if (!puedeEscribir(e)) return;
+        e.preventDefault();
+        svg.setPointerCapture(e.pointerId);
+        actual = { c: color, w: grosor.w, t: [punto(e)] };
+        trazos.push(actual);
+        anotaciones()[nombre] = trazos;
+      });
+      svg.addEventListener('pointermove', (e) => {
+        if (!actual) return;
+        e.preventDefault();
+        /* Los eventos fundidos: el iPad muestrea el lápiz mucho más rápido de
+           lo que dibuja la pantalla y guarda los intermedios aquí. Sin esto una
+           línea rápida sale como una escalera de segmentos rectos. */
+        const brutos = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+        for (const b of (brutos.length ? brutos : [e])) {
+          const p = punto(b), u = actual.t[actual.t.length - 1];
+          if (Math.hypot(p[0] - u[0], p[1] - u[1]) < 1.2) continue;  // adelgaza
+          actual.t.push(p);
+        }
+        pintar(svg, trazos);
+      });
+      const soltar = () => { if (actual) { actual = null; guardar(); } };
+      svg.addEventListener('pointerup', soltar);
+      svg.addEventListener('pointercancel', soltar);
+      svg.addEventListener('pointerleave', soltar);
+
+      pagina._tinta = { svg, nombre, trazos: () => anotaciones()[nombre] || [], repintar: () => pintar(svg, anotaciones()[nombre] || []) };
+    }
+
+    // Después de cada render hay hojas nuevas: hay que volver a engancharlas.
+    window.engancharTinta = () => {
+      document.querySelectorAll('.export-page').forEach(engancharPagina);
+    };
+
+    window.tintaModo = (on) => {
+      modoEscritura = !!on;
+      document.querySelectorAll('.tinta').forEach((s) => s.classList.toggle('escribiendo', modoEscritura));
+    };
+    window.tintaColor = (c) => { color = c; };
+    window.tintaGrosor = (id) => { grosor = GROSORES.find((g) => g.id === id) || grosor; };
+    window.tintaDeshacer = () => {
+      // La última hoja tocada es la que se deshace: es la que estás mirando.
+      const paginas = [...document.querySelectorAll('.export-page')].filter((p) => (anotaciones()[p.dataset.name] || []).length);
+      const ultima = paginas[paginas.length - 1];
+      if (!ultima) return;
+      anotaciones()[ultima.dataset.name].pop();
+      ultima._tinta && ultima._tinta.repintar();
+      guardar();
+    };
+    window.tintaBorrarTodo = () => {
+      if (!cfg) return;
+      cfg.anotaciones = {};
+      document.querySelectorAll('.export-page').forEach((p) => p._tinta && p._tinta.repintar());
+      guardar();
+    };
+    window.tintaCuantos = () => Object.values(anotaciones()).reduce((n, l) => n + l.length, 0);
+    window.TINTA_COLORES = COLORES;
+    window.TINTA_GROSORES = GROSORES;
+  })();
+
+  /* Los controles de la tinta. Se arman aquí y no en el HTML porque los colores
+     y los grosores los define el motor: una sola lista, un solo sitio. */
+  (function barraDeTinta() {
+    const barra = document.querySelector('#tinta-barra');
+    // Cinturón: sin barra o sin motor, esto no puede tumbar el resto del script
+    // —que es justo lo que pasó al escribirlo con los bloques al revés—.
+    if (!barra || !window.TINTA_COLORES) return;
+    const boton = (html, attrs) => {
+      const b = document.createElement('button');
+      b.innerHTML = html;
+      Object.entries(attrs).forEach(([k, v]) => b.setAttribute(k, v));
+      barra.appendChild(b);
+      return b;
+    };
+    let colorPuesto = window.TINTA_COLORES[0], grosorPuesto = 'medio';
+    const pintaEstado = () => {
+      barra.querySelectorAll('[data-color]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.color === colorPuesto));
+      barra.querySelectorAll('[data-grosor]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.grosor === grosorPuesto));
+    };
+    window.TINTA_COLORES.forEach((c) => {
+      const b = boton('', { class: 'tinta-color', 'data-color': c, title: 'Escribir en este color', style: `background:${c}` });
+      b.onclick = () => { colorPuesto = c; window.tintaColor(c); pintaEstado(); };
+    });
+    window.TINTA_GROSORES.forEach((g) => {
+      const b = boton(g.label, { class: 'tinta-grosor', 'data-grosor': g.id, title: 'Grosor del trazo' });
+      b.onclick = () => { grosorPuesto = g.id; window.tintaGrosor(g.id); pintaEstado(); };
+    });
+    const modo = boton('✍ Modo escritura', { class: 'tinta-grosor', id: 'tinta-modo', title: 'Para escribir con ratón o con el dedo. Con Apple Pencil no hace falta.' });
+    modo.setAttribute('aria-pressed', 'false');
+    modo.onclick = () => {
+      const on = modo.getAttribute('aria-pressed') !== 'true';
+      modo.setAttribute('aria-pressed', String(on));
+      window.tintaModo(on);
+    };
+    boton('↶ Deshacer', { class: 'tinta-grosor', title: 'Quita el último trazo' }).onclick = () => window.tintaDeshacer();
+    boton('Borrar todo', { class: 'tinta-grosor', title: 'Quita toda la tinta de todas las hojas' }).onclick = () => {
+      if (window.tintaCuantos() && !confirm('¿Borrar toda la escritura a mano de todas las hojas?')) return;
+      window.tintaBorrarTodo();
+    };
+    pintaEstado();
+  })();
+
+  document.querySelector('#go').onclick = () => {
+    if (!cfg) return;
+    if (tipo === 'proyecto') {
+      parent.postMessage({
+        type: 'producciontv:save-file',
+        filename: `${slug(projectName)}.ptv`,
+        content: JSON.stringify({ project: project, infographic: cfg, diagram: diagram }, null, 2),
+      }, '*');
+      return;
+    }
+    if (tipo === 'pdf') { printDocument(); return; }
+    parent.postMessage({ type: 'producciontv:export-pngs' }, '*');
+  };
+
+  window.addEventListener('message', (event) => {
+    // El tema viaja del marco a la herramienta: son documentos distintos y
+    // esta no hereda nada. Sin esto arrancaría siempre en claro.
+    if (event.data?.type === 'producciontv:tema') {
+      const t = event.data.tema;
+      if (t === 'claro' || t === 'oscuro') document.documentElement.dataset.tema = t;
+      else delete document.documentElement.dataset.tema;
+    }
+    const data = event.data;
+    if (data && data.type === 'producciontv:load-exportar') {
+      cfg = data.cfg || null;
+      diagram = data.diagram || null;
+      project = data.project || null;
+      projectName = data.projectName || '';
+      if (cfg) render();
+    }
+  });
+})();
+</script>
+</body>
+</html>

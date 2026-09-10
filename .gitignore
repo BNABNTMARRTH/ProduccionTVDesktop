@@ -11,3 +11,11 @@ web-sources/generador-tv/dist/
 web-sources/generador-tv/node_modules/
 *.log
 .DS_Store
+
+# Xcode: lo que cada quien deja abierto y dónde compila. El proyecto de iPad
+# (ios/) sí va al repo, incluida ios/ProduccionTV/Web, que es la copia de
+# frontend/dist que Xcode mete en el paquete de la app.
+xcuserdata/
+*.xcuserstate
+ios/build/
+ios/DerivedData/
