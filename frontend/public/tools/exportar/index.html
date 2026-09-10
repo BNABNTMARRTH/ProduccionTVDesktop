@@ -47,6 +47,36 @@
   .pared::after{content:"";position:absolute;inset:0;opacity:var(--grano);mix-blend-mode:overlay;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E")}
   .layout{position:relative;z-index:1;display:grid;grid-template-columns:340px minmax(0,1fr);min-height:100vh}
+  /* PLEGAR EL PANEL. La hoja mide 816 px de ancho —es una carta— y el panel se
+     lleva 340 px fijos. En un monitor sobra sitio para los dos; en una tableta
+     no, y la hoja quedaba espachurrada justo cuando lo que quieres es MIRARLA.
+     Plegado, la vista previa se queda con todo el ancho, y un botón flotante
+     devuelve el panel. La elección se recuerda. */
+  /* AQUÍ NO SE APILA NUNCA. El 2-sep se probó poner el panel ARRIBA cuando la
+     ventana baja de 1180 px, para dejarle a la hoja todo el ancho. En el iPad
+     salió al revés de lo que se buscaba: el panel mide 893 x 1280 y se come la
+     pantalla entera, y la primera hoja empieza en y=1367 — o sea, fuera de la
+     vista. Reportado y medido. La columna se queda SIEMPRE en dos.
+
+     Lo que ya resolvía esto desde antes es el botón de PLEGAR: se recoge el
+     panel y la vista previa se queda con todo el ancho, y la elección se
+     recuerda. Y si el hueco es estrecho, la hoja ya no se descuadra: se encoge
+     para caber (--encaje-hoja, más abajo). */
+  .layout.plegado{grid-template-columns:minmax(0,1fr)}
+  .layout.plegado .config{display:none}
+  .cab-panel{display:flex;align-items:center;gap:8px}
+  .cab-panel h1{flex:1}
+  /* Tamaño de dedo: 40 px de alto es lo mínimo que se acierta sin mirar. */
+  .plegar,.abrir-panel{display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+    border:1px solid var(--vidrio-borde);border-radius:11px;padding:0 14px;min-height:40px;
+    background:var(--vidrio-b);color:var(--tinta-media);
+    font-family:inherit;font-size:13px;font-weight:700}
+  .plegar:hover,.abrir-panel:hover{color:var(--tinta)}
+  .abrir-panel{position:fixed;left:14px;top:14px;z-index:5;display:none;
+    background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));
+    -webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
+    box-shadow:0 12px 28px -16px rgba(0,0,0,.5)}
+  .layout.plegado .abrir-panel{display:inline-flex}
   /* Panel de configuración */
   .config{position:sticky;top:0;align-self:start;height:calc(100vh - 28px);margin:14px 0 14px 14px;overflow:auto;
     display:flex;flex-direction:column;gap:18px;padding:20px 18px;color:var(--tinta);border-radius:20px;
@@ -96,7 +126,19 @@
   /* Previsualización */
   /* Las páginas se acomodan en tantas columnas como quepan: en pantalla grande
      se revisan varias de un vistazo en lugar de una sola con aire a los lados. */
+  /* LAS HOJAS ENCAJAN EN SU COLUMNA. Cada hoja mide 816 px —el ancho de una
+     carta— y eso no se toca: es lo que se imprime. Lo que estaba mal era
+     dejarla salirse cuando el hueco es más angosto, que es justo lo que pasa al
+     subir el tamaño de la app: la ventana efectiva se encoge (medido: de 922 a
+     480 px al 175 %) y la hoja de 816 se salía por la derecha, descuadrada.
+
+     Ahora se mide la columna y se le pone a la hoja el factor que haga falta,
+     igual que hace el plano del set con su viewBox. `zoom` y no
+     `transform:scale` porque zoom encoge la caja y no deja hueco fantasma
+     debajo. Al imprimir se quita: ahí la hoja va a tamaño real. */
   .preview{position:relative;z-index:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,816px),1fr));justify-items:center;align-items:start;gap:22px;padding:24px 16px 60px;overflow:auto}
+  .export-page{zoom:var(--encaje-hoja,1)}
+  @media print{ .export-page{zoom:1} }
   .preview-title{grid-column:1/-1;align-self:stretch;text-align:center;color:var(--tinta-baja);font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase}
   .empty{margin-top:80px;text-align:center;color:var(--tinta-media);font-size:14px;line-height:1.7}
   @media print{
@@ -134,6 +176,41 @@
   .person strong{display:block;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .person small{font-size:9.5px;color:#5b6b82;text-transform:uppercase;font-weight:700;letter-spacing:.5px}
   /* Guion literario: formato tradicional, Courier y sangrías del oficio. */
+  /* LA CAPA DE TINTA. Va DENTRO de la página, encima de todo, y por eso se
+     imprime con ella: lo que se imprime es el outerHTML de .export-page.
+     `pointer-events` se enciende solo cuando toca escribir; el resto del tiempo
+     la capa no existe para el dedo y la hoja se desplaza normal. */
+  /* LA CAPA SIEMPRE RECIBE LOS EVENTOS, y ahí estaba mi error: con
+     `pointer-events:none` hasta encender el modo, el Apple Pencil nunca
+     alcanzaba la capa y la regla "el lápiz escribe siempre" no se cumplía nunca.
+     Ahora los recibe todos y DECIDE en el código: si no es el lápiz y no está
+     el modo, no hace preventDefault y `touch-action:pan-y` deja que el dedo
+     desplace la hoja como si la capa no existiera. */
+  .tinta{position:absolute;inset:0;width:100%;height:100%;z-index:5;touch-action:pan-y}
+  .tinta.escribiendo{touch-action:none;cursor:crosshair}
+  .export-page{position:relative}
+  .tinta-barra{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:8px}
+  .tinta-color{width:26px;height:26px;border-radius:7px;cursor:pointer;border:1px solid var(--vidrio-borde)}
+  .tinta-color[aria-pressed="true"]{border:3px solid var(--tinta)}
+  .tinta-grosor{min-height:30px;padding:0 10px;border-radius:8px;cursor:pointer;font:inherit;
+    font-size:11.5px;font-weight:700;border:1px solid var(--vidrio-borde);
+    background:var(--vidrio-b);color:var(--tinta-media)}
+  .tinta-grosor[aria-pressed="true"]{background:var(--tinta);color:var(--yeso);border-color:var(--tinta)}
+  /* LA TABLA DE PATCHEO. Es la hoja que se pega junto al switcher, así que se
+     lee de reojo y con mala luz: número grande a la izquierda, canal en
+     monospace (donde "SDI 11" y "SDI 1" no se confunden) y una casilla al final
+     porque el patcheo se verifica cable por cable antes de empezar. */
+  .patcheo td.num{font-weight:800;font-size:14px;text-align:center;background:#F2F5F8;color:#16365F}
+  .patcheo td.ok{text-align:center;font-size:15px;color:#8A97A8}
+  .patcheo tr.libre td{background:#FCFCFD}
+  .patcheo small{color:#5b6b82;font-weight:600}
+  .page td.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+  /* Lo que no se capturó NO se esconde: se deja el hueco con su raya. Media
+     hoja de producción se llena en el piso, con un plumón. */
+  .rellenar{display:inline-block;border-bottom:1px dotted #8A97A8;height:13px;vertical-align:baseline}
+  .salida{margin:6px 0 0;font-size:11.5px;color:#33445F;background:#F2F5F8;border-left:3px solid #16365F;padding:6px 9px}
+  .notas-tec{border:1px solid #C8D2DE;border-radius:6px;min-height:96px;
+    background:repeating-linear-gradient(#fff 0 25px,#EDF1F5 25px 26px)}
   .cat2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#16365F;border-bottom:2px solid #16365F;padding-bottom:3px;margin:14px 0 8px}
 </style>
 <!-- Accesibilidad (contraste alto / menos movimiento). Va al final del head
@@ -144,8 +221,12 @@
 <body>
 <div class="pared" aria-hidden="true"></div>
 <div class="layout">
+  <button class="abrir-panel no-print" id="abrir-panel" title="Volver a abrir las opciones de exportación">⇩ Exportar ›</button>
   <aside class="config no-print">
-    <h1>⇩ Exportar</h1>
+    <div class="cab-panel">
+      <h1>⇩ Exportar</h1>
+      <button class="plegar" id="plegar" title="Plegar este panel para ver las hojas más grandes">‹ Plegar</button>
+    </div>
     <section>
       <h2>¿Qué quieres exportar?</h2>
       <div class="type-grid" id="type-grid">
@@ -158,6 +239,10 @@
       <h2>Selecciona qué secciones quieres incluir</h2>
       <div class="sec-list" id="sec-list"></div>
       <p class="pages-hint">Usa ▲▼ para ordenar las páginas del documento. La vista previa de la derecha es exactamente lo que se genera.</p>
+
+      <h2>Escribir a mano</h2>
+      <p class="pages-hint" id="tinta-pista">Con un <b>Apple Pencil</b> escribe directo sobre la hoja: el lápiz siempre escribe y el dedo siempre desplaza, sin encender nada. Con ratón o dedo, enciende <b>Modo escritura</b>.</p>
+      <div class="tinta-barra" id="tinta-barra"></div>
     </section>
     <button class="go" id="go">Generar</button>
   </aside>
@@ -425,6 +510,141 @@
       </svg>`;
   }
 
+  /* LA HOJA TÉCNICA. Antes solo dibujaba las cajas y los cables: bonito de ver
+     y de poco servir en el set, porque lo que ahí se pregunta no es "cómo se
+     ve la ruta" sino "¿la Cámara 2 va en la entrada 3 o en la 4?".
+
+     Y lo peor es que el módulo YA SABÍA la respuesta. El diagrama guarda a qué
+     puerto llega cada cable (`edge.to.port`) y el nombre del canal físico que
+     escribiste en cada uno (`node.chan[puerto]`). La hoja los tiraba a la
+     basura y volvía a dibujar cajas sin números.
+
+     Ahora sale la TABLA DE PATCHEO, que es el papel que de verdad se pega al
+     lado del switcher. Y las entradas libres no se ocultan: salen con su renglón
+     en blanco, porque el patcheo se acaba de decidir en el piso, con un plumón. */
+
+  // Los puertos de un nodo, con la misma regla que el módulo: los equipos
+  // "configurables" (switcher y mezcladora) generan sus entradas según cuántas
+  // tengan, y su salida se llama Programa o Mezcla.
+  function puertosDe(n) {
+    const CONFIG = { switcher: 'video', audio: 'audio' };
+    const sig = CONFIG[n.type];
+    if (sig) {
+      const k = Math.max(1, Math.min(12, (n.props && n.props.inputs) || 4));
+      const tag = sig === 'video' ? 'Cám ' : 'Mic ';
+      const ins = [];
+      for (let i = 1; i <= k; i++) ins.push({ id: 'i' + i, side: 'in', signal: sig, label: tag + i, n: i });
+      const out = n.type === 'switcher'
+        ? { id: 'pgm', side: 'out', signal: 'video', label: 'Programa' }
+        : { id: 'mix', side: 'out', signal: 'audio', label: 'Mezcla' };
+      return ins.concat([out]);
+    }
+    const PUERTOS = {
+      camara: [{ id: 'v', side: 'out', signal: 'video', label: 'Video' }],
+      microfono: [{ id: 'a', side: 'out', signal: 'audio', label: 'Audio' }],
+      receptor: [{ id: 'in', side: 'in', signal: 'audio', label: 'RX' }, { id: 'out', side: 'out', signal: 'audio', label: 'XLR' }],
+      encoder: [{ id: 'v', side: 'in', signal: 'video', label: 'Video PGM' }, { id: 'a', side: 'in', signal: 'audio', label: 'Audio' }, { id: 'out', side: 'out', signal: 'stream', label: 'Stream' }],
+      plataforma: [{ id: 'in', side: 'in', signal: 'stream', label: 'RTMP' }],
+      monitor: [{ id: 'in', side: 'in', signal: 'video', label: 'Video' }],
+      fuente: [{ id: 'v', side: 'out', signal: 'video', label: 'Video' }],
+    };
+    return PUERTOS[n.type] || [];
+  }
+
+  // Con qué conector sale ese equipo. Es el dato que evita llegar al set con el
+  // cable equivocado, y ya estaba capturado en el módulo.
+  function conectorDe(n) {
+    if (!n) return '';
+    if (n.type === 'camara') return (n.props && n.props.connector) || 'HDMI';
+    if (n.type === 'microfono') return (n.props && n.props.conexion) || 'XLR';
+    if (n.type === 'receptor') return 'XLR';
+    if (n.type === 'fuente') return 'HDMI';
+    if (n.type === 'plataforma') return (n.props && n.props.plataforma) || 'RTMP';
+    return '';
+  }
+
+  // Una raya para escribir a mano. Lo que no se capturó no se esconde: se deja
+  // el hueco, porque media hoja de producción se llena en el piso.
+  const raya = (ancho) => `<span class="rellenar" style="min-width:${ancho}px"></span>`;
+  const oDejaRaya = (valor, ancho) => (valor ? esc(valor) : raya(ancho));
+
+  /* La tabla de patcheo de UN equipo con entradas numeradas. Es la hoja que se
+     pega junto al switcher: una fila por entrada, esté ocupada o no. */
+  function tablaPatcheo(nodo, byId, edges) {
+    const esVideo = nodo.type === 'switcher';
+    const entradas = puertosDe(nodo).filter((p) => p.side === 'in');
+    const salida = puertosDe(nodo).find((p) => p.side === 'out');
+    const chan = nodo.chan || {};
+
+    const filas = entradas.map((p) => {
+      const cable = edges.find((e) => e.to && e.to.node === nodo.id && e.to.port === p.id);
+      const origen = cable ? byId[cable.from.node] : null;
+      const libre = !origen;
+      return `<tr${libre ? ' class="libre"' : ''}>
+        <td class="num">${p.n}</td>
+        <td>${origen ? `<b>${esc(trunc(origen.label || origen.type, 30))}</b>` : raya(120)}</td>
+        <td class="mono">${oDejaRaya(chan[p.id], 90)}</td>
+        <td>${origen ? esc(conectorDe(origen)) || raya(70) : raya(70)}</td>
+        <td class="ok">☐</td>
+      </tr>`;
+    }).join('');
+
+    // A dónde va la salida: la última pregunta de la cadena.
+    const salidaCable = salida && edges.find((e) => e.from && e.from.node === nodo.id && e.from.port === salida.id);
+    const destino = salidaCable ? byId[salidaCable.to.node] : null;
+    const puertoDestino = salidaCable && destino
+      ? (puertosDe(destino).find((q) => q.id === salidaCable.to.port) || {}).label : '';
+
+    return `
+      <div class="cat2">${esVideo ? 'Entradas del switcher' : 'Entradas de la mezcladora'} · ${esc(trunc(nodo.label || '', 40))}</div>
+      <table class="patcheo">
+        <tr>
+          <th style="width:34px">In</th>
+          <th>Qué entra</th>
+          <th style="width:120px">Canal físico</th>
+          <th style="width:96px">${esVideo ? 'Sale por' : 'Conexión'}</th>
+          <th style="width:44px">✓</th>
+        </tr>
+        ${filas}
+      </table>
+      <p class="salida">
+        <b>${esc(salida ? salida.label : '')}</b> →
+        ${destino ? `${esc(trunc(destino.label || destino.type, 34))}${puertoDestino ? ` (${esc(puertoDestino)})` : ''}` : raya(150)}
+        · canal ${oDejaRaya(chan[salida && salida.id], 90)}
+      </p>`;
+  }
+
+  /* El resto de la cadena: lo que no pasa por un equipo con entradas numeradas
+     (monitores, encoder, plataforma). Va aparte porque ahí la pregunta no es
+     "¿qué entrada?" sino "¿de dónde a dónde?". */
+  function tablaEnlaces(nodos, byId, edges) {
+    const CONFIG = ['switcher', 'audio'];
+    const otros = edges.filter((e) => {
+      const b = byId[e.to && e.to.node];
+      return b && !CONFIG.includes(b.type);
+    });
+    if (!otros.length) return '';
+    const filas = otros.map((e) => {
+      const a = byId[e.from.node], b = byId[e.to.node];
+      if (!a || !b) return '';
+      const pa = (puertosDe(a).find((p) => p.id === e.from.port) || {}).label || '';
+      const pb = (puertosDe(b).find((p) => p.id === e.to.port) || {}).label || '';
+      const chan = (b.chan || {})[e.to.port] || (a.chan || {})[e.from.port] || '';
+      return `<tr>
+        <td><b>${esc(trunc(a.label || a.type, 26))}</b><small> · ${esc(pa)}</small></td>
+        <td><b>${esc(trunc(b.label || b.type, 26))}</b><small> · ${esc(pb)}</small></td>
+        <td class="mono">${oDejaRaya(chan, 90)}</td>
+        <td class="ok">☐</td>
+      </tr>`;
+    }).join('');
+    return `
+      <div class="cat2">Resto de la cadena</div>
+      <table class="patcheo">
+        <tr><th>Sale de</th><th>Entra a</th><th style="width:120px">Canal físico</th><th style="width:44px">✓</th></tr>
+        ${filas}
+      </table>`;
+  }
+
   function pagDiagrama() {
     const nodes = (diagram && diagram.nodes) || [];
     const edges = (diagram && diagram.edges) || [];
@@ -445,20 +665,44 @@
       const mx = (x1 + x2) / 2;
       return `<path d="M${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}" fill="none" stroke="${c}" stroke-width="2.5" opacity="0.85"/>`;
     }).join('');
+    /* Los cables ahora llevan SU NÚMERO DE ENTRADA encima. Es lo que convierte
+       el dibujo en algo consultable: ver el cable ya no obliga a adivinar en
+       cuál de las cuatro entradas termina. */
+    const numsSvg = edges.map((e) => {
+      const a = byId[e.from?.node], b = byId[e.to?.node];
+      if (!a || !b) return '';
+      const p = (puertosDe(b).find((q) => q.id === e.to.port) || {});
+      if (!p.n) return '';
+      const x2 = b.x - minX, y2 = b.y - minY + NH / 2;
+      return `<g transform="translate(${x2 - 17} ${y2})">
+        <circle r="9" fill="#fff" stroke="${COLOR[SIGNAL[b.type]] || '#64748B'}" stroke-width="1.5"/>
+        <text y="3.5" text-anchor="middle" font-size="10" font-weight="800" fill="#15233D">${p.n}</text></g>`;
+    }).join('');
     const nodesSvg = nodes.map((n) => {
       const c = COLOR[SIGNAL[n.type]] || '#64748B';
+      const entradas = puertosDe(n).filter((q) => q.side === 'in').length;
+      const pie = (n.type === 'switcher' || n.type === 'audio')
+        ? `${entradas} entradas` : ((n.type || '').toUpperCase());
       return `<g transform="translate(${n.x - minX} ${n.y - minY})">
         <rect width="${NW}" height="${NH}" rx="9" fill="#fff" stroke="${c}" stroke-width="2.5"/>
         <text x="${NW / 2}" y="20" text-anchor="middle" font-size="11.5" font-weight="800" fill="#15233D">${esc(trunc(n.label || n.type, 20))}</text>
-        <text x="${NW / 2}" y="35" text-anchor="middle" font-size="8.5" fill="#5b6b82" letter-spacing=".5">${esc((n.type || '').toUpperCase())}</text>
+        <text x="${NW / 2}" y="35" text-anchor="middle" font-size="8.5" fill="#5b6b82" letter-spacing=".5">${esc(pie.toUpperCase())}</text>
       </g>`;
     }).join('');
     const ley = Object.entries(COLOR).map(([sig, c], i) =>
       `<g transform="translate(${i * 130} 0)"><line x1="0" y1="6" x2="26" y2="6" stroke="${c}" stroke-width="3"/><text x="32" y="10" font-size="11" fill="#33445F">${sig.toUpperCase()}</text></g>`).join('');
+
+    const conEntradas = nodes.filter((n) => n.type === 'switcher' || n.type === 'audio');
+    const tablas = conEntradas.map((n) => tablaPatcheo(n, byId, edges)).join('');
+
     return `
-      ${pgHead('Diagrama técnico', 'Ruta de señal: video, audio y streaming')}
+      ${pgHead('Diagrama técnico', 'Ruta de señal y tabla de patcheo')}
       <svg viewBox="0 0 390 20" style="width:390px;margin-bottom:10px">${ley}</svg>
-      <svg viewBox="0 0 ${w} ${h}" style="width:100%;display:block;border:1px solid #C8D2DE;border-radius:8px;background:#FAFBFD">${edgesSvg}${nodesSvg}</svg>`;
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;display:block;border:1px solid #C8D2DE;border-radius:8px;background:#FAFBFD">${edgesSvg}${numsSvg}${nodesSvg}</svg>
+      ${tablas}
+      ${tablaEnlaces(nodes, byId, edges)}
+      <div class="cat2">Notas del montaje</div>
+      <div class="notas-tec"></div>`;
   }
 
   function pagPersonal() {
@@ -545,6 +789,22 @@
     go.disabled = tipo !== 'proyecto' && n === 0;
   }
 
+  /* El panel plegado, recordado entre visitas. Va aquí y no en los ajustes de
+     la app porque es una preferencia de ESTA pantalla, no del programa. */
+  (function panelPlegable() {
+    const LLAVE = 'ptv:exportar-plegado';
+    const layout = document.querySelector('.layout');
+    const poner = (plegado) => {
+      layout.classList.toggle('plegado', plegado);
+      try { localStorage.setItem(LLAVE, plegado ? '1' : ''); } catch (e) { /* da igual */ }
+    };
+    let guardado = '';
+    try { guardado = localStorage.getItem(LLAVE) || ''; } catch (e) { /* da igual */ }
+    layout.classList.toggle('plegado', !!guardado);
+    document.querySelector('#plegar').onclick = () => poner(true);
+    document.querySelector('#abrir-panel').onclick = () => poner(false);
+  })();
+
   // Las opciones de las hojas imprimibles, debajo de su fila.
   function subHojas() {
     return `
@@ -582,6 +842,9 @@
             ${p.html}${p.fillable ? S.foot(i + 1, pages.length) : pgFoot(i + 1, pages.length)}
           </section>`).join('')
       : '<div class="empty">Marca al menos una sección para incluir en el documento.</div>';
+    // Cada render crea hojas nuevas: hay que volver a ponerles su capa de tinta
+    // y repintar lo que ya estaba escrito.
+    if (window.engancharTinta) window.engancharTinta();
   }
 
   function render() { renderConfig(); renderPreview(); }
@@ -599,6 +862,233 @@
     const html = [...document.querySelectorAll('.export-page')].map((el) => el.outerHTML).join('');
     parent.postMessage({ type: 'producciontv:print-document', html, css: sheetsCss + pagesCss }, '*');
   }
+
+  /* Mide el hueco de la vista previa y calcula el factor de encaje. Se vuelve a
+     medir con ResizeObserver, que es lo que hace que cambiar el tamaño de la app
+     —o girar el iPad— reacomode las hojas en vez de descuadrarlas. */
+  (function encajarHojas() {
+    const zona = document.querySelector('#preview');
+    if (!zona || !window.ResizeObserver) return;
+    const ANCHO_HOJA = 816;
+    /* SOLO SE ESCRIBE SI CAMBIÓ, y no es una optimización: cambiar el factor
+       cambia el alto de las hojas, eso puede hacer aparecer o desaparecer la
+       barra de desplazamiento, eso cambia el ancho, y el ResizeObserver vuelve
+       a dispararse. Sin este corte la página entra en un ciclo que no para y se
+       queda congelada. */
+    let puesto = '';
+    const medir = () => {
+      const estilo = getComputedStyle(zona);
+      const hueco = zona.clientWidth
+        - parseFloat(estilo.paddingLeft || 0) - parseFloat(estilo.paddingRight || 0);
+      if (hueco <= 0) return;
+      // Nunca por encima de 1: una hoja estirada solo se ve borrosa.
+      const factor = Math.min(1, hueco / ANCHO_HOJA).toFixed(3);
+      if (factor === puesto) return;
+      puesto = factor;
+      zona.style.setProperty('--encaje-hoja', factor);
+    };
+    medir();
+    new ResizeObserver(medir).observe(zona);
+  })();
+
+  /* ====================== ESCRIBIR A MANO SOBRE LA HOJA ======================
+     Firmar una hoja de llamado, rayar el diagrama en el set, tachar un bloque
+     que no se grabó. Es lo que se hace con las hojas de producción de verdad, y
+     hasta ahora obligaba a imprimirlas primero.
+
+     LA REGLA QUE HACE QUE SE SIENTA BIEN EN UN iPAD: el Apple Pencil escribe
+     SIEMPRE, y el dedo nunca. No hay modo que encender ni botón que recordar —
+     tocas con el lápiz y escribes, tocas con el dedo y la hoja se desplaza,
+     igual que en un cuaderno. WebKit lo permite porque cada evento dice con qué
+     lo hiciste (`pointerType`), y además ya trae el rechazo de palma: con el
+     lápiz apoyado, el toque de la mano no llega.
+
+     En el Mac no hay lápiz, así que ahí sí hace falta encender "Modo escritura"
+     para dibujar con el ratón. Misma capa, misma tinta, mismo archivo.
+
+     SE GUARDA EN EL PROYECTO (`cfg.anotaciones`), no en el navegador: la firma
+     de una hoja de llamado es parte del proyecto y tiene que viajar con el
+     .ptv, verse en el iPad si se hizo en el Mac, y seguir ahí mañana. */
+  (function tintaAMano() {
+    const COLORES = ['#15233D', '#1D6FD1', '#D92E2E', '#E5A400'];
+    const GROSORES = [{ id: 'fino', label: 'Fino', w: 1.6 }, { id: 'medio', label: 'Medio', w: 3 }, { id: 'marca', label: 'Marcador', w: 8 }];
+    let color = COLORES[0], grosor = GROSORES[1], modoEscritura = false;
+
+    const anotaciones = () => (cfg && (cfg.anotaciones = cfg.anotaciones || {})) || {};
+
+    /* Se avisa al caparazón para que guarde el .ptv, pero NO en cada punto: un
+       trazo son cientos de eventos y escribir el proyecto en cada uno dejaría
+       el disco trabajando toda la sesión. Al levantar el lápiz, y con un
+       respiro, que es cuando de verdad hay algo nuevo que guardar. */
+    let reloj = 0;
+    function guardar() {
+      clearTimeout(reloj);
+      reloj = setTimeout(() => {
+        if (cfg) parent.postMessage({ type: 'producciontv:infografia-state', cfg }, '*');
+      }, 700);
+    }
+
+    /* De los puntos a la línea. Se parte en tramos y cada tramo lleva SU grosor,
+       sacado de la presión: es lo que hace que una firma parezca una firma y no
+       un alambre. Sin presión (ratón) la presión llega en 0.5 y sale pareja. */
+    function caminos(trazo) {
+      const pts = trazo.t;
+      if (pts.length < 2) {
+        const [x, y, pr] = pts[0] || [0, 0, .5];
+        return [{ d: `M${x} ${y} l0.1 0`, w: trazo.w * (0.5 + pr) }];
+      }
+      const out = [];
+      let ini = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const cambio = Math.abs(pts[i][2] - pts[ini][2]) > 0.18;
+        if (i - ini >= 8 || cambio || i === pts.length - 1) {
+          const tramo = pts.slice(ini, i + 1);
+          const media = tramo.reduce((a, p) => a + p[2], 0) / tramo.length;
+          out.push({
+            d: 'M' + tramo.map((p) => `${p[0]} ${p[1]}`).join(' L'),
+            w: Math.max(0.5, trazo.w * (0.5 + media)),
+          });
+          ini = i - 1 >= 0 ? i - 1 : i;   // un punto de traslape: sin costura
+        }
+      }
+      return out;
+    }
+
+    function pintar(svg, trazos) {
+      svg.innerHTML = trazos.map((t) => caminos(t).map((c) =>
+        `<path d="${c.d}" fill="none" stroke="${t.c}" stroke-width="${c.w.toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"${t.c === '#E5A400' ? ' opacity="0.45"' : ''}/>`
+      ).join('')).join('');
+    }
+
+    // Enganchar una hoja: su capa de tinta, su historia y sus eventos.
+    function engancharPagina(pagina) {
+      const nombre = pagina.dataset.name;
+      if (!nombre || pagina.querySelector('.tinta')) return;
+      const w = pagina.offsetWidth || 816, h = pagina.offsetHeight || 1000;
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'tinta');
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      svg.setAttribute('preserveAspectRatio', 'none');
+      pagina.appendChild(svg);
+
+      const trazos = anotaciones()[nombre] || [];
+      pintar(svg, trazos);
+      if (modoEscritura) svg.classList.add('escribiendo');
+
+      let actual = null;
+      const punto = (e) => {
+        const r = svg.getBoundingClientRect();
+        return [
+          +((e.clientX - r.left) / r.width * w).toFixed(1),
+          +((e.clientY - r.top) / r.height * h).toFixed(1),
+          e.pressure > 0 ? e.pressure : 0.5,
+        ];
+      };
+      // El lápiz escribe siempre; el ratón y el dedo, solo en modo escritura.
+      const puedeEscribir = (e) => e.pointerType === 'pen' || modoEscritura;
+
+      svg.addEventListener('pointerdown', (e) => {
+        if (!puedeEscribir(e)) return;
+        e.preventDefault();
+        svg.setPointerCapture(e.pointerId);
+        actual = { c: color, w: grosor.w, t: [punto(e)] };
+        trazos.push(actual);
+        anotaciones()[nombre] = trazos;
+      });
+      svg.addEventListener('pointermove', (e) => {
+        if (!actual) return;
+        e.preventDefault();
+        /* Los eventos fundidos: el iPad muestrea el lápiz mucho más rápido de
+           lo que dibuja la pantalla y guarda los intermedios aquí. Sin esto una
+           línea rápida sale como una escalera de segmentos rectos. */
+        const brutos = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+        for (const b of (brutos.length ? brutos : [e])) {
+          const p = punto(b), u = actual.t[actual.t.length - 1];
+          if (Math.hypot(p[0] - u[0], p[1] - u[1]) < 1.2) continue;  // adelgaza
+          actual.t.push(p);
+        }
+        pintar(svg, trazos);
+      });
+      const soltar = () => { if (actual) { actual = null; guardar(); } };
+      svg.addEventListener('pointerup', soltar);
+      svg.addEventListener('pointercancel', soltar);
+      svg.addEventListener('pointerleave', soltar);
+
+      pagina._tinta = { svg, nombre, trazos: () => anotaciones()[nombre] || [], repintar: () => pintar(svg, anotaciones()[nombre] || []) };
+    }
+
+    // Después de cada render hay hojas nuevas: hay que volver a engancharlas.
+    window.engancharTinta = () => {
+      document.querySelectorAll('.export-page').forEach(engancharPagina);
+    };
+
+    window.tintaModo = (on) => {
+      modoEscritura = !!on;
+      document.querySelectorAll('.tinta').forEach((s) => s.classList.toggle('escribiendo', modoEscritura));
+    };
+    window.tintaColor = (c) => { color = c; };
+    window.tintaGrosor = (id) => { grosor = GROSORES.find((g) => g.id === id) || grosor; };
+    window.tintaDeshacer = () => {
+      // La última hoja tocada es la que se deshace: es la que estás mirando.
+      const paginas = [...document.querySelectorAll('.export-page')].filter((p) => (anotaciones()[p.dataset.name] || []).length);
+      const ultima = paginas[paginas.length - 1];
+      if (!ultima) return;
+      anotaciones()[ultima.dataset.name].pop();
+      ultima._tinta && ultima._tinta.repintar();
+      guardar();
+    };
+    window.tintaBorrarTodo = () => {
+      if (!cfg) return;
+      cfg.anotaciones = {};
+      document.querySelectorAll('.export-page').forEach((p) => p._tinta && p._tinta.repintar());
+      guardar();
+    };
+    window.tintaCuantos = () => Object.values(anotaciones()).reduce((n, l) => n + l.length, 0);
+    window.TINTA_COLORES = COLORES;
+    window.TINTA_GROSORES = GROSORES;
+  })();
+
+  /* Los controles de la tinta. Se arman aquí y no en el HTML porque los colores
+     y los grosores los define el motor: una sola lista, un solo sitio. */
+  (function barraDeTinta() {
+    const barra = document.querySelector('#tinta-barra');
+    // Cinturón: sin barra o sin motor, esto no puede tumbar el resto del script
+    // —que es justo lo que pasó al escribirlo con los bloques al revés—.
+    if (!barra || !window.TINTA_COLORES) return;
+    const boton = (html, attrs) => {
+      const b = document.createElement('button');
+      b.innerHTML = html;
+      Object.entries(attrs).forEach(([k, v]) => b.setAttribute(k, v));
+      barra.appendChild(b);
+      return b;
+    };
+    let colorPuesto = window.TINTA_COLORES[0], grosorPuesto = 'medio';
+    const pintaEstado = () => {
+      barra.querySelectorAll('[data-color]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.color === colorPuesto));
+      barra.querySelectorAll('[data-grosor]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.grosor === grosorPuesto));
+    };
+    window.TINTA_COLORES.forEach((c) => {
+      const b = boton('', { class: 'tinta-color', 'data-color': c, title: 'Escribir en este color', style: `background:${c}` });
+      b.onclick = () => { colorPuesto = c; window.tintaColor(c); pintaEstado(); };
+    });
+    window.TINTA_GROSORES.forEach((g) => {
+      const b = boton(g.label, { class: 'tinta-grosor', 'data-grosor': g.id, title: 'Grosor del trazo' });
+      b.onclick = () => { grosorPuesto = g.id; window.tintaGrosor(g.id); pintaEstado(); };
+    });
+    const modo = boton('✍ Modo escritura', { class: 'tinta-grosor', id: 'tinta-modo', title: 'Para escribir con ratón o con el dedo. Con Apple Pencil no hace falta.' });
+    modo.setAttribute('aria-pressed', 'false');
+    modo.onclick = () => {
+      const on = modo.getAttribute('aria-pressed') !== 'true';
+      modo.setAttribute('aria-pressed', String(on));
+      window.tintaModo(on);
+    };
+    boton('↶ Deshacer', { class: 'tinta-grosor', title: 'Quita el último trazo' }).onclick = () => window.tintaDeshacer();
+    boton('Borrar todo', { class: 'tinta-grosor', title: 'Quita toda la tinta de todas las hojas' }).onclick = () => {
+      if (window.tintaCuantos() && !confirm('¿Borrar toda la escritura a mano de todas las hojas?')) return;
+      window.tintaBorrarTodo();
+    };
+    pintaEstado();
+  })();
 
   document.querySelector('#go').onclick = () => {
     if (!cfg) return;
