@@ -271,6 +271,13 @@ export const normalizeCfg = (cfg) => {
     perfil: normPerfil(cfg?.perfil, cfg?.narrativa),
     // Sin esto, un proyecto viejo sin `flujo` tumbaba la pantalla entera.
     flujo: { preview: true, playback: true, ...(cfg?.flujo || {}) },
+    /* La mesa de luz guarda AQUÍ solo los ids de las referencias elegidas,
+       nunca las imágenes: esas viven en la fototeca del disco, fuera de todo
+       proyecto. Es lo que mantiene el .ptv en texto y hace que la misma imagen
+       sirva para varios proyectos sin copiarse en cada uno. */
+    mesaDeLuz: {
+      tablero: Array.isArray(cfg?.mesaDeLuz?.tablero) ? cfg.mesaDeLuz.tablero : [],
+    },
   };
   let migroTalentos = false;
   if (!Array.isArray(c.talentos)) {

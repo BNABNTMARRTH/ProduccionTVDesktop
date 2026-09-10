@@ -87,7 +87,6 @@ export function EditorGuion({ cfg, setCfg }) {
   const objetivoSeg = objetivoSegDe(cfg);
   const [foco, setFoco] = useState(null);          // id del bloque a enfocar
   const [sugiere, setSugiere] = useState(null);    // {bloqueId, opciones}
-  const [activa, setActiva] = useState(null);      // escena donde está el cursor
   const [enfocado, setEnfocado] = useState(null);  // {escenaId, bloqueId} donde está el cursor
   const areas = useRef({});
 
@@ -145,6 +144,27 @@ export function EditorGuion({ cfg, setCfg }) {
   };
 
   const borrarEscena = (escId) => setCfg((c) => ({ ...c, escaleta: (c.escaleta || []).filter((e) => e.id !== escId) }));
+
+  /* LOS DATOS DE PRODUCCIÓN DE CADA ESCENA, DENTRO DE CADA ESCENA.
+     Antes esto era UNA tarjeta al costado que seguía al cursor: enseñaba la
+     escena donde estuvieras escribiendo. Falla por dos lados. En una pantalla
+     que no da para una tercera columna la tarjeta acababa debajo de la hoja, y
+     ahí ya no se entiende que "siga" a nadie: parece un formulario suelto que
+     solo sirve para la primera escena — que es justo lo que se reportó. Y aun
+     entendiéndolo, obliga a bajar, llenar, subir, poner el cursor en la
+     siguiente escena y volver a bajar.
+     Ahora cada escena lleva los suyos, plegados bajo su encabezado. Van
+     `no-print` porque son notas de producción, no guion: la hoja se sigue
+     imprimiendo limpia. */
+  const campoEscena = (etiqueta, valor, alPoner, placeholder) => (
+    <label className="block text-[10px] font-bold uppercase" style={{ color: TINTA_PAPEL_BAJA, letterSpacing: 0.6 }}>
+      {etiqueta}
+      <input value={valor || ""} disabled={!editable} placeholder={placeholder}
+        onChange={(e) => alPoner(e.target.value)}
+        className="mt-0.5 w-full rounded border px-2 py-1 text-xs font-normal normal-case"
+        style={{ borderColor: LINEA_PAPEL, background: "var(--hoja-alza)", color: TINTA_PAPEL, fontFamily: "system-ui, sans-serif" }} />
+    </label>
+  );
 
   // Ajusta el alto del área de texto a su contenido (nunca barras de scroll
   // dentro de una página de guion).
@@ -215,7 +235,7 @@ export function EditorGuion({ cfg, setCfg }) {
 
   return (
     <div className="scrollwrap hoja-tema overflow-auto px-2 py-4" style={{ background: "var(--vidrio-b)" }}>
-      <div className="mx-auto grid gap-4 xl:grid-cols-[250px_minmax(0,1fr)] 2xl:grid-cols-[250px_minmax(0,900px)_minmax(340px,1fr)]"
+      <div className="mx-auto grid gap-4 xl:grid-cols-[250px_minmax(0,1fr)]"
         style={{ maxWidth: "100%" }}>
       {/* Índice de escenas: solo aparece cuando hay ancho para él. Antes ese
           espacio se quedaba vacío a los lados de la página. */}
@@ -304,7 +324,7 @@ export function EditorGuion({ cfg, setCfg }) {
           "Escribe y da <b>Enter</b>: la app pasa sola al bloque que toca. Después de un <b>PERSONAJE</b> siempre viene su <b>diálogo</b>.",
           "¿Necesitas otro tipo de bloque? <b>Tab</b> lo cambia: acción → personaje → paréntesis → diálogo → transición.",
           "<b>⌘+Enter</b> abre una escena nueva. Su encabezado se escribe arriba: <b>INT. LUGAR – DÍA</b>.",
-          "Cada escena que abres aquí <b>aparece también en la escaleta</b>, con su duración. Son el mismo proyecto visto de dos formas.",
+          "Cada escena que abres aquí <b>aparece también en Guion técnico</b>, con su duración, para desglosarla en planos. Y sus datos de producción —función, personajes, qué cambia— se llenan en <b>Datos de la escena</b>, plegado bajo cada encabezado.",
           "La regla del oficio: <b>una página ≈ un minuto</b> de pantalla. Arriba te digo cuánto llevas.",
         ]} />
       </div>
@@ -333,7 +353,6 @@ export function EditorGuion({ cfg, setCfg }) {
               <input
                 value={esc.encabezado || ""}
                 disabled={!editable}
-                onFocus={() => setActiva(esc.id)}
                 onChange={(e) => upEscena(esc.id, { encabezado: e.target.value.toUpperCase() })}
                 onBlur={(e) => upEscena(esc.id, { encabezado: normalizarEncabezado(e.target.value) })}
                 placeholder="INT. LUGAR – DÍA"
@@ -349,6 +368,44 @@ export function EditorGuion({ cfg, setCfg }) {
               )}
             </div>
             <div style={{ height: 1, background: LINEA_PAPEL, margin: "2px 0 10px" }} />
+
+            {editable && (
+              <details className="no-print" style={{ marginBottom: 12 }}>
+                <summary className="ptv-plegable cursor-pointer"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 7,
+                    minHeight: 34, padding: "0 12px", borderRadius: 9,
+                    border: `1px solid ${LINEA_PAPEL}`, background: "var(--hoja-alza)",
+                    color: TINTA_PAPEL, fontFamily: "system-ui, sans-serif",
+                    fontSize: 12.5, fontWeight: 700,
+                  }}>
+                  <span className="ptv-caret" aria-hidden="true">▸</span>
+                  Datos de la escena
+                </summary>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {campoEscena("Nombre del bloque", esc.segmento, (v) => upEscena(esc.id, { segmento: v }), `Escena ${i + 1}`)}
+                  {/* La duración se guarda AL SALIR del campo, no en cada tecla:
+                      escribiendo "1:30" el primer carácter ya sería una duración
+                      válida y el campo se te reescribía debajo de los dedos. */}
+                  <label className="block text-[10px] font-bold uppercase" style={{ color: TINTA_PAPEL_BAJA, letterSpacing: 0.6 }}>
+                    Duración
+                    <input key={`dur-${esc.id}-${esc.dur}`} defaultValue={fmt(esc.dur || 0)} disabled={!editable}
+                      placeholder="01:00"
+                      onBlur={(e) => {
+                        const v = parseDur(e.target.value);
+                        if (v == null || v < 0) e.target.value = fmt(esc.dur || 0);
+                        else upEscena(esc.id, { dur: v });
+                      }}
+                      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                      className="mt-0.5 w-full rounded border px-2 py-1 text-xs font-normal normal-case"
+                      style={{ borderColor: LINEA_PAPEL, background: "var(--hoja-alza)", color: TINTA_PAPEL, fontFamily: "system-ui, sans-serif" }} />
+                  </label>
+                  {campoEscena("Función en la historia", esc.funcion, (v) => upEscena(esc.id, { funcion: v }), "Presenta el mundo")}
+                  {campoEscena("¿Qué cambia aquí?", esc.cambio, (v) => upEscena(esc.id, { cambio: v }), "Lo que ya no vuelve a ser igual")}
+                  {campoEscena("Personajes", esc.personajes, (v) => upEscena(esc.id, { personajes: v }), "Doña Rosa, Marco")}
+                </div>
+              </details>
+            )}
 
             {/* Cuerpo del guion */}
             {guionDe(esc).map((b) => {
@@ -374,7 +431,7 @@ export function EditorGuion({ cfg, setCfg }) {
                     placeholder={t.nombre}
                     onChange={(e) => { acomoda(e.target); escribe(esc, b, t.mayus ? e.target.value.toUpperCase() : e.target.value); }}
                     onKeyDown={(e) => teclas(e, esc, b)}
-                    onFocus={(e) => { acomoda(e.target); setActiva(esc.id); setEnfocado({ escenaId: esc.id, bloqueId: b.id }); }}
+                    onFocus={(e) => { acomoda(e.target); setEnfocado({ escenaId: esc.id, bloqueId: b.id }); }}
                     className="w-full resize-none border-0 bg-transparent outline-none"
                     style={{ ...tipografia(b, t), position: "relative", background: "transparent", overflow: "hidden" }}
                   />
@@ -427,40 +484,6 @@ export function EditorGuion({ cfg, setCfg }) {
       </div>
       </div>
 
-      {/* Datos de la escena donde está el cursor. Son los mismos campos de la
-          escaleta: aquí se llenan sin salir del guion, y llenan el espacio que
-          antes se quedaba vacío en pantallas grandes. */}
-      <aside className="no-print hidden 2xl:block">
-        {(() => {
-          const esc = escenas.find((e) => e.id === activa) || escenas[0];
-          if (!esc) return null;
-          const i = escenas.indexOf(esc);
-          const campo = (etiqueta, valor, alPoner, placeholder) => (
-            <label className="block text-xs font-bold uppercase" style={{ color: "var(--tinta-media)", letterSpacing: 0.6 }}>
-              {etiqueta}
-              <input value={valor || ""} disabled={!editable} placeholder={placeholder}
-                onChange={(e) => alPoner(e.target.value)}
-                className="mt-1 w-full rounded-md border px-2 py-1.5 text-sm font-normal normal-case"
-                style={{ borderColor: "var(--vidrio-borde)", background: "var(--hueco-fondo)", color: "var(--tinta)", fontFamily: "system-ui, sans-serif" }} />
-            </label>
-          );
-          return (
-            <div className="sticky top-2 flex flex-col gap-3 rounded-xl p-3" style={{ background: "var(--vidrio-a)", border: "1px solid var(--vidrio-borde)" }}>
-              <div className="text-xs font-bold uppercase" style={{ color: "var(--tinta)", letterSpacing: 1 }}>
-                Escena {i + 1}
-              </div>
-              {campo("Nombre del bloque", esc.segmento, (v) => upEscena(esc.id, { segmento: v }), "1. Presente")}
-              {campo("Duración", fmt(esc.dur || 0), (v) => upEscena(esc.id, { dur: parseDur(v) }), "01:00")}
-              {campo("Función en la historia", esc.funcion, (v) => upEscena(esc.id, { funcion: v }), "Presenta el mundo")}
-              {campo("¿Qué cambia aquí?", esc.cambio, (v) => upEscena(esc.id, { cambio: v }), "Lo que ya no vuelve a ser igual")}
-              {campo("Personajes", esc.personajes, (v) => upEscena(esc.id, { personajes: v }), "Doña Rosa, Marco")}
-              <p className="m-0 text-xs" style={{ color: "var(--tinta-media)", lineHeight: 1.45 }}>
-                Son los mismos campos de la escaleta: lo que escribas aquí aparece allá.
-              </p>
-            </div>
-          );
-        })()}
-      </aside>
       </div>
     </div>
   );

@@ -14,6 +14,8 @@ import { EditorGuion } from "./EditorGuion.jsx";
 import { PanelGuia } from "./PanelGuia.jsx";
 import { DEMO, normalizeCfg, esNarrativo } from "./proyecto.js";
 import { VistaSet } from "./VistaSet.jsx";
+import { MesaDeLuz } from "./MesaDeLuz.jsx";
+import { Agenda } from "./Agenda.jsx";
 
 // Modos que entiende el puente con el escritorio. Los tres últimos son ETAPAS:
 // el editor completo filtrado a las tarjetas de esa etapa.
@@ -22,14 +24,14 @@ const GRUPOS = ["perfil", "necesidades", "tiempos"];
    1 azul (la idea sin cuerpo) · 2 verde (se inventa) · 3 ámbar (aterriza)
    4 naranja (tiene fecha) · 5 rojo (al aire). */
 const ETAPA_DE = {
-  perfil: 1, editar: 1, vista: 1,
+  perfil: 1, editar: 1, vista: 1, referencias: 1,
   guion: 2, escaleta: 2, tiempos: 2,
-  necesidades: 3, diagrama: 3,
+  necesidades: 3, agenda: 3, diagrama: 3,
   set: 4, guias: 4,
   production: 5,
 };
 
-const MODOS = ["editar", "vista", "set", "escaleta", "guion", ...GRUPOS];
+const MODOS = ["editar", "vista", "set", "escaleta", "guion", "referencias", "agenda", ...GRUPOS];
 
 /* ----------------------------- Tokens / utilidades ----------------------------- */
 
@@ -363,6 +365,10 @@ export default function GeneradorInfografiaTV() {
         <EditorGuion cfg={cfg} setCfg={readonly ? undefined : setCfg} />
       ) : modo === "escaleta" ? (
         <VistaEscaleta cfg={cfg} setCfg={readonly ? undefined : setCfg} />
+      ) : modo === "referencias" ? (
+        <MesaDeLuz cfg={cfg} setCfg={readonly ? undefined : setCfg} />
+      ) : modo === "agenda" ? (
+        <Agenda cfg={cfg} setCfg={readonly ? undefined : setCfg} />
       ) : (
         <div className="scrollwrap overflow-auto px-2 py-4">
           <div className="print-zoom" ref={printZoomRef}><Infografia cfg={cfg} setCfg={setCfg} /></div>

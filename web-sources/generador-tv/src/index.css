@@ -222,11 +222,16 @@ button:not(.b):not(:disabled):active{ transform:scale(.97); }
   border-color:var(--gel-f); color:#fff; box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 5px 12px -6px var(--gel); }
 
 /* AGREGAR: el punteado dice "aquí todavía no hay nada" — regla 2. */
+/* El fondo y el borde eran blanco y negro FIJOS. Con las luces apagadas el
+   35% de blanco aclaraba la pastilla y la tinta media encima quedaba en
+   3.04:1; el borde punteado oscuro, directamente no se veía. Ahora los dos
+   salen del tema, y la tinta sube a la plena porque es texto de botón. */
 .b-agregar{ display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 15px;
-  border:1.5px dashed rgba(23,21,18,.24); border-radius:999px; background:rgba(255,255,255,.35);
-  color:var(--tinta-media); font-size:var(--t-eti); font-weight:700; line-height:1; cursor:pointer;
+  border:1.5px dashed color-mix(in srgb, var(--tinta) 26%, transparent); border-radius:999px;
+  background:var(--vidrio-b);
+  color:var(--tinta); font-size:var(--t-eti); font-weight:700; line-height:1; cursor:pointer;
   transition:border-color .18s, background .18s, color .18s, transform .1s cubic-bezier(.2,.7,.3,1); }
-.b-agregar:hover{ border-style:solid; border-color:var(--gel); background:rgba(255,255,255,.75); color:var(--gel-t); }
+.b-agregar:hover{ border-style:solid; border-color:var(--gel); background:var(--vidrio-a); color:var(--gel-t); }
 .b-agregar:active{ transform:scale(.97); }
 
 /* ============================ CAMPOS ============================
@@ -409,9 +414,14 @@ details[open] > .tarjeta-cab .tarjeta-flecha{ transform:rotate(180deg) }
 El MISMO dibujo (EstudioCenital) sale en dos lados: el editor del plano, que
 es una superficie de TRABAJO, y la infografía, que es una HOJA y se imprime.
 Por eso los colores por omisión son los de papel — blancos, como siempre — y
-solo el editor se marca con `.lienzo-tema`, que es lo único que se apaga en
-modo oscuro. Así el plano sigue saliendo blanco en la infografía y en las
-hojas, y de paso al imprimir desde el editor también (ver @media print).
+hay que marcar con `.lienzo-tema` lo que se apaga en modo oscuro.
+
+Hasta el 01-sep solo lo llevaba el editor, con el argumento de que la hoja se
+imprime. Quedaba mal: la hoja de la infografía SÍ se apaga (ver `.hoja-tema`
+más abajo), así que el plano dentro de ella era un rectángulo blanco encima de
+una hoja oscura. Desde el 02-sep la infografía también lleva `.lienzo-tema`, y
+lo que garantiza la hoja blanca no es dejarlo fuera sino el @media print de
+abajo, que devuelve el papel pase lo que pase.
 
 Los colores de DATO no están aquí a propósito: el verde de los micrófonos, el
 color de cada cámara y el de cada luz identifican una cosa concreta y no
@@ -495,6 +505,7 @@ también viven aquí: son los que se rompían al cambiar el fondo. */
   --hoja-linea:rgba(18,33,47,.16);
   --hoja-hueco:rgba(18,33,47,.06);
   --hoja-borrar:#B4454F;
+  --hoja-aclarar:0%;
   --tipo-accion:#2E7D5B; --tipo-personaje:#1D6FD1; --tipo-parentesis:#8A5CD6;
   --tipo-dialogo:#B4232A; --tipo-transicion:#9A5B00;
   /* Marcatextos: en claro son tinta fluorescente sólida, como en el papel. */
@@ -512,10 +523,11 @@ también viven aquí: son los que se rompían al cambiar el fondo. */
 @media (prefers-color-scheme: dark){
   :root:not([data-tema="claro"]) .hoja-tema{
     --hoja:#35322D; --hoja-alza:#403C36;
-    --hoja-tinta:#ECE7DF; --hoja-tinta-baja:#A9A399;
+    --hoja-tinta:#ECE7DF; --hoja-tinta-baja:#B3ADA3;   /* 5.7:1 sobre la hoja, 4.9:1 sobre el alza */
     --hoja-linea:rgba(255,255,255,.15);
     --hoja-hueco:rgba(255,255,255,.07);
     --hoja-borrar:#FF8A8E;
+    --hoja-aclarar:64%;
     --tipo-accion:#6FD3A4; --tipo-personaje:#7FB2EC; --tipo-parentesis:#C3A6F5;
     --tipo-dialogo:#FF9AA0; --tipo-transicion:#E8B462;
     --marca-verde:rgba(184,255,60,.26); --marca-amarillo:rgba(255,242,92,.26);
@@ -524,10 +536,11 @@ también viven aquí: son los que se rompían al cambiar el fondo. */
 }
 :root[data-tema="oscuro"] .hoja-tema{
   --hoja:#35322D; --hoja-alza:#403C36;
-  --hoja-tinta:#ECE7DF; --hoja-tinta-baja:#A9A399;
+  --hoja-tinta:#ECE7DF; --hoja-tinta-baja:#B3ADA3;   /* 5.7:1 sobre la hoja, 4.9:1 sobre el alza */
   --hoja-linea:rgba(255,255,255,.15);
   --hoja-hueco:rgba(255,255,255,.07);
   --hoja-borrar:#FF8A8E;
+  --hoja-aclarar:64%;
   --tipo-accion:#6FD3A4; --tipo-personaje:#7FB2EC; --tipo-parentesis:#C3A6F5;
   --tipo-dialogo:#FF9AA0; --tipo-transicion:#E8B462;
   --marca-verde:rgba(184,255,60,.26); --marca-amarillo:rgba(255,242,92,.26);
@@ -541,10 +554,66 @@ también viven aquí: son los que se rompían al cambiar el fondo. */
     --hoja-tinta:#12212f; --hoja-tinta-baja:#5A6672;
     --hoja-linea:rgba(18,33,47,.16); --hoja-hueco:rgba(18,33,47,.06);
     --hoja-borrar:#B4454F;
+    --hoja-aclarar:0%;
     --tipo-accion:#2E7D5B; --tipo-personaje:#1D6FD1; --tipo-parentesis:#8A5CD6;
     --tipo-dialogo:#B4232A; --tipo-transicion:#9A5B00;
     --marca-verde:#B8FF3C; --marca-amarillo:#FFF25C; --marca-naranja:#FFB03A; --marca-rojo:#FF7A7A;
   }
+}
+
+/* ── LOS GRISES DE TAILWIND, ATADOS AL TEMA ──────────────────────────────────
+   `text-slate-400/500/600` pintan un gris FIJO. En la app siempre quieren decir
+   lo mismo —"esto es secundario"—, pero con las luces apagadas ese gris fijo se
+   queda en 3:1 o menos sobre el fondo oscuro. Aquí se reescriben una sola vez
+   con la tinta que corresponda a cada superficie: la de la app en la mesa de
+   trabajo, la del papel dentro de una hoja. Gana por especificidad (0,2,0
+   contra la clase pelada de Tailwind), sin un solo !important. */
+:root .text-slate-400{ color:var(--tinta-baja) }
+:root .text-slate-500,
+:root .text-slate-600{ color:var(--tinta-media) }
+.hoja-tema .text-slate-400,
+.hoja-tema .text-slate-500,
+.hoja-tema .text-slate-600{ color:var(--hoja-tinta-baja) }
+
+/* ══════════════ TINTAS Y SUPERFICIES COMPARTIDAS (--ui-*) ══════════════
+Hay componentes que salen en DOS superficies distintas: la escaleta y la línea
+de tiempo se dibujan dentro de la vista de trabajo Y dentro de la hoja de la
+infografía; el cuadro de personal, igual. Antes cada uno llevaba sus colores de
+papel clavados, así que en modo oscuro la infografía quedaba con una tabla
+blanca en medio de una hoja apagada — que es justo lo que se reportó.
+
+La regla: el componente NO sabe en qué superficie está. Pide `--ui-*` y la
+superficie que lo contiene contesta. Hay tres respuestas posibles:
+
+  · nadie          → papel (los valores de aquí abajo), que es lo que se imprime
+  · .hoja-tema     → la hoja, que en oscuro se apaga y en la impresora vuelve a papel
+  · .vista-foco    → la mesa de trabajo, que sigue al tema de la app
+
+Los fondos y las líneas se sacan MEZCLANDO la tinta de la superficie con su
+propio fondo, no con valores fijos: así una sola línea sirve para claro y para
+oscuro, y no hay cuatro listas que mantener sincronizadas. Los porcentajes
+están medidos contra el papel de antes (25% de tinta sobre blanco da #C7CCD1,
+que es la misma raya #C8D2DE que ya tenían las tablas). */
+:root{
+  --ui-tinta:#15233D; --ui-tinta-media:#5B6B82;
+  --ui-fila:#fff; --ui-fila-alt:#F7F9FB; --ui-franja:#E9EDF3; --ui-linea:#C8D2DE;
+}
+.hoja-tema{
+  --ui-tinta:var(--hoja-tinta);
+  --ui-tinta-media:var(--hoja-tinta-baja);
+  --ui-fila:var(--hoja);
+  --ui-fila-alt:color-mix(in srgb, var(--hoja-tinta) 4%, var(--hoja));
+  --ui-franja:color-mix(in srgb, var(--hoja-tinta) 10%, var(--hoja));
+  --ui-linea:color-mix(in srgb, var(--hoja-tinta) 25%, var(--hoja));
+  /* EL COLOR DE MARCA, LEGIBLE EN LAS DOS LUCES. El usuario elige el color de
+     su organización y ese color pinta el título y los marcos de la hoja. El
+     azul institucional sobre la hoja apagada mide 1.05:1 — o sea, invisible.
+     Aquí no se sustituye su color: se le sube la luz conservando el tono. El
+     64% está medido, no elegido a ojo: con el azul de la casa deja 5.06:1 y
+     con cualquier otro color de marca (rojo, verde, morado, naranja) queda
+     entre 6.1 y 6.6. Por debajo de 58% el azul no llega a 4.5:1. En claro y al
+     imprimir la mezcla es de 0%, es decir, su color tal cual. */
+  --ui-sello:color-mix(in oklab, var(--hoja-sello,#16365F), #ECE7DF var(--hoja-aclarar,0%));
 }
 
 /* LA SUPERFICIE DE TRABAJO de las vistas enfocadas (plano del set, escaleta).
@@ -553,15 +622,52 @@ también viven aquí: son los que se rompían al cambiar el fondo. */
    encima. No es papel —la hoja que se imprime es la infografía, y esa sí se
    queda blanca—: es mesa de trabajo, y se apaga con la app. */
 .vista-foco{
-  /* Los componentes que salen TANTO aquí como en la hoja impresa (el cuadro de
-     personal, por ejemplo) leen estas variables con la tinta de papel como
-     respaldo: aquí existen y siguen al tema; en la hoja no existen y se quedan
-     en papel. Así un mismo componente sirve a las dos superficies sin saber en
-     cuál está. */
   --ui-tinta:var(--tinta);
   --ui-tinta-media:var(--tinta-media);
+  --ui-fila:transparent;
+  --ui-fila-alt:color-mix(in srgb, var(--tinta) 4%, transparent);
+  --ui-franja:color-mix(in srgb, var(--tinta) 9%, transparent);
+  --ui-linea:color-mix(in srgb, var(--tinta) 22%, transparent);
   background:var(--vidrio-b);
   border:1px solid var(--vidrio-borde);
   border-radius:14px;
   box-shadow:inset 0 1px 0 var(--vidrio-filo), 0 18px 40px -26px rgba(23,21,18,.28);
+}
+
+/* ── PLEGABLES CON ASPECTO DE BOTÓN ──────────────────────────────────────────
+   El <details> del navegador dibuja un triangulito diminuto y deja el resto al
+   CSS. Con el estilo por omisión el control no PARECE un control: se reportó
+   que los "Datos de la escena" del guion no se veían, y lo que pasaba es que
+   eran una línea de 10 px en gris claro sobre el papel — estaba ahí y nadie la
+   registraba como algo que se pudiera tocar.
+   Aquí el triángulo nativo se apaga y se dibuja uno propio, que gira al abrir,
+   dentro de una pastilla con altura de dedo. */
+summary.ptv-plegable{list-style:none}
+summary.ptv-plegable::-webkit-details-marker{display:none}
+summary.ptv-plegable .ptv-caret{display:inline-block;transition:transform .15s ease}
+details[open] > summary.ptv-plegable .ptv-caret{transform:rotate(90deg)}
+
+/* LA REJILLA DE LA MESA DE LUZ. auto-fill con un mínimo de 168 px: en el iPad
+   de pie caben tres por fila, acostado cinco o seis, y en el Mac las que
+   quepan — sin escribir un solo punto de quiebre. El mínimo no es un gusto:
+   por debajo de eso un fotograma deja de leerse como imagen y se vuelve una
+   estampilla de color. */
+.rejilla-mesa{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(168px,1fr));
+  gap:10px;
+}
+@media (max-width:420px){
+  .rejilla-mesa{grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px}
+}
+
+/* EL HUECO DE LA INFOGRAFÍA. La hoja mide 1240 px de diseño y aquí se le pone
+   el factor que haga falta para que quepa, medido por ResizeObserver. `zoom` y
+   no `transform:scale`: zoom encoge la CAJA, así que debajo no queda el hueco
+   fantasma de la altura original. Al imprimir manda el zoom de impresión y éste
+   se quita. */
+.infografia-hueco{ width:100%; }
+.infografia-hueco > .infografia-sheet{ zoom:var(--encaje,1); }
+@media print{
+  .infografia-hueco > .infografia-sheet{ zoom:1; }
 }

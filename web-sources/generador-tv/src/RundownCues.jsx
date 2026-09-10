@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ChevronDown, ChevronUp, Pencil, Trash2, X } from "lucide-react";
 import { CUE_ESTADO, CUE_ESTADOS, CUE_TIPO, CUE_TIPOS, TRANSICIONES } from "./catalogos.js";
-import { INK, NAVY } from "./theme.js";
+import { NAVY } from "./theme.js";
 import { btn } from "./ui.jsx";
 import { fmt, uid } from "./util.js";
 
@@ -61,7 +61,7 @@ export function RundownCues({ cfg, setCfg, rows, fuentes, editable, onOpenEscale
   const cols = "48px minmax(100px,1fr) minmax(100px,1fr) minmax(90px,0.9fr) minmax(100px,1fr) minmax(130px,1.3fr) 54px 88px 64px";
   const heads = ["CUE", "AL AIRE", "PREVIO", "AUDIO", "GRÁFICO", "INSTRUCCIÓN", "DUR", "ESTADO", ""];
   const ei = "w-full rounded border px-1.5 py-1 text-xs";
-  const eiS = { borderColor: "#D5DDE7", color: INK };
+  const eiS = { borderColor: "var(--ui-linea)", color: "var(--ui-tinta)", background: "transparent" };
   const src = (val, onCh) => (
     <select className={ei} style={eiS} disabled={!editable} value={val || ""} onChange={(e) => onCh(e.target.value)}>
       <option value="">—</option>
@@ -82,16 +82,16 @@ export function RundownCues({ cfg, setCfg, rows, fuentes, editable, onOpenEscale
         const excede = sumCue > (s.dur || 0) + 0.5;
         let acc = 0;
         return (
-          <div key={s.id} className="rounded-lg border overflow-hidden" style={{ borderColor: "#C8D2DE" }}>
-            <div className="flex flex-wrap items-center gap-2 px-3 py-2" style={{ background: "#F1F5F9" }}>
+          <div key={s.id} className="rounded-lg border overflow-hidden" style={{ borderColor: "var(--ui-linea)" }}>
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2" style={{ background: "var(--vidrio-b)" }}>
               <span className="rounded-md px-2 py-0.5 text-xs font-bold text-white" style={{ background: NAVY }}>{s.idx}</span>
-              <b className="text-sm" style={{ color: INK }}>{s.segmento}</b>
-              <span className="text-xs text-slate-500">{fmt(s.tin)} → {fmt(s.tout)} · {fmt(s.dur)}</span>
-              <span className="text-xs font-bold" style={{ color: excede ? "#DC2626" : "#64748B" }}>{tomas.length} cue{tomas.length === 1 ? "" : "s"} · Σ {fmt(sumCue)}{excede ? " ⚠ excede el segmento" : ""}</span>
-              {editable && <button onClick={onOpenEscaleta} className="ml-auto text-xs font-bold" style={{ color: NAVY }}>Abrir escaleta editorial ↗</button>}
+              <b className="text-sm" style={{ color: "var(--ui-tinta)" }}>{s.segmento}</b>
+              <span className="text-xs" style={{ color: "var(--ui-tinta-media)" }}>{fmt(s.tin)} → {fmt(s.tout)} · {fmt(s.dur)}</span>
+              <span className="text-xs font-bold" style={{ color: excede ? "#DC2626" : "var(--ui-tinta-media)" }}>{tomas.length} cue{tomas.length === 1 ? "" : "s"} · Σ {fmt(sumCue)}{excede ? " ⚠ excede el segmento" : ""}</span>
+              {editable && <button onClick={onOpenEscaleta} className="ml-auto text-xs font-bold" style={{ color: "var(--gel-t)" }}>Abrir escaleta editorial ↗</button>}
             </div>
             {(s.objetivo || s.participantes || s.recursos) && (
-              <div className="flex flex-wrap gap-x-4 gap-y-0.5 px-3 py-1.5 text-[11px] text-slate-500" style={{ borderBottom: "1px solid #EEF2F7" }}>
+              <div className="flex flex-wrap gap-x-4 gap-y-0.5 px-3 py-1.5 text-[11px]" style={{ color: "var(--ui-tinta-media)", borderBottom: "1px solid var(--ui-linea)" }}>
                 {s.objetivo && <span><b>Objetivo:</b> {s.objetivo}</span>}
                 {s.participantes && <span><b>Participantes:</b> {s.participantes}</span>}
                 {s.recursos && <span><b>Recursos:</b> {s.recursos}</span>}
@@ -99,7 +99,7 @@ export function RundownCues({ cfg, setCfg, rows, fuentes, editable, onOpenEscale
             )}
             <div className="flex flex-col gap-1.5 p-3">
               {tomas.length > 0 && (
-                <div className="grid gap-1 text-[10px] font-bold uppercase text-slate-500" style={{ gridTemplateColumns: cols }}>
+                <div className="grid gap-1 text-[10px] font-bold uppercase" style={{ gridTemplateColumns: cols, color: "var(--ui-tinta-media)" }}>
                   {heads.map((h, i) => <span key={i} className={i >= 6 ? "text-center" : ""}>{h}</span>)}
                 </div>
               )}
@@ -108,7 +108,7 @@ export function RundownCues({ cfg, setCfg, rows, fuentes, editable, onOpenEscale
                 const rel = acc; acc += t.dur || 0;
                 return (
                   <div key={t.id} className="grid items-center gap-1" style={{ gridTemplateColumns: cols, borderLeft: `4px solid ${tipo.color}`, paddingLeft: 6 }}>
-                    <span className="text-xs font-bold text-slate-500" title={`${tipo.label} · empieza en ${fmt(rel)}`}>{s.idx}.{i + 1}</span>
+                    <span className="text-xs font-bold" style={{ color: "var(--ui-tinta-media)" }} title={`${tipo.label} · empieza en ${fmt(rel)}`}>{s.idx}.{i + 1}</span>
                     {src(t.alAire ?? t.camId, (v) => upToma(s.id, t.id, { alAire: v }))}
                     {src(t.previo, (v) => upToma(s.id, t.id, { previo: v }))}
                     <input className={ei} style={eiS} disabled={!editable} placeholder="Mic, música…" value={t.audio || ""} onChange={(e) => upToma(s.id, t.id, { audio: e.target.value })} />
@@ -129,18 +129,27 @@ export function RundownCues({ cfg, setCfg, rows, fuentes, editable, onOpenEscale
               })}
               {editable && (
                 <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                  <span className="text-[11px] font-bold uppercase text-slate-400">+ Cue:</span>
+                  <span className="text-[11px] font-bold uppercase" style={{ color: "var(--ui-tinta-media)" }}>+ Cue:</span>
+                  {/* El color del tipo va en el PUNTO y en el borde, no en la
+                      letra: como texto, el amarillo de "Gráfico" medía 1.79:1
+                      sobre el papel y 3.26:1 con las luces apagadas. Es el
+                      mismo patrón que ya usan las fuentes en Necesidades. */}
                   {CUE_TIPOS.map((ct) => (
-                    <button key={ct.id} onClick={() => addCue(s.id, ct.id)} className="rounded-full border px-2 py-0.5 text-[11px] font-bold" style={{ borderColor: ct.color, color: ct.color }}>{ct.label}</button>
+                    <button key={ct.id} onClick={() => addCue(s.id, ct.id)}
+                      className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-bold"
+                      style={{ borderColor: ct.color, color: "var(--ui-tinta)" }}>
+                      <span className="rounded-full shrink-0" style={{ width: 8, height: 8, background: ct.color }} />
+                      {ct.label}
+                    </button>
                   ))}
                 </div>
               )}
-              {!tomas.length && <p className="text-xs text-slate-400">Sin cues todavía. Agrega uno con los botones de arriba.</p>}
+              {!tomas.length && <p className="text-xs" style={{ color: "var(--ui-tinta-media)" }}>Sin cues todavía. Agrega uno con los botones de arriba.</p>}
             </div>
           </div>
         );
       })}
-      {!rows.length && <p className="text-sm text-slate-500">La escaleta está vacía: agrega segmentos en la escaleta editorial y aquí desglosas cada uno en cues técnicos.</p>}
+      {!rows.length && <p className="text-sm" style={{ color: "var(--ui-tinta-media)" }}>La escaleta está vacía: agrega segmentos en la escaleta editorial y aquí desglosas cada uno en cues técnicos.</p>}
       {sel && (() => {
         const seg = (cfg.escaleta || []).find((x) => x.id === sel.segId);
         const cue = seg?.tomas?.find((t) => t.id === sel.tomaId);
@@ -160,9 +169,9 @@ export function RundownCues({ cfg, setCfg, rows, fuentes, editable, onOpenEscale
 // Editor lateral de un cue (spec §6): agrupa video, audio, gráficos y operación.
 function CueEditorDrawer({ cue, fuentes, editable, onChange, onClose, onDuplicate, onDelete }) {
   const ei = "w-full rounded-md border px-2 py-1.5 text-sm";
-  const eiS = { borderColor: "#C8D2DE", color: INK };
+  const eiS = { borderColor: "var(--ui-linea)", color: "var(--ui-tinta)", background: "transparent" };
   const lab = "flex flex-col gap-1 text-xs font-bold uppercase";
-  const labS = { color: "#5F7189" };
+  const labS = { color: "var(--ui-tinta-media)" };
   const tipo = CUE_TIPO[cue.tipo || "camara"] || CUE_TIPO.camara;
   const src = (val, onCh) => (
     <select className={ei} style={eiS} disabled={!editable} value={val || ""} onChange={(e) => onCh(e.target.value)}>
@@ -170,15 +179,19 @@ function CueEditorDrawer({ cue, fuentes, editable, onChange, onClose, onDuplicat
       {fuentes.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}
     </select>
   );
-  const grupo = (t) => <p className="m-0 mt-1 text-[11px] font-bold uppercase" style={{ color: tipo.color }}>{t}</p>;
+  /* El color del tipo ya lo lleva el filo izquierdo del panel; aquí la
+     letra va en tinta para que se lea con cualquier tipo de cue. */
+  const grupo = (t) => <p className="m-0 mt-1 flex items-center gap-1.5 text-[11px] font-bold uppercase" style={{ color: "var(--ui-tinta-media)" }}>
+    <span className="rounded-full shrink-0" style={{ width: 7, height: 7, background: tipo.color }} />{t}</p>;
   return (
     <div className="fixed inset-0 z-50 flex justify-end" style={{ background: "rgba(9,20,35,.4)" }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="flex h-full w-full max-w-sm flex-col overflow-y-auto bg-white shadow-2xl" style={{ borderLeft: `5px solid ${tipo.color}` }}>
+      <div className="flex h-full w-full max-w-sm flex-col overflow-y-auto shadow-2xl"
+        style={{ background: "var(--yeso)", color: "var(--tinta)", borderLeft: `5px solid ${tipo.color}` }}>
         <div className="flex items-center gap-2 px-4 py-3" style={{ background: NAVY }}>
           <b className="text-white">Editar cue</b><span className="flex-1" />
           <button onClick={onClose} className="text-white/70 hover:text-white" aria-label="Cerrar"><X size={18} /></button>
         </div>
-        <div className="flex flex-col gap-2.5 p-4" style={{ color: INK }}>
+        <div className="flex flex-col gap-2.5 p-4" style={{ color: "var(--ui-tinta)" }}>
           <div className="grid grid-cols-2 gap-2">
             <label className={lab} style={labS}>Tipo
               <select className={ei} style={eiS} disabled={!editable} value={cue.tipo || "camara"} onChange={(e) => onChange({ tipo: e.target.value })}>
@@ -220,8 +233,8 @@ function CueEditorDrawer({ cue, fuentes, editable, onChange, onClose, onDuplicat
           </label>
         </div>
         {editable && (
-          <div className="mt-auto flex items-center gap-2 border-t px-4 py-3" style={{ borderColor: "#E2E8F0" }}>
-            <button onClick={onDuplicate} className={`${btn} border`} style={{ borderColor: "#C8D2DE", color: INK }}>Duplicar</button>
+          <div className="mt-auto flex items-center gap-2 border-t px-4 py-3" style={{ borderColor: "var(--ui-linea)" }}>
+            <button onClick={onDuplicate} className={`${btn} border`} style={{ borderColor: "var(--ui-linea)", color: "var(--ui-tinta)" }}>Duplicar</button>
             <span className="flex-1" />
             <button onClick={onDelete} className={`${btn} text-white`} style={{ background: "#DC2626" }}><Trash2 size={15} /> Eliminar</button>
           </div>

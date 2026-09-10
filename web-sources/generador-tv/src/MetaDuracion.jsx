@@ -1,6 +1,5 @@
 import React from "react";
 import { fmt, parseDur } from "./util.js";
-import { NAVY } from "./theme.js";
 import { objetivoSegDe } from "./proyecto.js";
 
 // DURACIÓN OBJETIVO del proyecto: cuánto DEBE durar, contra lo que llevas.
@@ -45,7 +44,7 @@ export function MetaDuracion({ cfg, setCfg, total, editable }) {
   const cerca = Math.abs(dif) < 30;
 
   const estado = !objetivo
-    ? { texto: "Sin objetivo definido", color: "#8A97A8", fondo: "#F1F5F9" }
+    ? { texto: "Sin objetivo definido", color: "#5A6672", fondo: "#F1F5F9" }
     : cerca
       ? { texto: "En tiempo", color: "#1B7A44", fondo: "#E2F3E8" }
       : dif > 0
@@ -56,8 +55,8 @@ export function MetaDuracion({ cfg, setCfg, total, editable }) {
 
   return (
     <div className="no-print flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2"
-      style={{ borderColor: "#DDE4EC", background: "#F8FAFC" }}>
-      <span className="text-xs font-bold uppercase" style={{ color: "#8A97A8", letterSpacing: 1 }}>
+      style={{ borderColor: "var(--ui-linea)", background: "var(--ui-franja)" }}>
+      <span className="text-xs font-bold uppercase" style={{ color: "var(--ui-tinta-media)", letterSpacing: 1 }}>
         Duración objetivo
       </span>
 
@@ -72,23 +71,23 @@ export function MetaDuracion({ cfg, setCfg, total, editable }) {
               if (e.key === "Escape") { e.preventDefault(); setBorrador(null); e.currentTarget.blur(); }
             }}
             className="rounded-md border text-sm font-bold"
-            style={{ width: 76, padding: "5px 8px", borderColor: "#C8D2DE", color: NAVY, textAlign: "right" }}
+            style={{ width: 76, padding: "5px 8px", borderColor: "var(--ui-linea)", color: "var(--ui-tinta)", background: "transparent", textAlign: "right" }}
             title={"Cuánto debe durar el proyecto TERMINADO, en minutos:segundos.\n"
               + "1:30 = un minuto y medio · 0:45 o 45 = cuarenta y cinco segundos · 20:00 = veinte minutos.\n"
               + "Déjalo vacío si todavía no lo sabes."} />
-          <span className="text-xs font-bold" style={{ color: "#5B6B82" }}>mm:ss</span>
+          <span className="text-xs font-bold" style={{ color: "var(--ui-tinta-media)" }}>mm:ss</span>
         </span>
       ) : (
-        <span className="text-sm font-bold" style={{ color: NAVY }}>{objetivo ? fmt(objetivo) : "—"}</span>
+        <span className="text-sm font-bold" style={{ color: "var(--ui-tinta)" }}>{objetivo ? fmt(objetivo) : "—"}</span>
       )}
 
-      <span className="text-xs" style={{ color: "#5B6B82" }}>
-        Llevas <b style={{ color: NAVY }}>{fmt(total)}</b>
-        {objetivo ? <> de <b style={{ color: NAVY }}>{fmt(objetivo)}</b></> : null}
+      <span className="text-xs" style={{ color: "var(--ui-tinta-media)" }}>
+        Llevas <b style={{ color: "var(--ui-tinta)" }}>{fmt(total)}</b>
+        {objetivo ? <> de <b style={{ color: "var(--ui-tinta)" }}>{fmt(objetivo)}</b></> : null}
       </span>
 
       {objetivo > 0 && (
-        <span className="rounded-full" style={{ flex: "1 1 120px", minWidth: 90, height: 6, background: "#E2E8F0", overflow: "hidden" }}>
+        <span className="rounded-full" style={{ flex: "1 1 120px", minWidth: 90, height: 6, background: "var(--ui-linea)", overflow: "hidden" }}>
           <span style={{
             display: "block", height: "100%", width: `${avance * 100}%`,
             background: estado.color, transition: "width .2s ease",

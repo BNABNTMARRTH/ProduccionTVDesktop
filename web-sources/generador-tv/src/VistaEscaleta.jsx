@@ -10,6 +10,7 @@ import { esNarrativo } from "./proyecto.js";
 import { INK, NAVY } from "./theme.js";
 import { Box, TarjetaAyuda, btn, inp, inpStyle } from "./ui.jsx";
 import { fmt, trunc, uid } from "./util.js";
+import { SelectorDeReferencia, useFichasDelTablero } from "./MesaDeLuz.jsx";
 
 // Reduce una imagen a un cuadro de storyboard ligero (JPEG de 480px de ancho):
 // las imágenes viven en base64 dentro del proyecto y sin esta reducción
@@ -42,6 +43,13 @@ export function VistaEscaleta({ cfg, setCfg }) {
   const total = rows.length ? rows[rows.length - 1].tout : 0;
   const bloques = useMemo(() => computeBloques(rows, byId), [rows, byId]);
   const [sub, setSub] = useState(esNarrativo(cfg) ? "guion" : "escaleta");
+  /* El tablero de la mesa de luz: las imágenes que definen el look de ESTE
+     proyecto. Si está vacío, el storyboard se ve exactamente como antes —la
+     columna de referencia no aparece— para no cobrarle una casilla vacía a
+     quien todavía no usa la mesa. */
+  const delTablero = useFichasDelTablero(cfg);
+  const refPorId = useMemo(() => Object.fromEntries(delTablero.map((f) => [f.id, f])), [delTablero]);
+  const [eligiendo, setEligiendo] = useState(null); // {segId, tomaId, valor}
   // El asistente (narrativo o en vivo) ya no vive aquí: se movió al nivel raíz
   // del generador y se abre desde la barra o al crear el proyecto.
 
@@ -63,9 +71,26 @@ export function VistaEscaleta({ cfg, setCfg }) {
 
   const camDe = (id) => cfg.camaras.find((x) => x.id === id) || null;
   const totalTomas = rows.reduce((n, s) => n + (s.tomas || []).length, 0);
+
+  /* EL STORYBOARD DIBUJA PLANOS, NO CUES. En narrativo cada toma ES un plano y
+     no hay nada que filtrar. En vivo, el desglose técnico de un segmento son
+     cues de todo tipo —gráfico, comercial, audio, instrucción del director— y
+     solo los de CÁMARA son algo que se pueda dibujar. Sin este filtro el
+     storyboard salía lleno de cuadros vacíos de cosas que no se ven, y por eso
+     no servía para nada en vivo.
+     El número se conserva del rundown (la posición entre TODOS los cues) para
+     que 3.2 aquí sea el mismo 3.2 de allá. */
+  const cuadrosDe = (s) => (s.tomas || [])
+    .map((t, i) => ({ t, n: i + 1 }))
+    .filter(({ t }) => narr || (t.tipo || "camara") === "camara");
+  const totalCuadros = rows.reduce((n, s) => n + cuadrosDe(s).length, 0);
   const subTab = (id, label) => (
     <button key={id} onClick={() => setSub(id)} className="rounded-md px-3 py-1.5 text-sm font-bold"
-      style={sub === id ? { background: "#fff", color: NAVY, boxShadow: "0 1px 3px rgba(0,0,0,.15)" } : { color: "#475569" }}>
+      /* Mesa de trabajo, no papel: sigue al tema entero. En claro se ve igual que
+            antes; en oscuro dejaba una pastilla blanca encima de la app apagada. */
+        style={sub === id
+          ? { background: "var(--vidrio-a)", color: "var(--tinta)", boxShadow: "0 1px 3px rgba(0,0,0,.15)" }
+          : { color: "var(--tinta-media)" }}>
       {label}
     </button>
   );
@@ -77,7 +102,11 @@ export function VistaEscaleta({ cfg, setCfg }) {
   return (
     <div className="scrollwrap overflow-auto px-2 py-4">
       <div className="vista-foco mx-auto flex flex-col gap-3" style={{ width: "100%", padding: 16 }}>
-        <div className="no-print mx-auto flex items-center gap-1 rounded-lg p-1" style={{ background: "#E2E8F0" }}>
+        {/* Las sugerencias de plano y movimiento: las usan el guion técnico y el
+            storyboard, así que viven aquí arriba y no dentro de una pestaña. */}
+        <datalist id="gt-planos">{PLANOS.map((p) => <option key={p} value={p} />)}</datalist>
+        <datalist id="gt-movs">{MOVIMIENTOS.map((m) => <option key={m} value={m} />)}</datalist>
+        <div className="no-print mx-auto flex items-center gap-1 rounded-lg p-1" style={{ background: "var(--ui-franja)" }}>
           {!narr && subTab("escaleta", "≡ Escaleta editorial")}
           {subTab("guion", narr ? "✎ Guion técnico" : "✎ Rundown técnico")}
           {subTab("storyboard", "▦ Storyboard")}
@@ -112,7 +141,7 @@ export function VistaEscaleta({ cfg, setCfg }) {
         {sub === "escaleta" && !narr && (<>
           <Box title={narr ? `Escaleta narrativa — ${rows.length} escena${rows.length === 1 ? "" : "s"} · ${fmt(total)}` : `Escaleta editorial — ${fmt(total)}`}>
             {editable
-              ? <EscaletaEditor cfg={cfg} setCfg={setCfg} rows={rows} editable={editable} />
+              ? <EscaletaEditor cfg={cfg} setCfg={setCfg} rows={rows} editable={editable} fuentes={fuentes} />
               : <Escaleta rows={rows} byId={byId} total={total} />}
           </Box>
           {!narr && (
@@ -127,13 +156,11 @@ export function VistaEscaleta({ cfg, setCfg }) {
             ? `Guion técnico — ${totalTomas} plano${totalTomas === 1 ? "" : "s"} en ${rows.length} escena${rows.length === 1 ? "" : "s"}`
             : `Rundown técnico — ${totalTomas} cue${totalTomas === 1 ? "" : "s"} en ${rows.length} segmento${rows.length === 1 ? "" : "s"}`}>
             {!narr && <RundownCues cfg={cfg} setCfg={setCfg} rows={rows} fuentes={fuentes} editable={editable} onOpenEscaleta={() => setSub("escaleta")} />}
-            {narr && <datalist id="gt-planos">{PLANOS.map((p) => <option key={p} value={p} />)}</datalist>}
-            {narr && <datalist id="gt-movs">{MOVIMIENTOS.map((m) => <option key={m} value={m} />)}</datalist>}
             {narr && rows.map((s) => {
               const fuente = byId[s.fuente];
               return (
                 <div key={s.id} className="rounded-lg border overflow-hidden" style={{ borderColor: "#C8D2DE" }}>
-                  <div className="flex flex-wrap items-center gap-2 px-3 py-2" style={{ background: "#F1F5F9" }}>
+                  <div className="flex flex-wrap items-center gap-2 px-3 py-2" style={{ background: "var(--vidrio-b)" }}>
                     <span className="rounded-md px-2 py-0.5 text-xs font-bold text-white" style={{ background: NAVY }}>{s.idx}</span>
                     <b className="text-sm" style={{ color: INK }}>{s.segmento}</b>
                     <span className="text-xs text-slate-500">{fmt(s.tin)} → {fmt(s.tout)} · {fmt(s.dur)}</span>
@@ -183,27 +210,79 @@ export function VistaEscaleta({ cfg, setCfg }) {
         )}
 
         {sub === "storyboard" && (
-          <Box title={`Storyboard — ${totalTomas} cuadro${totalTomas === 1 ? "" : "s"}`}>
-            {totalTomas === 0 && (
+          <Box title={`Storyboard — ${totalCuadros} cuadro${totalCuadros === 1 ? "" : "s"}`}>
+            {totalCuadros === 0 && (narr ? (
               <p className="text-sm text-slate-500">
-                Todavía no hay tomas: créalas en la sub-pestaña <b>Guion técnico</b> y cada una tendrá aquí su cuadro de storyboard.
+                Todavía no hay planos: créalos en la sub-pestaña <b>Guion técnico</b> con <b>Agregar plano</b>, y cada uno tendrá aquí su cuadro.
               </p>
-            )}
-            {rows.filter((s) => (s.tomas || []).length).map((s) => (
+            ) : (
+              <p className="text-sm text-slate-500">
+                Todavía no hay planos: en <b>Rundown técnico</b> agrega cues de tipo <b>Cámara</b> — cada uno es un plano y tendrá aquí su cuadro.
+                Los cues de gráfico, audio o comercial no se dibujan, por eso no aparecen.
+              </p>
+            ))}
+            {rows.filter((s) => cuadrosDe(s).length).map((s) => (
               <div key={s.id} className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
                   <span className="rounded-md px-2 py-0.5 text-xs font-bold text-white" style={{ background: NAVY }}>{s.idx}</span>
                   <b className="text-sm" style={{ color: INK }}>{s.segmento}</b>
                 </div>
-                <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))" }}>
-                  {(s.tomas || []).map((t, i) => {
-                    const cam = camDe(t.camId);
+                {/* Con referencia y cuadro lado a lado cada celda lleva dos
+                    imágenes: a 215 px cada mitad quedaría en 105 y un plano no
+                    se lee a ese tamaño. */}
+                <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${delTablero.length ? 300 : 215}px, 1fr))` }}>
+                  {cuadrosDe(s).map(({ t, n }) => {
+                    // En vivo la cámara del cue vive en `alAire`, no en `camId`.
+                    const cam = camDe(t.camId || t.alAire);
                     return (
-                      <figure key={t.id} className="m-0 rounded-lg border overflow-hidden bg-white" style={{ borderColor: "#C8D2DE" }}>
+                      <figure key={t.id} className="m-0 rounded-lg border overflow-hidden" style={{ background: "var(--vidrio-a)", borderColor: "var(--vidrio-borde)" }}>
+                        {/* LA REFERENCIA Y EL CUADRO, UNO JUNTO AL OTRO. Solo
+                            aparece si el proyecto tiene tablero o si este plano
+                            ya tiene su referencia puesta. */}
+                        {(delTablero.length > 0 || t.referencia) && (() => {
+                          const ref = refPorId[t.referencia];
+                          return (
+                            <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", borderBottom: "1px solid #C8D2DE" }}>
+                              <button type="button" disabled={!editable}
+                                onClick={() => editable && setEligiendo({ segId: s.id, tomaId: t.id, valor: t.referencia || "" })}
+                                title={editable ? "Elegir a qué se tiene que parecer este plano" : undefined}
+                                className="relative block border-0 p-0"
+                                style={{ aspectRatio: "16/9", background: "#EEF2F7", cursor: editable ? "pointer" : "default" }}>
+                                {ref?.min
+                                  ? <img src={ref.min} alt="Referencia" className="h-full w-full object-cover" />
+                                  : <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] font-bold text-slate-400">
+                                      {t.referencia ? "referencia fuera del tablero" : (editable ? "elegir referencia" : "—")}
+                                    </span>}
+                                <span className="absolute left-0 top-0 px-1 text-[9px] font-bold uppercase tracking-wide"
+                                  style={{ background: "rgba(15,15,20,.6)", color: "#fff" }}>referencia</span>
+                              </button>
+                              <label className="relative block" title={editable ? "Clic para subir tu cuadro" : undefined}
+                                style={{ aspectRatio: "16/9", background: "#EEF2F7", borderLeft: "1px solid #C8D2DE", cursor: editable ? "pointer" : "default" }}>
+                                {t.imagen
+                                  ? <img src={t.imagen} alt={`Toma ${s.idx}.${n}`} className="h-full w-full object-cover" />
+                                  : <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] font-bold text-slate-400">
+                                      {editable ? "subir tu cuadro" : "—"}
+                                    </span>}
+                                <span className="absolute left-0 top-0 px-1 text-[9px] font-bold uppercase tracking-wide"
+                                  style={{ background: "rgba(15,15,20,.6)", color: "#fff" }}>tu cuadro</span>
+                                {editable && (
+                                  <input type="file" accept="image/*" hidden
+                                    onChange={async (e) => {
+                                      const f = e.target.files?.[0];
+                                      e.target.value = "";
+                                      if (!f) return;
+                                      try { upToma(s.id, t.id, { imagen: await leerImagenStoryboard(f) }); } catch {}
+                                    }} />
+                                )}
+                              </label>
+                            </div>
+                          );
+                        })()}
+                        {!(delTablero.length > 0 || t.referencia) && (
                         <label className="relative block" title={editable ? "Clic para subir el cuadro (foto del boceto, referencia o captura)" : undefined}
                           style={{ aspectRatio: "16/9", background: "#EEF2F7", cursor: editable ? "pointer" : "default" }}>
                           {t.imagen ? (
-                            <img src={t.imagen} alt={`Toma ${s.idx}.${i + 1}`} className="h-full w-full object-cover" />
+                            <img src={t.imagen} alt={`Toma ${s.idx}.${n}`} className="h-full w-full object-cover" />
                           ) : (
                             <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-slate-400">
                               <Camera size={22} />
@@ -221,8 +300,21 @@ export function VistaEscaleta({ cfg, setCfg }) {
                               }} />
                           )}
                         </label>
+                        )}
                         <figcaption className="px-2 py-1.5 text-xs" style={{ color: INK }}>
-                          <b>{s.idx}.{i + 1}</b> · {t.plano || "—"} · {cam ? cam.nombre : "sin cámara"}{t.mov ? ` · ${t.mov}` : ""}
+                          {/* EL PLANO SE ESCRIBE AQUÍ MISMO. Antes solo se leía, y en vivo
+                              no había ningún sitio a mano donde ponerlo: estaba escondido
+                              dentro del editor lateral del cue. Con el cuadro delante es
+                              donde de verdad se decide "esto es un primer plano". */}
+                          <div className="flex items-center gap-1.5">
+                            <b>{s.idx}.{n}</b>
+                            {editable ? (
+                              <input className={inp} style={{ ...inpStyle, padding: "1px 6px" }} list="gt-planos"
+                                placeholder={narr ? "Plano" : "Encuadre"} value={t.plano || ""}
+                                onChange={(ev) => upToma(s.id, t.id, { plano: ev.target.value })} />
+                            ) : <span>{t.plano || "—"}</span>}
+                          </div>
+                          <div className="mt-0.5">{cam ? cam.nombre : "sin cámara"}{t.mov ? ` · ${t.mov}` : ""}</div>
                           {t.texto && <div className="mt-0.5 text-slate-500">“{trunc(t.texto, 80)}”</div>}
                           {editable && t.imagen && (
                             <button onClick={() => upToma(s.id, t.id, { imagen: "" })} className="mt-1 text-[10px] font-bold text-slate-400 hover:text-red-600">
@@ -239,6 +331,11 @@ export function VistaEscaleta({ cfg, setCfg }) {
           </Box>
         )}
       </div>
+      {eligiendo && (
+        <SelectorDeReferencia fichas={delTablero} valor={eligiendo.valor}
+          onElegir={(id) => upToma(eligiendo.segId, eligiendo.tomaId, { referencia: id })}
+          onCerrar={() => setEligiendo(null)} />
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useLayoutEffect, useRef, useMemo } from "react";
 import { ChevronDown, ChevronRight, ChevronUp, GripVertical } from "lucide-react";
 import { SECCIONES_DEPRECADAS, SECCIONES_INFO } from "./catalogos.js";
 import { computeBloques, computeFuentes, computeRows } from "./escaleta.js";
@@ -25,7 +25,7 @@ function Estudio({ cfg, fuentes, setCfg }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="no-print flex flex-wrap items-center gap-2">
-        <span className="text-xs" style={{ color: "#5B6B82" }}>
+        <span className="text-xs" style={{ color: "var(--hoja-tinta-baja)" }}>
           {editable
             ? "Arrastra los elementos; lo direccional gira con su manija (doble clic en la manija: volver al automático). Los sets se administran en la pestaña Set."
             : "Distribución física del set."}
@@ -43,7 +43,7 @@ function Estudio({ cfg, fuentes, setCfg }) {
               </span>
               {editable && tieneCustom && (
                 <button onClick={() => reacomodar(s.id)} className="no-print rounded-lg border px-2 py-0.5 text-xs font-bold"
-                  style={{ borderColor: "#C8D2DE", color: "#33445F", background: "#fff" }}>
+                  style={{ borderColor: "var(--hoja-linea)", color: "var(--hoja-tinta)", background: "var(--hoja-alza)" }}>
                   Reacomodar automáticamente
                 </button>
               )}
@@ -63,25 +63,29 @@ function SeccionPanel({ titulo, abierto, controls, onToggle, onUp, onDown, canUp
   return (
     <div
       {...(controls ? target : {})}
-      className={`rounded-xl border-2 bg-white ${abierto ? "" : "seccion-cerrada"}`}
+      className={`rounded-xl border-2 ${abierto ? "" : "seccion-cerrada"}`}
       style={{
-        borderColor: NAVY,
+        /* El fondo VA EN ESTE MISMO objeto. Estuvo un rato en un segundo
+           atributo `style` de la misma etiqueta y JSX se queda con el último:
+           el panel se quedaba sin fondo y se veía la hoja a través. */
+        background: "var(--hoja-alza)",
+        borderColor: "var(--ui-sello)",
         opacity: dragging ? 0.4 : 1,
         outline: over && !dragging ? `2px dashed ${AIR_COLOR}` : "none",
         outlineOffset: 2,
       }}
     >
-      <div className="flex items-center gap-2 text-white"
-        style={{ background: NAVY, borderRadius: abierto ? "10px 10px 0 0" : 10, padding: "4px 8px" }}>
+      <div className="flex items-center gap-2"
+        style={{ background: "var(--ui-sello)", color: "var(--hoja)", borderRadius: abierto ? "10px 10px 0 0" : 10, padding: "4px 8px" }}>
         {controls && (
           <span {...source} title="Arrastra para reordenar"
-            className="no-print flex items-center cursor-grab active:cursor-grabbing" style={{ touchAction: "none" }}>
-            <GripVertical size={16} color="#9DB4D4" />
+            className="no-print flex items-center cursor-grab active:cursor-grabbing" style={{ touchAction: "none", opacity: .7 }}>
+            <GripVertical size={16} />
           </span>
         )}
         <button onClick={controls ? onToggle : undefined}
           className="flex-1 flex items-center gap-1.5 text-left"
-          style={{ background: "transparent", border: 0, color: "#fff", cursor: controls ? "pointer" : "default", padding: 0 }}>
+          style={{ background: "transparent", border: 0, color: "inherit", cursor: controls ? "pointer" : "default", padding: 0 }}>
           {controls && (
             <span className="no-print flex items-center">
               {abierto ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
@@ -92,11 +96,11 @@ function SeccionPanel({ titulo, abierto, controls, onToggle, onUp, onDown, canUp
         {controls && (
           <span className="no-print flex items-center gap-0.5">
             <button onClick={onUp} disabled={!canUp} aria-label="Subir sección"
-              style={{ background: "transparent", border: 0, padding: 0, cursor: canUp ? "pointer" : "default", color: canUp ? "#C6D4E6" : "#46618A" }}>
+              style={{ background: "transparent", border: 0, padding: 0, cursor: canUp ? "pointer" : "default", opacity: canUp ? .85 : .35 }}>
               <ChevronUp size={16} />
             </button>
             <button onClick={onDown} disabled={!canDown} aria-label="Bajar sección"
-              style={{ background: "transparent", border: 0, padding: 0, cursor: canDown ? "pointer" : "default", color: canDown ? "#C6D4E6" : "#46618A" }}>
+              style={{ background: "transparent", border: 0, padding: 0, cursor: canDown ? "pointer" : "default", opacity: canDown ? .85 : .35 }}>
               <ChevronDown size={16} />
             </button>
           </span>
@@ -107,7 +111,51 @@ function SeccionPanel({ titulo, abierto, controls, onToggle, onUp, onDown, canUp
   );
 }
 
+/* LA HOJA ENCAJA EN SU HUECO. Estaba clavada en 1240 px de ancho, y esa es la
+   causa de que la infografía se "disociara" de lo que la rodea: en una ventana
+   de 922 px se salía 318, y al subir el tamaño de la app la ventana se hace más
+   angosta todavía, así que se salía más. El resto de la app no se salía, y por
+   eso parecía que la hoja flotaba aparte de su marco.
+
+   La solución es la misma que ya hacía bien el plano del set: ese dibujo es un
+   SVG con `viewBox` y ancho 100 %, así que se acomoda solo a cualquier hueco.
+   Una hoja de HTML no puede tener viewBox, pero sí puede hacer lo mismo a mano:
+   se mide el hueco y se le pone al conjunto el factor que haga falta. Se usa
+   `zoom` y no `transform:scale` a propósito — `zoom` SÍ encoge la caja, así que
+   debajo no queda el hueco fantasma que deja `scale`.
+
+   Nunca crece por encima de 1: la hoja tiene su tamaño de diseño y estirarla en
+   una pantalla ancha solo la haría borrosa. */
+const ANCHO_HOJA = 1240;
+
 export function Infografia({ cfg, setCfg }) {
+  const hueco = useRef(null);
+  const puesto = useRef('');
+  useLayoutEffect(() => {
+    const el = hueco.current;
+    if (!el) return;
+    const ajustar = () => {
+      /* clientWidth y no getBoundingClientRect: aquí dentro del iframe no hay
+         zoom propio —el de la app vive en la raíz del caparazón y lo que llega
+         es una ventana más angosta—, así que esta medida ya viene en píxeles
+         CSS de verdad y no hay que dividirla por nada. */
+      const hay = el.clientWidth;
+      if (!hay) return;
+      /* Solo se escribe si cambió. Cambiar el factor cambia el alto de la hoja,
+         eso puede hacer aparecer la barra de desplazamiento, eso cambia el
+         ancho, y el observador se vuelve a disparar: sin este corte la vista
+         entra en un ciclo que no para. */
+      const factor = Math.min(1, hay / ANCHO_HOJA).toFixed(3);
+      if (factor === puesto.current) return;
+      puesto.current = factor;
+      el.style.setProperty("--encaje", factor);
+    };
+    ajustar();
+    const ojo = new ResizeObserver(ajustar);
+    ojo.observe(el);
+    return () => ojo.disconnect();
+  }, []);
+
   const brandColor = cfg.branding?.primaryColor || NAVY;
   const fuentes = useMemo(() => computeFuentes(cfg), [cfg]);
   const byId = useMemo(() => Object.fromEntries(fuentes.map((f) => [f.id, f])), [fuentes]);
@@ -146,28 +194,30 @@ export function Infografia({ cfg, setCfg }) {
   };
 
   return (
-    <div className="infografia-sheet bg-white shadow-lg mx-auto" style={{ width: 1240, padding: 16, borderRadius: 8 }}>
+    <div ref={hueco} className="infografia-hueco">
+    <div className="infografia-sheet hoja-tema lienzo-tema shadow-lg mx-auto"
+      style={{ width: ANCHO_HOJA, padding: 16, borderRadius: 8, background: "var(--hoja)", color: "var(--hoja-tinta)", "--hoja-sello": brandColor }}>
       {/* Encabezado */}
       <div className="flex items-stretch gap-3" style={{ marginBottom: 12 }}>
         <div className="cond flex items-center justify-center text-center rounded-lg border-2 font-bold uppercase"
-          style={{ borderColor: brandColor, color: brandColor, width: 170, fontSize: 17, letterSpacing: 1, padding: 6, lineHeight: 1.1 }}>
+          style={{ borderColor: "var(--ui-sello)", color: "var(--ui-sello)", width: 170, fontSize: 17, letterSpacing: 1, padding: 6, lineHeight: 1.1 }}>
           {cfg.branding?.logoDataUrl
             ? <img src={cfg.branding.logoDataUrl} alt={cfg.organizacion} style={{ maxWidth: "100%", maxHeight: 58, objectFit: "contain" }} />
             : cfg.organizacion}
         </div>
         <div className="flex-1 text-center">
-          <h1 className="cond font-bold uppercase" style={{ color: brandColor, fontSize: 34, lineHeight: 1.05, letterSpacing: 1 }}>{cfg.titulo}</h1>
-          <p className="font-semibold" style={{ color: "#33445F", fontSize: 14, marginTop: 2 }}>{cfg.subtitulo}</p>
+          <h1 className="cond font-bold uppercase" style={{ color: "var(--ui-sello)", fontSize: 34, lineHeight: 1.05, letterSpacing: 1 }}>{cfg.titulo}</h1>
+          <p className="font-semibold" style={{ color: "var(--hoja-tinta-baja)", fontSize: 14, marginTop: 2 }}>{cfg.subtitulo}</p>
         </div>
-        <div className="flex flex-col items-center justify-center rounded-lg border-2" style={{ borderColor: brandColor, width: 170, padding: 6 }}>
-          <span className="cond uppercase font-bold" style={{ fontSize: 12, color: "#5B6B82", letterSpacing: 1 }}>Duración</span>
-          <span className="cond font-bold" style={{ fontSize: 26, color: NAVY, lineHeight: 1 }}>{fmt(total)}</span>
-          <span style={{ fontSize: 10, color: "#5B6B82", marginTop: 2 }}>{new Date().toLocaleDateString()}</span>
+        <div className="flex flex-col items-center justify-center rounded-lg border-2" style={{ borderColor: "var(--ui-sello)", width: 170, padding: 6 }}>
+          <span className="cond uppercase font-bold" style={{ fontSize: 12, color: "var(--hoja-tinta-baja)", letterSpacing: 1 }}>Duración</span>
+          <span className="cond font-bold" style={{ fontSize: 26, color: "var(--hoja-tinta)", lineHeight: 1 }}>{fmt(total)}</span>
+          <span style={{ fontSize: 10, color: "var(--hoja-tinta-baja)", marginTop: 2 }}>{new Date().toLocaleDateString()}</span>
         </div>
       </div>
 
       {editable && (
-        <p className="no-print flex items-center gap-1.5 text-xs text-slate-500" style={{ marginBottom: 8 }}>
+        <p className="no-print flex items-center gap-1.5 text-xs" style={{ marginBottom: 8, color: "var(--hoja-tinta-baja)" }}>
           <GripVertical size={13} /> Arrastra el asa para reordenar las secciones, o toca el título para abrir/cerrar. Lo que dejes cerrado no aparece al imprimir.
         </p>
       )}
@@ -193,6 +243,7 @@ export function Infografia({ cfg, setCfg }) {
           </SeccionPanel>
         ))}
       </div>
+    </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import {
   ChevronDown, ChevronUp, Download, FilePlus, FolderOpen, GripVertical,
-  Mic, Plus, Save, Search, StickyNote, Trash2, Upload, User, X,
+  Mic, Plus, Save, Trash2, Upload, User, X,
 } from "lucide-react";
 import { AnalisisTiempos } from "./AnalisisTiempos.jsx";
 import { CATALOGO_FUENTES, CATALOGO_ROLES, MIC_TIPOS, MIC_TIPO_CORTO, PLANOS } from "./catalogos.js";
@@ -12,7 +12,7 @@ import { IMPACTOS, TIPOS_PROYECTO } from "./narrativa.js";
 import { ALCANCES, BLANCO, CONOCIMIENTOS, DEMO, MEDIOS, formatoSugerido, normalizeCfg,
          objetivoSegDe, perfilVacio, porSegundo } from "./proyecto.js";
 import { EMBEDDED, descargarArchivo } from "./puente.js";
-import { AIR_COLOR, INK, NAVY, PALETTE } from "./theme.js";
+import { AIR_COLOR, NAVY, PALETTE } from "./theme.js";
 import { Aviso, Btn, btn, Campo, Campos, Card, Chips, Formatos, inp, inpStyle,
          Lectura, Seccion, Swatches, Tabulador } from "./ui.jsx";
 import { fmt, parseDur, reorder, slug, textOn, trunc, uid } from "./util.js";
@@ -35,9 +35,9 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
   const upNarr = (parche) => setCfg((c) => ({ ...c, narrativa: { ...(c.narrativa || {}), ...parche } }));
   const [nombreProy, setNombreProy] = useState("");
   const [rolCustom, setRolCustom] = useState("");
-  const [busqueda, setBusqueda] = useState("");
   const fuentes = computeFuentes(cfg);
   const rows = computeRows(cfg);
+  const colsResumen = "28px minmax(140px,1.6fr) minmax(110px,1fr) 54px 54px 54px";
   const total = rows.length ? rows[rows.length - 1].tout : 0;
   // Lo que de verdad pone el presupuesto en perspectiva: cuánto cuesta cada
   // segundo que sobrevive al corte final. Se divide entre la DURACIÓN OBJETIVO
@@ -47,23 +47,11 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
   const segundos = objetivoSegDe(cfg) || rows.reduce((a, r) => a + (r.dur || 0), 0);
   const costoSegundo = porSegundo(cfg.perfil?.presupuesto, segundos);
 
-  const q = busqueda.trim().toLowerCase();
-  const segFiltrados = cfg.escaleta
-    .map((s, i) => ({ s, i }))
-    .filter(({ s }) => {
-      if (!q) return true;
-      const f = fuentes.find((x) => x.id === s.fuente);
-      return (s.segmento || "").toLowerCase().includes(q)
-        || (f ? f.nombre.toLowerCase().includes(q) : false)
-        || fmt(s.dur).includes(q)
-        || (s.nota || "").toLowerCase().includes(q);
-    });
 
   const up = (patch) => setCfg((c) => ({ ...c, ...patch }));
   const upCam = (id, patch) => setCfg((c) => ({ ...c, camaras: c.camaras.map((k) => (k.id === id ? { ...k, ...patch } : k)) }));
   const upMic = (id, patch) => setCfg((c) => ({ ...c, microfonos: (c.microfonos || []).map((m) => (m.id === id ? { ...m, ...patch } : m)) }));
   const upExtra = (id, patch) => setCfg((c) => ({ ...c, extras: c.extras.map((k) => (k.id === id ? { ...k, ...patch } : k)) }));
-  const upSeg = (id, patch) => setCfg((c) => ({ ...c, escaleta: c.escaleta.map((s) => (s.id === id ? { ...s, ...patch } : s)) }));
 
   const addCam = () => setCfg((c) => {
     if (c.camaras.length >= 8) return c;
@@ -102,15 +90,6 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
     const fallback = c.camaras[0]?.id;
     return { ...c, extras: c.extras.filter((x) => x.id !== id), escaleta: c.escaleta.map((s) => (s.fuente === id && fallback ? { ...s, fuente: fallback } : s)) };
   });
-  const addSeg = () => setCfg((c) => ({ ...c, escaleta: [...c.escaleta, { id: uid(), segmento: "Nuevo segmento", dur: 60, fuente: c.camaras[0]?.id || c.extras[0]?.id, nota: "" }] }));
-  const delSeg = (id) => setCfg((c) => ({ ...c, escaleta: c.escaleta.filter((s) => s.id !== id) }));
-  const move = (i, d) => setCfg((c) => {
-    const e = [...c.escaleta]; const j = i + d;
-    if (j < 0 || j >= e.length) return c;
-    [e[i], e[j]] = [e[j], e[i]];
-    return { ...c, escaleta: e };
-  });
-  const moveSegTo = (from, to) => setCfg((c) => ({ ...c, escaleta: reorder(c.escaleta, from, to) }));
   const moveCam = (i, d) => setCfg((c) => {
     const j = i + d;
     if (j < 0 || j >= c.camaras.length) return c;
@@ -121,7 +100,6 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
     ...c,
     extras: [...c.extras, { id: uid(), nombre: preset.nombre, color: preset.color, esCorte: !!preset.esCorte }],
   }));
-  const dndSeg = useReorder(moveSegTo);
   const dndCam = useReorder(moveCamTo);
   const addRol = (rol, icon) => setCfg((c) =>
     c.personal.some((p) => p.rol.toLowerCase() === rol.toLowerCase()) ? c : { ...c, personal: [...c.personal, { id: uid(), rol, icon }] });
@@ -147,7 +125,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
           <div className="flex flex-col gap-1.5">
             {proyectos.map((p) => (
               <div key={p.id} className="flex items-center gap-2 rounded-md border px-2 py-1.5" style={{ borderColor: "#C8D2DE" }}>
-                <span className="flex-1 text-sm font-semibold truncate" style={{ color: INK }}>{p.nombre}</span>
+                <span className="flex-1 text-sm font-semibold truncate" style={{ color: "var(--tinta)" }}>{p.nombre}</span>
                 <span className="text-xs text-slate-400">{new Date(p.fecha).toLocaleDateString()}</span>
                 <Btn rango={2} onClick={() => cargar(p)}>Abrir</Btn>
                 <button className="b-min b-min-x" onClick={() => eliminar(p)} aria-label="Eliminar"><Trash2 size={15} /></button>
@@ -426,7 +404,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
               const Ic = ICONS[p.icon] || User;
               return (
                 <span key={p.id} className="flex items-center gap-1.5 rounded-full border pl-2 pr-1 py-1 text-xs font-semibold"
-                  style={{ borderColor: "#C8D2DE", color: INK }}>
+                  style={{ borderColor: "var(--vidrio-borde)", color: "var(--tinta)" }}>
                   <Ic size={13} /> {p.rol}
                   <button className="b-min b-min-x" onClick={() => delRol(p.id)} aria-label={`Quitar ${p.rol}`}><X size={13} /></button>
                 </span>
@@ -444,12 +422,12 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
           </div>
           <div className="flex gap-2">
             <input className={`${inp} a-largo`} style={inpStyle} placeholder="Rol personalizado…" value={rolCustom} onChange={(e) => setRolCustom(e.target.value)} />
-            <button className={`${btn} shrink-0`} style={{ background: "#E9EDF3", color: INK }}
+            <button className={`${btn} shrink-0`} style={{ background: "var(--vidrio-a)", color: "var(--tinta)" }}
               onClick={() => { if (rolCustom.trim()) { addRol(rolCustom.trim(), "custom"); setRolCustom(""); } }}>
               <Plus size={15} /> Agregar
             </button>
           </div>
-          <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: INK }}>
+          <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--tinta)" }}>
             <input type="checkbox" checked={cfg.includeCamOps} onChange={(e) => up({ includeCamOps: e.target.checked })} />
             Incluir operadores de cámara automáticamente (uno por cámara)
           </label>
@@ -457,11 +435,11 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
 
         <Seccion titulo="Flujo de producción"
           pista="Cómo viaja la señal desde la cámara hasta quien lo ve.">
-          <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: INK }}>
+          <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--tinta)" }}>
             <input type="checkbox" checked={(cfg.flujo || {}).preview !== false} onChange={(e) => up({ flujo: { ...(cfg.flujo || {}), preview: e.target.checked } })} />
             Incluir monitor PREVIEW
           </label>
-          <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: INK }}>
+          <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--tinta)" }}>
             <input type="checkbox" checked={(cfg.flujo || {}).playback !== false} onChange={(e) => up({ flujo: { ...(cfg.flujo || {}), playback: e.target.checked } })} />
             Incluir playback de comerciales / cortinillas
           </label>
@@ -470,66 +448,38 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
       </Card>)}
 
       {ver('tiempos') && (
-      <Card title="Escaleta y tiempos" ancho>
-        <Seccion titulo={`Escaleta / Rundown — total ${fmt(total)}`}
-          pista="El orden del programa y cuánto dura cada parte.">
-          <p className="text-xs text-slate-500" style={{ marginTop: -6 }}>Duración en MM:SS (ej. 01:10). IN/OUT y la línea de tiempo se calculan solos.</p>
-
-          <div className="relative">
-            <Search size={15} className="absolute pointer-events-none" style={{ left: 10, top: "50%", transform: "translateY(-50%)", color: "#9AA7B8" }} />
-            <input className={`${inp} a-largo`} style={{ ...inpStyle, paddingLeft: 30 }} placeholder="Buscar por nombre, fuente, duración o nota…"
-              value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-            {busqueda && (
-              <button className="b-min absolute" style={{ right: 9, top: 10 }} onClick={() => setBusqueda("")} aria-label="Limpiar búsqueda"><X size={15} /></button>
-            )}
+      <Card title="Tiempos y salida a edición" ancho>
+        {/* AQUÍ YA NO SE EDITA LA ESCALETA, Y ES A PROPÓSITO.
+            Esta sección era una segunda lista de segmentos —nombre, duración,
+            fuente, notas, reordenar, borrar— casi idéntica a la de "Escaleta
+            editorial". Dos pantallas para lo mismo: se editaba en una, se
+            volvía a la otra y no quedaba claro cuál mandaba.
+            El reparto ahora: la escaleta se ARMA en su pestaña; aquí se MIRAN
+            los tiempos ya calculados y se sacan al editor de video, que es lo
+            que dice el nombre de la sección. Lo único que vivía solo aquí —la
+            fuente al aire y la nota de cada segmento— se mudó a la escaleta
+            editorial, así que no se perdió nada. */}
+        <Seccion titulo={`Resumen de tiempos — total ${fmt(total)}`}
+          pista="Los mismos segmentos de la escaleta, con sus tiempos ya calculados.">
+          <p className="text-xs text-slate-500" style={{ marginTop: -6 }}>
+            Esto no se edita aquí: el orden, los nombres y las duraciones se cambian en
+            <b> Guion ▸ Escaleta y guion técnico ▸ Escaleta editorial</b>. IN, OUT y el total se recalculan solos.
+          </p>
+          <div className="grid gap-1 text-[10px] font-bold uppercase text-slate-500" style={{ gridTemplateColumns: colsResumen }}>
+            <span>#</span><span>Segmento</span><span>Fuente</span>
+            <span className="text-center">In</span><span className="text-center">Out</span><span className="text-center">Dur</span>
           </div>
-          {busqueda && (
-            <p className="text-xs text-slate-500" style={{ marginTop: -4 }}>
-              {segFiltrados.length} de {cfg.escaleta.length} segmentos. El reordenamiento se desactiva mientras buscas.
-            </p>
-          )}
-
-          {segFiltrados.map(({ s, i }) => (
-            <div key={s.id} {...(busqueda ? {} : dndSeg.target(i))}
-              className="fila-segmento gap-1 rounded-lg border p-1.5"
-              style={{
-                borderColor: !busqueda && dndSeg.overIdx === i && dndSeg.dragIdx !== i ? AIR_COLOR : "#DDE4EC",
-                opacity: !busqueda && dndSeg.dragIdx === i ? 0.4 : 1,
-              }}>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {!busqueda && (
-                  <span {...dndSeg.source(i)} title="Arrastra para reordenar"
-                    className="cursor-grab active:cursor-grabbing text-slate-400 shrink-0" style={{ touchAction: "none" }}>
-                    <GripVertical size={15} />
-                  </span>
-                )}
-                <span className="text-xs font-bold text-slate-400 text-center shrink-0" style={{ width: 20 }}>{i + 1}</span>
-                <input className={inp} style={{ ...inpStyle, flex: "1 1 170px", maxWidth: "40ch" }} value={s.segmento} onChange={(e) => upSeg(s.id, { segmento: e.target.value })} />
-                <input key={`${s.id}:${s.dur}`} className={inp} style={{ ...inpStyle, width: 70, flex: "0 0 auto", textAlign: "center" }}
-                  defaultValue={fmt(s.dur)}
-                  onBlur={(e) => { const v = parseDur(e.target.value); if (v == null || v < 0) { e.target.value = fmt(s.dur); } else upSeg(s.id, { dur: v }); }} />
-                <select className={inp} style={{ ...inpStyle, width: 150, flex: "0 0 auto" }} value={s.fuente} onChange={(e) => upSeg(s.id, { fuente: e.target.value })}>
-                  {fuentes.map((f) => <option key={f.id} value={f.id}>{f.tipo === "cam" ? `${f.nombre} — ${trunc(f.plano, 18)}` : f.nombre}</option>)}
-                </select>
-                <span className="flex gap-0.5 shrink-0">
-                  {!busqueda && <button className="b-min" onClick={() => move(i, -1)} aria-label="Subir"><ChevronUp size={16} /></button>}
-                  {!busqueda && <button className="b-min" onClick={() => move(i, 1)} aria-label="Bajar"><ChevronDown size={16} /></button>}
-                  <button className="b-min b-min-x" onClick={() => delSeg(s.id)} aria-label="Eliminar segmento"><Trash2 size={16} /></button>
-                </span>
-              </div>
-              <div className="flex items-start gap-1.5">
-                <StickyNote size={13} className="text-slate-300 shrink-0" style={{ marginTop: 6, marginLeft: 2 }} />
-                <textarea className={inp} rows={s.nota ? 2 : 1}
-                  style={{ ...inpStyle, fontSize: 12, resize: "vertical", minHeight: 30, lineHeight: 1.4, maxWidth: "80ch" }}
-                  placeholder="Notas del segmento: guion del conductor, cue de audio, aviso de efectos…"
-                  value={s.nota || ""} onChange={(e) => upSeg(s.id, { nota: e.target.value })} />
-              </div>
+          {rows.map((r) => (
+            <div key={r.id} className="grid items-center gap-1 text-xs" style={{ gridTemplateColumns: colsResumen, color: "var(--tinta)" }}>
+              <span className="font-bold text-slate-400">{r.idx}</span>
+              <span>{r.segmento || "—"}</span>
+              <span className="text-slate-500">{fuentes.find((f) => f.id === r.fuente)?.nombre || "—"}</span>
+              <span className="text-center text-slate-500">{fmt(r.tin)}</span>
+              <span className="text-center text-slate-500">{fmt(r.tout)}</span>
+              <span className="text-center font-bold">{fmt(r.dur)}</span>
             </div>
           ))}
-          {segFiltrados.length === 0 && busqueda && (
-            <p className="text-sm text-slate-400 text-center" style={{ padding: 8 }}>Ningún segmento coincide con “{busqueda}”.</p>
-          )}
-          <Btn rango={1} icono={Plus} className="self-start" onClick={addSeg}>Agregar segmento</Btn>
+          {!rows.length && <p className="text-sm text-slate-400">La escaleta está vacía todavía.</p>}
         </Seccion>
 
         <Seccion titulo="Análisis de tiempos"
@@ -548,7 +498,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
               onClick={() => descargarArchivo(`${slug(cfg.titulo)}.edl`, generarEDL(cfg))}>
               <Download size={15} /> Descargar EDL
             </button>
-            <button className={btn} style={{ background: "#E9EDF3", color: INK }}
+            <button className={btn} style={{ background: "var(--vidrio-a)", color: "var(--tinta)" }}
               onClick={() => descargarArchivo(`${slug(cfg.titulo)}.csv`, generarCSV(cfg), "text/csv")}>
               <Download size={15} /> Descargar CSV
             </button>
