@@ -1327,3 +1327,55 @@ test('los pasos de tamaño empiezan en 100% y suben sin saltarse a nadie', () =>
   });
   assert.ok(ESCALAS.at(-1).v <= 2, 'más del doble no cabe en una ventana de trabajo');
 });
+
+
+/* ====== LAS ETAPAS Y EL REGISTRO DE HERRAMIENTAS TIENEN QUE CUADRAR ======
+Cada sección de la barra de etapas abre una herramienta, y esa herramienta vive
+en un archivo del disco. Son TRES sitios que hay que tocar para dar de alta una
+sola cosa —ETAPAS, toolInfo y la carpeta de la herramienta— y ya hubo una falla
+de esta familia (DESANCLABLES se calculaba aparte de toolInfo y se separaron).
+Si una sección se declara sin su entrada, el botón aparece y no abre nada; si el
+`src` apunta a un archivo que no existe, abre un iframe en blanco. Las dos son
+invisibles hasta que alguien lo prueba a mano. Aquí ya no. */
+
+const MAIN = await (async () => {
+  const { readFileSync } = await import('node:fs');
+  return readFileSync(new URL('../frontend/src/main.js', import.meta.url), 'utf8');
+})();
+
+const seccionesDeclaradas = [...MAIN.matchAll(/secciones:\s*\[([\s\S]*?)\]\s*\}/g)]
+  .flatMap((m) => [...m[1].matchAll(/\['(\w+)'/g)].map((s) => s[1]));
+
+const bloqueToolInfo = MAIN.match(/const toolInfo = \{([\s\S]*?)\n\};/)[1];
+const herramientas = [...bloqueToolInfo.matchAll(/^\s{4}(\w+): \{/gm)].map((m) => m[1]);
+const fuentes = [...bloqueToolInfo.matchAll(/src: '\.\/([^']+)'/g)].map((m) => m[1]);
+
+test('cada sección de una etapa tiene su herramienta dada de alta', () => {
+  assert.ok(seccionesDeclaradas.length >= 8, 'se leyeron las etapas');
+  for (const vista of seccionesDeclaradas) {
+    // `production` es la excepción declarada: el Ensayo no es un iframe, se
+    // pinta solo (ver panel.esVista en main.js).
+    if (vista === 'production') continue;
+    assert.ok(herramientas.includes(vista),
+      `la sección "${vista}" no está en toolInfo: el botón abriría la nada`);
+  }
+});
+
+test('el archivo de cada herramienta existe de verdad', async () => {
+  const { existsSync } = await import('node:fs');
+  assert.ok(fuentes.length >= 3, 'se leyeron las rutas');
+  for (const src of fuentes) {
+    const ruta = new URL(`../frontend/public/${src}`, import.meta.url);
+    assert.ok(existsSync(ruta), `falta el archivo de la herramienta: ${src}`);
+  }
+});
+
+test('la Escuela de cámara vive en la etapa 1, junto a la Mesa de luz', () => {
+  // Su sitio se acordó a propósito: la Mesa de luz dice a qué se tiene que
+  // parecer, y la Escuela explica por qué se ve así. Si alguien la mueve de
+  // etapa, que sea decidiéndolo, no por accidente.
+  const etapa1 = MAIN.match(/id: 'perfil',[\s\S]*?secciones: \[([\s\S]*?)\]\s*\}/)[1];
+  assert.ok(etapa1.includes("'referencias'"), 'la Mesa de luz sigue en la etapa 1');
+  assert.ok(etapa1.includes("'escuela'"), 'la Escuela de cámara sigue en la etapa 1');
+  assert.ok(herramientas.includes('escuela'), 'y está dada de alta');
+});

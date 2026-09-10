@@ -126,11 +126,26 @@ export function createNuevoProyecto({ onCreate }) {
         const nombre = capa.querySelector('#np-nombre');
         nombre.value = nombreEscrito;
         capa.querySelector('.np-cerrar').onclick = cerrar;
-        capa.querySelectorAll('[data-modo]').forEach((b) => b.onclick = () => {
-            leerCampos();
-            modo = b.dataset.modo;
-            pinta();
-            capa.querySelector('#np-nombre').focus();
+        /* ELEGIR EL MODO NO REDIBUJA LA CAJA. Antes sí: se volvía a pintar el
+           HTML entero y, como eso se lleva por delante el cursor, había que
+           devolvérselo al campo del nombre a mano. En un iPad eso era una
+           lata — devolver el foco DENTRO del gesto del dedo es justo lo que
+           hace subir el teclado, así que tocar "En vivo" o "Narrativo" abría
+           el teclado encima del diálogo sin que nadie lo pidiera.
+           El modo solo cambia qué botón va marcado, así que se marca y ya: sin
+           redibujar no se pierde el cursor y no hay que ir a buscarlo.
+           El preventDefault del mousedown es para que el botón tampoco le robe
+           el foco al nombre: en el Mac sigues escribiendo donde ibas. */
+        capa.querySelectorAll('[data-modo]').forEach((b) => {
+            b.onmousedown = (e) => e.preventDefault();
+            b.onclick = () => {
+                modo = b.dataset.modo;
+                capa.querySelectorAll('[data-modo]').forEach((otro) => {
+                    const puesto = otro.dataset.modo === modo;
+                    otro.classList.toggle('selected', puesto);
+                    otro.setAttribute('aria-pressed', puesto ? 'true' : 'false');
+                });
+            };
         });
         capa.querySelector('.np-mas').onclick = () => { leerCampos(); verPerfil = !verPerfil; pinta(); };
         capa.querySelectorAll('.np-chip').forEach((b) => b.onclick = () => {

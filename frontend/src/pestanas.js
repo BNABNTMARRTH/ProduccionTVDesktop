@@ -38,6 +38,14 @@ export function crearPestanas({
     etiquetaDe,         // (id) => string      · nombre visible del módulo
     iconoDe,            // (id) => string|null · nombre del icono del módulo
 }) {
+    /* HAY SITIOS DONDE UNA APP ES UNA SOLA VENTANA (el iPad). Ahí, sacar una
+       pestaña a "su propia ventana" no abre nada nuevo: tapa la pantalla con
+       el módulo, que es lo mismo que navegar a él pero con un rodeo. Donde no
+       se puede hacer de verdad, no se ofrece: ni el botón ⧉ ni el arrastre
+       hacia fuera. Las pestañas, que viven dentro de esta misma ventana, se
+       quedan igual. */
+    const haySegundaVentana = !globalThis.__ptvSinVentanas;
+
     let abiertas = [];        // ids de los módulos desanclados, en orden
     let activa = PRINCIPAL;
     let arrastrando = null;   // { id, desdeX, desdeY, saliendo }
@@ -60,10 +68,13 @@ export function crearPestanas({
           <div class="pestana${id === activa ? ' activa' : ''}${fija ? ' fija' : ''}"
                data-pestana="${id}" role="tab" tabindex="0"
                aria-selected="${id === activa}"
-               title="${fija ? 'El proyecto y su recorrido por etapas' : `${etiqueta} · sácala a su propia ventana con ⧉ o arrastrándola fuera de la barra`}">
+               title="${fija ? 'El proyecto y su recorrido por etapas'
+                 : (haySegundaVentana
+                     ? `${etiqueta} · sácala a su propia ventana con ⧉ o arrastrándola fuera de la barra`
+                     : etiqueta)}">
             ${ico ? `<span class="pestana-ic">${icono(ico, 15)}</span>` : ''}
             <span class="pestana-txt">${etiqueta}</span>
-            ${fija ? '' : `<button class="pestana-ventana" data-ventana="${id}" tabindex="-1" aria-label="Abrir ${etiqueta} en su propia ventana" title="Abrir “${etiqueta}” en su propia ventana, para mandarla al segundo monitor">${icono('ventana', 13)}</button>
+            ${fija ? '' : `${haySegundaVentana ? `<button class="pestana-ventana" data-ventana="${id}" tabindex="-1" aria-label="Abrir ${etiqueta} en su propia ventana" title="Abrir “${etiqueta}” en su propia ventana, para mandarla al segundo monitor">${icono('ventana', 13)}</button>` : ''}
             <button class="pestana-x" data-cerrar="${id}" tabindex="-1" aria-label="Cerrar la pestaña ${etiqueta}">${icono('cerrar', 13)}</button>`}
           </div>`;
 
@@ -120,7 +131,8 @@ export function crearPestanas({
         const caja = barra.getBoundingClientRect();
         // "Fuera" = lejos de la barra en vertical. En horizontal el usuario
         // está reordenando, no sacando.
-        const fuera = e.clientY < caja.top - DISTANCIA_PARA_SACAR || e.clientY > caja.bottom + DISTANCIA_PARA_SACAR;
+        const fuera = haySegundaVentana
+            && (e.clientY < caja.top - DISTANCIA_PARA_SACAR || e.clientY > caja.bottom + DISTANCIA_PARA_SACAR);
         arrastrando.saliendo = fuera;
         const el = barra.querySelector(`[data-pestana="${arrastrando.id}"]`);
         el?.classList.toggle('sacando', fuera);

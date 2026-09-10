@@ -2,7 +2,7 @@ import './style.css';
 import html2canvas from 'html2canvas';
 import appIcon from './assets/images/produccion-tv-256.png';
 import { icono } from './iconos.js';
-import { ClaimProject, CloseWindow, DeleteProjectFile, DeleteTrashFile, FocusLauncher, FocusProjectWindow, FocusToolWindow, GetLaunchContext, ListOpenProjects, ListOpenTools, ListTrashFiles, LoadAllProjects, LoadProjectFile, LoadSettings, OpenProjectWindow, OpenToolWindow, Print, ReadTrashFile, SaveBase64File, SaveProjectFile, SaveSettings, SaveTextFile, SetWindowTitle, WatchProject } from '../wailsjs/go/main/App';
+import { ClaimProject, CloseWindow, DeleteContact, DeleteProjectFile, DeleteReference, DeleteTrashFile, FocusLauncher, FocusProjectWindow, FocusToolWindow, GetLaunchContext, ListContacts, ListOpenProjects, ListOpenTools, ListReferences, ListTrashFiles, LoadAllProjects, LoadProjectFile, LoadReferenceImage, LoadSettings, OpenProjectWindow, OpenToolWindow, Print, ReadTrashFile, SaveBase64File, SaveContact, SaveProjectFile, SaveReference, SaveSettings, SaveTextFile, SetWindowTitle, WatchProject } from '../wailsjs/go/main/App';
 import { EventsOn, WindowIsFullscreen, WindowUnfullscreen } from '../wailsjs/runtime/runtime';
 import { makeTemplate, diagramFromConfig, infografiaFromDiagram, uid, PROJECT_MODES, normalizeMode } from './templates.js';
 import { createProductionView } from './production.js';
@@ -130,13 +130,13 @@ no se veía nunca. */
 const ETAPAS = [
     { id: 'perfil', n: '1', gel: '1', etiqueta: 'Perfil', icono: 'perfil',
       ayuda: 'Quién habla, qué dice y a quién (⌘1)',
-      secciones: [['perfil', 'Datos y mensaje']] },
+      secciones: [['perfil', 'Datos y mensaje'], ['referencias', 'Mesa de luz'], ['escuela', 'Escuela de cámara']] },
     { id: 'guion', n: '2', gel: '2', etiqueta: 'Guion', icono: 'guion',
       ayuda: 'Qué pasa, en qué orden y cómo se ve cada toma (⌘2)',
       secciones: [['guionLiterario', 'Guion literario', 'narrative'], ['escaleta', 'Escaleta y guion técnico'], ['tiempos', 'Tiempos']] },
     { id: 'necesidades', n: '3', gel: '3', etiqueta: 'Necesidades', icono: 'necesidades',
       ayuda: 'Todo lo que hay que conseguir: gente y equipo (⌘3)',
-      secciones: [['necesidades', 'Personas y equipo'], ['diagrama', 'Ruta de señal']] },
+      secciones: [['necesidades', 'Personas y equipo'], ['agenda', 'Agenda de crew'], ['diagrama', 'Ruta de señal']] },
     { id: 'planeacion', n: '4', gel: '4', etiqueta: 'Planeación', icono: 'planeacion',
       ayuda: 'Cómo se organiza el rodaje: plano del set y la infografía del proyecto (⌘4)',
       secciones: [['set', 'Plano del set'], ['infografias', 'Infografía']] },
@@ -247,7 +247,7 @@ document.querySelector('#app').innerHTML = `
           <button id="tema-btn" title="Cambiar entre claro y oscuro">${icono('sol', 17)}</button>
           <button id="ajustes-btn" title="Configuración: tamaño de la letra y los botones, contraste, tema y atajos">${icono('ajustes', 17)}</button>
           <button id="tour-btn" title="Recorrido guiado: cómo usar la app paso a paso">${icono('ayuda', 17)}</button>
-          <button id="desanclar-btn" title="Desanclar esta sección en su propia pestaña (⌘D). Después puedes arrastrar la pestaña fuera para abrirla en otra ventana.">${icono('desanclar', 17)}</button>
+          <button id="desanclar-btn" title="Desanclar esta sección en su propia pestaña (⌘D)${globalThis.__ptvSinVentanas ? '' : '. Después puedes arrastrar la pestaña fuera para abrirla en otra ventana'}.">${icono('desanclar', 17)}</button>
         </div>
       </header>
       <section class="home-view" id="home-view">
@@ -306,6 +306,9 @@ document.querySelector('#app').innerHTML = `
 const toolInfo = {
     infografias: { title: 'Infografía del proyecto', description: 'La hoja completa: set, escaleta, personal y branding', src: './tools/infografias/index.html', mode: 'vista' },
     perfil: { title: 'Perfil del proyecto', description: 'Quién habla, qué dice y a quién: datos generales, mensaje e intención', src: './tools/infografias/index.html', mode: 'perfil' },
+    agenda: { title: 'Agenda de crew', description: 'Tu gente: a quién le llamas para cada puesto. Vive en tu disco, no se publica', src: './tools/infografias/index.html', mode: 'agenda' },
+    referencias: { title: 'Mesa de luz', description: 'La fototeca de referencias visuales: a qué se tiene que parecer, con etiquetas y color', src: './tools/infografias/index.html', mode: 'referencias' },
+    escuela: { title: 'Escuela de cámara', description: 'Una foto, todas las cámaras posibles: probar diafragma, obturador e ISO antes de rodar', src: './tools/escuela/index.html' },
     necesidades: { title: 'Necesidades', description: 'Qué hace falta conseguir: talentos, personal, cámaras y micrófonos', src: './tools/infografias/index.html', mode: 'necesidades' },
     guionLiterario: { title: 'Guion literario', description: 'El guion en su forma tradicional: encabezado, acción, personaje y diálogo', src: './tools/infografias/index.html', mode: 'guion' },
     tiempos: { title: 'Tiempos y salida a edición', description: 'Rundown con duraciones, análisis de tiempos y exportación EDL/CSV', src: './tools/infografias/index.html', mode: 'tiempos' },
@@ -1117,6 +1120,10 @@ const tour = createTour({
 // Qué se puede desanclar: las herramientas y el Ensayo en vivo. (Inicio no:
 // es el lanzador, no un módulo del proyecto.)
 const DESANCLABLES = [...Object.keys(toolInfo), 'production'];
+// ¿Este sistema puede abrir una SEGUNDA ventana de la app? En el Mac sí; en el
+// iPad no, y ahí sacar un módulo "a su ventana" solo tapaba la pantalla. La
+// pone el puente de iPadOS antes de que arranque la app (ver pestanas.js).
+const haySegundaVentana = !globalThis.__ptvSinVentanas;
 const etiquetaModulo = (vista) => {
     if (vista === 'production') return 'En vivo';
     const rot = SECCION_ETIQUETAS[normalizeMode(latestInfografia?.modo)] || {};
@@ -1307,7 +1314,9 @@ function desanclar(vista) {
     if (!pestanas.tiene(vista)) {
         pestanas.abrir(vista);
         panelDe(vista);
-        showToast(`“${etiquetaModulo(vista)}” quedó en su propia pestaña. Con el botón ⧉ de la pestaña (o arrastrándola fuera de la barra) se abre en su propia ventana.`);
+        showToast(haySegundaVentana
+            ? `“${etiquetaModulo(vista)}” quedó en su propia pestaña. Con el botón ⧉ de la pestaña (o arrastrándola fuera de la barra) se abre en su propia ventana.`
+            : `“${etiquetaModulo(vista)}” quedó en su propia pestaña.`);
     }
     // La pestaña Proyecto se queda en la sección hermana, no en un hueco.
     if (activeView === vista) {
@@ -1544,6 +1553,58 @@ window.addEventListener('message', async (event) => {
             if (await SaveTextFile(data.filename || 'archivo.txt', data.content || '')) showToast('Archivo guardado');
         } catch (error) {
             showToast(error?.message || 'No se pudo guardar el archivo', true);
+        }
+        return;
+    }
+
+    /* LA AGENDA. Misma historia que la mesa de luz: la gente no vive en el
+       proyecto sino junto a él, en el disco, y la herramienta corre dentro de
+       un iframe que no alcanza el puente nativo. Mismo folio por la misma
+       razón: con varias pestañas hay varias preguntando a la vez. */
+    if (data.type === 'producciontv:agenda') {
+        const responder = (extra) => event.source?.postMessage(
+            { type: 'producciontv:agenda-respuesta', folio: data.folio, ...extra }, '*');
+        try {
+            let datos = null;
+            if (data.op === 'list') datos = await ListContacts();
+            else if (data.op === 'save') await SaveContact(data.id || '', data.ficha || '');
+            else if (data.op === 'delete') await DeleteContact(data.id || '');
+            else throw new Error(`operación desconocida en la agenda: ${data.op}`);
+            responder({ ok: true, datos });
+        } catch (error) {
+            responder({ ok: false, error: error?.message || 'No se pudo llegar a la agenda' });
+        }
+        return;
+    }
+
+    /* MESA DE LUZ. La fototeca no vive en el proyecto sino junto a él, en el
+       disco, así que la herramienta —que corre dentro de un iframe y no
+       alcanza el puente nativo— tiene que pedirla por aquí. Cada petición
+       trae un FOLIO y la respuesta lo devuelve: con varias pestañas abiertas
+       hay varias herramientas preguntando a la vez, y sin folio una podría
+       quedarse con la respuesta de otra. */
+    if (data.type === 'producciontv:ref') {
+        const responder = (extra) => event.source?.postMessage(
+            { type: 'producciontv:ref-respuesta', folio: data.folio, ...extra }, '*');
+        try {
+            let datos = null;
+            if (data.op === 'list') datos = await ListReferences();
+            else if (data.op === 'save') await SaveReference(data.id || '', data.ficha || '', data.imagen || '');
+            else if (data.op === 'image') datos = await LoadReferenceImage(data.id || '');
+            else if (data.op === 'delete') await DeleteReference(data.id || '');
+            else if (data.op === 'analizar') {
+                /* EL OJO DE LA APP SOLO EXISTE EN EL iPAD. Usa Vision, que viene
+                   dentro de iPadOS; en el Mac no hay equivalente a mano, así que
+                   aquí no se llama a Go: se pregunta si la función está, y si no
+                   se responde vacío. La mesa funciona igual en los dos sitios,
+                   solo que en el iPad llega medio llena. */
+                const ojo = globalThis.go?.main?.App?.AnalizarImagen;
+                datos = ojo ? await ojo(data.imagen || '') : null;
+            }
+            else throw new Error(`operación desconocida en la mesa de luz: ${data.op}`);
+            responder({ ok: true, datos });
+        } catch (error) {
+            responder({ ok: false, error: error?.message || 'No se pudo llegar a la mesa de luz' });
         }
         return;
     }

@@ -26,6 +26,9 @@ from pathlib import Path
 SRC = Path(__file__).resolve().parent.parent / "web-sources" / "generador-tv" / "src"
 
 DEF = re.compile(r"^(?:export\s+)?(?:async\s+)?(?:function|const|let|var|class)\s+([A-Za-z_$][\w$]*)", re.M)
+# Igual que DEF pero exigiendo el `export`: es el vocabulario que de verdad se
+# comparte. DEF se sigue usando para saber que define CADA archivo por su cuenta.
+DEF_EXPORTADO = re.compile(r"^export\s+(?:async\s+)?(?:function|const|let|var|class)\s+([A-Za-z_$][\w$]*)", re.M)
 EXPORT_LIST = re.compile(r"^export\s*\{([^}]*)\}", re.M)
 IMPORT_BLOCK = re.compile(r"^import\s+(.+?)\s+from\s+[\"'][^\"']+[\"'];", re.M | re.S)
 
@@ -47,10 +50,22 @@ def solo_codigo(texto):
 
 
 def vocabulario_compartido():
+    """Solo lo EXPORTADO, que es lo unico que otro archivo puede importar.
+
+    Antes entraba aqui todo lo declarado a nivel superior, exportado o no, y
+    eso producia falsos positivos con nombres cortos y comunes: sugerencias.js
+    tiene sus propios `const aviso` y `const familia` privados, asi que
+    cualquier otro archivo con una variable llamada `aviso` quedaba senalado
+    por chocar con algo que jamas habria podido importar.
+
+    Restringirlo a los exports NO afloja el chequeo: para que un archivo use un
+    nombre sin importarlo, ese nombre tiene que existir para ser importado —o
+    sea, estar exportado—. El caso que justifica este script (VistaSet.jsx sin
+    su import de reacomodoDe) se sigue cazando igual."""
     nombres = set()
     for f in sorted(SRC.glob("*.js*")):
         texto = f.read_text()
-        nombres |= set(DEF.findall(texto))
+        nombres |= set(DEF_EXPORTADO.findall(texto))
         for grupo in EXPORT_LIST.findall(texto):
             nombres |= {n.strip().split(" as ")[-1].strip() for n in grupo.split(",") if n.strip()}
     return nombres
