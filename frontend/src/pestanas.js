@@ -53,11 +53,10 @@ export function crearPestanas({
     const hay = (id) => abiertas.includes(id);
 
     function render() {
-        // Una barra con una sola pestaña no es una elección, es ruido: mientras
-        // no haya nada desanclado, la barra no existe (misma regla que la de
-        // secciones). Aparece sola en cuanto desanclas el primer módulo.
-        barra.hidden = abiertas.length === 0;
-        if (barra.hidden) { barra.innerHTML = ''; return; }
+        // La barra de pestañas y el botón "+" están siempre disponibles en la ventana
+        // del proyecto para permitir desanclar módulos directamente desde el primer instante.
+        barra.hidden = false;
+        if (typeof barra.setAttribute === 'function') barra.setAttribute('aria-orientation', 'horizontal');
 
         /* El botón ⧉ existe por DESCUBRIMIENTO. Sacar la pestaña a su propia
            ventana era solo un gesto —arrastrarla fuera de la barra—, y un
@@ -66,16 +65,15 @@ export function crearPestanas({
            atajo para quien ya lo sepa. */
         const pestana = (id, etiqueta, ico, fija) => `
           <div class="pestana${id === activa ? ' activa' : ''}${fija ? ' fija' : ''}"
-               data-pestana="${id}" role="tab" tabindex="0"
+               data-pestana="${id}" id="tab-${id}" role="tab" tabindex="0"
                aria-selected="${id === activa}"
-               title="${fija ? 'El proyecto y su recorrido por etapas'
-                 : (haySegundaVentana
-                     ? `${etiqueta} · sácala a su propia ventana con ⧉ o arrastrándola fuera de la barra`
-                     : etiqueta)}">
+               aria-controls="panel-${id}"
+               title="${fija ? 'Recorrido del proyecto (⌃Tab)'
+                : `“${etiqueta}” (⌃Tab)`}">
             ${ico ? `<span class="pestana-ic">${icono(ico, 15)}</span>` : ''}
             <span class="pestana-txt">${etiqueta}</span>
-            ${fija ? '' : `${haySegundaVentana ? `<button class="pestana-ventana" data-ventana="${id}" tabindex="-1" aria-label="Abrir ${etiqueta} en su propia ventana" title="Abrir “${etiqueta}” en su propia ventana, para mandarla al segundo monitor">${icono('ventana', 13)}</button>` : ''}
-            <button class="pestana-x" data-cerrar="${id}" tabindex="-1" aria-label="Cerrar la pestaña ${etiqueta}">${icono('cerrar', 13)}</button>`}
+            ${fija ? '' : `${haySegundaVentana ? `<button class="pestana-ventana" data-ventana="${id}" tabindex="-1" aria-label="Abrir ${etiqueta} en su propia ventana" title="Abrir en ventana independiente">${icono('ventana', 13)}</button>` : ''}
+            <button class="pestana-x" data-cerrar="${id}" tabindex="-1" aria-label="Cerrar la pestaña ${etiqueta}" title="Cerrar pestaña (⌘W)">${icono('cerrar', 13)}</button>`}
           </div>`;
 
         barra.innerHTML =
@@ -98,7 +96,15 @@ export function crearPestanas({
         barra.querySelectorAll('[data-ventana]').forEach((b) => {
             b.onclick = (e) => { e.stopPropagation(); alSacar(b.dataset.ventana); };
         });
-        barra.querySelector('#pestana-mas').onclick = (e) => alPedirModulo(e.currentTarget);
+        const masBtn = barra.querySelector('#pestana-mas');
+        if (masBtn) masBtn.onclick = (e) => alPedirModulo(e.currentTarget);
+
+        const elActiva = barra.querySelector(`[data-pestana="${activa}"]`);
+        if (elActiva && typeof elActiva.scrollIntoView === 'function') {
+            requestAnimationFrame(() => {
+                elActiva.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+            });
+        }
     }
 
     /* ---- ARRASTRE. Dos gestos con el mismo movimiento -------------------
@@ -177,11 +183,28 @@ export function crearPestanas({
             .filter((v) => v !== PRINCIPAL);
     }
 
+    // Render inicial: dibuja la pestaña fija 'Proyecto' y el botón '+' de inmediato.
+    render();
+
     return {
         get abiertas() { return [...abiertas]; },
         get activa() { return activa; },
         tiene: hay,
-        abrir(id) { if (!hay(id)) abiertas.push(id); render(); },
+        abrir(id) {
+            if (!hay(id)) abiertas.push(id);
+            activa = id;
+            render();
+            requestAnimationFrame(() => {
+                const nuevo = barra.querySelector(`[data-pestana="${id}"]`);
+                if (nuevo && typeof nuevo.scrollIntoView === 'function') {
+                    nuevo.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                }
+                const mas = barra.querySelector('#pestana-mas');
+                if (mas && typeof mas.scrollIntoView === 'function') {
+                    mas.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                }
+            });
+        },
         cerrar(id) { abiertas = abiertas.filter((x) => x !== id); if (activa === id) activa = PRINCIPAL; render(); },
         activar(id) { activa = hay(id) || id === PRINCIPAL ? id : PRINCIPAL; render(); },
         render,

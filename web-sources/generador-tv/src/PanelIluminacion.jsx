@@ -4,15 +4,14 @@ import {
   getSetup, instanciarElemento, instanciarSetup,
 } from "./iluminacion.js";
 import { LuzIcon } from "./glifos.jsx";
-import { SecTitle } from "./ui.jsx";
 import { upSetPor } from "./sets.js";
-import {} from "./theme.js";
 import { textOn } from "./util.js";
 
-// Panel de iluminación: elegir una configuración del catálogo, aplicarla al
-// plano (coloca las luces requeridas en posiciones típicas) y agregar o quitar
-// elementos opcionales. Las acciones destructivas piden confirmación en dos
-// pasos (no hay window.confirm en el WebView de Wails).
+/**
+ * PanelIluminacion:
+ * Inspector de iluminación profesional estilo macOS Studio.
+ * Cero emojis, controles segmentados translúcidos y gestión limpia de esquemas.
+ */
 export function PanelIluminacion({ cfg, set, setCfg }) {
   const editable = typeof setCfg === "function";
   const aplicada = set.iluminacion?.setup || null;
@@ -27,23 +26,25 @@ export function PanelIluminacion({ cfg, set, setCfg }) {
   const setupAplicado = getSetup(aplicada);
   const mesaPos = set.setLayout?.pos?.mesa || { x: 490, y: 240 };
 
-  const chipStyle = (borde) => ({ borderColor: borde, color: "var(--tinta)", background: "var(--vidrio-a)" });
+  const chipStyle = (borde) => ({
+    borderColor: borde || "rgba(255, 255, 255, 0.12)",
+    color: "var(--tinta, #d5deea)",
+    background: "rgba(255, 255, 255, 0.05)",
+  });
 
   if (!editable) {
     return luces.length ? (
       <div className="flex flex-wrap items-center gap-1.5">
-        {setupAplicado && <span className="text-xs font-bold" style={{ color: "var(--tinta)" }}>{setupAplicado.name_es} ·</span>}
+        {setupAplicado && <span className="text-xs font-bold text-white/90">{setupAplicado.name_es} ·</span>}
         {luces.map((l) => (
           <span key={l.id} className="flex items-center gap-1 rounded-lg border px-1.5 py-0.5 text-xs font-bold" style={chipStyle(l.color)}>
             <LuzIcon forma={l.forma} color={l.color} /> {l.nombre}
           </span>
         ))}
       </div>
-    ) : <p className="text-xs" style={{ color: "var(--tinta-media)", margin: 0 }}>Sin iluminación configurada.</p>;
+    ) : <p className="text-xs text-white/50 m-0">Sin iluminación configurada.</p>;
   }
 
-  // La confirmación de reemplazo/borrado vive en la UI (franjas con botones);
-  // estas acciones ya ejecutan directo.
   const aplicar = () => {
     setConfirma(null);
     const { luces: nuevas, pos } = instanciarSetup(setup, mesaPos);
@@ -105,26 +106,23 @@ export function PanelIluminacion({ cfg, set, setCfg }) {
     }
   };
 
-  const btn = (activo) => ({
-    background: activo ? "var(--gel-f)" : "var(--vidrio-a)", borderColor: activo ? "var(--gel-f)" : "var(--vidrio-borde)", color: activo ? "#fff" : "var(--tinta)",
-  });
-
   return (
-    <div className="flex flex-col gap-2.5">
-      <SecTitle>Configuración base</SecTitle>
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-3 text-xs">
+      {/* Selector de esquema de iluminación */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[11px] font-bold uppercase tracking-wider text-white/60">Esquema de iluminación</label>
         <select
           value={selId}
           onChange={(e) => { setSelId(e.target.value); setConfirma(null); }}
-          className="rounded-lg border text-xs font-bold"
-          style={{ borderColor: "var(--vidrio-borde)", color: "var(--tinta)", background: "var(--vidrio-a)", padding: "6px 8px", maxWidth: 320 }}>
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-white/90 focus:border-blue-500 focus:outline-none"
+        >
           {exteriores.length > 0 && (
-            <optgroup label="☀ Para locación exterior">
+            <optgroup label="Locación exterior">
               {exteriores.map((id) => <option key={`ext-${id}`} value={id}>{getSetup(id).name_es}</option>)}
             </optgroup>
           )}
           {recomendadas.length > 0 && (
-            <optgroup label="★ Recomendadas para tu producción">
+            <optgroup label="Recomendadas para el proyecto">
               {recomendadas.map((id) => <option key={`rec-${id}`} value={id}>{getSetup(id).name_es}</option>)}
             </optgroup>
           )}
@@ -132,140 +130,149 @@ export function PanelIluminacion({ cfg, set, setCfg }) {
             {SETUPS_ILUMINACION.map((s) => <option key={s.id} value={s.id}>{s.name_es}</option>)}
           </optgroup>
         </select>
-        <span className="rounded-lg border px-2 py-0.5 text-xs font-bold" style={chipStyle("var(--vidrio-borde)")}>
-          Dificultad: {DIFICULTAD_ES[setup.difficulty] || setup.difficulty}
-        </span>
-        {exteriores.includes(setup.id) && (
-          <span className="rounded-lg px-2 py-0.5 text-xs font-bold" style={{ background: "color-mix(in srgb, var(--e2) 16%, transparent)", color: "var(--e2-t)" }}>☀ Exterior</span>
-        )}
-        {recomendadas.includes(setup.id) && (
-          <span className="rounded-lg px-2 py-0.5 text-xs font-bold" style={{ background: "color-mix(in srgb, var(--e3) 16%, transparent)", color: "var(--e3-t)" }}>★ Recomendada</span>
-        )}
       </div>
 
-      {/* Tarjeta de vista previa: qué coloca la configuración ANTES de aplicarla */}
-      <div className="rounded-lg border p-2.5 flex flex-col gap-2" style={{ borderColor: "var(--linea)", background: "var(--vidrio-b)" }}>
-        <p className="text-xs" style={{ color: "var(--tinta-media)", margin: 0 }}>{setup.description}</p>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs font-bold" style={{ color: "var(--tinta)" }}>Coloca en el plano:</span>
+      {/* Tarjeta de previsualización del esquema */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 flex flex-col gap-2 shadow-sm">
+        <p className="text-[11px] text-white/70 m-0 leading-relaxed">{setup.description}</p>
+
+        <div className="flex flex-wrap items-center gap-1">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Incluye:</span>
           {(setup.required_elements || []).map((tipo) => {
             const def = LUZ_CATALOGO[tipo];
             return def ? (
-              <span key={tipo} className="flex items-center gap-1 rounded-lg border px-1.5 py-0.5 text-xs font-bold" style={chipStyle(def.color)}>
-                <LuzIcon forma={def.forma} color={def.color} /> {def.es}{(def.count || 1) > 1 ? " ×2" : ""}
+              <span key={tipo} className="flex items-center gap-1 rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-white/85" style={{ borderColor: def.color }}>
+                <LuzIcon forma={def.forma} color={def.color} size={12} /> {def.es}{(def.count || 1) > 1 ? " ×2" : ""}
               </span>
             ) : null;
           })}
         </div>
-        {(setup.optional_elements || []).length > 0 && (
-          <div className="text-xs" style={{ color: "var(--tinta-media)" }}>
-            Opcionales (se agregan después de aplicar): {setup.optional_elements.map((t) => LUZ_CATALOGO[t]?.es).filter(Boolean).join(" · ")}
-          </div>
-        )}
-        <div className="flex flex-wrap items-center gap-1">
-          {(setup.mood || []).map((m) => (
-            <span key={m} className="rounded px-1.5 py-0.5" style={{ background: "var(--vidrio-b)", color: "var(--tinta-media)", fontSize: 10, fontWeight: 700 }}>
-              {m.replace(/_/g, " ")}
-            </span>
-          ))}
-        </div>
-        <div>
-          <button onClick={() => (luces.length ? setConfirma("aplicar") : aplicar())}
-            className="rounded-lg border px-3 py-1.5 text-xs font-bold" style={btn(true)}>
-            {aplicada === setup.id && luces.length ? "↺ Volver a aplicar esta configuración" : "Aplicar esta configuración"}
-          </button>
-        </div>
+
+        <button
+          onClick={() => (luces.length ? setConfirma("aplicar") : aplicar())}
+          className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 transition-colors shadow-md mt-1"
+        >
+          {aplicada === setup.id && luces.length ? "Reaplicar esquema" : "Aplicar al set"}
+        </button>
+
         {confirma === "aplicar" && (
-          <div className="flex flex-wrap items-center gap-2 rounded-lg px-2.5 py-1.5" style={{ background: "color-mix(in srgb, var(--e3) 16%, transparent)" }}>
-            <span className="text-xs font-bold" style={{ color: "var(--e3-t)" }}>
-              Se quitarán las {luces.length} luces actuales y se colocarán las de “{setup.name_es}”.
+          <div className="flex flex-col gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 p-2 text-amber-200">
+            <span className="text-[11px] font-semibold">
+              Se reemplazarán las {luces.length} luces actuales por las de “{setup.name_es}”.
             </span>
-            <button onClick={aplicar} className="rounded-lg px-2.5 py-1 text-xs font-bold"
-              style={{ background: "var(--e3-t)", color: "#fff", border: "none" }}>Sí, reemplazar</button>
-            <button onClick={() => setConfirma(null)} className="rounded-lg border px-2.5 py-1 text-xs font-bold" style={btn(false)}>Cancelar</button>
+            <div className="flex gap-1.5">
+              <button onClick={aplicar} className="flex-1 rounded-md bg-amber-500 text-black font-bold py-1 text-xs hover:bg-amber-400">
+                Confirmar
+              </button>
+              <button onClick={() => setConfirma(null)} className="rounded-md border border-white/15 px-3 py-1 text-xs text-white/80 hover:bg-white/10">
+                Cancelar
+              </button>
+            </div>
           </div>
         )}
       </div>
 
+      {/* Luces activas en el set */}
       {luces.length > 0 && (
-        <>
-          <SecTitle>Luces en el plano ({luces.length}){setupAplicado ? ` · ${setupAplicado.name_es}` : ""}</SecTitle>
-          <p className="text-xs" style={{ color: "var(--tinta-media)", margin: 0 }}>
-            Arrástralas en el plano de arriba y gíralas con su manija; la ✕ quita esa luz.
-          </p>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-white/60">
+              Luminarias en plano ({luces.length})
+            </span>
+            <button
+              onClick={() => setConfirma("quitar")}
+              className="text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors"
+            >
+              Quitar todas
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-1">
             {luces.map((l) => (
-              <span key={l.id} className="flex items-center gap-1 rounded-lg border px-1.5 py-0.5 text-xs font-bold" style={chipStyle(l.color)}>
-                <LuzIcon forma={l.forma} color={l.color} /> {l.nombre}{l.opcional ? " · opc." : ""}
-                <button onClick={() => quitarLuz(l.id)} title="Quitar esta luz del plano"
-                  style={{ border: "none", background: "none", color: "var(--e5-t)", cursor: "pointer", padding: "0 1px 0 3px", fontWeight: 800, fontSize: 13, lineHeight: 1 }}>✕</button>
+              <span key={l.id} className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white/90" style={{ borderColor: l.color }}>
+                <LuzIcon forma={l.forma} color={l.color} size={13} />
+                <span>{l.nombre}</span>
+                <button
+                  onClick={() => quitarLuz(l.id)}
+                  className="ml-1 text-white/40 hover:text-red-400 font-bold transition-colors"
+                  title="Quitar luz"
+                >
+                  ✕
+                </button>
               </span>
             ))}
           </div>
-        </>
+
+          {confirma === "quitar" && (
+            <div className="flex flex-col gap-1.5 rounded-lg bg-red-500/10 border border-red-500/20 p-2 text-red-200 mt-1">
+              <span className="text-[11px] font-semibold">¿Eliminar todas las luces de este set?</span>
+              <div className="flex gap-1.5">
+                <button onClick={quitarTodo} className="flex-1 rounded-md bg-red-500 text-white font-bold py-1 text-xs hover:bg-red-400">
+                  Sí, eliminar
+                </button>
+                <button onClick={() => setConfirma(null)} className="rounded-md border border-white/15 px-3 py-1 text-xs text-white/80 hover:bg-white/10">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
+      {/* Opcionales del esquema activo */}
       {setupAplicado && (setupAplicado.optional_elements || []).length > 0 && (
-        <>
-          <SecTitle>Opcionales de {setupAplicado.name_es}</SecTitle>
-          <p className="text-xs" style={{ color: "var(--tinta-media)", margin: 0 }}>Un clic los pone en el plano, otro clic los quita.</p>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-white/60">Luminarias adicionales</span>
+          <div className="flex flex-wrap gap-1">
             {setupAplicado.optional_elements.map((tipo) => {
               const def = LUZ_CATALOGO[tipo];
               if (!def) return null;
               const activa = luces.some((l) => l.tipo === tipo && l.opcional);
               return (
-                <button key={tipo} onClick={() => toggleOpcional(tipo)}
-                  className="flex items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-bold"
-                  style={activa ? { background: def.color, borderColor: def.color, color: textOn(def.color) } : chipStyle("var(--vidrio-borde)")}>
-                  <LuzIcon forma={def.forma} color={activa ? textOn(def.color) : def.color} /> {activa ? "✓" : "+"} {def.es}
+                <button
+                  key={tipo}
+                  onClick={() => toggleOpcional(tipo)}
+                  className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition-all ${
+                    activa
+                      ? "bg-white/20 border-white text-white shadow-sm"
+                      : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+                  }`}
+                  style={activa ? { borderColor: def.color } : {}}
+                >
+                  <LuzIcon forma={def.forma} color={activa ? def.color : "rgba(255,255,255,0.6)"} size={12} />
+                  <span>{activa ? "✓ " : "+ "}{def.es}</span>
                 </button>
               );
             })}
           </div>
-        </>
-      )}
-
-      <SecTitle>Catálogo completo</SecTitle>
-      <p className="text-xs" style={{ color: "var(--tinta-media)", margin: 0 }}>
-        ¿Necesitas algo que el setup no trae? Agrega cualquier elemento suelto al plano.
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
-        {LUZ_CATALOGO[poolSel] && <LuzIcon forma={LUZ_CATALOGO[poolSel].forma} color={LUZ_CATALOGO[poolSel].color} size={18} />}
-        <select value={poolSel} onChange={(e) => setPoolSel(e.target.value)}
-          className="rounded-lg border text-xs font-bold"
-          style={{ borderColor: "var(--vidrio-borde)", color: "var(--tinta)", background: "var(--vidrio-a)", padding: "6px 8px", maxWidth: 280 }}>
-          {LUZ_GRUPOS.map((g) => (
-            <optgroup key={g.label} label={g.label}>
-              {g.tipos.map((t) => LUZ_CATALOGO[t] && (
-                <option key={t} value={t}>{LUZ_CATALOGO[t].es}{(LUZ_CATALOGO[t].count || 1) > 1 ? " (×2)" : ""}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        <button onClick={() => agregarTipo(poolSel, true)} className="rounded-lg border px-2.5 py-1 text-xs font-bold" style={btn(true)}>
-          + Agregar al plano
-        </button>
-      </div>
-
-      {luces.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <div>
-            <button onClick={() => setConfirma("quitar")} className="rounded-lg border px-2.5 py-1 text-xs font-bold"
-              style={{ borderColor: "var(--vidrio-borde)", color: "var(--tinta-media)", background: "var(--vidrio-a)" }}>
-              Quitar toda la iluminación
-            </button>
-          </div>
-          {confirma === "quitar" && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg px-2.5 py-1.5" style={{ background: "color-mix(in srgb, var(--e5) 14%, transparent)" }}>
-              <span className="text-xs font-bold" style={{ color: "var(--e5-t)" }}>Se quitarán las {luces.length} luces del plano de este set.</span>
-              <button onClick={quitarTodo} className="rounded-lg px-2.5 py-1 text-xs font-bold"
-                style={{ background: "var(--e5-t)", color: "#fff", border: "none" }}>Sí, quitar todo</button>
-              <button onClick={() => setConfirma(null)} className="rounded-lg border px-2.5 py-1 text-xs font-bold" style={btn(false)}>Cancelar</button>
-            </div>
-          )}
         </div>
       )}
+
+      {/* Agregar cualquier luminaria del catálogo */}
+      <div className="flex flex-col gap-1.5 pt-1 border-t border-white/10">
+        <label className="text-[11px] font-bold uppercase tracking-wider text-white/60">Añadir luz personalizada</label>
+        <div className="flex items-center gap-1.5">
+          <select
+            value={poolSel}
+            onChange={(e) => setPoolSel(e.target.value)}
+            className="flex-1 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-white/90 focus:border-blue-500 focus:outline-none"
+          >
+            {LUZ_GRUPOS.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.tipos.map((t) => LUZ_CATALOGO[t] && (
+                  <option key={t} value={t}>{LUZ_CATALOGO[t].es}{(LUZ_CATALOGO[t].count || 1) > 1 ? " (×2)" : ""}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <button
+            onClick={() => agregarTipo(poolSel, true)}
+            className="rounded-xl border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/20 transition-colors"
+          >
+            + Añadir
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -17,7 +17,10 @@ static bool activatePID(int pid) {
 	if (@available(macOS 14.0, *)) {
 		if ([app activateFromApplication:[NSRunningApplication currentApplication] options:0]) return true;
 	}
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	return [app activateWithOptions:NSApplicationActivateIgnoringOtherApps];
+#pragma clang diagnostic pop
 }
 
 // ¿Ese proceso sigue vivo Y es una ventana NUESTRA? Las dos cosas, no una:

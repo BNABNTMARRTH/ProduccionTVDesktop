@@ -11,8 +11,34 @@ import { createTour } from './tour.js';
 import { crearPestanas, PRINCIPAL } from './pestanas.js';
 import { DEMO_PROJECT_ID, makeDemoProject } from './demo.js';
 import { MAX_PROJECTS, STORAGE_KEYS, esc } from './constants.js';
-import { PLANTILLAS_SET, cfgDePlantilla, resumenDePlantilla } from './plantillas.js';
+import { PLANTILLAS_SET, cfgDePlantilla, resumenDePlantilla, cloneTemplate } from './plantillas.js';
 import { crearAjustes, enPxCss } from './ajustes.js';
+import { createShellMessageRouter } from './message_router.js';
+import { ProjectRepository, bundleDeProyecto, proyectoDesdeBundle } from './project_repository.js';
+import { ShortcutManager } from './shortcut_manager.js';
+import { ProjectHistoryManager } from './project_memento.js';
+import { PanelProxy } from './panel_proxy.js';
+import { NotificationService } from './notification_service.js';
+import { shellBus, SHELL_EVENTS } from './event_bus.js';
+import { globalAssetCache } from './asset_cache.js';
+import { defaultProjectFilter } from './project_filter_chain.js';
+import { ProjectCardBuilder } from './project_card_builder.js';
+import { GridViewStrategy, ListViewStrategy, ProjectViewContext } from './project_view_strategy.js';
+import { TemplateCardBuilder } from './template_card_builder.js';
+import { createTemplateFilterChain } from './template_filter_chain.js';
+import { TemplateGridViewStrategy, TemplateListViewStrategy, TemplateViewContext } from './template_view_strategy.js';
+import { UIComponentFactory } from './ui_component_factory.js';
+
+export const projectHistory = new ProjectHistoryManager({ maxDepth: 30 });
+export const projectCardBuilder = new ProjectCardBuilder();
+export const projectViewContext = new ProjectViewContext(new GridViewStrategy());
+export const templateCardBuilder = new TemplateCardBuilder();
+export const templateFilterChain = createTemplateFilterChain();
+export const templateViewContext = new TemplateViewContext(new TemplateGridViewStrategy());
+let homeFilterMode = 'all'; // 'all' | 'live' | 'narrative'
+let templateFilterCat = 'all'; // 'all' | 'multicam' | 'dialogue' | 'special'
+let templateQuery = '';
+export { shellBus, SHELL_EVENTS, globalAssetCache, defaultProjectFilter, UIComponentFactory };
 
 /* ----------------------------- Estado ----------------------------- */
 
@@ -41,46 +67,29 @@ const readJSON = (key, fallback) => {
 /* --------------------- Persistencia en disco (.ptv) ---------------------
 La fuente de verdad es ~/Documents/ProduccionTV: un .ptv por proyecto, con el
 MISMO paquete que produce el exportador (compartible tal cual). localStorage
-queda como caché de arranque y para las ventanas ya abiertas. */
+queda como caché de arranque y para las ventanas ya abiertas.
+Abstraído mediante el Patrón Repository (ProjectRepository). */
 
-const bundleDeProyecto = (p) => JSON.stringify({
-    project: { id: p.id, name: p.name, template: p.template, createdAt: p.createdAt, updatedAt: p.updatedAt },
-    infographic: p.cfg,
-    diagram: p.diagram || null,
-}, null, 2);
+export const projectRepository = new ProjectRepository({
+    storage: typeof localStorage !== 'undefined' ? localStorage : null,
+    storageKeys: STORAGE_KEYS,
+    saveProjectFile: SaveProjectFile,
+    deleteProjectFile: DeleteProjectFile,
+    loadAllProjects: LoadAllProjects,
+});
 
-// Construye un proyecto a partir de un paquete {project, infographic, diagram}
-// o de un cfg suelto del generador. conservarId: true al leer del disco
-// (misma identidad), false al importar (identidad nueva, evita colisiones).
-function proyectoDesdeBundle(data, { conservarId = true } = {}) {
-    let cfg = null;
-    let diagram = null;
-    let meta = null;
-    if (data && data.infographic && Array.isArray(data.infographic.camaras)) {
-        cfg = data.infographic;
-        diagram = data.diagram || null;
-        meta = data.project || null;
-    } else if (data && Array.isArray(data.camaras)) {
-        cfg = data;
-    } else {
-        return null;
-    }
-    // Migración: los proyectos anteriores a los modos se interpretan como
-    // "programa en vivo" (el flujo original de circuito cerrado). No destructivo.
-    if (cfg && !cfg.modo) cfg.modo = 'live';
-    return {
-        id: (conservarId && meta?.id) || uid('project'),
-        name: String(meta?.name || cfg.titulo || 'Proyecto importado').trim() || 'Proyecto importado',
-        template: meta?.template || 'vacio',
-        createdAt: meta?.createdAt || new Date().toISOString(),
-        updatedAt: meta?.updatedAt || new Date().toISOString(),
-        cfg,
-        diagram: diagram || diagramFromConfig(cfg),
-    };
-}
+let lastOwnSaveTime = 0;
+let lastOwnSavedBundle = '';
 
 function saveProjectToDisk(p) {
-    if (p) SaveProjectFile(p.id, bundleDeProyecto(p)).catch(() => {});
+    if (p) {
+        lastOwnSaveTime = Date.now();
+        const actualizado = projectRepository.save(p, { persistDisk: true });
+        if (actualizado && p === activeProject) {
+            activeProject.updatedAt = actualizado.updatedAt;
+            try { lastOwnSavedBundle = bundleDeProyecto(actualizado); } catch { /* noop */ }
+        }
+    }
 }
 
 let projects = readJSON(PROJECTS_KEY, []);
@@ -191,34 +200,40 @@ document.querySelector('#app').innerHTML = `
       <span class="rail-logo-aro" aria-hidden="true"></span>
     </button>
     <nav class="rail" id="rail" aria-label="Herramientas">
-      <div class="rail-group" id="rail-home" hidden>
-        <button data-accion="proyectos" class="active" title="Todos tus proyectos">
-          <span class="ic">${icono('proyecto', 26)}</span><em>Proyectos</em>
-        </button>
-        <button data-accion="nuevo" title="Crear un proyecto nuevo con el asistente">
-          <span class="ic">${icono('nuevo', 26)}</span><em>Nuevo</em>
-        </button>
-        <button data-accion="plantillas" title="Sets ya armados: podcast, entrevista, noticiero, panel…">
-          <span class="ic">${icono('plantillas', 26)}</span><em>Plantillas</em>
-        </button>
-        <button id="import-project" title="Abre un proyecto .ptv exportado desde otra computadora (también puedes soltarlo sobre la ventana)">
-          <span class="ic">${icono('importar', 26)}</span><em>Importar</em>
-        </button>
-        <button id="open-trash" title="Los proyectos eliminados se pueden restaurar desde aquí">
-          <span class="ic">${icono('papelera', 26)}</span><em>Papelera</em>
-        </button>
-        <!-- La configuración también AQUÍ, y no solo dentro de un proyecto:
-             quien no alcanza a leer la pantalla tiene que poder agrandarla
-             ANTES de abrir nada. -->
-        <button id="ajustes-home" title="Configuración: tamaño de la letra y los botones, contraste, tema y atajos">
-          <span class="ic">${icono('ajustes', 26)}</span><em>Configuración</em>
-        </button>
-      </div>
-      <div class="rail-group" id="rail-tools">
-      ${ETAPAS.map((e, i) => `${e.id === 'salida' ? '<div class="rail-sep"></div>' : ''}
-      <button data-etapa="${e.id}" title="${e.ayuda}">
-        <span class="ic">${icono(e.icono, 26)}${e.n ? `<b class="rail-num">${e.n}</b>` : ''}</span><em>${e.etiqueta}</em>
-      </button>`).join('')}
+      ${UIComponentFactory.createSidebarGroup({
+        id: 'rail-home',
+        hidden: true,
+        itemsHtml: [
+          UIComponentFactory.createSidebarButton({ accion: 'proyectos', isActive: true, title: 'Todos tus proyectos', label: 'Proyectos', iconSvg: icono('proyecto', 26) }),
+          UIComponentFactory.createSidebarButton({ accion: 'nuevo', title: 'Crear un proyecto nuevo con el asistente', label: 'Nuevo', iconSvg: icono('nuevo', 26) }),
+          UIComponentFactory.createSidebarButton({ accion: 'plantillas', title: 'Sets ya armados: podcast, entrevista, noticiero, panel…', label: 'Plantillas', iconSvg: icono('plantillas', 26) }),
+          UIComponentFactory.createSidebarButton({ id: 'import-project', title: 'Abre un proyecto .ptv exportado desde otra computadora (también puedes soltarlo sobre la ventana)', label: 'Importar', iconSvg: icono('importar', 26) }),
+          UIComponentFactory.createSidebarButton({ id: 'open-trash', title: 'Los proyectos eliminados se pueden restaurar desde aquí', label: 'Papelera', iconSvg: icono('papelera', 26) }),
+        ].join(''),
+      })}
+      ${UIComponentFactory.createSidebarGroup({
+        id: 'rail-tools',
+        hidden: false,
+        itemsHtml: ETAPAS.map((e) => [
+          e.id === 'salida' ? UIComponentFactory.createSidebarDivider() : '',
+          UIComponentFactory.createSidebarButton({
+            etapaId: e.id,
+            title: e.ayuda,
+            label: e.etiqueta,
+            iconSvg: icono(e.icono, 26),
+            badgeNum: e.n || null,
+          }),
+        ].join('')).join(''),
+      })}
+      <div class="rail-footer" id="rail-footer">
+        ${UIComponentFactory.createSidebarDivider()}
+        ${UIComponentFactory.createSidebarButton({
+          id: 'rail-ajustes-btn',
+          title: 'Configuración: tema (claro/oscuro), tamaño de letra, contraste y atajos',
+          label: 'Ajustes',
+          iconSvg: icono('ajustes', 22),
+          extraAttrs: 'aria-label="Configuración"',
+        })}
       </div>
     </nav>
     <main class="workspace">
@@ -231,61 +246,118 @@ document.querySelector('#app').innerHTML = `
            —deshacer, rehacer y la guía— se manejan desde esta misma barra por
            el puente de mensajes. -->
       <header class="workspace-header" id="workspace-header">
-        <button class="offline-badge" id="active-name" title="Ir a Inicio: proyectos y plantillas">Guardado local</button>
+        <button class="header-inicio-btn" id="inicio-btn" title="Ir a Inicio: tus proyectos y plantillas (⌘⇧H)" aria-label="Ir a Inicio">${icono('casa', 15)} <span>Inicio</span></button>
+        <span class="header-crumb-sep" aria-hidden="true">/</span>
+        <button class="offline-badge" id="active-name" title="Nombre del proyecto actual. Clic para ir a Inicio">Guardado local</button>
         <span class="mode-chip" id="mode-chip" title="Modo del proyecto. Se elige al crearlo y define las herramientas disponibles."></span>
         <div class="header-nav" id="header-nav">
-          <nav class="pestanas" id="pestanas" hidden role="tablist" aria-label="Pestañas del proyecto"></nav>
+          <nav class="pestanas" id="pestanas" role="tablist" aria-label="Pestañas del proyecto"></nav>
           <nav class="secciones" id="secciones" hidden aria-label="Secciones de la etapa"></nav>
         </div>
         <div class="header-actions">
-          <span class="save-status" id="save-status">Guardado local</span>
+          <span class="save-status" id="save-status" style="display:none!important"></span>
           <span class="header-sep" id="tool-acciones" hidden>
             <button id="undo-btn" title="Deshacer (⌘Z)" aria-label="Deshacer">${icono('deshacer', 17)}</button>
             <button id="redo-btn" title="Rehacer (⌘⇧Z)" aria-label="Rehacer">${icono('rehacer', 17)}</button>
             <button id="guia-btn" title="Guía: cómo se hace este tipo de pieza y qué le falta a la tuya" aria-label="Guía">${icono('guia', 17)}</button>
           </span>
-          <button id="tema-btn" title="Cambiar entre claro y oscuro">${icono('sol', 17)}</button>
-          <button id="ajustes-btn" title="Configuración: tamaño de la letra y los botones, contraste, tema y atajos">${icono('ajustes', 17)}</button>
           <button id="tour-btn" title="Recorrido guiado: cómo usar la app paso a paso">${icono('ayuda', 17)}</button>
           <button id="desanclar-btn" title="Desanclar esta sección en su propia pestaña (⌘D)${globalThis.__ptvSinVentanas ? '' : '. Después puedes arrastrar la pestaña fuera para abrirla en otra ventana'}.">${icono('desanclar', 17)}</button>
         </div>
       </header>
       <section class="home-view" id="home-view">
-        <div class="home-top">
-          <div>
-            <span class="eyebrow">ATJ · PRODUCCIÓN AUDIOVISUAL</span>
-            <h1>Tus proyectos</h1>
-            <p class="home-sub"><span id="project-count"></span><span id="home-sub-text"></span></p>
+        <header class="home-top" role="banner">
+          <div class="home-top-inner">
+            <div class="home-title-group">
+              <span class="home-caption">Producción Audiovisual</span>
+              <h1 class="home-heading">Proyectos</h1>
+              <p class="home-sub"><span id="project-count"></span><span id="home-sub-text"></span></p>
+            </div>
+            <div class="home-tools">
+              <!-- Segmented Control de Modos estilo Apple HIG -->
+              <div class="apple-segmented" id="home-filter-modes" role="tablist" aria-label="Filtrar por modo">
+                <button class="seg-btn active" data-filter-mode="all" role="tab" aria-selected="true">Todos</button>
+                <button class="seg-btn" data-filter-mode="live" role="tab" aria-selected="false">En vivo</button>
+                <button class="seg-btn" data-filter-mode="narrative" role="tab" aria-selected="false">Narrativo</button>
+              </div>
+
+              <!-- Buscador Apple con lupa integrada -->
+              <div class="apple-search-wrap">
+                <span class="search-ic">${icono('buscar', 14)}</span>
+                <input id="project-search" class="project-search" type="search" placeholder="Buscar proyecto…" aria-label="Buscar proyecto por nombre">
+              </div>
+
+              <!-- Alternador de vista: Mosaico / Lista tipo Finder -->
+              <div class="view-switcher" role="group" aria-label="Modo de vista">
+                <button class="view-btn active" id="view-grid-btn" title="Vista en mosaico" aria-label="Vista en mosaico">${icono('grid', 15)}</button>
+                <button class="view-btn" id="view-list-btn" title="Vista en lista compacta tipo Finder" aria-label="Vista en lista">${icono('lista', 15)}</button>
+              </div>
+
+              <button id="new-project-focus" class="apple-primary-btn">${icono('nuevo', 16)} <span>Nuevo proyecto</span></button>
+            </div>
           </div>
-          <div class="home-tools">
-            <input id="project-search" class="project-search" type="search" placeholder="Buscar proyecto…" aria-label="Buscar proyecto por nombre">
-            <button id="new-project-focus">${icono('nuevo', 17)} Nuevo proyecto</button>
+        </header>
+        <div class="home-scroll-body" id="home-scroll-body">
+          <div class="home-scroll-inner">
+            <div id="continue-slot"></div>
+            <div id="recent-projects" class="proj-grid"></div>
+            <input type="file" id="import-file" accept=".ptv,.json" hidden>
+            <footer class="home-footer">
+              <p class="home-credit">Creado por <strong>Aldo Abiud Torres Juárez</strong> · FCC</p>
+            </footer>
           </div>
         </div>
-        <div id="continue-slot"></div>
-        <div class="proj-grid" id="recent-projects"></div>
-        <input type="file" id="import-file" accept=".ptv,.json" hidden>
-        <p class="home-credit">Hecha por <strong>Aldo Abiud Torres Juárez</strong>, alumno de la FCC, para las y los alumnos de la FCC.</p>
       </section>
 
       <!-- GALERÍA DE PLANTILLAS DE SET. Cada tarjeta enseña el plano cenital
            de verdad (el mismo dibujo que sale impreso), no un icono: se ve el
            espacio antes de crear el proyecto. -->
       <section class="tpl-view" id="templates-view" hidden>
-        <div class="home-top">
-          <div>
-            <span class="eyebrow">ATJ · PRODUCCIÓN AUDIOVISUAL</span>
-            <h1>Plantillas de set</h1>
-            <p class="home-sub">Empieza con el espacio ya armado: cámaras, gente, micrófonos e iluminación puestos. Todo se mueve y se cambia dentro.</p>
+        <header class="home-top" role="banner">
+          <div class="home-top-inner">
+            <div class="home-title-group">
+              <span class="home-caption">Producción Audiovisual</span>
+              <h1 class="home-heading">Plantillas de set</h1>
+              <p class="home-sub">Empieza con el espacio ya armado: cámaras, gente, micrófonos e iluminación listos para usar.</p>
+            </div>
+            <div class="home-tools">
+              <!-- Segmented Control de Categorías estilo Apple HIG -->
+              <div class="apple-segmented" id="tpl-filter-cats" role="tablist" aria-label="Filtrar plantillas por categoría">
+                <button class="seg-btn active" data-tpl-cat="all" role="tab" aria-selected="true">Todas</button>
+                <button class="seg-btn" data-tpl-cat="multicam" role="tab" aria-selected="false">Multicámara</button>
+                <button class="seg-btn" data-tpl-cat="dialogue" role="tab" aria-selected="false">Diálogo</button>
+                <button class="seg-btn" data-tpl-cat="special" role="tab" aria-selected="false">Especiales</button>
+              </div>
+
+              <!-- Buscador Apple para plantillas -->
+              <div class="apple-search-wrap">
+                <span class="search-ic">${icono('buscar', 14)}</span>
+                <input id="tpl-search" class="project-search" type="search" placeholder="Buscar plantilla…" aria-label="Buscar plantilla por nombre o equipo">
+              </div>
+
+              <!-- Alternador de vista: Mosaico / Lista para plantillas -->
+              <div class="view-switcher" role="group" aria-label="Modo de vista de plantillas">
+                <button class="view-btn active" id="tpl-view-grid-btn" title="Vista en mosaico" aria-label="Vista en mosaico">${icono('grid', 15)}</button>
+                <button class="view-btn" id="tpl-view-list-btn" title="Vista en catálogo técnico tipo Finder" aria-label="Vista en catálogo técnico">${icono('lista', 15)}</button>
+              </div>
+
+              <button id="tpl-vacio" class="apple-secondary-btn">${icono('nuevo', 15)} <span>Empezar en blanco</span></button>
+            </div>
           </div>
-          <div class="home-tools">
-            <button id="tpl-vacio">${icono('nuevo', 17)} Mejor empezar vacío</button>
+        </header>
+        <div class="tpl-scroll-body" id="tpl-scroll-body">
+          <div class="tpl-scroll-inner">
+            <div id="tpl-container">
+              <div class="tpl-grid" id="tpl-grid"></div>
+            </div>
+            <footer class="home-footer">
+              <p class="home-credit">Creado por <strong>Aldo Abiud Torres Juárez</strong> · FCC</p>
+            </footer>
           </div>
         </div>
-        <div class="tpl-grid" id="tpl-grid"></div>
       </section>
 
-      <div class="frame-wrap" id="frame-wrap"><div class="loading" id="loading"><span></span>Cargando herramienta…</div><iframe id="tool-frame" class="panel" title="Herramienta de Producción TV" allow="clipboard-read; clipboard-write"></iframe></div>
+      <div class="frame-wrap" id="frame-wrap"><div class="loading" id="loading"><span></span>Cargando herramienta…</div><iframe id="tool-frame" class="panel" aria-label="Herramienta de Producción TV" allow="clipboard-read; clipboard-write"></iframe></div>
       <section class="production-view" id="production-view"></section>
       <div class="export-toast" id="export-toast"></div>
     </main>
@@ -330,9 +402,16 @@ const ajustes = crearAjustes({
     escribirEnDisco: (texto) => conGo(SaveSettings, texto),
     alAplicar: ({ tema }) => {
         const btn = document.querySelector('#tema-btn');
-        if (!btn) return;
-        btn.innerHTML = icono(tema === 'oscuro' ? 'luna' : 'sol', 17);
-        btn.title = tema === 'oscuro' ? 'Cambiar a claro' : 'Cambiar a oscuro';
+        if (btn) {
+            btn.innerHTML = icono(tema === 'oscuro' ? 'luna' : 'sol', 17);
+            btn.title = tema === 'oscuro' ? 'Cambiar a claro' : 'Cambiar a oscuro';
+        }
+        const railTema = document.querySelector('#rail-tema-btn');
+        if (railTema) {
+            const ic = railTema.querySelector('.ic');
+            if (ic) ic.innerHTML = icono(tema === 'oscuro' ? 'luna' : 'sol', 22);
+            railTema.title = tema === 'oscuro' ? 'Cambiar a claro' : 'Cambiar a oscuro';
+        }
     },
 });
 
@@ -545,12 +624,13 @@ logoBtn.onclick = () => (railPlegado() ? desplegarRail() : plegarRail());
 
 /* ----------------------------- Utilidades ----------------------------- */
 
+export const notificationService = new NotificationService({
+    container: toast,
+    defaultDuration: 2800,
+});
+
 function showToast(message, error = false) {
-    toast.textContent = message;
-    toast.classList.toggle('error', error);
-    toast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+    notificationService.show(message, { error });
 }
 
 function persistProjects() {
@@ -628,7 +708,9 @@ function renderModo() {
         // que no parezca que aquí hay algo que no hay.
         const fuera = !!etapa && seccionesDe(etapa, modo).every(([v]) => modulosEnVentana.has(v));
         b.classList.toggle('fuera', fuera);
-        b.title = fuera ? `${etapa.ayuda} · abierto en otra ventana` : (etapa?.ayuda || '');
+        const etapaIdx = ETAPAS.findIndex((e) => e.id === b.dataset.etapa);
+        const atajo = etapaIdx >= 0 ? ` (⌘${etapaIdx + 1})` : '';
+        b.title = fuera ? `${etapa.ayuda}${atajo} · abierto en otra ventana` : `${etapa?.ayuda || ''}${atajo}`;
     });
 }
 
@@ -675,6 +757,17 @@ function marcarDesborde() {
 }
 window.addEventListener('resize', marcarDesborde);
 
+// Adapter GoF: Adapta la rueda del ratón vertical (deltaY) para desplazar pestañas horizontalmente
+if (headerNav) {
+    headerNav.addEventListener('wheel', (e) => {
+        if (e.deltaY && !e.deltaX) {
+            headerNav.scrollLeft += e.deltaY;
+            marcarDesborde();
+            e.preventDefault();
+        }
+    }, { passive: false });
+}
+
 /* HITOS de la ruta (ensayado / exportado): las palomas ✓ de la barra lateral.
 Los pone el shell, NO la herramienta —ensayar y exportar son cosas del shell—,
 así que la copia del proyecto que tiene cada herramienta montada no los trae.
@@ -708,6 +801,7 @@ function scheduleSave() {
             projects = [activeProject, ...projects.filter((p) => p.id !== activeProject.id)];
             persistProjects();
             saveProjectToDisk(activeProject);
+            shellBus.emit(SHELL_EVENTS.PROJECT_SAVED, activeProject);
         }
         document.querySelector('#save-status').textContent = 'Guardado en disco';
         renderRecent();
@@ -919,9 +1013,17 @@ async function refrescarModulosEnVentana() {
 // Miniatura de un proyecto: su plano cenital REAL, dibujado por el mismo
 // renderizador que usan las hojas imprimibles (window.PTVSheets), así la
 // tarjeta muestra el trabajo del alumno y no un icono genérico.
-function miniPlano(cfg) {
+function miniPlano(cfg, opts = {}) {
+    if (!cfg) return '';
+    const isDark = opts.dark ?? (document.documentElement.dataset.tema === 'oscuro' || (!document.documentElement.dataset.tema && window.matchMedia?.('(prefers-color-scheme: dark)')?.matches));
+    const key = `${cfg.id || cfg.titulo || ''}:${isDark ? 'dark' : 'light'}`;
+    if (key && globalAssetCache.has(key)) {
+        return globalAssetCache.get(key);
+    }
     try {
-        return (cfg && window.PTVSheets?.planoSvg?.(cfg)) || '';
+        const svg = (window.PTVSheets?.planoSvg?.(cfg, { dark: isDark })) || '';
+        if (key && svg) globalAssetCache.set(key, svg);
+        return svg;
     } catch (e) {
         return '';
     }
@@ -982,48 +1084,128 @@ function renderRecent() {
     count.textContent = cerca ? `${projects.length} / ${MAX_PROJECTS} ⚠` : `${projects.length} proyecto${projects.length === 1 ? '' : 's'}`;
     count.title = cerca ? `Cerca del tope de ${MAX_PROJECTS} proyectos: exporta o elimina los que ya no uses` : '';
     document.querySelector('#active-name').textContent = activeProject?.name || 'Guardado local';
-    const filtrados = projectQuery
-        ? projects.filter((p) => (p.name || '').toLowerCase().includes(projectQuery))
-        : projects;
+
+    // Filtro GoF Chain por texto
+    const queryFiltrados = defaultProjectFilter.execute(projects, { query: projectQuery });
+    // Filtro por modo (Segmented Control)
+    const filtrados = queryFiltrados.filter((p) => {
+        if (homeFilterMode === 'all') return true;
+        const modo = normalizeMode(p.cfg?.modo);
+        if (homeFilterMode === 'live') return modo !== 'narrative';
+        if (homeFilterMode === 'narrative') return modo === 'narrative';
+        return true;
+    });
+
     document.querySelector('#home-sub-text').textContent = projects.length
         ? ` · último cambio ${fechaCorta(projects[0].updatedAt).toLowerCase()}`
         : '';
 
-    // Tarjeta "Continuar": el proyecto más reciente, en grande. Es lo primero
-    // que se busca al abrir la app, y llena el ancho de la pantalla.
-    const seguir = !projectQuery && projects[0];
-    slot.innerHTML = seguir ? `
-        <article class="continue-card">
-          <div class="proj-thumb">${miniPlano(seguir.cfg)}${proyectosAbiertos.has(seguir.id) ? '<span class="proj-abierto">Abierto</span>' : ''}</div>
-          <div class="continue-body">
-            <span class="continue-eyebrow">Seguir donde te quedaste</span>
-            <h2>${seguir.name}</h2>
-            <p>${[chipModo(seguir), resumenProyecto(seguir)].filter(Boolean).join(' ')}</p>
-            <small>${fechaCorta(seguir.updatedAt)}</small>
-            <button class="continue-go" data-open="${seguir.id}">${proyectosAbiertos.has(seguir.id) ? 'Ir a su ventana' : 'Continuar'}</button>
-          </div>
-        </article>` : '';
+    const isDark = document.documentElement.dataset.tema === 'oscuro'
+        || (!document.documentElement.dataset.tema && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
-    box.innerHTML = filtrados.length
-        ? filtrados.filter((p) => p.id !== seguir?.id).slice(0, projectQuery ? 30 : 14).map((p) => `
-            <article class="proj-card">
-              <div class="proj-thumb" data-open="${p.id}" role="button" tabindex="0" title="${proyectosAbiertos.has(p.id) ? `Ir a la ventana de ${p.name}` : `Abrir ${p.name}`}">
-                ${miniPlano(p.cfg)}
-                ${p.id === DEMO_PROJECT_ID ? '<span class="proj-tag">Tutorial</span>' : ''}
-                ${proyectosAbiertos.has(p.id) ? '<span class="proj-abierto">Abierto</span>' : ''}
-              </div>
-              <div class="proj-meta">
-                <strong title="${p.name}">${p.name}</strong>
-                <small>${fechaCorta(p.updatedAt)}${resumenProyecto(p) ? ` · ${resumenProyecto(p)}` : ''}</small>
-              </div>
-              <div class="proj-foot">
-                ${chipModo(p, { corto: true })}
-                <span class="proj-acts">${accionesProyecto(p)}</span>
-              </div>
-            </article>`).join('')
-        : `<div class="empty-projects">${projectQuery
-              ? `Sin resultados para “${projectQuery}”.`
-              : 'Todavía no hay proyectos.<br>Crea el primero con <b>＋ Nuevo proyecto</b>.'}</div>`;
+    // Tarjeta "Continuar" + Fila de Creación Rápida
+    const esGrid = projectViewContext.getMode() === 'grid';
+    const seguir = !projectQuery && homeFilterMode === 'all' && esGrid && projects[0];
+
+    if (seguir) {
+        projectCardBuilder.reset()
+            .setProject(seguir)
+            .withOpenState(proyectosAbiertos.has(seguir.id))
+            .withDeleteState(pendingDeleteId === seguir.id)
+            .withDark(isDark)
+            .withThumbnailSvg(miniPlano(seguir.cfg, { dark: isDark }))
+            .withChips(chipModo(seguir))
+            .withSummary(resumenProyecto(seguir))
+            .withDate(fechaCorta(seguir.updatedAt))
+            .withIcons({
+                duplicate: icono('proyecto', 15),
+                trash: icono('papelera', 15),
+            });
+
+        const heroHtml = projectCardBuilder.buildHero();
+        slot.innerHTML = `
+        <div class="home-hero-wrap">
+          <div class="hero-col">${heroHtml}</div>
+          <div class="quick-launch-card">
+            <span class="quick-eyebrow">Creación rápida</span>
+            <div class="quick-actions">
+              <button class="quick-action-btn" data-quick-preset="vacio" title="Empezar un proyecto en blanco desde cero">
+                <span class="qa-ic">${icono('nuevo', 18)}</span>
+                <div class="qa-text">
+                  <strong>En blanco</strong>
+                  <small>Lienzo limpio sin presets</small>
+                </div>
+              </button>
+              <button class="quick-action-btn" data-quick-preset="streaming" title="Plantilla de Noticiero / En vivo multicámara">
+                <span class="qa-ic live">${icono('produccion', 18)}</span>
+                <div class="qa-text">
+                  <strong>Noticiero / En vivo</strong>
+                  <small>Set multicámara y escaleta</small>
+                </div>
+              </button>
+              <button class="quick-action-btn" data-quick-preset="cortometraje" title="Plantilla de Guion literario y ficción">
+                <span class="qa-ic narrative">${icono('guion', 18)}</span>
+                <div class="qa-text">
+                  <strong>Guion y Ficción</strong>
+                  <small>Narrativo con escaleta de escenas</small>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>`;
+    } else {
+        slot.innerHTML = '';
+    }
+
+    const renderList = seguir ? filtrados.filter((p) => p.id !== seguir.id) : filtrados;
+
+    if (renderList.length === 0 && filtrados.length === 0) {
+        box.className = 'empty-wrap';
+        box.innerHTML = `<div class="empty-projects">${projectQuery
+            ? `Sin resultados para “${esc(projectQuery)}”.<br><button class="btn-clear-search" id="clear-search-btn" style="margin-top:10px;padding:6px 14px;border-radius:8px;border:1px solid var(--vidrio-borde);background:var(--vidrio-a);color:var(--tinta);font-size:12px;font-weight:600;cursor:pointer;">Limpiar búsqueda</button>`
+            : 'Todavía no hay proyectos.<br>Crea el primero con <b>＋ Nuevo proyecto</b>.'}</div>`;
+    } else {
+        projectViewContext.render(
+            renderList.slice(0, projectQuery ? 40 : 20),
+            projectCardBuilder,
+            box,
+            {
+                isOpenFn: (id) => proyectosAbiertos.has(id),
+                isPendingDeleteFn: (id) => pendingDeleteId === id,
+                isDark,
+                thumbFn: (cfg) => miniPlano(cfg, { dark: isDark }),
+                chipsFn: (p, opts) => chipModo(p, opts),
+                summaryFn: (p) => resumenProyecto(p),
+                dateFn: (d) => fechaCorta(d),
+                icons: {
+                    duplicate: icono('proyecto', 15),
+                    trash: icono('papelera', 15),
+                },
+            }
+        );
+    }
+
+    const clearBtn = box.querySelector('#clear-search-btn');
+    if (clearBtn) {
+        clearBtn.onclick = () => {
+            const searchInput = document.querySelector('#project-search');
+            if (searchInput) { searchInput.value = ''; searchInput.focus(); }
+            projectQuery = '';
+            renderRecent();
+        };
+    }
+
+    slot.querySelectorAll('[data-quick-preset]').forEach((b) => {
+        b.onclick = () => {
+            const preset = b.dataset.quickPreset;
+            if (preset === 'vacio') {
+                nuevoProyecto.open();
+            } else {
+                const tpl = PLANTILLAS_SET.find((p) => p.id === preset) || { kind: preset };
+                nuevoProyecto.open({ plantilla: tpl });
+            }
+        };
+    });
 
     [slot, box].forEach((zona) => {
         zona.querySelectorAll('[data-open]').forEach((b) => {
@@ -1050,32 +1232,45 @@ const cfgDeTarjeta = (p) => {
 };
 
 function renderPlantillas() {
-    const grid = document.querySelector('#tpl-grid');
-    if (!grid) return;
-    grid.innerHTML = PLANTILLAS_SET.map((p) => {
-        const cfg = cfgDeTarjeta(p);
-        return `
-        <article class="tpl-card">
-          <div class="tpl-thumb" data-plantilla="${p.id}" role="button" tabindex="0"
-               title="Crear un proyecto con el set de ${esc(p.nombre)}">${miniPlano(cfg)}</div>
-          <div class="tpl-body">
-            <strong>${esc(p.nombre)}</strong>
-            <span class="tpl-resumen">${esc(p.resumen)}</span>
-            <p>${esc(p.detalle)}</p>
-          </div>
-          <div class="tpl-foot">
-            <small>${esc(resumenDePlantilla(cfg))}</small>
-            <button data-plantilla="${p.id}">Usar</button>
-          </div>
-        </article>`;
-    }).join('');
-    grid.querySelectorAll('[data-plantilla]').forEach((el) => {
+    const container = document.querySelector('#tpl-container') || document.querySelector('#tpl-grid');
+    if (!container) return;
+
+    // Consulta de modo oscuro unificada bajo la fuente de verdad (document.documentElement.dataset.tema)
+    const isDark = document.documentElement.dataset.tema === 'oscuro'
+        || (!document.documentElement.dataset.tema && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+    const filtradas = templateFilterChain.handle(PLANTILLAS_SET, {
+        category: templateFilterCat,
+        query: templateQuery
+    });
+
+    // Delegación al Strategy Pattern para renderizar Mosaico o Lista
+    container.innerHTML = templateViewContext.render(filtradas, {
+        builder: templateCardBuilder,
+        cfgFn: cfgDeTarjeta,
+        thumbFn: (cfg) => miniPlano(cfg, { dark: isDark }),
+        isDark,
+    });
+
+    // Delegación de eventos de selección de plantilla (Prototype Pattern al usar)
+    container.querySelectorAll('[data-plantilla]').forEach((elem) => {
+        const tplId = elem.dataset.plantilla;
         const usar = () => {
-            const p = PLANTILLAS_SET.find((x) => x.id === el.dataset.plantilla);
-            if (p) nuevoProyecto.open({ plantilla: p });
+            const p = PLANTILLAS_SET.find((x) => x.id === tplId);
+            if (p) {
+                // Prototype Pattern: Clona profundamente la plantilla para no mutar el modelo base
+                const clon = cloneTemplate(p);
+                nuevoProyecto.open({ plantilla: clon });
+            }
         };
-        el.onclick = usar;
-        el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); usar(); } };
+
+        elem.onclick = () => usar();
+        elem.onkeydown = (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                usar();
+            }
+        };
     });
 }
 
@@ -1286,11 +1481,13 @@ function activarPestana(id) {
     if (id === PRINCIPAL) {
         pintarEspacio();
         ponerAlDia(panelPrincipal, activeView);
+        marcarDesborde();
         return;
     }
     const panel = panelDe(id);
     pintarEspacio();
     ponerAlDia(panel, id);
+    marcarDesborde();
 }
 
 /* A DÓNDE CAER cuando la vista que estabas mirando deja de estar disponible
@@ -1324,16 +1521,20 @@ function desanclar(vista) {
         cargarEnPrincipal(activeView);
     }
     activarPestana(vista);
+    marcarDesborde();
 }
 
 // REANCLAR: la pestaña se cierra y su módulo vuelve al recorrido por etapas.
 function reanclar(vista) {
+    // Memento / Command Pattern: Asegurar que cambios pendientes en el módulo se guarden antes de destruir el panel
+    flushSaveNow({ callado: true });
     const panel = paneles.get(vista);
     if (panel && !panel.esVista) panel.el.remove();
     paneles.delete(vista);
     pestanas.cerrar(vista);
     activarPestana(PRINCIPAL);
     selectView(vista);
+    marcarDesborde();
     showToast(`“${etiquetaModulo(vista)}” volvió al recorrido del proyecto`);
 }
 
@@ -1382,9 +1583,17 @@ function menuDeModulos(ancla) {
     if (!disponibles.length) { showToast('Ya están desanclados todos los módulos'); return; }
     const menu = document.createElement('div');
     menu.className = 'menu-modulos';
-    menu.innerHTML = `<p class="menu-nota">Cada módulo se queda en su pestaña, y desde ahí puede salir a su propia ventana.</p>`
-        + disponibles.map((v) => `
-        <button data-modulo="${v}">${icono(iconoModulo(v), 15)}<span>${esc(etiquetaModulo(v))}</span></button>`).join('');
+    menu.innerHTML = `<p class="menu-nota">Cada módulo se abre en su propia pestaña y puede salir a su propia ventana.</p>`
+        + disponibles.map((v) => {
+            const etapa = etapaPorId(ETAPA_DE_VISTA[v]);
+            const etapaTexto = etapa ? etapa.etiqueta : '';
+            return `
+        <button data-modulo="${v}">
+            ${icono(iconoModulo(v), 16)}
+            <span class="menu-modulo-nombre">${esc(etiquetaModulo(v))}</span>
+            ${etapaTexto ? `<span class="menu-etapa-tag">${esc(etapaTexto)}</span>` : ''}
+        </button>`;
+        }).join('');
     document.body.appendChild(menu);
     /* Todo en PÍXELES DE CSS, que es el idioma en el que se van a escribir el
        left y el top. `getBoundingClientRect` y `innerWidth` hablan en píxeles
@@ -1392,13 +1601,102 @@ function menuDeModulos(ancla) {
        `offsetWidth` en los de CSS: mezclarlos ponía el menú fuera de la
        ventana en cuanto se agrandaba la interfaz. Ver medirVuelo. */
     const caja = ancla.getBoundingClientRect();
-    const izquierdaTope = enPxCss(window.innerWidth) - menu.offsetWidth - 12;
-    menu.style.left = `${Math.min(enPxCss(caja.left), izquierdaTope)}px`;
-    menu.style.top = `${enPxCss(caja.bottom + 6)}px`;
-    const cerrar = () => { menu.remove(); document.removeEventListener('pointerdown', fuera, true); };
+    const izquierdaTope = Math.max(12, enPxCss(window.innerWidth) - menu.offsetWidth - 12);
+    menu.style.left = `${Math.max(12, Math.min(enPxCss(caja.left), izquierdaTope))}px`;
+    const altoMenu = menu.offsetHeight || 180;
+    const cabeAbajo = enPxCss(caja.bottom + 6) + altoMenu <= enPxCss(window.innerHeight) - 12;
+    menu.style.top = cabeAbajo
+        ? `${enPxCss(caja.bottom + 6)}px`
+        : `${Math.max(12, enPxCss(caja.top - 6) - altoMenu)}px`;
+    const cerrar = () => {
+        menu.remove();
+        document.removeEventListener('pointerdown', fuera, true);
+        document.removeEventListener('keydown', tecla, true);
+    };
     const fuera = (e) => { if (!menu.contains(e.target)) cerrar(); };
-    setTimeout(() => document.addEventListener('pointerdown', fuera, true), 0);
+    const tecla = (e) => { if (e.key === 'Escape') { e.stopPropagation(); cerrar(); } };
+    setTimeout(() => {
+        document.addEventListener('pointerdown', fuera, true);
+        document.addEventListener('keydown', tecla, true);
+    }, 0);
     menu.querySelectorAll('[data-modulo]').forEach((b) => b.onclick = () => { cerrar(); desanclar(b.dataset.modulo); });
+}
+
+/* MENÚ POPOVER DE AJUSTES Y TEMA (Apple HIG Popover Menu)
+   Muestra en lista: Configuración general y selector de tema (Sistema, Claro, Oscuro) con check activo */
+function menuDeAjustes(ancla) {
+    document.querySelector('.menu-modulos')?.remove();
+    const menu = document.createElement('div');
+    menu.className = 'menu-modulos menu-ajustes';
+    const temaGuardado = typeof ajustes.temaGuardado === 'function'
+        ? ajustes.temaGuardado()
+        : (document.documentElement.dataset.tema || '');
+
+    menu.innerHTML = `
+      <div class="menu-nota" style="margin: 4px 8px 6px; font-weight: 700;">Configuración</div>
+      <button data-accion="configuracion">
+        ${icono('ajustes', 16)}
+        <span style="flex: 1;">Configuración general…</span>
+      </button>
+      <div style="height: 1px; background: var(--linea); margin: 6px 4px;"></div>
+      <div class="menu-nota" style="margin: 4px 8px 6px; font-weight: 700;">Tema de pantalla</div>
+      <button data-tema="">
+        ${icono('pantalla', 16)}
+        <span style="flex: 1;">El del sistema</span>
+        ${temaGuardado === '' ? '<span class="menu-check" style="font-weight: 800; color: var(--gel-t);">✓</span>' : ''}
+      </button>
+      <button data-tema="claro">
+        ${icono('sol', 16)}
+        <span style="flex: 1;">Modo claro</span>
+        ${temaGuardado === 'claro' ? '<span class="menu-check" style="font-weight: 800; color: var(--gel-t);">✓</span>' : ''}
+      </button>
+      <button data-tema="oscuro">
+        ${icono('luna', 16)}
+        <span style="flex: 1;">Modo oscuro</span>
+        ${temaGuardado === 'oscuro' ? '<span class="menu-check" style="font-weight: 800; color: var(--gel-t);">✓</span>' : ''}
+      </button>
+    `;
+    document.body.appendChild(menu);
+
+    const caja = ancla.getBoundingClientRect();
+    const altoMenu = menu.offsetHeight || 220;
+    const anchoMenu = menu.offsetWidth || 236;
+
+    // Se posiciona a la derecha del rail (en el lateral inferior)
+    const izq = Math.max(12, Math.min(enPxCss(caja.right + 10), enPxCss(window.innerWidth) - anchoMenu - 12));
+    menu.style.left = `${izq}px`;
+
+    const topeAbajo = enPxCss(window.innerHeight) - 16;
+    let top = enPxCss(caja.bottom) - altoMenu;
+    if (top < 16) top = 16;
+    if (top + altoMenu > topeAbajo) top = Math.max(16, topeAbajo - altoMenu);
+    menu.style.top = `${top}px`;
+
+    const cerrar = () => {
+        menu.remove();
+        document.removeEventListener('pointerdown', fuera, true);
+    };
+    const fuera = (e) => {
+        if (!menu.contains(e.target) && !ancla.contains(e.target)) cerrar();
+    };
+    setTimeout(() => document.addEventListener('pointerdown', fuera, true), 0);
+
+    menu.querySelector('[data-accion="configuracion"]')?.addEventListener('click', () => {
+        cerrar();
+        ajustes.abrir();
+    });
+
+    menu.querySelectorAll('[data-tema]').forEach((b) => {
+        b.addEventListener('click', () => {
+            const val = b.dataset.tema;
+            if (typeof ajustes.ponerTema === 'function') {
+                ajustes.ponerTema(val);
+            } else if (val === 'claro' || val === 'oscuro') {
+                if (ajustes.temaEfectivo() !== val) ajustes.alternarTema();
+            }
+            cerrar();
+        });
+    });
 }
 
 // Carga una herramienta en el panel de la pestaña Proyecto.
@@ -1496,192 +1794,46 @@ document.addEventListener('pointerdown', soltarImpresion, true);
 
 /* ----------------------------- Mensajes de las herramientas ----------------------------- */
 
-window.addEventListener('message', async (event) => {
-    const data = event.data;
-    if (!data?.type) return;
-    // Con varias pestañas abiertas hay varios paneles vivos a la vez, así que
-    // ya no basta con "¿viene del iframe?": hay que saber de CUÁL viene, para
-    // atribuirle el mensaje a su módulo. Lo que no venga de un panel nuestro
-    // se ignora, igual que antes.
-    const panel = panelDeVentana(event.source);
-    if (!panel) return;
-    const vista = panel.vista;
-
-    // Teclas reenviadas desde dentro de la herramienta (ver atajoDelCaparazon).
-    // Solo navegación: deshacer, rehacer y guardar los resuelve la propia
-    // herramienta, y reenviarlos los ejecutaría dos veces.
-    if (data.type === 'producciontv:atajo') {
-        atajoDelCaparazon(data.tecla || {});
-        return;
-    }
-
-    // Documento multipágina: la herramienta manda páginas + estilos ya listos.
-    if (data.type === 'producciontv:print-document') {
-        if (vista === 'exportar') marcaHito('exportado');
-        await printDocumentHTML(data.html, data.css);
-        return;
-    }
-
-    // Exportar pide capturar cada página como PNG independiente. El shell tiene
-    // html2canvas y acceso al DOM del iframe (mismo origen), así que captura y
-    // guarda página por página con el diálogo nativo.
-    if (data.type === 'producciontv:export-pngs') {
-        try {
-            if (vista === 'exportar') marcaHito('exportado');
-            const pages = [...(panel.el.contentDocument?.querySelectorAll('.export-page') || [])];
-            if (!pages.length) throw new Error('No hay páginas para exportar.');
-            let saved = 0;
-            for (const page of pages) {
-                const canvas = await captureElementPNG(page);
-                const path = await SaveBase64File(`${page.dataset.name || 'seccion'}.png`, canvas.toDataURL('image/png'));
-                if (!path) break; // el usuario canceló: no insistir con el resto
-                saved += 1;
-            }
-            showToast(saved ? `${saved} de ${pages.length} PNG exportados` : 'Exportación cancelada', !saved);
-        } catch (error) {
-            showToast(error?.message || 'No se pudieron exportar los PNG', true);
-        }
-        return;
-    }
-
-    // Las herramientas piden guardar archivos (EDL, CSV, JSON) a través del shell
-    // porque las descargas blob no funcionan dentro del WebView.
-    if (data.type === 'producciontv:request-save') { flushSaveNow(); return; }
-    if (data.type === 'producciontv:save-file') {
-        try {
-            if (vista === 'exportar') marcaHito('exportado');
-            if (await SaveTextFile(data.filename || 'archivo.txt', data.content || '')) showToast('Archivo guardado');
-        } catch (error) {
-            showToast(error?.message || 'No se pudo guardar el archivo', true);
-        }
-        return;
-    }
-
-    /* LA AGENDA. Misma historia que la mesa de luz: la gente no vive en el
-       proyecto sino junto a él, en el disco, y la herramienta corre dentro de
-       un iframe que no alcanza el puente nativo. Mismo folio por la misma
-       razón: con varias pestañas hay varias preguntando a la vez. */
-    if (data.type === 'producciontv:agenda') {
-        const responder = (extra) => event.source?.postMessage(
-            { type: 'producciontv:agenda-respuesta', folio: data.folio, ...extra }, '*');
-        try {
-            let datos = null;
-            if (data.op === 'list') datos = await ListContacts();
-            else if (data.op === 'save') await SaveContact(data.id || '', data.ficha || '');
-            else if (data.op === 'delete') await DeleteContact(data.id || '');
-            else throw new Error(`operación desconocida en la agenda: ${data.op}`);
-            responder({ ok: true, datos });
-        } catch (error) {
-            responder({ ok: false, error: error?.message || 'No se pudo llegar a la agenda' });
-        }
-        return;
-    }
-
-    /* MESA DE LUZ. La fototeca no vive en el proyecto sino junto a él, en el
-       disco, así que la herramienta —que corre dentro de un iframe y no
-       alcanza el puente nativo— tiene que pedirla por aquí. Cada petición
-       trae un FOLIO y la respuesta lo devuelve: con varias pestañas abiertas
-       hay varias herramientas preguntando a la vez, y sin folio una podría
-       quedarse con la respuesta de otra. */
-    if (data.type === 'producciontv:ref') {
-        const responder = (extra) => event.source?.postMessage(
-            { type: 'producciontv:ref-respuesta', folio: data.folio, ...extra }, '*');
-        try {
-            let datos = null;
-            if (data.op === 'list') datos = await ListReferences();
-            else if (data.op === 'save') await SaveReference(data.id || '', data.ficha || '', data.imagen || '');
-            else if (data.op === 'image') datos = await LoadReferenceImage(data.id || '');
-            else if (data.op === 'delete') await DeleteReference(data.id || '');
-            else if (data.op === 'analizar') {
-                /* EL OJO DE LA APP SOLO EXISTE EN EL iPAD. Usa Vision, que viene
-                   dentro de iPadOS; en el Mac no hay equivalente a mano, así que
-                   aquí no se llama a Go: se pregunta si la función está, y si no
-                   se responde vacío. La mesa funciona igual en los dos sitios,
-                   solo que en el iPad llega medio llena. */
-                const ojo = globalThis.go?.main?.App?.AnalizarImagen;
-                datos = ojo ? await ojo(data.imagen || '') : null;
-            }
-            else throw new Error(`operación desconocida en la mesa de luz: ${data.op}`);
-            responder({ ok: true, datos });
-        } catch (error) {
-            responder({ ok: false, error: error?.message || 'No se pudo llegar a la mesa de luz' });
-        }
-        return;
-    }
-
-    // La herramienta avisa qué puede hacer ahora mismo: si hay algo que
-    // deshacer o rehacer y si la guía está abierta. Se guarda POR PANEL —con
-    // varias pestañas hay varios historiales— y solo se pinta el del frente.
-    if (data.type === 'producciontv:tool-ui') {
-        panel.ui = { canUndo: !!data.canUndo, canRedo: !!data.canRedo, guia: !!data.guia };
-        if (panel === panelAlFrente()) pintarAccionesHerramienta();
-        return;
-    }
-
-    /* QUIEN NO SE VE, NO ESCRIBE (2026-08-29).
-    Cada panel es una copia VIVA del proyecto entero: al desanclar un módulo
-    quedan dos herramientas montadas a la vez, la de la pestaña nueva y la que
-    sigue en la pestaña Proyecto. Las dos mandaban su cfg completo, y el shell
-    se quedaba con el último que llegara. La escondida guarda lo de ANTES de
-    que empezaras a escribir en la otra, así que en cuanto emitía —al
-    rehidratarse, al cambiarle el tema, al reacomodarse— devolvía el proyecto
-    al estado viejo y borraba lo recién escrito. Eso es lo que dejaba inservible
-    desanclar un módulo: escribías en la pestaña y se te borraba al instante.
-
-    La regla ahora: SOLO EL PANEL QUE ESTÁ AL FRENTE puede cambiar el proyecto.
-    Es el único donde el usuario puede haber escrito algo; lo que mande
-    cualquier otro es, por definición, un eco o una copia atrasada. Los demás
-    no se pierden nada: se ponen al día solos al asomarse (ver ponerAlDia). */
-    if (data.type === 'producciontv:infografia-state') {
-        if (!panel.escucha) return;
-        if (panel !== panelAlFrente()) return;
-        /* Y LO QUE NO CAMBIÓ NO SE GUARDA. Hidratar un panel le cambia el
-        estado, así que contesta con un eco de lo que acabamos de mandarle. Al
-        aceptarlo se marcaba el proyecto como modificado y se escribía el .ptv
-        con hora nueva; la OTRA ventana veía un archivo "más reciente", lo
-        adoptaba y le arrancaba de las manos lo que su usuario estaba
-        escribiendo. Sin cambio real no hay guardado, y se acaba el ping-pong. */
-        const entrante = conHitos(data.cfg);
-        const texto = JSON.stringify(entrante);
-        if (texto === JSON.stringify(latestInfografia)) { panel.sello = selloEstado; return; }
-        latestInfografia = entrante;
-        localStorage.setItem(AUTOSAVE_KEY, texto);
-        // El panel que escribió ya está al día; los demás quedan atrasados y
-        // se pondrán al corriente cuando se asomen (ver ponerAlDia).
-        marcarCambio();
-        panel.sello = selloEstado;
-        // El diagrama sí necesita el aviso en caliente: dibuja sobre el mismo
-        // dato y si no, se queda pintando el set anterior.
-        paneles.forEach((otro, v) => {
-            if (v === 'diagrama' && otro !== panel) otro.el.contentWindow?.postMessage({ type: 'producciontv:sync-infografia', cfg: latestInfografia }, '*');
-        });
-        if (vista === 'diagrama') panel.el.contentWindow?.postMessage({ type: 'producciontv:sync-infografia', cfg: latestInfografia }, '*');
-        scheduleSave();
-        return;
-    }
-
-    if (data.type === 'producciontv:diagram-state') {
-        if (!panel.escucha) return;
-        // El diagrama SÍ puede hablar desde el fondo: el shell le manda el set
-        // en caliente (sync-infografia) y lo que devuelve es la ruta de señal
-        // recalculada, no una copia atrasada del proyecto. Pero el eco tampoco
-        // se guarda: si no cambió ni el diagrama ni lo que se deriva de él, no
-        // hay nada que escribir.
-        const syncedInfografia = infografiaFromDiagram(data.state, latestInfografia);
-        const didSync = syncedInfografia !== latestInfografia;
-        if (!didSync && JSON.stringify(data.state) === JSON.stringify(latestDiagram)) { panel.sello = selloEstado; return; }
-        latestDiagram = data.state;
-        latestInfografia = syncedInfografia;
-        localStorage.setItem(DIAGRAM_KEY, JSON.stringify(latestDiagram));
-        if (didSync) {
-            localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(latestInfografia));
-            showToast('Infografías actualizadas desde el diagrama');
-        }
-        marcarCambio();
-        panel.sello = selloEstado;
-        scheduleSave();
-    }
+const messageRouter = createShellMessageRouter({
+    SaveTextFile,
+    SaveBase64File,
+    ListContacts,
+    SaveContact,
+    DeleteContact,
+    ListReferences,
+    SaveReference,
+    LoadReferenceImage,
+    DeleteReference,
 });
+
+window.addEventListener('message', async (event) => {
+    await messageRouter.dispatch(event, {
+        panelDeVentana,
+        panelAlFrente,
+        atajoDelCaparazon,
+        printDocumentHTML,
+        captureElementPNG,
+        SaveBase64File,
+        SaveTextFile,
+        flushSaveNow,
+        showToast,
+        marcaHito,
+        pintarAccionesHerramienta,
+        conHitos,
+        getLatestInfografia: () => latestInfografia,
+        setLatestInfografia: (val) => { latestInfografia = val; },
+        getLatestDiagram: () => latestDiagram,
+        setLatestDiagram: (val) => { latestDiagram = val; },
+        getSelloEstado: () => selloEstado,
+        getPaneles: () => paneles,
+        infografiaFromDiagram,
+        marcarCambio,
+        scheduleSave,
+        AUTOSAVE_KEY,
+        DIAGRAM_KEY,
+    });
+});
+
 
 /* ----------------------------- Eventos generales ----------------------------- */
 
@@ -1728,6 +1880,68 @@ document.querySelector('[data-accion="nuevo"]').onclick = () => nuevoProyecto.op
 document.querySelector('[data-accion="proyectos"]').onclick = () => selectView('home');
 document.querySelector('[data-accion="plantillas"]').onclick = () => selectView('plantillas');
 document.querySelector('#tpl-vacio').onclick = () => nuevoProyecto.open();
+
+// Segmented Control de Categorías de Plantillas (Todas, Multicámara, Diálogo, Especiales)
+document.querySelectorAll('#tpl-filter-cats .seg-btn').forEach((btn) => {
+    btn.onclick = () => {
+        document.querySelectorAll('#tpl-filter-cats .seg-btn').forEach((b) => {
+            b.classList.remove('active');
+            b.setAttribute('aria-selected', 'false');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        templateFilterCat = btn.dataset.tplCat || 'all';
+        renderPlantillas();
+    };
+});
+
+// Buscador de plantillas
+const tplSearchInput = document.querySelector('#tpl-search');
+if (tplSearchInput) {
+    tplSearchInput.oninput = (e) => {
+        templateQuery = e.target.value.trim().toLowerCase();
+        renderPlantillas();
+    };
+}
+
+// Alternador de vista para plantillas: Mosaico / Lista tipo Finder (Strategy Pattern)
+const btnTplGrid = document.querySelector('#tpl-view-grid-btn');
+const btnTplList = document.querySelector('#tpl-view-list-btn');
+if (btnTplGrid && btnTplList) {
+    btnTplGrid.onclick = () => {
+        btnTplGrid.classList.add('active');
+        btnTplList.classList.remove('active');
+        templateViewContext.setStrategy(new TemplateGridViewStrategy(), 'grid');
+        renderPlantillas();
+    };
+    btnTplList.onclick = () => {
+        btnTplList.classList.add('active');
+        btnTplGrid.classList.remove('active');
+        templateViewContext.setStrategy(new TemplateListViewStrategy(), 'list');
+        renderPlantillas();
+    };
+}
+
+// Observer Pattern (GoF): Observador reactivo de scroll para elevar y esmerilar el encabezado fijo
+function conectarObservadorScroll(scrollEl, headerEl) {
+    if (!scrollEl || !headerEl) return;
+    scrollEl.addEventListener('scroll', () => {
+        if (scrollEl.scrollTop > 6) {
+            headerEl.classList.add('scrolled');
+        } else {
+            headerEl.classList.remove('scrolled');
+        }
+    }, { passive: true });
+}
+
+conectarObservadorScroll(
+    document.querySelector('#home-scroll-body'),
+    document.querySelector('#home-view > .home-top')
+);
+conectarObservadorScroll(
+    document.querySelector('#tpl-scroll-body'),
+    document.querySelector('#templates-view > .home-top')
+);
 /* EL NOMBRE DEL PROYECTO funciona como la pestaña Archivo de Word: te devuelve
 a Inicio. Y como en Word, Inicio viene en una VENTANA NUEVA —esta ventana era
 Inicio y se convirtió en el proyecto, así que no hay ninguna esperando detrás—.
@@ -1741,11 +1955,17 @@ cambia de escritorio. Así que primero se sale de pantalla completa (eso te
 devuelve al escritorio donde está Inicio) y ahí sí se la llama. La espera es
 para el deslizamiento del sistema: pedir el frente a media transición se
 pierde, y volvías a quedarte con la sensación de que el botón no sirve. */
+// Command Pattern: Comando universal para regresar a Inicio (Modalidad A: en la misma ventana).
+// Guarda cualquier cambio pendiente de manera segura y restaura la vista del lanzador.
 async function irAInicio() {
-    if (!shell.classList.contains('project-window')) { selectView('home'); return; }
-    await dejarPantallaCompleta();
-    conGo(FocusLauncher);
+    if (activeProject) scheduleSave();
+    shell.classList.remove('project-window');
+    shell.classList.add('launcher-window');
+    conGo(SetWindowTitle, 'Producción TV');
+    selectView('home');
 }
+const btnInicio = document.querySelector('#inicio-btn');
+if (btnInicio) btnInicio.onclick = irAInicio;
 document.querySelector('#active-name').onclick = irAInicio;
 // Los tres botones de la herramienta: el shell no sabe deshacer nada, solo se
 // lo pide al panel que está al frente.
@@ -1753,12 +1973,13 @@ const pedirAHerramienta = (type) => panelAlFrente()?.el?.contentWindow?.postMess
 document.querySelector('#undo-btn').onclick = () => pedirAHerramienta('producciontv:undo');
 document.querySelector('#redo-btn').onclick = () => pedirAHerramienta('producciontv:redo');
 document.querySelector('#guia-btn').onclick = () => pedirAHerramienta('producciontv:toggle-guia');
-document.querySelector('#tema-btn').onclick = () => ajustes.alternarTema();
-// La Configuración se abre desde los dos sitios: el encabezado de un proyecto
-// y la barra de Inicio. Lo segundo importa: quien no alcanza a leer la pantalla
-// tiene que poder agrandarla antes de abrir un proyecto.
+document.querySelector('#tema-btn')?.addEventListener('click', () => ajustes.alternarTema());
+document.querySelector('#rail-tema-btn')?.addEventListener('click', () => ajustes.alternarTema());
+// La Configuración y selector de temas en lista se abre desde el botón del rail:
+document.querySelector('#rail-ajustes-btn')?.addEventListener('click', (e) => {
+    menuDeAjustes(e.currentTarget);
+});
 document.querySelector('#ajustes-btn')?.addEventListener('click', () => ajustes.abrir());
-document.querySelector('#ajustes-home')?.addEventListener('click', () => ajustes.abrir());
 document.querySelector('#tour-btn').onclick = () => {
     localStorage.setItem(TOUR_KEY, '1');
     desplegarRail();   // el recorrido señala los botones de etapa: deben verse
@@ -1784,10 +2005,24 @@ EventsOn('producciontv:open-file', (content) => importProjectFromText(String(con
 // que se está viendo; los escondidos, al asomarse.
 EventsOn('producciontv:proyecto-en-disco', (contenido) => {
     if (!activeProject) return;
+    const strContenido = String(contenido || '');
+    // Si coincide con lo que esta misma ventana acaba de guardar hace poco, ignorar el eco del vigilante de disco
+    if (Date.now() - lastOwnSaveTime < 4000 && lastOwnSavedBundle && strContenido === lastOwnSavedBundle) {
+        return;
+    }
     let enDisco = null;
-    try { enDisco = proyectoDesdeBundle(JSON.parse(String(contenido || ''))); } catch { return; }
+    try { enDisco = proyectoDesdeBundle(JSON.parse(strContenido)); } catch { return; }
     if (!enDisco || enDisco.id !== activeProject.id) return;
     if ((enDisco.updatedAt || '') <= (activeProject.updatedAt || '')) return;
+
+    // Si el contenido semántico (cfg y diagram) es idéntico, no recargar el DOM del panel activo
+    const mismoCfg = JSON.stringify(enDisco.cfg) === JSON.stringify(activeProject.cfg);
+    const mismoDiagram = JSON.stringify(enDisco.diagram) === JSON.stringify(activeProject.diagram);
+    if (mismoCfg && mismoDiagram) {
+        activeProject.updatedAt = enDisco.updatedAt;
+        return;
+    }
+
     activeProject = enDisco;
     latestInfografia = enDisco.cfg;
     latestDiagram = enDisco.diagram;
@@ -1869,6 +2104,38 @@ document.querySelector('#project-search').oninput = (e) => {
     renderRecent();
 };
 
+// Segmented Control de Modos (Todos, En vivo, Narrativo)
+document.querySelectorAll('#home-filter-modes .seg-btn').forEach((btn) => {
+    btn.onclick = () => {
+        document.querySelectorAll('#home-filter-modes .seg-btn').forEach((b) => {
+            b.classList.remove('active');
+            b.setAttribute('aria-selected', 'false');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        homeFilterMode = btn.dataset.filterMode || 'all';
+        renderRecent();
+    };
+});
+
+// Alternador de vista: Mosaico (Cuadrícula) / Lista (tipo Finder)
+const btnGrid = document.querySelector('#view-grid-btn');
+const btnList = document.querySelector('#view-list-btn');
+if (btnGrid && btnList) {
+    btnGrid.onclick = () => {
+        btnGrid.classList.add('active');
+        btnList.classList.remove('active');
+        projectViewContext.setStrategy(new GridViewStrategy(), 'grid');
+        renderRecent();
+    };
+    btnList.onclick = () => {
+        btnList.classList.add('active');
+        btnGrid.classList.remove('active');
+        projectViewContext.setStrategy(new ListViewStrategy(), 'list');
+        renderRecent();
+    };
+}
+
 // Soltar archivos .ptv/.json sobre cualquier parte de la ventana los importa.
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => {
@@ -1922,52 +2189,35 @@ documento: sus teclas nunca llegaban aquí. En cuanto hacías clic dentro de la
 herramienta —lo normal, es donde se trabaja— ⌘1–⌘6 y ⌃Tab dejaban de
 responder, y parecía que la app se "rompía" al agrandar la ventana. El puente
 que las reenvía es public/tools/shared/atajos.js. */
+const shortcutManager = new ShortcutManager({
+    getContext: () => ({
+        isWelcomeOpen: welcomeOverlay && document.body.contains(welcomeOverlay),
+        closeWelcome,
+        isAjustesOpen: typeof ajustes?.estaAbierto === 'function' && ajustes.estaAbierto(),
+        closeAjustes: () => ajustes?.cerrar(),
+        isNuevoProyectoOpen: typeof nuevoProyecto?.isOpen === 'function' && nuevoProyecto.isOpen(),
+        closeNuevoProyecto: () => nuevoProyecto?.close(),
+        desplegarRail,
+        pestanas,
+        PRINCIPAL,
+        activarPestana,
+        flushSaveNow,
+        isProjectWindow: shell.classList.contains('project-window'),
+        isToolWindow: shell.classList.contains('tool-window'),
+        desanclar,
+        vistaVisible,
+        volverAlProyecto,
+        reanclar,
+        etapas: ETAPAS,
+        ultimaSeccion,
+        primeraVista: (etapa) => primeraVista(etapa, normalizeMode(latestInfografia?.modo)),
+        selectView,
+        irAInicio,
+    }),
+});
+
 function atajoDelCaparazon(tecla) {
-    const { key = '', metaKey, ctrlKey, shiftKey } = tecla;
-    if (key === 'Escape') {
-        if (welcomeOverlay && document.body.contains(welcomeOverlay)) { closeWelcome(); return true; }
-        if (ajustes.estaAbierto()) { ajustes.cerrar(); return true; }
-        if (nuevoProyecto.isOpen()) { nuevoProyecto.close(); return true; }
-        desplegarRail();   // la salida de emergencia: Esc siempre trae las etapas
-        return false;
-    }
-    // ⌃Tab / ⌃⇧Tab: rotar entre pestañas, como en cualquier navegador.
-    if (key === 'Tab' && ctrlKey && pestanas.abiertas.length) {
-        const orden = [PRINCIPAL, ...pestanas.abiertas];
-        const i = orden.indexOf(pestanas.activa);
-        activarPestana(orden[(i + (shiftKey ? -1 : 1) + orden.length) % orden.length]);
-        return true;
-    }
-    if (!(metaKey || ctrlKey)) return false;
-    if (key.toLowerCase() === 's') { flushSaveNow(); return true; }
-    /* UNA VENTANA DE MÓDULO ES UN SOLO MÓDULO, y punto. Ni se desancla nada
-    dentro de ella ni se cambia de etapa: ahí no hay barra, ni pestañas, ni
-    secciones que gobernar, y su título y su chip dicen de qué módulo es.
-    Sin este freno, ⌘D montaba un SEGUNDO iframe del mismo módulo en la misma
-    ventana —dos copias vivas del proyecto peleándose, con una barra de
-    pestañas escondida detrás del CSS—, y ⌘1–⌘6 cambiaban la herramienta por
-    debajo dejando el título mintiendo. */
-    const ventanaDeModulo = shell.classList.contains('tool-window');
-    // ⌘D: desanclar lo que estás viendo en su propia pestaña.
-    if (key.toLowerCase() === 'd' && shell.classList.contains('project-window')) {
-        if (!ventanaDeModulo) desanclar(vistaVisible());
-        return true;
-    }
-    // ⌘W: cerrar la pestaña activa (el módulo vuelve al recorrido). La
-    // pestaña Proyecto no se cierra: cerrarla sería cerrar el proyecto.
-    if (key.toLowerCase() === 'w') {
-        if (shell.classList.contains('tool-window')) { volverAlProyecto(); return true; }
-        if (pestanas.activa !== PRINCIPAL) { reanclar(pestanas.activa); return true; }
-    }
-    // ⌘1–⌘6: una etapa por número, en el orden de la barra lateral. Si el modo
-    // del proyecto la esconde, selectView la deja pasar de largo.
-    const atajo = ETAPAS[Number(key) - 1];
-    if (atajo && key >= '1' && key <= '6') {
-        const modo = normalizeMode(latestInfografia?.modo);
-        if (!ventanaDeModulo) selectView(ultimaSeccion[atajo.id] || primeraVista(atajo, modo));
-        return true;
-    }
-    return false;
+    return shortcutManager.dispatch(tecla);
 }
 
 document.addEventListener('keydown', (event) => {
@@ -2056,10 +2306,12 @@ function adoptarProyecto(project) {
     activeProjectId = project.id;
     latestInfografia = project.cfg;
     latestDiagram = project.diagram || diagramFromConfig(project.cfg);
+    projectHistory.saveSnapshot(project);
     localStorage.setItem(ACTIVE_KEY, project.id);
     localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(latestInfografia));
     localStorage.setItem(DIAGRAM_KEY, JSON.stringify(latestDiagram));
     if (welcomeOverlay && document.body.contains(welcomeOverlay)) welcomeOverlay.remove();
+    document.querySelector('#active-name').textContent = project?.name || 'Guardado local';
     // Las dos ventanas —la del proyecto y la de un módulo desanclado— escriben
     // el mismo .ptv. Vigilarlo es lo que hace que una se entere de lo que
     // guardó la otra sin tener que hacerle clic.
@@ -2071,6 +2323,8 @@ function montarProyecto(project) {
     adoptarProyecto(project);
     shell.classList.remove('launcher-window');
     shell.classList.add('project-window');
+    barraPestanas.hidden = false;
+    pestanas.render();
     // El nombre del proyecto va en la barra de la ventana: con varias abiertas
     // es lo único que las distingue en Mission Control y en el menú Ventana.
     conGo(SetWindowTitle, project.name);

@@ -4,140 +4,354 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Diagrama de señal — Producción en vivo</title>
+<link rel="stylesheet" href="../shared/liquid-glass.css">
+<link rel="stylesheet" href="../shared/accesibilidad.css">
 <style>
   :root{
-    --navy:#13294B; --ink:#0E1A2B;
-    --video:#2E7DDB; --audio:#1FA14E; --stream:#E0312F;
+    --navy:#0D1726;
+    --ink:#080E18;
+    --video:#0A84FF; /* Apple System Blue */
+    --audio:#30D158; /* Apple System Green */
+    --stream:#FF453A; /* Apple System Red */
+    --amber:#FFD60A; /* Apple System Yellow */
+    --accent:#0A84FF;
+    --card-bg: var(--lg-material-heavy, rgba(22, 33, 50, 0.92));
+    --card-border: var(--lg-border-light, rgba(255, 255, 255, 0.14));
+    --glass-bg: var(--lg-material-regular, rgba(13, 23, 38, 0.85));
+    --glass-border: var(--lg-border-light, rgba(255, 255, 255, 0.14));
+    --glass-shadow: var(--lg-shadow-lg, 0 16px 36px -4px rgba(0, 0, 0, 0.55));
+    --node-shadow: var(--lg-shadow-md, 0 10px 30px -5px rgba(0, 0, 0, 0.5)), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    --node-shadow-sel: 0 0 0 2px var(--amber), 0 14px 40px -4px rgba(255, 214, 10, 0.4);
+    --font-ui: var(--lg-font-family, -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif);
   }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%;font-family:"Barlow",system-ui,Segoe UI,Roboto,sans-serif;color:#15233D;background:var(--ink);overflow:hidden}
+  html,body{margin:0;height:100%;font-family:var(--font-ui);color:#EBF2FA;background:var(--ink);overflow:hidden;-webkit-font-smoothing:antialiased}
   .app{display:flex;flex-direction:column;height:100vh}
 
-  .top{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--navy);color:#fff;flex-wrap:wrap;box-shadow:0 2px 8px rgba(0,0,0,.35);z-index:6}
-  .brand{font-family:"Barlow Condensed",sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:18px;display:flex;align-items:center;gap:8px}
-  .brand .led{width:11px;height:11px;border-radius:50%;background:var(--stream);box-shadow:0 0 8px var(--stream);animation:pulse 1.6s infinite}
-  @keyframes pulse{50%{opacity:.35}}
+  /* Barra superior unificada tipo macOS Toolbar con Glassmorphism */
+  .top{
+    display:flex;align-items:center;gap:8px;padding:8px 14px;
+    background:var(--glass-bg);
+    -webkit-backdrop-filter:blur(24px) saturate(190%);
+    backdrop-filter:blur(24px) saturate(190%);
+    color:#fff;flex-wrap:wrap;
+    border-bottom:1px solid var(--glass-border);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 6px 20px rgba(0,0,0,.35);
+    z-index:6;
+  }
+  .brand{
+    font-family:var(--font-ui);font-weight:700;letter-spacing:-0.2px;font-size:15px;
+    display:flex;align-items:center;gap:9px;color:#F5F7FA;
+  }
+  .brand .led{
+    width:9px;height:9px;border-radius:50%;background:var(--stream);
+    box-shadow:0 0 10px var(--stream);animation:pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.92)}}
   .spacer{flex:1}
-  .tbtn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
-  .tbtn:hover{background:rgba(255,255,255,.22)}
-  .tbtn:disabled{opacity:.4;cursor:default}
-  .tbtn.red{background:var(--stream)}.tbtn.red:hover{filter:brightness(1.08)}
-  .tbtn.on{background:#FFD23F;color:#15233D}
+
+  /* Botones estilo macOS Toolbar Liquid Glass */
+  .tbtn{
+    display:inline-flex;align-items:center;gap:6px;
+    background:rgba(255,255,255,.08);color:#E6EDF5;
+    border:1px solid rgba(255,255,255,.14);border-radius:var(--lg-radius-xs, 8px);
+    padding:6px 12px;font-size:12.5px;font-weight:600;cursor:pointer;letter-spacing:-0.01em;
+    font-family:inherit;transition:transform 0.09s var(--lg-spring-touch), background .14s ease, border-color .14s ease;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.18), var(--lg-shadow-sm);
+  }
+  .tbtn:hover{
+    background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.3);
+    transform:translateY(-1px);
+  }
+  .tbtn:active{transform:scale(.96);background:rgba(255,255,255,.12)}
+  .tbtn:disabled{opacity:.35;cursor:default;transform:none}
+  .tbtn.red{background:rgba(255,69,58,.88);border-color:rgba(255,69,58,.5);color:#fff}
+  .tbtn.red:hover{background:rgba(255,69,58,1);box-shadow:0 0 14px rgba(255,69,58,.5)}
+  .tbtn.on{
+    background:linear-gradient(180deg, #FFD60A 0%, #E5BE00 100%);
+    color:#121E2E;border-color:#FFE45E;font-weight:700;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 4px 12px rgba(255,214,10,.4);
+  }
+  .tgroup{
+    display:inline-flex;align-items:center;background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:3px;gap:3px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .tgroup .tbtn{
+    border:0;background:transparent;box-shadow:none;border-radius:7px;
+  }
+  .tgroup .tbtn:hover{background:rgba(255,255,255,.14);transform:none}
+  .tgroup .tbtn.on{
+    background:linear-gradient(180deg, #FFD60A 0%, #E5BE00 100%);
+    color:#121E2E;box-shadow:0 2px 6px rgba(0,0,0,.25);
+  }
+  .tsep{width:1px;height:18px;background:rgba(255,255,255,.14);margin:0 4px}
 
   .main{display:flex;flex:1;min-height:0;position:relative}
 
-  .palette{width:178px;background:#0B1626;border-right:1px solid #1d2c44;padding:10px;overflow-y:auto;display:flex;flex-direction:column;gap:7px}
-  .palette h4{margin:6px 2px 2px;color:#7E93B4;font-size:10px;letter-spacing:1.2px;text-transform:uppercase;font-weight:700}
-  .chip{display:flex;align-items:center;gap:9px;background:#13243C;border:1px solid #243a5c;border-radius:9px;padding:8px 9px;cursor:pointer;color:#E7EEF8;font-size:13px;font-weight:600;transition:.12s}
-  .chip:hover{background:#1b3252;border-color:#3a5c8c;transform:translateX(2px)}
-  .chip.active{background:#554817;border-color:#FFD23F;color:#fff;box-shadow:0 0 0 2px rgba(255,210,63,.18)}
-  .chip .ic{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex:none}
-  .chip .ic svg{width:16px;height:16px;stroke:#fff}
+  /* Sidebar tipo macOS Source List */
+  .palette{
+    width:190px;background:rgba(10, 18, 29, 0.88);
+    -webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);
+    border-right:1px solid rgba(255,255,255,.09);
+    padding:12px 10px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;
+    box-shadow:inset -1px 0 0 rgba(255,255,255,.03);
+  }
+  .palette h4{
+    margin:8px 4px 4px;color:#8E9EB5;font-size:10.5px;
+    letter-spacing:0.8px;text-transform:uppercase;font-weight:700;
+  }
+  .chip{
+    display:flex;align-items:center;gap:9px;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+    border-radius:10px;padding:7px 9px;cursor:pointer;
+    color:#E5EEF9;font-size:12.5px;font-weight:600;
+    transition:all .14s cubic-bezier(0.2,0,0,1);
+    box-shadow:0 1px 3px rgba(0,0,0,.15);
+  }
+  .chip:hover{
+    background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);
+    transform:translateX(2px);color:#fff;
+  }
+  .chip:active{transform:scale(.97)}
+  .chip.active{
+    background:rgba(255,214,10,.16);border-color:var(--amber);color:#FFE98C;
+    box-shadow:0 0 0 2px rgba(255,214,10,.22);
+  }
+  .chip .ic{
+    width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex:none;
+    box-shadow:0 2px 6px rgba(0,0,0,.3);
+  }
+  .chip .ic svg{width:15px;height:15px;stroke:#fff}
 
+  /* Lienzo y Mundo */
   .canvas-wrap{flex:1;position:relative;overflow:hidden;background:var(--ink);touch-action:none}
   .canvas-wrap.zone-draw,.canvas-wrap.zone-draw .world{cursor:crosshair}
-  .world{position:absolute;left:0;top:0;width:3200px;height:2000px;transform-origin:0 0;
-     background:radial-gradient(circle, #1b2b44 1px, transparent 1px) 0 0/22px 22px}
+  .world{
+    position:absolute;left:0;top:0;width:3200px;height:2000px;transform-origin:0 0;
+    background:radial-gradient(circle, rgba(255,255,255,.12) 1.2px, transparent 1.2px) 0 0/28px 28px;
+  }
   svg.wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
   svg.wires path.hit{pointer-events:stroke;cursor:pointer;fill:none}
 
-  .zone{position:absolute;border:2px dashed rgba(255,255,255,.35);border-radius:12px;background:rgba(255,255,255,.04)}
-  .zone.drawing{border-style:solid;background:rgba(255,210,63,.1);box-shadow:0 0 0 3px rgba(255,210,63,.14)}
-  .zone .ztitle{position:absolute;top:-12px;left:14px;background:#0E1A2B;padding:2px 9px;border-radius:6px;font-weight:700;font-size:12px;letter-spacing:.5px;cursor:grab;border:1px solid rgba(255,255,255,.25)}
-  .zone.sel{border-style:solid}
-  .zone .rsz{position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;border-radius:3px;background:#FFD23F;cursor:nwse-resize}
+  /* Zonas de agrupación */
+  .zone{
+    position:absolute;border:1.5px dashed rgba(255,255,255,.3);border-radius:16px;
+    background:rgba(255,255,255,.03);backdrop-filter:blur(3px);
+    transition:border-color .15s, background .15s;
+  }
+  .zone.drawing{border-style:solid;background:rgba(255,214,10,.08);box-shadow:0 0 0 3px rgba(255,214,10,.18)}
+  .zone .ztitle{
+    position:absolute;top:-13px;left:14px;background:#0D1726;padding:3px 12px;
+    border-radius:7px;font-weight:700;font-size:11.5px;letter-spacing:.4px;
+    cursor:grab;border:1px solid rgba(255,255,255,.2);box-shadow:0 2px 8px rgba(0,0,0,.4);
+  }
+  .zone.sel{border-style:solid;border-width:2px}
+  .zone .rsz{position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;border-radius:3px;background:var(--amber);cursor:nwse-resize;box-shadow:0 2px 6px rgba(0,0,0,.4)}
 
-  .note{position:absolute;min-width:120px;max-width:240px;background:#FFE9A8;color:#3a2f10;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;box-shadow:0 5px 14px rgba(0,0,0,.35);cursor:grab}
-  .note textarea{width:100%;border:0;background:transparent;resize:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#3a2f10;outline:none;overflow:hidden}
-  .note .x{position:absolute;top:-8px;right:-8px;width:18px;height:18px;border-radius:50%;background:var(--stream);color:#fff;font-weight:900;font-size:12px;display:none;align-items:center;justify-content:center;cursor:pointer;border:0}
+  /* Notas adhesivas estilo Apple Notes */
+  .note{
+    position:absolute;min-width:130px;max-width:250px;
+    background:#FFF2A6;color:#2E250A;border-radius:12px;padding:10px 12px;
+    font-size:12.5px;font-weight:600;box-shadow:0 10px 24px rgba(0,0,0,.4), 0 2px 6px rgba(0,0,0,.15);
+    cursor:grab;border:1px solid rgba(0,0,0,.08);
+  }
+  .note textarea{width:100%;border:0;background:transparent;resize:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#2E250A;outline:none;overflow:hidden}
+  .note .x{position:absolute;top:-7px;right:-7px;width:18px;height:18px;border-radius:50%;background:var(--stream);color:#fff;font-weight:900;font-size:11px;display:none;align-items:center;justify-content:center;cursor:pointer;border:0;box-shadow:0 2px 6px rgba(0,0,0,.3)}
   .note:hover .x{display:flex}
 
-  .node{position:absolute;width:188px;background:#fff;border-radius:11px;box-shadow:0 6px 18px rgba(0,0,0,.4);user-select:none;border:2px solid transparent;cursor:grab}
-  .node:active{cursor:grabbing}
-  .node.sel{border-color:#FFD23F;box-shadow:0 0 0 3px rgba(255,210,63,.35),0 6px 18px rgba(0,0,0,.45)}
-  .node-head{height:34px;border-radius:9px 9px 0 0;display:flex;align-items:center;gap:7px;padding:0 9px;cursor:inherit;color:#fff;font-weight:700;font-size:13px}
-  .node-head svg{width:15px;height:15px;stroke:#fff;flex:none}
-  .node-head .ttl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .node-body{position:relative}
-  .port{position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #888;cursor:crosshair;z-index:2;transition:transform .12s,box-shadow .12s,background .12s}
-  .port::before{content:"";position:absolute;inset:-13px;border-radius:50%}
-  .port:hover{transform:scale(1.25)}
+  /* Nodos del Diagrama estilo Apple Pro Apps (Titanium Glass) */
+  .node{
+    position:absolute;width:204px;background:var(--card-bg);
+    -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+    border-radius:14px;box-shadow:var(--node-shadow);user-select:none;
+    border:1px solid var(--card-border);cursor:grab;
+    transition:box-shadow .15s cubic-bezier(0.2,0,0,1), transform .12s cubic-bezier(0.2,0,0,1), border-color .15s;
+    color:#EBF2FA;
+  }
+  .node:hover{box-shadow:0 14px 34px -4px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.2);border-color:rgba(255,255,255,.24)}
+  .node:active{cursor:grabbing;transform:scale(.99)}
+  .node.sel{
+    border-color:var(--amber);
+    box-shadow:var(--node-shadow-sel);
+  }
+  .node-head{
+    height:38px;border-radius:13px 13px 0 0;display:flex;align-items:center;gap:9px;
+    padding:0 12px;cursor:inherit;color:#fff;font-weight:700;font-size:13px;
+    border-bottom:1px solid rgba(255,255,255,.1);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.2);
+  }
+  .node-head svg{width:16px;height:16px;stroke:#fff;flex:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
+  .node-head .ttl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-0.2px}
+  .node-body{position:relative;background:rgba(12,20,31,0.5)}
+  .port{
+    position:absolute;width:13px;height:13px;border-radius:50%;
+    background:#1E2B3E;border:2.5px solid #8E9EB5;cursor:crosshair;z-index:2;
+    transition:transform .14s cubic-bezier(0.2,0,0,1), box-shadow .14s, background .14s;
+    box-shadow:0 1px 4px rgba(0,0,0,.5);
+  }
+  .port::before{content:"";position:absolute;inset:-12px;border-radius:50%}
+  .port:hover{transform:scale(1.35);box-shadow:0 0 0 4px rgba(10,132,255,.35);background:#fff}
   .port.video{border-color:var(--video)} .port.audio{border-color:var(--audio)} .port.stream{border-color:var(--stream)}
-  .port.lit{background:#FFD23F;border-color:#E0a800}
-  .port.magnet{transform:scale(1.75);background:#FFD23F;box-shadow:0 0 0 7px rgba(255,210,63,.2),0 0 18px rgba(255,210,63,.9)}
-  .node.magnet-target{border-color:#FFD23F;box-shadow:0 0 0 4px rgba(255,210,63,.24),0 10px 28px rgba(0,0,0,.5)}
-  .magnet-hint{position:fixed;z-index:20;pointer-events:none;transform:translate(-50%,-42px);padding:6px 10px;border:1px solid rgba(255,210,63,.65);border-radius:999px;background:rgba(11,22,38,.95);color:#ffe98c;font-size:11px;font-weight:800;box-shadow:0 8px 20px rgba(0,0,0,.4);opacity:0;transition:opacity .1s}
+  .port.lit{background:var(--amber);border-color:#C99D00;transform:scale(1.4);box-shadow:0 0 0 6px rgba(255,214,10,.35)}
+  .port.magnet{
+    transform:scale(1.8);background:var(--amber);
+    box-shadow:0 0 0 6px rgba(255,214,10,.35), 0 0 24px rgba(255,214,10,.95);
+  }
+  .node.magnet-target{
+    border-color:var(--amber);
+    box-shadow:0 0 0 3px rgba(255,214,10,.35), 0 16px 40px rgba(0,0,0,.6);
+  }
+  .magnet-hint{
+    position:fixed;z-index:20;pointer-events:none;transform:translate(-50%,-44px);
+    padding:6px 12px;border:1px solid rgba(255,214,10,.75);border-radius:999px;
+    background:rgba(13,23,38,.96);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    color:#FFE98C;font-size:11.5px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.5);
+    opacity:0;transition:opacity .12s;
+  }
   .magnet-hint.show{opacity:1}
-  .plabel{position:absolute;font-size:10px;color:#42536e;font-weight:600;white-space:nowrap;top:50%;transform:translateY(-50%);pointer-events:none}
-  .plabel b{color:#15233D}
-  .meta{font-size:10px;color:#6a7c98;padding:3px 9px 7px;border-top:1px solid #eef1f6;font-weight:600}
-  .node-fig{height:52px;background:linear-gradient(180deg,#F7FAFD,#E9EFF6);border-top:1px solid #E5EAF1;overflow:hidden}
-  .node-fig:last-child{border-radius:0 0 9px 9px}
+  .plabel{
+    position:absolute;font-size:11px;color:#A2B4CC;font-weight:600;
+    white-space:nowrap;top:50%;transform:translateY(-50%);pointer-events:none;
+    letter-spacing:-0.1px;
+  }
+  .plabel b{color:#FFFFFF}
+  .meta{
+    font-size:10.5px;color:#8E9EB5;padding:5px 12px 7px;
+    border-top:1px solid rgba(255,255,255,.08);font-weight:600;
+    background:rgba(0,0,0,.15);letter-spacing:.2px;
+  }
+  .node-fig{
+    height:46px;background:linear-gradient(180deg,rgba(10,18,29,.6) 0%,rgba(6,12,20,.85) 100%);
+    border-top:1px solid rgba(255,255,255,.08);overflow:hidden;
+  }
+  .node-fig:last-child{border-radius:0 0 13px 13px}
   .node-fig svg{display:block;width:100%;height:100%}
 
-  /* controles de zoom */
-  .zoomctl{position:absolute;left:12px;bottom:12px;display:flex;gap:6px;align-items:center;background:rgba(11,22,38,.92);border:1px solid #28406a;border-radius:10px;padding:6px;z-index:4}
-  .zoomctl button{width:30px;height:30px;border:0;border-radius:7px;background:#1b3252;color:#fff;font-size:16px;font-weight:700;cursor:pointer}
-  .zoomctl button:hover{background:#27457a}
-  .zoomctl .pct{color:#cdd9ec;font-size:12px;font-weight:700;min-width:42px;text-align:center}
-  .zoomctl .fit{width:auto;padding:0 9px;font-size:12px}
+  /* Controles de zoom flotantes (macOS Floating Capsule Dock) */
+  .zoomctl{
+    position:absolute;left:14px;bottom:14px;display:flex;gap:4px;align-items:center;
+    background:var(--glass-bg);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);
+    border:1px solid var(--glass-border);border-radius:12px;padding:5px;z-index:4;
+    box-shadow:var(--glass-shadow);
+  }
+  .zoomctl button{
+    width:28px;height:28px;border:0;border-radius:8px;
+    background:rgba(255,255,255,.08);color:#fff;font-size:15px;font-weight:700;
+    cursor:pointer;transition:all .12s;display:grid;place-items:center;
+  }
+  .zoomctl button:hover{background:rgba(255,255,255,.18);transform:scale(1.05)}
+  .zoomctl button:active{transform:scale(.95)}
+  .zoomctl .pct{color:#D5E1F0;font-size:11.5px;font-weight:700;min-width:44px;text-align:center}
+  .zoomctl .fit{width:auto;padding:0 10px;font-size:11.5px}
 
-  .legend{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;background:rgba(11,22,38,.92);border:1px solid #28406a;border-radius:10px;padding:8px 12px;color:#cdd9ec;font-size:11px;display:flex;gap:14px;flex-wrap:wrap;z-index:3}
-  .legend b{color:#fff}
+  /* Leyenda flotante tipo HUD */
+  .legend{
+    position:absolute;left:50%;transform:translateX(-50%);bottom:14px;
+    background:var(--glass-bg);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);
+    border:1px solid var(--glass-border);border-radius:12px;padding:7px 14px;
+    color:#C8D6E8;font-size:11.5px;display:flex;gap:16px;flex-wrap:wrap;z-index:3;
+    box-shadow:var(--glass-shadow);
+  }
+  .legend b{color:#fff;font-weight:700}
   .lg{display:flex;align-items:center;gap:6px}
   .lg .sw{width:22px;height:0;border-top-width:3px;border-top-style:solid}
 
-  /* panel "al aire" */
-  .checks{position:absolute;right:0;top:0;height:100%;width:260px;background:#0B1626;border-left:1px solid #1d2c44;color:#E7EEF8;transform:translateX(100%);transition:transform .16s;z-index:5;overflow-y:auto}
-  .checks.open{transform:none}
-  .checks .ph{padding:14px 14px 6px}
-  .checks h3{margin:0;font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:.5px;font-size:17px}
-  .checks .st{font-size:12px;font-weight:700;margin-top:4px;padding:6px 10px;border-radius:7px;display:inline-block}
-  .checks .st.go{background:#16462b;color:#7BE3A4}
-  .checks .st.no{background:#4a2118;color:#FFB4A2}
-  .ci{display:flex;gap:8px;padding:9px 14px;border-top:1px solid #15263f;font-size:12.5px;line-height:1.4}
-  .ci .mk{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:900;color:#fff}
-  .ci.ok .mk{background:#1FA14E}.ci.warn .mk{background:#E0a800;color:#3a2f10}.ci.info .mk{background:#2E7DDB}
+  /* Inspector flotante estilo Xcode / Inspector HUD */
+  .checks,.inspector{
+    position:absolute;right:0;top:0;height:100%;width:264px;
+    background:rgba(11, 20, 33, 0.88);-webkit-backdrop-filter:blur(24px) saturate(190%);
+    backdrop-filter:blur(24px) saturate(190%);
+    border-left:1px solid rgba(255,255,255,.1);color:#EAF1F8;
+    transform:translateX(100%);transition:transform .22s cubic-bezier(0.2,0,0,1);
+    z-index:5;overflow-y:auto;box-shadow:-8px 0 24px rgba(0,0,0,.35);
+  }
+  .checks.open,.inspector.open{transform:none}
+  .checks .ph{padding:16px 16px 10px}
+  .checks h3{margin:0;font-family:var(--font-ui);font-weight:700;letter-spacing:-0.2px;font-size:15px;color:#fff}
+  .checks .st{
+    font-size:11.5px;font-weight:700;margin-top:6px;padding:5px 10px;
+    border-radius:7px;display:inline-flex;align-items:center;gap:5px;
+  }
+  .checks .st.go{background:rgba(48,209,88,.18);color:#70E793;border:1px solid rgba(48,209,88,.3)}
+  .checks .st.no{background:rgba(255,69,58,.18);color:#FF9D96;border:1px solid rgba(255,69,58,.3)}
+  .ci{display:flex;gap:9px;padding:10px 16px;border-top:1px solid rgba(255,255,255,.06);font-size:12.5px;line-height:1.4}
+  .ci .mk{
+    flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;
+    font-size:10px;font-weight:900;color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25);
+  }
+  .ci.ok .mk{background:var(--audio)}.ci.warn .mk{background:var(--amber);color:#2A2004}.ci.info .mk{background:var(--video)}
 
-  /* inspector */
-  .inspector{position:absolute;right:0;top:0;height:100%;width:236px;background:#0B1626;border-left:1px solid #1d2c44;color:#E7EEF8;transform:translateX(100%);transition:transform .14s;z-index:5;overflow-y:auto}
-  .inspector.open{transform:none}
-  .insp-in{padding:14px}
-  .inspector h3{margin:0 0 4px;font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:.5px;font-size:16px}
-  .inspector .sub{color:#7E93B4;font-size:11px;margin-bottom:12px}
-  .field{margin-bottom:11px}
-  .field label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#8ea3c4;font-weight:700;margin-bottom:4px}
-  .field input,.field select{width:100%;background:#13243C;border:1px solid #2a466e;border-radius:7px;color:#fff;padding:7px 8px;font-size:13px;font-family:inherit}
+  /* Inspector de nodo */
+  .insp-in{padding:16px}
+  .inspector h3{margin:0 0 4px;font-family:var(--font-ui);font-weight:700;letter-spacing:-0.2px;font-size:15px;color:#fff}
+  .inspector .sub{color:#8A9BB2;font-size:11.5px;margin-bottom:14px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:#92A4BC;font-weight:700;margin-bottom:5px}
+  .field input,.field select{
+    width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
+    border-radius:8px;color:#fff;padding:7px 9px;font-size:12.5px;font-family:inherit;
+    transition:border-color .12s, background .12s;
+  }
+  .field input:focus,.field select:focus{
+    outline:none;border-color:var(--accent);background:rgba(255,255,255,.12);
+    box-shadow:0 0 0 3px rgba(10,132,255,.25);
+  }
   .chrow{display:flex;align-items:center;gap:7px;margin-bottom:6px}
-  .chrow span{flex:none;width:64px;font-size:11px;color:#9fb2d0;font-weight:600}
-  .chrow input{flex:1;background:#13243C;border:1px solid #2a466e;border-radius:6px;color:#fff;padding:5px 7px;font-size:12px}
+  .chrow span{flex:none;width:66px;font-size:11.5px;color:#9CB0C9;font-weight:600}
+  .chrow input{flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:7px;color:#fff;padding:5px 8px;font-size:12px}
   .swatches{display:flex;gap:6px;flex-wrap:wrap}
-  .swatches button{width:22px;height:22px;border-radius:6px;border:2px solid transparent;cursor:pointer}
-  .swatches button.on{border-color:#fff}
-  .del{width:100%;background:var(--stream);color:#fff;border:0;border-radius:8px;padding:9px;font-weight:700;cursor:pointer;font-size:13px;margin-top:6px}
-  .hint{color:#7E93B4;font-size:11px;line-height:1.5;margin-top:10px}
+  .swatches button{width:24px;height:24px;border-radius:7px;border:2px solid transparent;cursor:pointer;transition:transform .12s}
+  .swatches button:hover{transform:scale(1.15)}
+  .swatches button.on{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.3)}
+  .del{
+    width:100%;background:rgba(255,69,58,.88);color:#fff;border:0;border-radius:8px;
+    padding:8px 10px;font-weight:700;cursor:pointer;font-size:12.5px;margin-top:8px;
+    transition:all .12s;
+  }
+  .del:hover{background:rgba(255,69,58,1);box-shadow:0 2px 10px rgba(255,69,58,.4)}
+  .hint{color:#8A9BB2;font-size:11.5px;line-height:1.5;margin-top:12px}
 
-  .toast{position:fixed;left:50%;top:64px;transform:translateX(-50%);background:#1FA14E;color:#fff;padding:9px 16px;border-radius:9px;font-weight:600;font-size:13px;z-index:50;box-shadow:0 6px 16px rgba(0,0,0,.3);opacity:0;transition:.2s;pointer-events:none}
+  /* Toasts estilo Apple Notification Banner */
+  .toast{
+    position:fixed;left:50%;top:58px;transform:translateX(-50%) translateY(-10px);
+    background:rgba(16, 28, 44, 0.92);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);
+    border:1px solid rgba(255,255,255,.18);color:#fff;
+    padding:8px 18px;border-radius:999px;font-weight:600;font-size:12.5px;
+    z-index:50;box-shadow:0 12px 32px rgba(0,0,0,.45);opacity:0;
+    transition:all .2s cubic-bezier(0.2,0,0,1);pointer-events:none;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-  /* tarjeta de ayuda */
-  .help-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,480px);background:#0E1D33;border:1px solid #2c4a78;border-radius:14px;color:#E7EEF8;padding:20px 22px;z-index:40;box-shadow:0 20px 60px rgba(0,0,0,.55);display:none}
-  .help-card.show{display:block}
-  .help-card h3{margin:0 0 10px;font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:.5px;font-size:20px}
-  .help-card ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.5;color:#c8d6ea}
+  /* Modal de ayuda estilo macOS Sheet Dialog */
+  .help-card{
+    position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.96);
+    width:min(92vw,480px);background:rgba(14, 25, 41, 0.94);
+    -webkit-backdrop-filter:blur(28px) saturate(190%);backdrop-filter:blur(28px) saturate(190%);
+    border:1px solid rgba(255,255,255,.16);border-radius:16px;color:#EAF2FC;
+    padding:22px 24px;z-index:40;box-shadow:0 28px 72px rgba(0,0,0,.65);
+    display:none;opacity:0;transition:all .2s cubic-bezier(0.2,0,0,1);
+  }
+  .help-card.show{display:block;opacity:1;transform:translate(-50%,-50%) scale(1)}
+  .help-card h3{margin:0 0 12px;font-family:var(--font-ui);font-weight:700;letter-spacing:-0.3px;font-size:18px;color:#fff}
+  .help-card ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:9px;font-size:13px;line-height:1.5;color:#CAD7E8}
   .help-card b{color:#fff}
   .help-card .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#fff;border:3px solid var(--video);vertical-align:-1px}
-  .help-card button{margin-top:14px;width:100%;border:0;border-radius:9px;background:#1D6FD1;color:#fff;font-weight:800;font-size:14px;padding:10px;cursor:pointer}
-  .help-card button:hover{filter:brightness(1.1)}
-  .toast.show{opacity:1}
+  .help-card button{
+    margin-top:16px;width:100%;border:0;border-radius:10px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13.5px;
+    padding:10px;cursor:pointer;transition:all .12s;
+  }
+  .help-card button:hover{filter:brightness(1.1);box-shadow:0 4px 14px rgba(10,132,255,.4)}
   input[type=file]{display:none}
 
-  /* Diseño táctil para iPhone: controles desplazables y paleta horizontal. */
+  /* Diseño táctil para iPhone / Viewports estrechos */
   @media (max-width:700px){
     .top{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;padding:7px 8px}
     .top>*{flex:0 0 auto}.top .spacer{display:none}.brand{font-size:14px}
-    .tbtn{min-height:40px;padding:8px 11px;touch-action:manipulation}
+    .tbtn{min-height:38px;padding:7px 11px;touch-action:manipulation}
     .main{flex-direction:column}
-    .palette{order:2;width:100%;height:92px;min-height:92px;border-right:0;border-top:1px solid #1d2c44;padding:7px;overflow-x:auto;overflow-y:hidden;flex-direction:row;align-items:stretch;-webkit-overflow-scrolling:touch}
+    .palette{order:2;width:100%;height:92px;min-height:92px;border-right:0;border-top:1px solid rgba(255,255,255,.08);padding:7px;overflow-x:auto;overflow-y:hidden;flex-direction:row;align-items:stretch;-webkit-overflow-scrolling:touch}
     .palette h4{display:none}.chip{min-width:132px;justify-content:flex-start;padding:7px 9px}.chip:hover{transform:none}
     .canvas-wrap{order:1}
     .checks,.inspector{width:min(88vw,330px)}
@@ -151,6 +365,7 @@
     html,body,.app,.main{height:auto;overflow:visible;background:#fff}
   }
 </style>
+<link rel="stylesheet" href="../shared/liquid-glass.css">
 <!-- Accesibilidad (contraste alto / menos movimiento). Va al final del head
      para que sus tokens manden sobre los de esta herramienta.
      Ver tools/shared/accesibilidad.css. -->
@@ -163,16 +378,25 @@
   <div class="top">
     <span class="brand"><span class="led"></span>Diagrama de señal · En vivo</span>
     <span class="spacer"></span>
-    <button class="tbtn" id="btnUndo" title="Deshacer (Ctrl+Z)">↶</button>
-    <button class="tbtn" id="btnRedo" title="Rehacer (Ctrl+Y)">↷</button>
-    <button class="tbtn" id="btnAuto" title="Completa la cadena estándar: cámaras→switcher, mics→mezcladora, →encoder→plataformas (crea lo que falte)">⚡ Autoconectar</button>
+    <div class="tgroup">
+      <button class="tbtn" id="btnUndo" title="Deshacer (Ctrl+Z)">↶</button>
+      <button class="tbtn" id="btnRedo" title="Rehacer (Ctrl+Y)">↷</button>
+    </div>
+    <div class="tsep"></div>
+    <div class="tgroup">
+      <button class="tbtn" id="btnWireStyle" title="Estilo de cableado: Curva fluida / Ortogonal Manhattan">☊ Curvas</button>
+      <button class="tbtn" id="btnAuto" title="Completa la cadena estándar: cámaras→switcher, mics→mezcladora, →encoder→plataformas (crea lo que falte)">⚡ Autoconectar</button>
+    </div>
     <button class="tbtn on" id="btnChecks" title="Lista para salir al aire">✓ Al aire</button>
-    <button class="tbtn" id="btnTpl" title="Carga un ejemplo completo de multistream">★ Ejemplo</button>
-    <button class="tbtn" id="btnHelp" title="Cómo se usa el diagrama">?</button>
-    <button class="tbtn" id="btnShare">🔗 Compartir</button>
-    <button class="tbtn" id="btnExport">⬇ Exportar</button>
-    <button class="tbtn" id="btnImport">⬆ Importar</button>
-    <input type="file" id="file" accept=".json,application/json">
+    <div class="tsep"></div>
+    <div class="tgroup">
+      <button class="tbtn" id="btnTpl" title="Carga un ejemplo completo de multistream">★ Ejemplo</button>
+      <button class="tbtn" id="btnHelp" title="Cómo se usa el diagrama">?</button>
+      <button class="tbtn" id="btnShare">🔗 Compartir</button>
+      <button class="tbtn" id="btnExport">⬇ Exportar</button>
+      <button class="tbtn" id="btnImport">⬆ Importar</button>
+      <input type="file" id="file" accept=".json,application/json">
+    </div>
     <button class="tbtn" id="btnClear">🗑 Vaciar</button>
   </div>
 
@@ -238,82 +462,66 @@ const I = {
 };
 const svg=(p,stroke)=>'<svg viewBox="0 0 24 24" fill="none" stroke="'+(stroke||'#fff')+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>';
 
-/* ---------- ilustraciones de los equipos ----------
-Franja al pie de cada tarjeta: el dispositivo dibujado (la cámara parece
-cámara). Colores fijos + acento del nodo; 188×52 por tarjeta. */
-const INK1='#1B2430',INK2='#2C3646',INK3='#0D1420',GRIS='#AEB9C8';
-const sombra='<ellipse cx="94" cy="47.5" rx="36" ry="3" fill="#0F1B2D" opacity=".1"/>';
+/* ---------- Indicadores técnicos de equipo estilo Apple Pro Studio ----------
+Franja al pie de cada tarjeta: medidor de señal, niveles y estado técnico. */
 const FIG={
-  camara:a=>sombra+
-    '<path d="M91 34 L79 46 M97 34 L109 46 M94 34 V46" stroke="'+INK2+'" stroke-width="3" stroke-linecap="round"/>'+
-    '<rect x="64" y="13" width="38" height="22" rx="3" fill="'+INK1+'"/>'+
-    '<rect x="64" y="30" width="38" height="5" rx="2" fill="'+a+'"/>'+
-    '<rect x="102" y="17" width="12" height="14" fill="'+INK2+'"/>'+
-    '<path d="M114 19 L126 13 V35 L114 29 Z" fill="'+INK3+'"/>'+
-    '<circle cx="120" cy="24" r="3" fill="#243040"/>'+
-    '<rect x="67" y="5" width="16" height="9" rx="2" fill="'+INK2+'"/>'+
-    '<rect x="83" y="7" width="4" height="5" rx="1" fill="'+INK3+'"/>'+
-    '<circle cx="97" cy="18" r="2.6" fill="#E0312F"/>',
-  microfono:a=>sombra+
-    '<circle cx="94" cy="13" r="9.5" fill="'+GRIS+'" stroke="'+INK2+'" stroke-width="2"/>'+
-    '<path d="M88 9 h12 M87 13 h14 M88 17 h12" stroke="'+INK2+'" stroke-width="1.1"/>'+
-    '<path d="M88 22 L100 22 L97.5 45 L90.5 45 Z" fill="'+INK1+'"/>'+
-    '<rect x="88.6" y="24" width="10.8" height="4" fill="'+a+'"/>'+
-    '<circle cx="94" cy="41" r="1.6" fill="'+GRIS+'"/>',
-  receptor:a=>sombra+
-    '<path d="M62 18 L52 5 M126 18 L136 5" stroke="'+INK2+'" stroke-width="2.4" stroke-linecap="round"/>'+
-    '<circle cx="52" cy="5" r="2.4" fill="'+INK2+'"/><circle cx="136" cy="5" r="2.4" fill="'+INK2+'"/>'+
-    '<rect x="50" y="18" width="88" height="24" rx="3" fill="'+INK1+'"/>'+
-    '<rect x="58" y="24" width="34" height="12" rx="2" fill="'+INK3+'"/>'+
-    '<path d="M61 32 l4 -4 4 3 5 -5 4 4 5 -3 4 3" stroke="'+a+'" stroke-width="1.6" fill="none"/>'+
-    '<circle cx="106" cy="30" r="4.5" fill="'+INK2+'" stroke="'+GRIS+'" stroke-width="1.2"/>'+
-    '<circle cx="122" cy="30" r="4.5" fill="'+INK2+'" stroke="'+GRIS+'" stroke-width="1.2"/>'+
-    '<circle cx="130" cy="22" r="1.8" fill="'+a+'"/>',
-  switcher:a=>sombra+
-    '<rect x="44" y="11" width="100" height="32" rx="4" fill="'+INK1+'"/>'+
-    Array.from({length:5},(_,i)=>'<rect x="'+(52+i*13)+'" y="17" width="9" height="8" rx="1.6" fill="'+(i===1?'#E0312F':INK2)+'"/>').join('')+
-    Array.from({length:5},(_,i)=>'<rect x="'+(52+i*13)+'" y="29" width="9" height="8" rx="1.6" fill="'+(i===3?'#35C66D':INK2)+'"/>').join('')+
-    '<rect x="127" y="15" width="5" height="24" rx="2" fill="'+INK3+'"/>'+
-    '<rect x="121" y="24" width="17" height="6" rx="2.4" fill="'+GRIS+'"/>',
-  audio:a=>sombra+
-    '<rect x="48" y="9" width="92" height="35" rx="4" fill="'+INK1+'"/>'+
-    Array.from({length:5},(_,i)=>{const x=58+i*15,cap=20+[9,3,12,6,10][i];
-      return '<rect x="'+(x-1)+'" y="20" width="2" height="19" rx="1" fill="'+INK3+'"/>'+
-             '<rect x="'+(x-5)+'" y="'+cap+'" width="10" height="5" rx="1.6" fill="'+GRIS+'"/>'+
-             '<circle cx="'+x+'" cy="14.5" r="2.6" fill="'+a+'"/>';}).join(''),
-  encoder:a=>sombra+
-    '<rect x="68" y="6" width="52" height="31" rx="3" fill="'+INK1+'"/>'+
-    '<rect x="72" y="10" width="44" height="23" rx="1.5" fill="'+INK3+'"/>'+
-    '<path d="M76 26 l5 -6 4 4 5 -8 4 6 5 -4 4 5 4 -3" stroke="#35C66D" stroke-width="1.7" fill="none"/>'+
-    '<circle cx="79" cy="15" r="2.2" fill="'+a+'"/><rect x="84" y="13" width="16" height="3.6" rx="1.8" fill="'+INK2+'"/>'+
-    '<path d="M60 44 L68 37 h52 l8 7 Z" fill="'+INK2+'"/>'+
-    '<rect x="86" y="39" width="16" height="3" rx="1.5" fill="'+INK3+'"/>',
-  plataforma:a=>sombra+
-    '<rect x="56" y="6" width="76" height="38" rx="4" fill="'+INK3+'" stroke="'+INK2+'" stroke-width="1.6"/>'+
-    '<circle cx="63" cy="11.5" r="1.6" fill="'+GRIS+'"/><circle cx="68.5" cy="11.5" r="1.6" fill="'+GRIS+'"/><circle cx="74" cy="11.5" r="1.6" fill="'+GRIS+'"/>'+
-    '<path d="M88 20 L102 27.5 L88 35 Z" fill="'+a+'"/>'+
-    '<rect x="112" y="34" width="16" height="7" rx="2" fill="#E0312F"/>'+
-    '<text x="120" y="39.5" text-anchor="middle" font-family="Helvetica" font-size="5" font-weight="bold" fill="#fff">LIVE</text>',
-  monitor:a=>sombra+
-    '<rect x="62" y="5" width="64" height="34" rx="3" fill="'+INK1+'"/>'+
-    '<rect x="66" y="9" width="56" height="26" fill="'+INK3+'"/>'+
-    ['#C8CCD0','#CFC53B','#3FBFBF','#3FA857','#B14FB1','#C0413C','#3D55B8'].map((c,i)=>'<rect x="'+(66+i*8)+'" y="9" width="8" height="19" fill="'+c+'"/>').join('')+
-    '<rect x="66" y="28" width="56" height="7" fill="'+INK3+'"/>'+
-    '<rect x="90" y="39" width="8" height="5" fill="'+INK2+'"/><rect x="78" y="44" width="32" height="3" rx="1.5" fill="'+INK2+'"/>',
-  fuente:a=>sombra+
-    '<path d="M64 12 L122 8 L123.5 17 L65.5 21 Z" fill="'+INK1+'"/>'+
-    Array.from({length:4},(_,i)=>'<path d="M'+(70+i*13)+' 11.3 l7 -0.5 4 7.5 -7 0.5 Z" fill="#fff"/>').join('')+
-    '<rect x="65" y="21" width="58" height="23" rx="2" fill="'+INK1+'"/>'+
-    '<rect x="70" y="27" width="36" height="3.4" rx="1.7" fill="'+GRIS+'"/>'+
-    '<rect x="70" y="34" width="48" height="4.4" rx="2.2" fill="'+INK3+'"/>'+
-    '<rect x="70" y="34" width="27" height="4.4" rx="2.2" fill="'+a+'"/>'+
-    '<circle cx="66.5" cy="13.5" r="1.8" fill="'+GRIS+'"/>',
+  camara:a=>
+    '<rect x="24" y="10" width="156" height="26" rx="6" fill="#0C1420" stroke="#1E2F46" stroke-width="1"/>'+
+    '<circle cx="38" cy="23" r="4" fill="'+a+'"/><circle cx="38" cy="23" r="6" stroke="'+a+'" stroke-width="1" fill="none" opacity=".5"/>'+
+    '<text x="52" y="27" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="10" font-weight="700" fill="#E2EBF6">4K ULTRA HD</text>'+
+    '<text x="134" y="27" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="9" font-weight="600" fill="#758AA6">60 FPS</text>',
+  microfono:a=>
+    '<rect x="24" y="10" width="156" height="26" rx="6" fill="#0C1420" stroke="#1E2F46" stroke-width="1"/>'+
+    '<text x="36" y="27" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="9.5" font-weight="700" fill="#758AA6">VU</text>'+
+    Array.from({length:14},(_,i)=>{
+      const c = i > 11 ? '#FF453A' : i > 8 ? '#FFD60A' : '#30D158';
+      const op = i < 9 ? '1' : '0.25';
+      return '<rect x="'+(56+i*8)+'" y="16" width="5" height="14" rx="1.5" fill="'+c+'" opacity="'+op+'"/>';
+    }).join(''),
+  receptor:a=>
+    '<rect x="24" y="10" width="156" height="26" rx="6" fill="#0C1420" stroke="#1E2F46" stroke-width="1"/>'+
+    '<text x="36" y="27" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="9" font-weight="700" fill="#758AA6">RF SYNC</text>'+
+    '<path d="M96 28 L96 18 M102 28 L102 15 M108 28 L108 12 M114 28 L114 9" stroke="'+a+'" stroke-width="2.5" stroke-linecap="round"/>'+
+    '<text x="124" y="27" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="9" font-weight="700" fill="#30D158">98%</text>',
+  switcher:a=>
+    '<rect x="24" y="10" width="156" height="26" rx="6" fill="#0C1420" stroke="#1E2F46" stroke-width="1"/>'+
+    '<text x="36" y="27" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="9" font-weight="700" fill="#758AA6">BUS</text>'+
+    '<rect x="68" y="15" width="22" height="16" rx="3" fill="#FF453A"/><text x="79" y="27" font-family="sans-serif" font-size="8.5" font-weight="800" text-anchor="middle" fill="#fff">PGM</text>'+
+    '<rect x="96" y="15" width="22" height="16" rx="3" fill="#30D158"/><text x="107" y="27" font-family="sans-serif" font-size="8.5" font-weight="800" text-anchor="middle" fill="#fff">PVW</text>'+
+    '<rect x="124" y="15" width="46" height="16" rx="3" fill="#182638"/><text x="147" y="27" font-family="sans-serif" font-size="8" font-weight="700" text-anchor="middle" fill="#8FA4BE">CUT/AUTO</text>',
+  audio:a=>
+    '<rect x="24" y="10" width="156" height="26" rx="6" fill="#0C1420" stroke="#1E2F46" stroke-width="1"/>'+
+    '<text x="34" y="22" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="8" font-weight="700" fill="#758AA6">L</text>'+
+    '<text x="34" y="31" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="8" font-weight="700" fill="#758AA6">R</text>'+
+    Array.from({length:12},(_,i)=>{
+      const c = i > 9 ? '#FF453A' : i > 7 ? '#FFD60A' : '#30D158';
+      return '<rect x="'+(48+i*8)+'" y="15" width="5" height="6" rx="1" fill="'+c+'" opacity="'+(i<8?'1':'0.2')+'"/>'+
+             '<rect x="'+(48+i*8)+'" y="24" width="5" height="6" rx="1" fill="'+c+'" opacity="'+(i<9?'1':'0.2')+'"/>';
+    }).join('')+
+    '<text x="152" y="27" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="9" font-weight="700" fill="#E2EBF6">-6dB</text>',
+  encoder:a=>
+    '<rect x="24" y="10" width="156" height="26" rx="6" fill="#0C1420" stroke="#1E2F46" stroke-width="1"/>'+
+    '<circle cx="38" cy="23" r="3.5" fill="#30D158"/><circle cx="38" cy="23" r="6" stroke="#30D158" stroke-width="1" fill="none" opacity=".5"/>'+
+    '<text x="50" y="27" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="9.5" font-weight="700" fill="#E2EBF6">6000 Kbps</text>'+
+    '<text x="126" y="27" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="8.5" font-weight="700" fill="#30D158">NVENC 1080p</text>',
+  plataforma:a=>
+    '<rect x="24" y="10" width="156" height="26" rx="6" fill="#0C1420" stroke="#1E2F46" stroke-width="1"/>'+
+    '<rect x="34" y="16" width="38" height="14" rx="3" fill="#FF453A"/><text x="53" y="27" font-family="sans-serif" font-size="8" font-weight="800" text-anchor="middle" fill="#fff">EN VIVO</text>'+
+    '<text x="82" y="27" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="9" font-weight="700" fill="#30D158">0 drop · RTMP</text>',
+  monitor:a=>
+    '<rect x="24" y="10" width="156" height="26" rx="6" fill="#0C1420" stroke="#1E2F46" stroke-width="1"/>'+
+    ['#0A84FF','#30D158','#FFD60A','#FF453A','#AF52DE','#E2EBF6'].map((c,i)=>'<rect x="'+(36+i*18)+'" y="14" width="14" height="18" rx="2" fill="'+c+'"/>').join('')+
+    '<text x="150" y="27" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="9" font-weight="700" fill="#E2EBF6">CALIB</text>',
+  fuente:a=>
+    '<rect x="24" y="10" width="156" height="26" rx="6" fill="#0C1420" stroke="#1E2F46" stroke-width="1"/>'+
+    '<polygon points="40,16 40,30 52,23" fill="'+a+'"/>'+
+    '<text x="60" y="27" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="9.5" font-weight="700" fill="#E2EBF6">MEDIA PLAYBACK</text>',
 };
-const figSvg=(type,accent,w)=>FIG[type]?'<svg viewBox="0 0 188 52"'+(w?' width="'+w+'"':'')+'>'+FIG[type](accent)+'</svg>':'';
+const figSvg=(type,accent,w)=>FIG[type]?'<svg viewBox="0 0 204 46"'+(w?' width="'+w+'"':'')+'>'+FIG[type](accent)+'</svg>':'';
 
-const C={video:'#2E7DDB',audio:'#1FA14E',stream:'#E0312F'};
-const PLAT={YouTube:'#FF0000',Facebook:'#1877F2',Instagram:'#E1306C',TikTok:'#111827',Twitch:'#9146FF',Otra:'#64748B'};
-const ZONE_COLORS=['#2E7DDB','#1FA14E','#E0a800','#9146FF','#E0312F','#64748B'];
+const C={video:'#0A84FF',audio:'#30D158',stream:'#FF453A'};
+const PLAT={YouTube:'#FF3B30',Facebook:'#1877F2',Instagram:'#E1306C',TikTok:'#111827',Twitch:'#AF52DE',Otra:'#8E8E93'};
+const ZONE_COLORS=['#0A84FF','#30D158','#FFD60A','#AF52DE','#FF453A','#8E8E93'];
 
 const TYPES={
   camara:{label:'Cámara',accent:C.video,props:{connector:'HDMI'},ports:[{id:'v',side:'out',signal:'video',label:'Video'}]},
@@ -346,7 +554,7 @@ function nodePorts(node){
   }
   return def.ports;
 }
-const NODE_W=188,HEAD_H=34,PORT_GAP=30,DOTR=7;
+const NODE_W=204,HEAD_H=38,PORT_GAP=32,DOTR=6.5;
 function sideCount(node,side){return nodePorts(node).filter(p=>p.side===side).length;}
 function bodyH(node){return PORT_GAP*Math.max(sideCount(node,'in'),sideCount(node,'out'),1);}
 function portDef(node,id){return nodePorts(node).find(p=>p.id===id);}
@@ -371,11 +579,111 @@ function ensureSharedKeys(){const p={camara:'cam:',microfono:'mic:',fuente:'src:
 function save(){ensureSharedKeys();try{localStorage.setItem(KEY,JSON.stringify(state));localStorage.setItem(VKEY,JSON.stringify(view));}catch(e){}if(window.parent!==window)window.parent.postMessage({type:'producciontv:diagram-state',state},'*');}
 function clone(o){return JSON.parse(JSON.stringify(o));}
 
-/* ---------- historial ---------- */
-function snapshot(){undoStack.push(JSON.stringify(state));if(undoStack.length>60)undoStack.shift();redoStack=[];updateUndoBtns();}
-function undo(){if(!undoStack.length)return;redoStack.push(JSON.stringify(state));state=JSON.parse(undoStack.pop());sel=null;render();save();updateUndoBtns();}
-function redo(){if(!redoStack.length)return;undoStack.push(JSON.stringify(state));state=JSON.parse(redoStack.pop());sel=null;render();save();updateUndoBtns();}
-function updateUndoBtns(){$('#btnUndo').disabled=!undoStack.length;$('#btnRedo').disabled=!redoStack.length;}
+/* ============================================================================
+   Patrón Command: Encapsulación de Operaciones y Gestor de Historial (Undo/Redo)
+   ============================================================================ */
+class DiagramCommand {
+  execute() {}
+  undo() {}
+}
+
+class SnapshotCommand extends DiagramCommand {
+  constructor(previousState, nextState) {
+    super();
+    this.previousState = previousState;
+    this.nextState = nextState;
+  }
+  execute() {
+    state = JSON.parse(this.nextState);
+    sel = null;
+    render();
+    save();
+  }
+  undo() {
+    state = JSON.parse(this.previousState);
+    sel = null;
+    render();
+    save();
+  }
+}
+
+class CommandHistory {
+  constructor(maxSize = 60) {
+    this.undoList = [];
+    this.redoList = [];
+    this.maxSize = maxSize;
+  }
+  push(cmd) {
+    this.undoList.push(cmd);
+    if (this.undoList.length > this.maxSize) this.undoList.shift();
+    this.redoList = [];
+    this.updateUI();
+  }
+  undo() {
+    if (!this.undoList.length) return;
+    const cmd = this.undoList.pop();
+    cmd.undo();
+    this.redoList.push(cmd);
+    this.updateUI();
+  }
+  redo() {
+    if (!this.redoList.length) return;
+    const cmd = this.redoList.pop();
+    cmd.execute();
+    this.undoList.push(cmd);
+    this.updateUI();
+  }
+  updateUI() {
+    $('#btnUndo').disabled = !this.undoList.length;
+    $('#btnRedo').disabled = !this.redoList.length;
+  }
+}
+
+const commandHistory = new CommandHistory(60);
+
+/* Facade de historial para compatibilidad con código existente */
+function snapshot() {
+  const serialized = JSON.stringify(state);
+  undoStack.push(serialized);
+  if (undoStack.length > 60) undoStack.shift();
+  redoStack = [];
+  updateUndoBtns();
+}
+
+function undo() {
+  if (commandHistory.undoList.length) {
+    commandHistory.undo();
+    return;
+  }
+  if (!undoStack.length) return;
+  redoStack.push(JSON.stringify(state));
+  state = JSON.parse(undoStack.pop());
+  sel = null;
+  render();
+  save();
+  updateUndoBtns();
+}
+
+function redo() {
+  if (commandHistory.redoList.length) {
+    commandHistory.redo();
+    return;
+  }
+  if (!redoStack.length) return;
+  undoStack.push(JSON.stringify(state));
+  state = JSON.parse(redoStack.pop());
+  sel = null;
+  render();
+  save();
+  updateUndoBtns();
+}
+
+function updateUndoBtns() {
+  const hasUndo = undoStack.length > 0 || commandHistory.undoList.length > 0;
+  const hasRedo = redoStack.length > 0 || commandHistory.redoList.length > 0;
+  $('#btnUndo').disabled = !hasUndo;
+  $('#btnRedo').disabled = !hasRedo;
+}
 
 /* ---------- vista (zoom/pan) ---------- */
 function applyView(){world.style.transform='translate('+view.x+'px,'+view.y+'px) scale('+view.scale+')';$('#zPct').textContent=Math.round(view.scale*100)+'%';}
@@ -396,8 +704,8 @@ function fitToScreen(reintento){
   if(!items.length){view={x:40,y:30,scale:1};applyView();return;}
   let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
   items.forEach(it=>{minx=Math.min(minx,it.x);miny=Math.min(miny,it.y);maxx=Math.max(maxx,it.x+it.w);maxy=Math.max(maxy,it.y+it.h);});
-  const pad=60, bw=maxx-minx+pad*2, bh=maxy-miny+pad*2;
-  const s=Math.max(.3,Math.min(1.4,Math.min(r.width/bw,r.height/bh)));
+  const pad=70, bw=maxx-minx+pad*2, bh=maxy-miny+pad*2;
+  const s=Math.max(.6,Math.min(1.25,Math.min(r.width/bw,r.height/bh)));
   view.scale=s; view.x=-(minx-pad)*s+(r.width-bw*s)/2; view.y=-(miny-pad)*s+(r.height-bh*s)/2;
   applyView(); save();
 }
@@ -434,7 +742,67 @@ function edgeStyle(e){
 
 /* ---------- render ---------- */
 function mkSVG(tag,attrs){const el=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const k in attrs)el.setAttribute(k,attrs[k]);return el;}
-function cablePath(a,b){const dx=Math.max(45,Math.abs(b.x-a.x)/2);return 'M '+a.x+' '+a.y+' C '+(a.x+dx)+' '+a.y+', '+(b.x-dx)+' '+b.y+', '+b.x+' '+b.y;}
+
+/* ============================================================================
+   Patrón Strategy: Estrategias de Ruteo de Cables (Cable Routing Strategies)
+   Permite alternar entre Curva Fluida Bezier y Ruteo Ortogonal / Manhattan
+   sin alterar el motor de renderizado ni los componentes de los nodos.
+   ============================================================================ */
+class CableRoutingStrategy {
+  computePath(a, b) { throw new Error('computePath no implementado'); }
+}
+
+class BezierRoutingStrategy extends CableRoutingStrategy {
+  computePath(a, b) {
+    const dx = Math.max(45, Math.abs(b.x - a.x) / 2);
+    return 'M ' + a.x + ' ' + a.y + ' C ' + (a.x + dx) + ' ' + a.y + ', ' + (b.x - dx) + ' ' + b.y + ', ' + b.x + ' ' + b.y;
+  }
+}
+
+class ManhattanRoutingStrategy extends CableRoutingStrategy {
+  computePath(a, b) {
+    const midX = a.x + (b.x - a.x) / 2;
+    const r = Math.min(14, Math.max(2, Math.min(Math.abs(b.x - a.x) / 4, Math.abs(b.y - a.y) / 4)));
+    if (Math.abs(b.x - a.x) < 12) {
+      return 'M ' + a.x + ' ' + a.y + ' L ' + b.x + ' ' + b.y;
+    }
+    const dirY = b.y >= a.y ? 1 : -1;
+    const dirX = b.x >= a.x ? 1 : -1;
+    return `M ${a.x} ${a.y} ` +
+      `L ${midX - r * dirX} ${a.y} ` +
+      `Q ${midX} ${a.y}, ${midX} ${a.y + r * dirY} ` +
+      `L ${midX} ${b.y - r * dirY} ` +
+      `Q ${midX} ${b.y}, ${midX + r * dirX} ${b.y} ` +
+      `L ${b.x} ${b.y}`;
+  }
+}
+
+class CableRoutingContext {
+  constructor(strategy = new BezierRoutingStrategy()) {
+    this._strategy = strategy;
+    this._mode = 'bezier';
+  }
+  setMode(mode) {
+    this._mode = mode;
+    this._strategy = mode === 'manhattan' ? new ManhattanRoutingStrategy() : new BezierRoutingStrategy();
+  }
+  toggleMode() {
+    this.setMode(this._mode === 'bezier' ? 'manhattan' : 'bezier');
+    return this._mode;
+  }
+  getMode() {
+    return this._mode;
+  }
+  computePath(a, b) {
+    return this._strategy.computePath(a, b);
+  }
+}
+
+const cableRouter = new CableRoutingContext(new BezierRoutingStrategy());
+
+function cablePath(a,b){
+  return cableRouter.computePath(a, b);
+}
 function escapeHtml(s){return(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 function render(){
@@ -456,13 +824,13 @@ function drawWires(){
     hit.addEventListener('pointerdown',ev=>{ev.stopPropagation();select('edge',e.id);});
     wires.appendChild(hit);
     wires.appendChild(mkSVG('path',{d,stroke:st.color,'stroke-width':sel&&sel.kind==='edge'&&sel.id===e.id?5:3,'stroke-dasharray':st.dash,'stroke-linecap':'round',fill:'none',opacity:.95}));
-    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2,w=st.label.length*6.2+12;
-    wires.appendChild(mkSVG('rect',{x:mx-w/2,y:my-9,width:w,height:18,rx:5,fill:'#fff',stroke:st.color,'stroke-width':1.5}));
-    const tx=mkSVG('text',{x:mx,y:my+4,'text-anchor':'middle','font-size':11,'font-weight':700,fill:st.color});tx.textContent=st.label;wires.appendChild(tx);
+    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2,w=st.label.length*6.8+16;
+    wires.appendChild(mkSVG('rect',{x:mx-w/2,y:my-10,width:w,height:20,rx:6,fill:'rgba(255,255,255,0.96)',stroke:st.color,'stroke-width':1.5,filter:'drop-shadow(0 2px 4px rgba(0,0,0,0.25))'}));
+    const tx=mkSVG('text',{x:mx,y:my+4,'text-anchor':'middle','font-size':10.5,'font-weight':700,'letter-spacing':0.4,fill:st.color,'font-family':'-apple-system,BlinkMacSystemFont,sans-serif'});tx.textContent=st.label;wires.appendChild(tx);
     if(sel&&sel.kind==='edge'&&sel.id===e.id){
       const del=mkSVG('g',{});del.style.cursor='pointer';del.style.pointerEvents='all';
-      del.appendChild(mkSVG('circle',{cx:mx,cy:my-20,r:9,fill:C.stream}));
-      const xt=mkSVG('text',{x:mx,y:my-16,'text-anchor':'middle','font-size':13,'font-weight':900,fill:'#fff'});xt.textContent='×';del.appendChild(xt);
+      del.appendChild(mkSVG('circle',{cx:mx,cy:my-22,r:10,fill:C.stream,filter:'drop-shadow(0 2px 5px rgba(0,0,0,0.35))'}));
+      const xt=mkSVG('text',{x:mx,y:my-18,'text-anchor':'middle','font-size':13,'font-weight':800,fill:'#fff','font-family':'-apple-system,BlinkMacSystemFont,sans-serif'});xt.textContent='✕';del.appendChild(xt);
       del.addEventListener('pointerdown',ev=>{ev.stopPropagation();removeEdge(e.id);});
       wires.appendChild(del);
     }
@@ -973,6 +1341,12 @@ document.addEventListener('keydown',e=>{
 });
 $('#btnUndo').addEventListener('click',undo);
 $('#btnRedo').addEventListener('click',redo);
+$('#btnWireStyle').addEventListener('click',()=>{
+  const mode = cableRouter.toggleMode();
+  $('#btnWireStyle').textContent = mode === 'manhattan' ? '⌶ Ortogonal' : '☊ Curvas';
+  drawWires();
+  toast(mode === 'manhattan' ? 'Ruteo ortogonal (esquemas técnicos)' : 'Ruteo curvo fluido');
+});
 $('#btnChecks').addEventListener('click',()=>{const c=$('#checks');const open=c.classList.toggle('open');$('#btnChecks').classList.toggle('on',open);if(open){$('#inspector').classList.remove('open');sel=null;}render();});
 $('#btnAuto').addEventListener('click',autoConnect);
 // El ejemplo reemplaza todo el diagrama: confirmación en dos pasos (no hay

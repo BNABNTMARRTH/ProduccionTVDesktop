@@ -16,27 +16,33 @@
 // ya tiene claro el brief, lo deja capturado desde el minuto cero. Lo mismo se
 // edita después en la etapa 1.
 
-const chip = (valor, activos) =>
-    `<button type="button" class="np-chip${activos.includes(valor) ? ' on' : ''}" data-valor="${esc(valor)}" aria-pressed="${activos.includes(valor)}">${esc(valor)}</button>`;
-
 const MODOS = [
     {
-        id: 'live', icono: '●', titulo: 'En vivo',
+        id: 'live',
+        titulo: 'En vivo',
         desc: 'Reloj continuo: bloques, señales al aire y rundown técnico.',
         ejemplo: 'Noticiero, entrevista, podcast, evento.',
+        icono: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3.2"/>
+            <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+        </svg>`,
     },
     {
-        id: 'narrative', icono: '◆', titulo: 'Narrativo',
+        id: 'narrative',
+        titulo: 'Narrativo',
         desc: 'Por escenas y planos; se graba fuera de orden y se monta después.',
         ejemplo: 'Ficción, videoclip, documental, publicidad.',
+        icono: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4.5" width="18" height="15" rx="3"/>
+            <path d="M3 9h18M8 4.5l2 4.5M14 4.5l2 4.5"/>
+        </svg>`,
     },
 ];
 
 import { INTENCIONES, MEDIOS, perfilVacio } from './templates.js';
 import { cfgDePlantilla } from './plantillas.js';
-// Escapa lo que el usuario escribe antes de volver a inyectarlo en el HTML.
-// Es la MISMA de constants.js: había dos copias idénticas del mismo escape.
 import { esc } from './constants.js';
+import { UIComponentFactory } from './ui_component_factory.js';
 
 export function createNuevoProyecto({ onCreate }) {
     let abierto = false;
@@ -47,10 +53,6 @@ export function createNuevoProyecto({ onCreate }) {
     // plantilla ya no hay nada que decidir sobre el modo (todas son en vivo):
     // la caja solo pregunta el nombre.
     let plantilla = null;
-    // El NOMBRE ESCRITO se guarda aparte. La caja se vuelve a dibujar entera
-    // al cambiar de modo, al desplegar el perfil y al encender un chip; antes
-    // cada manejador se acordaba por su cuenta de rescatarlo, y el del perfil
-    // NO lo hacía: quien escribía el nombre y luego abría el brief lo perdía.
     let nombreEscrito = '';
     const capa = document.createElement('div');
     capa.className = 'np-overlay';
@@ -58,84 +60,115 @@ export function createNuevoProyecto({ onCreate }) {
     document.body.appendChild(capa);
 
     const pinta = () => {
+        const titleText = plantilla ? 'Proyecto desde plantilla' : 'Nuevo proyecto';
+        const subtitleText = plantilla
+            ? `Se arma un set de ${esc(plantilla.nombre)} ya puesto: ${esc(plantilla.resumen.toLowerCase())}. Todo se puede mover y cambiar dentro.`
+            : 'Solo esto para empezar. Lo demás lo armas dentro y puedes cambiarlo cuando quieras.';
+
+        const prevScrollTop = capa.querySelector('.np-body')?.scrollTop ?? 0;
+
+        const headerHtml = UIComponentFactory.createSheetHeader({
+            title: titleText,
+            subtitle: subtitleText,
+        });
+
+        const modeCardsHtml = plantilla ? '' : `
+            <label class="np-label">¿Cómo se produce?</label>
+            <div class="np-modos" role="radiogroup" aria-label="Modalidad de producción">
+              ${MODOS.map((m) => UIComponentFactory.createModeCard({
+                  modeId: m.id,
+                  isSelected: m.id === modo,
+                  title: m.titulo,
+                  desc: m.desc,
+                  example: m.ejemplo,
+                  iconSvg: m.icono,
+              })).join('')}
+            </div>`;
+
+        const disclosureHtml = UIComponentFactory.createDisclosureButton({
+            isExpanded: verPerfil,
+            title: 'El perfil del proyecto',
+            hint: '· opcional, se puede llenar después',
+        });
+
+        const intencionesChipsHtml = UIComponentFactory.createChipGroup({
+            groupName: 'intencion',
+            items: INTENCIONES,
+            selectedValues: perfil.intencion || [],
+        });
+
+        const mediosChipsHtml = UIComponentFactory.createChipGroup({
+            groupName: 'medios',
+            items: MEDIOS,
+            selectedValues: perfil.medios || [],
+        });
+
+        const footerHtml = UIComponentFactory.createSheetFooter({
+            cancelLabel: 'Cancelar',
+            confirmLabel: plantilla ? 'Crear con esta plantilla' : 'Crear y empezar',
+            shortcutHint: '⌘↵',
+        });
+
         capa.innerHTML = `
           <div class="np-card" role="dialog" aria-modal="true" aria-labelledby="np-titulo">
-            <button class="np-cerrar" aria-label="Cerrar">✕</button>
-            <h1 id="np-titulo">${plantilla ? 'Proyecto desde plantilla' : 'Nuevo proyecto'}</h1>
-            <p class="np-hint">${plantilla
-                ? `Se arma un set de <b>${esc(plantilla.nombre)}</b> ya puesto: ${esc(plantilla.resumen.toLowerCase())}. Todo se puede mover y cambiar dentro.`
-                : 'Solo esto para empezar. Lo demás lo armas dentro y puedes cambiarlo cuando quieras.'}</p>
-            <label class="np-label" for="np-nombre">¿Cómo se llama?</label>
-            <input id="np-nombre" class="np-input" type="text" placeholder="${plantilla ? esc(plantilla.nombre) : 'Noticiero de la FCC'}" autocomplete="off">
-            ${plantilla ? '' : `
-            <label class="np-label">¿Cómo se produce?</label>
-            <div class="np-modos">
-              ${MODOS.map((m) => `
-                <button class="np-modo ${m.id === modo ? 'selected' : ''}" data-modo="${m.id}" aria-pressed="${m.id === modo}">
-                  <span class="np-modo-ico">${m.icono}</span>
-                  <strong>${m.titulo}</strong>
-                  <small>${m.desc}</small>
-                  <em>${m.ejemplo}</em>
-                </button>`).join('')}
-            </div>`}
-            <button class="np-mas" aria-expanded="${verPerfil}">
-              <span class="np-mas-ico">${verPerfil ? '▾' : '▸'}</span>
-              El perfil del proyecto <em>· opcional, se puede llenar después</em>
-            </button>
-            ${verPerfil ? `
-            <div class="np-extra">
-              <label class="np-label" for="np-mensaje">Mensaje — la idea en una frase</label>
-              <input id="np-mensaje" class="np-input" type="text" data-campo="mensaje"
-                placeholder="Si tu proyecto solo pudiera decir una cosa, ¿cuál sería?" value="${esc(perfil.mensaje)}">
-              <label class="np-label">Intención — qué quieres que pase en quien lo vea</label>
-              <div class="np-chips" data-lista="intencion">
-                ${INTENCIONES.map((o) => chip(o, perfil.intencion)).join('')}
-              </div>
-              <div class="np-dos">
-                <div>
-                  <label class="np-label" for="np-receptor">Receptor — a quién le hablas</label>
-                  <input id="np-receptor" class="np-input" type="text" data-campo="receptor"
-                    placeholder="Estudiantes de la facultad" value="${esc(perfil.receptor)}">
+            ${headerHtml}
+            <div class="np-body">
+              <label class="np-label" for="np-nombre">¿Cómo se llama?</label>
+              <input id="np-nombre" class="np-input" type="text" placeholder="${plantilla ? esc(plantilla.nombre) : 'Noticiero de la FCC'}" autocomplete="off">
+              ${modeCardsHtml}
+              ${disclosureHtml}
+              ${verPerfil ? `
+              <div class="np-extra">
+                <label class="np-label" for="np-mensaje">Mensaje — la idea en una frase</label>
+                <input id="np-mensaje" class="np-input" type="text" data-campo="mensaje"
+                  placeholder="Si tu proyecto solo pudiera decir una cosa, ¿cuál sería?" value="${esc(perfil.mensaje)}">
+                <label class="np-label">Intención — qué quieres que pase en quien lo vea</label>
+                ${intencionesChipsHtml}
+                <div class="np-dos">
+                  <div>
+                    <label class="np-label" for="np-receptor">Receptor — a quién le hablas</label>
+                    <input id="np-receptor" class="np-input" type="text" data-campo="receptor"
+                      placeholder="Estudiantes de la facultad" value="${esc(perfil.receptor)}">
+                  </div>
+                  <div>
+                    <label class="np-label" for="np-edad">Edad</label>
+                    <input id="np-edad" class="np-input" type="text" data-campo="edad"
+                      placeholder="18 a 25 años" value="${esc(perfil.edad)}">
+                  </div>
                 </div>
-                <div>
-                  <label class="np-label" for="np-edad">Edad</label>
-                  <input id="np-edad" class="np-input" type="text" data-campo="edad"
-                    placeholder="18 a 25 años" value="${esc(perfil.edad)}">
+                <label class="np-label">Medios que usa tu receptor</label>
+                ${mediosChipsHtml}
+                <div class="np-dos">
+                  <div>
+                    <label class="np-label" for="np-emisor">Emisor — quién produce</label>
+                    <input id="np-emisor" class="np-input" type="text" data-campo="emisor"
+                      placeholder="FCC-UASLP" value="${esc(perfil.emisor)}">
+                  </div>
+                  <div>
+                    <label class="np-label" for="np-presupuesto">Presupuesto (MXN)</label>
+                    <input id="np-presupuesto" class="np-input" type="text" inputmode="numeric" data-campo="presupuesto"
+                      placeholder="0" value="${esc(perfil.presupuesto)}">
+                  </div>
                 </div>
-              </div>
-              <label class="np-label">Medios que usa tu receptor</label>
-              <div class="np-chips" data-lista="medios">
-                ${MEDIOS.map((o) => chip(o, perfil.medios)).join('')}
-              </div>
-              <div class="np-dos">
-                <div>
-                  <label class="np-label" for="np-emisor">Emisor — quién produce</label>
-                  <input id="np-emisor" class="np-input" type="text" data-campo="emisor"
-                    placeholder="FCC-UASLP" value="${esc(perfil.emisor)}">
-                </div>
-                <div>
-                  <label class="np-label" for="np-presupuesto">Presupuesto (MXN)</label>
-                  <input id="np-presupuesto" class="np-input" type="text" inputmode="numeric" data-campo="presupuesto"
-                    placeholder="0" value="${esc(perfil.presupuesto)}">
-                </div>
-              </div>
-            </div>` : ''}
-            <button class="np-crear">${plantilla ? 'Crear con esta plantilla' : 'Crear y empezar'}</button>
+              </div>` : ''}
+            </div>
+            ${footerHtml}
           </div>`;
 
+        const bodyEl = capa.querySelector('.np-body');
+        if (bodyEl && prevScrollTop) {
+            bodyEl.scrollTop = prevScrollTop;
+        }
+
         const nombre = capa.querySelector('#np-nombre');
-        nombre.value = nombreEscrito;
-        capa.querySelector('.np-cerrar').onclick = cerrar;
-        /* ELEGIR EL MODO NO REDIBUJA LA CAJA. Antes sí: se volvía a pintar el
-           HTML entero y, como eso se lleva por delante el cursor, había que
-           devolvérselo al campo del nombre a mano. En un iPad eso era una
-           lata — devolver el foco DENTRO del gesto del dedo es justo lo que
-           hace subir el teclado, así que tocar "En vivo" o "Narrativo" abría
-           el teclado encima del diálogo sin que nadie lo pidiera.
-           El modo solo cambia qué botón va marcado, así que se marca y ya: sin
-           redibujar no se pierde el cursor y no hay que ir a buscarlo.
-           El preventDefault del mousedown es para que el botón tampoco le robe
-           el foco al nombre: en el Mac sigues escribiendo donde ibas. */
+        if (nombre) {
+            nombre.value = nombreEscrito;
+            nombre.onkeydown = (e) => {
+                if (e.key === 'Enter') crear();
+                if (e.key === 'Escape') cerrar();
+            };
+        }
+
         capa.querySelectorAll('[data-modo]').forEach((b) => {
             b.onmousedown = (e) => e.preventDefault();
             b.onclick = () => {
@@ -143,23 +176,41 @@ export function createNuevoProyecto({ onCreate }) {
                 capa.querySelectorAll('[data-modo]').forEach((otro) => {
                     const puesto = otro.dataset.modo === modo;
                     otro.classList.toggle('selected', puesto);
-                    otro.setAttribute('aria-pressed', puesto ? 'true' : 'false');
+                    otro.setAttribute('aria-checked', puesto ? 'true' : 'false');
                 });
             };
         });
-        capa.querySelector('.np-mas').onclick = () => { leerCampos(); verPerfil = !verPerfil; pinta(); };
-        capa.querySelectorAll('.np-chip').forEach((b) => b.onclick = () => {
+
+        capa.querySelector('.np-mas')?.addEventListener('click', () => {
             leerCampos();
-            const lista = b.closest('[data-lista]').dataset.lista;
-            const valor = b.dataset.valor;
-            perfil[lista] = perfil[lista].includes(valor)
-                ? perfil[lista].filter((v) => v !== valor)
-                : [...perfil[lista], valor];
+            verPerfil = !verPerfil;
             pinta();
         });
-        capa.querySelector('.np-crear').onclick = crear;
-        nombre.onkeydown = (e) => { if (e.key === 'Enter') crear(); };
-        setTimeout(() => nombre.focus(), 20);
+
+        capa.querySelectorAll('.np-chip').forEach((b) => {
+            b.onclick = (e) => {
+                e.preventDefault();
+                const lista = b.dataset.lista || b.closest('[data-lista]')?.dataset.lista;
+                if (!lista || !Array.isArray(perfil[lista])) return;
+                const valor = b.dataset.valor;
+                const idx = perfil[lista].indexOf(valor);
+                const isActive = idx === -1;
+                if (isActive) {
+                    perfil[lista].push(valor);
+                } else {
+                    perfil[lista].splice(idx, 1);
+                }
+                b.classList.toggle('on', isActive);
+                b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                b.blur();
+            };
+        });
+
+        capa.querySelector('.np-cancel-btn')?.addEventListener('click', cerrar);
+        capa.querySelector('.np-crear')?.addEventListener('click', crear);
+        if (!verPerfil) {
+            setTimeout(() => nombre?.focus(), 20);
+        }
     };
 
     // Guarda lo escrito antes de volver a dibujar la caja (se redibuja al

@@ -3,51 +3,74 @@ package main
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"slices"
-	"sort"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// App struct
+// App actúa como el patrón FACADE (Fachada) unificado para el frontend en Wails v2.
+// Expone un único punto de entrada limpio mientras delega las responsabilidades
+// a subsistemas modulares (WindowManager, ProjectStore, TrashStore, AssetStore, SettingsStore).
 type App struct {
 	ctx          context.Context
 	projectID    string
 	projectJSON  string
 	openFileJSON string // contenido de un .ptv abierto con doble clic antes de que el frontend arranque
 	toolView     string // módulo desanclado que vive solo en esta ventana ("" = ventana de proyecto completa)
-	watchStop    chan struct{}
+
+	windowMgr     *WindowManager
+	projectStore  *ProjectStore
+	trashStore    *TrashStore
+	assetStore    *AssetStore
+	settingsStore *SettingsStore
 }
 
 // NewApp creates a new App application struct
 func NewApp(projectID string, projectJSON string, openFileJSON string, toolView string) *App {
-	return &App{projectID: projectID, projectJSON: projectJSON, openFileJSON: openFileJSON, toolView: toolView}
+	return &App{
+		projectID:     projectID,
+		projectJSON:   projectJSON,
+		openFileJSON:  openFileJSON,
+		toolView:      toolView,
+		windowMgr:     defaultWindowManager,
+		projectStore:  defaultProjectStore,
+		trashStore:    defaultTrashStore,
+		assetStore:    defaultAssetStore,
+		settingsStore: defaultSettingsStore,
+	}
 }
 
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods
+// startup se ejecuta al arrancar la ventana y registra el proceso en el WindowManager.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.registerWindow()
+
+	// Garantía de seguridad: si OnDomReady tarda más de 600ms por cualquier motivo,
+	// asegurar que la ventana sea visible.
+	go func() {
+		time.Sleep(600 * time.Millisecond)
+		if a.ctx != nil {
+			runtime.WindowShow(a.ctx)
+		}
+	}()
 }
 
-// shutdown corre al cerrarse la ventana: suelta la marca de "proyecto abierto"
-// para que la próxima vez que se pique la tarjeta se abra una ventana nueva.
+// domReady se ejecuta cuando el frontend terminó de cargar el DOM y los estilos.
+// Muestra la ventana una vez que la interfaz está lista para prevenir el flash blanco inicial.
+func (a *App) domReady(ctx context.Context) {
+	runtime.WindowShow(ctx)
+}
+
+// shutdown se ejecuta al cerrar la ventana y libera la marca en el WindowManager.
 func (a *App) shutdown(ctx context.Context) {
 	a.StopWatch()
 	a.releaseWindow()
 }
 
-// handleFileOpen recibe la ruta de un proyecto .ptv abierto desde Finder
-// (asociación de archivos de macOS). Si el frontend ya corre se le avisa por
-// evento; si todavía no, el contenido queda pendiente en GetLaunchContext.
+// handleFileOpen recibe la ruta de un proyecto .ptv abierto desde Finder (asociación de archivos de macOS).
 func (a *App) handleFileOpen(path string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -60,9 +83,7 @@ func (a *App) handleFileOpen(path string) {
 	a.openFileJSON = string(data)
 }
 
-// GetLaunchContext lets the frontend distinguish the project launcher from a
-// project workspace opened in a separate application window. openedFile trae
-// el contenido de un .ptv abierto con doble clic (se entrega una sola vez).
+// GetLaunchContext permite al frontend distinguir entre el lanzador de proyectos y una ventana de proyecto.
 func (a *App) GetLaunchContext() map[string]string {
 	mode := "launcher"
 	if a.projectID != "" {
@@ -73,207 +94,41 @@ func (a *App) GetLaunchContext() map[string]string {
 	if a.toolView != "" {
 		mode = "tool"
 	}
-	return map[string]string{"mode": mode, "projectID": a.projectID, "projectJSON": a.projectJSON, "openedFile": opened, "tool": a.toolView}
+	return map[string]string{
+		"mode":        mode,
+		"projectID":   a.projectID,
+		"projectJSON": a.projectJSON,
+		"openedFile":  opened,
+		"tool":        a.toolView,
+	}
 }
 
-/* ------------- Una sola ventana por proyecto (registro de PIDs) -------------
-Cada ventana es un PROCESO aparte: Wails v2 tiene una ventana nativa por
-proceso, y así cada proyecto vive de verdad en su propia ventana de macOS.
-El costo es que los procesos no se conocen entre sí, y por eso picarle otra
-vez a la tarjeta abría una COPIA del proyecto que ya estaba abierto.
+/* ---------------- Delegación a WindowManager ---------------- */
 
-La solución es un buzón compartido: al arrancar, cada ventana de proyecto deja
-su PID en un archivito con el nombre del proyecto. Antes de abrir, el lanzador
-lo lee: si ese proceso sigue vivo lo trae al frente; si ya no existe, la marca
-está vieja, se tira y se abre una ventana nueva. Vive en la carpeta de caché
-del sistema porque es estado de ejecución, no trabajo del usuario: si se borra
-no se pierde nada, y lo peor que pasa es abrir una ventana de más. */
-
-// windowsDir devuelve (creándola si hace falta) la carpeta del registro.
-func windowsDir() (string, error) {
-	base, err := os.UserCacheDir()
-	if err != nil {
-		base = os.TempDir()
-	}
-	dir := filepath.Join(base, "ProduccionTV", "ventanas")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", err
-	}
-	return dir, nil
-}
-
-/* claveVentana identifica lo que ESTA ventana tiene abierto: Inicio, un
-proyecto entero, o un módulo suelto de ese proyecto. Los ids de proyecto los
-genera uid() y siempre empiezan por "project-", así que "__" separa sin
-ambigüedad y el "_" del principio queda reservado para Inicio.
-
-La de Inicio se anota desde el 30-ago, cuando Inicio pasó a CONVERTIRSE en el
-proyecto (ver ClaimProject): ya no queda un lanzador padre al que volver, así
-que para regresar a Inicio hay que saber si existe una ventana de Inicio viva
-o hay que abrir una. */
-const claveInicio = "_inicio"
-
-func claveVentana(projectID, toolView string) string {
-	id := sanitizeProjectID(projectID)
-	if id == "" {
-		return claveInicio
-	}
-	if toolView == "" {
-		return id
-	}
-	return id + "__" + sanitizeProjectID(toolView)
-}
-
-// windowMarkPath es la ruta de la marca de una ventana ("" si la clave no sirve).
-func windowMarkPath(clave string) string {
-	id := sanitizeProjectID(clave)
-	if id == "" {
-		return ""
-	}
-	dir, err := windowsDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(dir, id+".pid")
-}
-
-// registerWindow anota que ESTA ventana tiene abierto su proyecto.
 func (a *App) registerWindow() {
-	path := windowMarkPath(claveVentana(a.projectID, a.toolView))
-	if path == "" {
-		return
-	}
-	_ = os.WriteFile(path, []byte(strconv.Itoa(os.Getpid())), 0o644)
+	a.windowMgr.RegisterWindow(a.projectID, a.toolView)
 }
 
-// releaseWindow borra la marca al cerrarse. Solo borra la SUYA: si otra
-// ventana ya reclamó el proyecto, la marca es de esa y no se toca.
 func (a *App) releaseWindow() {
-	path := windowMarkPath(claveVentana(a.projectID, a.toolView))
-	if path == "" {
-		return
-	}
-	if data, err := os.ReadFile(path); err == nil {
-		if pid, err := strconv.Atoi(strings.TrimSpace(string(data))); err == nil && pid != os.Getpid() {
-			return
-		}
-	}
-	_ = os.Remove(path)
+	a.windowMgr.ReleaseWindow(a.projectID, a.toolView)
 }
 
-// FocusProjectWindow trae al frente la ventana que ya tiene abierto el
-// proyecto y devuelve true. Devuelve false si no hay ninguna — y de paso
-// limpia la marca si el proceso anotado ya se cerró.
 func (a *App) FocusProjectWindow(projectID string) bool {
-	return a.focusWindow(claveVentana(projectID, ""))
+	return a.windowMgr.FocusProjectWindow(projectID)
 }
 
-// FocusToolWindow trae al frente la ventana suelta de un módulo, si existe.
 func (a *App) FocusToolWindow(projectID string, toolView string) bool {
-	return a.focusWindow(claveVentana(projectID, toolView))
+	return a.windowMgr.FocusToolWindow(projectID, toolView)
 }
-
-/* Indirección para poder PROBAR la decisión de arriba sin AppKit: las pruebas
-   sustituyen estas dos y simulan una ventana viva que no se deja enfocar. */
-var (
-	procesoVivo   = processAlive
-	traerAlFrente = activateProcess
-)
 
 func (a *App) focusWindow(clave string) bool {
-	path := windowMarkPath(clave)
-	if path == "" {
-		return false
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return false
-	}
-	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil || pid <= 0 {
-		_ = os.Remove(path)
-		return false
-	}
-	// La propia ventana no se "trae al frente" a sí misma desde el lanzador.
-	if pid == os.Getpid() {
-		return false
-	}
-	/* ¿SIGUE VIVA? Esa es la única pregunta que decide si hay que abrir otra
-	   ventana — y NO es la misma que "¿pude traerla al frente?".
-
-	   Hasta 2026-08-28 se usaban como si fueran lo mismo: si activateProcess
-	   devolvía false se borraba la marca y se abría una ventana NUEVA. Pero
-	   desde macOS 14 la activación es cooperativa y falla con la ventana
-	   perfectamente viva (lo dice el propio activate_darwin.go). El resultado
-	   era una SEGUNDA ventana del mismo módulo o del mismo proyecto: las dos
-	   escribiendo el mismo .ptv y pisándose el trabajo entre ellas. Es lo que
-	   hacía que arrastrar pestañas a ventanas "se rompiera a los pocos usos".
-
-	   Ahora la marca solo se tira cuando el proceso de verdad ya no está. Si
-	   está vivo pero no se deja enfocar, la ventana EXISTE: no se duplica. */
-	if !procesoVivo(pid) {
-		_ = os.Remove(path)
-		return false
-	}
-	traerAlFrente(pid)
-	return true
+	return a.windowMgr.FocusWindow(clave)
 }
 
-// ListOpenProjects devuelve los ids de los proyectos que ya tienen una
-// ventana abierta, para que el lanzador los marque en su tarjeta. De paso
-// barre las marcas viejas que dejó una ventana que se cerró de golpe.
 func (a *App) ListOpenProjects() []string {
-	out := []string{}
-	dir, err := windowsDir()
-	if err != nil {
-		return out
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return out
-	}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".pid") {
-			continue
-		}
-		path := filepath.Join(dir, e.Name())
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
-		if err != nil || pid <= 0 || !procesoVivo(pid) {
-			_ = os.Remove(path)
-			continue
-		}
-		// Un módulo suelto (proyecto__modulo) cuenta como que el proyecto
-		// está abierto: para el lanzador, la tarjeta se marca igual.
-		clave := strings.TrimSuffix(e.Name(), ".pid")
-		// Las claves reservadas (Inicio) no son proyectos.
-		if strings.HasPrefix(clave, "_") {
-			continue
-		}
-		if corte := strings.Index(clave, "__"); corte >= 0 {
-			clave = clave[:corte]
-		}
-		if !slices.Contains(out, clave) {
-			out = append(out, clave)
-		}
-	}
-	sort.Strings(out)
-	return out
+	return a.windowMgr.ListOpenProjects()
 }
 
-/* ClaimProject: ESTA ventana deja de ser Inicio y pasa a ser la del proyecto.
-Es lo que hace que Inicio "se transforme" en el proyecto, como la pantalla de
-inicio de Word, en vez de abrir otra ventana detrás. La ganancia no es solo
-estética: al no nacer una ventana nueva, no hay que salir de pantalla completa
-—macOS le da a cada ventana a pantalla completa un escritorio propio, y la
-nueva nacía en otro, donde no se veía—.
-
-Devuelve false si ese proyecto YA está abierto en otra ventana; entonces esa se
-trae al frente y aquí no pasa nada, que es lo correcto: dos ventanas sobre el
-mismo .ptv se pisan el trabajo. */
 func (a *App) ClaimProject(projectID string, projectJSON string) bool {
 	id := sanitizeProjectID(projectID)
 	if id == "" {
@@ -282,211 +137,36 @@ func (a *App) ClaimProject(projectID string, projectJSON string) bool {
 	if a.FocusProjectWindow(id) {
 		return false
 	}
-	a.releaseWindow() // esta ventana deja de ser la de Inicio…
+	a.releaseWindow()
 	a.projectID = id
 	a.projectJSON = projectJSON
 	a.toolView = ""
-	a.registerWindow() // …y pasa a ser la del proyecto
+	a.registerWindow()
 	return true
 }
 
-/* ListOpenTools dice qué módulos de un proyecto están abiertos en su propia
-ventana. La ventana del proyecto lo pregunta para SACARLOS de su recorrido: un
-módulo que ya vive en otra ventana no puede seguir estando también aquí, o
-vuelven a existir dos copias vivas del mismo documento peleándose — que es el
-fallo que se arregló el 29-ago con las pestañas y volvía por la puerta de las
-ventanas. */
 func (a *App) ListOpenTools(projectID string) []string {
-	out := []string{}
-	id := sanitizeProjectID(projectID)
-	if id == "" {
-		return out
-	}
-	dir, err := windowsDir()
-	if err != nil {
-		return out
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return out
-	}
-	prefijo := id + "__"
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".pid") {
-			continue
-		}
-		clave := strings.TrimSuffix(e.Name(), ".pid")
-		if !strings.HasPrefix(clave, prefijo) {
-			continue
-		}
-		path := filepath.Join(dir, e.Name())
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
-		if err != nil || pid <= 0 || !procesoVivo(pid) {
-			_ = os.Remove(path)
-			continue
-		}
-		if vista := strings.TrimPrefix(clave, prefijo); vista != "" && !slices.Contains(out, vista) {
-			out = append(out, vista)
-		}
-	}
-	sort.Strings(out)
-	return out
+	return a.windowMgr.ListOpenTools(projectID)
 }
 
-// OpenProjectWindow abre el proyecto en su propia ventana. Si YA está abierto
-// en otra ventana no abre una copia: trae esa al frente. Devuelve true cuando
-// abrió una ventana nueva y false cuando reutilizó la que ya estaba, para que
-// la interfaz pueda decir cuál de las dos cosas pasó.
 func (a *App) OpenProjectWindow(projectID string, projectJSON string) (bool, error) {
-	if strings.TrimSpace(projectID) == "" {
-		return false, nil
-	}
-	if a.FocusProjectWindow(projectID) {
-		return false, nil
-	}
-	projectFile, err := os.CreateTemp("", "producciontv-project-*.json")
-	if err != nil {
-		return false, err
-	}
-	projectPath := projectFile.Name()
-	if _, err := projectFile.WriteString(projectJSON); err != nil {
-		_ = projectFile.Close()
-		_ = os.Remove(projectPath)
-		return false, err
-	}
-	if err := projectFile.Close(); err != nil {
-		_ = os.Remove(projectPath)
-		return false, err
-	}
-	executable, err := os.Executable()
-	if err != nil {
-		_ = os.Remove(projectPath)
-		return false, err
-	}
-	cmd := exec.Command(executable, "--project="+projectID, "--project-file="+projectPath)
-	cmd.Env = os.Environ()
-	if err := cmd.Start(); err != nil {
-		_ = os.Remove(projectPath)
-		return false, err
-	}
-	go func() { _ = cmd.Wait() }()
-	return true, nil
+	return a.windowMgr.OpenProjectWindow(projectID, projectJSON)
 }
 
-// OpenToolWindow despega un módulo del proyecto y lo abre en su propia ventana
-// de macOS (la pestaña que arrastraste fuera de la barra). Es el mismo truco
-// que OpenProjectWindow —un proceso nuevo— pero arrancado en modo módulo, así
-// que esa ventana muestra SOLO esa herramienta. Si ese módulo ya tenía ventana,
-// se trae al frente en lugar de abrir otra.
 func (a *App) OpenToolWindow(projectID string, toolView string, projectJSON string) (bool, error) {
-	if strings.TrimSpace(projectID) == "" || strings.TrimSpace(toolView) == "" {
-		return false, nil
-	}
-	if a.FocusToolWindow(projectID, toolView) {
-		return false, nil
-	}
-	projectFile, err := os.CreateTemp("", "producciontv-project-*.json")
-	if err != nil {
-		return false, err
-	}
-	projectPath := projectFile.Name()
-	if _, err := projectFile.WriteString(projectJSON); err != nil {
-		_ = projectFile.Close()
-		_ = os.Remove(projectPath)
-		return false, err
-	}
-	if err := projectFile.Close(); err != nil {
-		_ = os.Remove(projectPath)
-		return false, err
-	}
-	executable, err := os.Executable()
-	if err != nil {
-		_ = os.Remove(projectPath)
-		return false, err
-	}
-	cmd := exec.Command(executable, "--project="+projectID, "--project-file="+projectPath, "--tool="+toolView)
-	cmd.Env = os.Environ()
-	if err := cmd.Start(); err != nil {
-		_ = os.Remove(projectPath)
-		return false, err
-	}
-	go func() { _ = cmd.Wait() }()
-	return true, nil
+	return a.windowMgr.OpenToolWindow(projectID, toolView, projectJSON)
 }
 
-// CloseWindow cierra ESTA ventana. La usa el botón "volver a la pestaña" de
-// una ventana de módulo suelto: guarda, trae al frente la del proyecto y se va.
 func (a *App) CloseWindow() {
 	if a.ctx != nil {
 		runtime.Quit(a.ctx)
 	}
 }
 
-/* ---------------- Aviso de cambios entre ventanas ----------------
-Con un módulo desanclado en su propia ventana hay DOS ventanas escribiendo el
-mismo proyecto. La fuente de verdad es el .ptv del disco y gana el último
-guardado; lo que faltaba era que la otra ventana se enterara sin tener que
-hacerle clic. Esto vigila el archivo y avisa al frontend en cuanto cambia.
-Es un vistazo a la fecha del archivo cada segundo: no lee ni parsea nada
-mientras no haya cambiado. */
-
-// WatchProject empieza a vigilar el .ptv del proyecto de esta ventana.
-func (a *App) WatchProject(projectID string) {
-	a.StopWatch()
-	id := sanitizeProjectID(projectID)
-	if id == "" || a.ctx == nil {
-		return
-	}
-	dir, err := projectsDir()
-	if err != nil {
-		return
-	}
-	path := filepath.Join(dir, id+".ptv")
-	parar := make(chan struct{})
-	a.watchStop = parar
-	go func() {
-		ultima := time.Time{}
-		if info, err := os.Stat(path); err == nil {
-			ultima = info.ModTime()
-		}
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-parar:
-				return
-			case <-ticker.C:
-				info, err := os.Stat(path)
-				if err != nil || !info.ModTime().After(ultima) {
-					continue
-				}
-				ultima = info.ModTime()
-				data, err := os.ReadFile(path)
-				if err != nil {
-					continue
-				}
-				runtime.EventsEmit(a.ctx, "producciontv:proyecto-en-disco", string(data))
-			}
-		}
-	}()
+func (a *App) FocusLauncher() error {
+	return a.windowMgr.FocusLauncher()
 }
 
-// StopWatch apaga el vigilante (al cerrar la ventana o cambiar de proyecto).
-func (a *App) StopWatch() {
-	if a.watchStop != nil {
-		close(a.watchStop)
-		a.watchStop = nil
-	}
-}
-
-// SetWindowTitle pone el nombre del proyecto en la barra de la ventana. Con
-// varias ventanas abiertas, el título es lo ÚNICO que las distingue en
-// Mission Control y en el menú Ventana, así que lo manda el frontend, que es
-// quien sabe de verdad qué proyecto terminó cargando.
 func (a *App) SetWindowTitle(title string) {
 	title = strings.TrimSpace(title)
 	if title == "" || a.ctx == nil {
@@ -495,552 +175,94 @@ func (a *App) SetWindowTitle(title string) {
 	runtime.WindowSetTitle(a.ctx, title)
 }
 
-// Print opens the native print panel. On macOS, the PDF menu in that panel
-// lets the user save the current tool directly as a PDF file.
 func (a *App) Print() {
-	runtime.WindowPrint(a.ctx)
+	if a.ctx != nil {
+		runtime.WindowPrint(a.ctx)
+	}
 }
 
-/* FocusLauncher trae al frente una ventana de Inicio, y si no hay ninguna abre
-una nueva. Es lo que hace el botón del nombre del proyecto.
+/* ---------------- Delegación a ProjectStore ---------------- */
 
-Antes activaba el PROCESO PADRE, dando por hecho que el lanzador seguía vivo
-detrás. Desde que Inicio se convierte en el proyecto (ClaimProject) eso dejó de
-ser cierto: no queda ningún lanzador detrás, y el padre pasa a ser launchd —que
-existe siempre, así que se "activaba" y no pasaba nada—. Ahora se pregunta por
-el registro de ventanas, igual que para los proyectos.
-
-Word hace justo esto: la pantalla de inicio se convierte en tu documento, y si
-después quieres volver a inicio te da una ventana nueva en ese estado. */
-func (a *App) FocusLauncher() error {
-	if a.focusWindow(claveInicio) {
-		return nil
-	}
-	executable, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	cmd := exec.Command(executable)
-	cmd.Env = os.Environ()
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	go func() { _ = cmd.Wait() }()
-	return nil
+func (a *App) WatchProject(projectID string) {
+	a.projectStore.WatchProject(a.ctx, projectID)
 }
 
-/* --------------------------- Ajustes de la app ---------------------------
-Tamaño de la interfaz, contraste, movimiento y tema. Viven en un ARCHIVO y no
-en el localStorage del WebView, y la razón es la de siempre en esta app: CADA
-VENTANA ES UN PROCESO. Lo que una guarda en su almacenamiento, las otras no lo
-ven — y peor, la siguiente que guarde escribe encima con lo suyo, que está
-viejo. Era justo lo que pasaba: cambiabas el tamaño en Inicio, la ventana del
-proyecto seguía como estaba, y en cuanto tocabas cualquier ajuste ahí, el
-tamaño nuevo se perdía.
-
-El disco es la única verdad que comparten, igual que con los proyectos. Va en
-Application Support y no en la caché: la caché se puede vaciar sola, y perder
-el tamaño de letra que alguien necesita para poder leer no es un detalle. */
-
-// ajustesPath es la ruta del archivo de ajustes (creando su carpeta).
-func ajustesPath() (string, error) {
-	base, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-	dir := filepath.Join(base, "ProduccionTV")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "ajustes.json"), nil
+func (a *App) StopWatch() {
+	a.projectStore.StopWatch()
 }
 
-// LoadSettings devuelve los ajustes guardados ("" si todavía no hay).
-func (a *App) LoadSettings() (string, error) {
-	path, err := ajustesPath()
-	if err != nil {
-		return "", err
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", nil
-	}
-	return string(data), nil
-}
-
-// SaveSettings los escribe (primero a .tmp y luego rename, para que otra
-// ventana nunca lea un archivo a medio escribir).
-func (a *App) SaveSettings(content string) error {
-	path, err := ajustesPath()
-	if err != nil {
-		return err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, []byte(content), 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
-}
-
-/* ------------------- Persistencia de proyectos en disco -------------------
-La fuente de verdad de los proyectos es ~/Documents/ProduccionTV: un archivo
-.ptv por proyecto (mismo paquete que exporta la app, compartible tal cual).
-localStorage del WebView queda solo como caché de arranque. */
-
-// projectsDir devuelve (creándola si hace falta) la carpeta de proyectos.
-func projectsDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	dir := filepath.Join(home, "Documents", "ProduccionTV")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", err
-	}
-	return dir, nil
-}
-
-// sanitizeProjectID limita el id a caracteres seguros para nombre de archivo.
-func sanitizeProjectID(id string) string {
-	var b strings.Builder
-	for _, r := range id {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
-}
-
-// LoadAllProjects lee todos los .ptv de la carpeta de proyectos.
 func (a *App) LoadAllProjects() ([]string, error) {
-	dir, err := projectsDir()
-	if err != nil {
-		return nil, err
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	out := []string{}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".ptv") {
-			continue
-		}
-		if data, err := os.ReadFile(filepath.Join(dir, e.Name())); err == nil {
-			out = append(out, string(data))
-		}
-	}
-	return out, nil
+	return a.projectStore.LoadAllProjects()
 }
 
-// SaveProjectFile escribe el proyecto como <id>.ptv (escritura atómica:
-// primero a .tmp y luego rename, para no corromper el archivo si algo falla).
 func (a *App) SaveProjectFile(id string, content string) error {
-	id = sanitizeProjectID(id)
-	if id == "" {
-		return nil
-	}
-	dir, err := projectsDir()
-	if err != nil {
-		return err
-	}
-	tmp := filepath.Join(dir, id+".ptv.tmp")
-	if err := os.WriteFile(tmp, []byte(content), 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, filepath.Join(dir, id+".ptv"))
+	return a.projectStore.SaveProjectFile(id, content)
 }
 
-// LoadProjectFile lee el .ptv de UN proyecto (cadena vacía si no existe).
-// Lo usan las ventanas para recargar su proyecto si otra ventana lo cambió.
 func (a *App) LoadProjectFile(id string) (string, error) {
-	id = sanitizeProjectID(id)
-	if id == "" {
-		return "", nil
-	}
-	dir, err := projectsDir()
-	if err != nil {
-		return "", err
-	}
-	data, err := os.ReadFile(filepath.Join(dir, id+".ptv"))
-	if err != nil {
-		return "", nil
-	}
-	return string(data), nil
+	return a.projectStore.LoadProjectFile(id)
 }
 
-// DeleteProjectFile no borra: mueve el .ptv a la papelera interna
-// (~/Documents/ProduccionTV/Papelera) con marca de tiempo, recuperable a mano.
 func (a *App) DeleteProjectFile(id string) error {
-	id = sanitizeProjectID(id)
-	if id == "" {
-		return nil
-	}
-	dir, err := projectsDir()
-	if err != nil {
-		return err
-	}
-	src := filepath.Join(dir, id+".ptv")
-	if _, err := os.Stat(src); err != nil {
-		return nil
-	}
-	trash, err := trashDir()
-	if err != nil {
-		return err
-	}
-	return os.Rename(src, filepath.Join(trash, id+"-"+time.Now().Format("20060102-150405")+".ptv"))
+	return a.projectStore.DeleteProjectFile(id)
 }
 
-/* ----------------------------- Papelera interna ----------------------------- */
+/* ---------------- Delegación a TrashStore ---------------- */
 
-// TrashEntry describe un .ptv de la papelera para la UI del lanzador.
-type TrashEntry struct {
-	Name      string `json:"name"`      // nombre del archivo dentro de Papelera
-	Title     string `json:"title"`     // nombre del proyecto guardado (si es legible)
-	DeletedAt string `json:"deletedAt"` // fecha de eliminación (hora local)
-}
-
-// trashDir devuelve (creándola si hace falta) la papelera interna.
-func trashDir() (string, error) {
-	dir, err := projectsDir()
-	if err != nil {
-		return "", err
-	}
-	trash := filepath.Join(dir, "Papelera")
-	if err := os.MkdirAll(trash, 0o755); err != nil {
-		return "", err
-	}
-	return trash, nil
-}
-
-// sanitizeTrashName acota el nombre a un .ptv plano dentro de la papelera
-// (sin rutas), para que el frontend no pueda leer ni borrar otros archivos.
-func sanitizeTrashName(name string) string {
-	name = filepath.Base(strings.TrimSpace(name))
-	if name == "." || name == ".." || strings.HasPrefix(name, ".") || !strings.HasSuffix(strings.ToLower(name), ".ptv") {
-		return ""
-	}
-	return name
-}
-
-// trashTitle lee el nombre del proyecto dentro de un .ptv (acepta el paquete
-// {project, infographic, diagram} o un cfg suelto del generador).
-func trashTitle(path string) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	var bundle struct {
-		Project struct {
-			Name string `json:"name"`
-		} `json:"project"`
-		Infographic struct {
-			Titulo string `json:"titulo"`
-		} `json:"infographic"`
-		Titulo string `json:"titulo"`
-	}
-	if json.Unmarshal(data, &bundle) != nil {
-		return ""
-	}
-	if bundle.Project.Name != "" {
-		return bundle.Project.Name
-	}
-	if bundle.Infographic.Titulo != "" {
-		return bundle.Infographic.Titulo
-	}
-	return bundle.Titulo
-}
-
-// ListTrashFiles enumera la papelera, lo más reciente primero.
 func (a *App) ListTrashFiles() ([]TrashEntry, error) {
-	trash, err := trashDir()
-	if err != nil {
-		return nil, err
-	}
-	entries, err := os.ReadDir(trash)
-	if err != nil {
-		return nil, err
-	}
-	out := []TrashEntry{}
-	for _, e := range entries {
-		if e.IsDir() || sanitizeTrashName(e.Name()) == "" {
-			continue
-		}
-		info, err := e.Info()
-		if err != nil {
-			continue
-		}
-		out = append(out, TrashEntry{
-			Name:      e.Name(),
-			Title:     trashTitle(filepath.Join(trash, e.Name())),
-			DeletedAt: info.ModTime().Format("2006-01-02 15:04"),
-		})
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].DeletedAt > out[j].DeletedAt })
-	return out, nil
+	return a.trashStore.ListTrashFiles()
 }
 
-// ReadTrashFile devuelve el contenido de un .ptv de la papelera (vacío si no existe).
 func (a *App) ReadTrashFile(name string) (string, error) {
-	name = sanitizeTrashName(name)
-	if name == "" {
-		return "", nil
-	}
-	trash, err := trashDir()
-	if err != nil {
-		return "", err
-	}
-	data, err := os.ReadFile(filepath.Join(trash, name))
-	if err != nil {
-		return "", nil
-	}
-	return string(data), nil
+	return a.trashStore.ReadTrashFile(name)
 }
 
-// DeleteTrashFile elimina definitivamente un .ptv de la papelera.
 func (a *App) DeleteTrashFile(name string) error {
-	name = sanitizeTrashName(name)
-	if name == "" {
-		return nil
-	}
-	trash, err := trashDir()
-	if err != nil {
-		return err
-	}
-	if err := os.Remove(filepath.Join(trash, name)); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
+	return a.trashStore.DeleteTrashFile(name)
 }
 
-/* ------------------------------ Mesa de luz ------------------------------
-La biblioteca de referencias visuales vive FUERA de los proyectos, en
-~/Documents/ProduccionTV/Referencias, y son dos razones distintas:
+/* ---------------- Delegación a AssetStore ---------------- */
 
-  · UNA FOTOTECA ES DE QUIEN LA JUNTA, no de un proyecto. La misma imagen
-    sirve para el noticiero de hoy y para el documental del año que viene;
-    guardarla dentro de un .ptv la encerraría en uno solo y la duplicaría en
-    cada uno que la use.
-  · UN .ptv TIENE QUE SEGUIR SIENDO TEXTO. Con mil cuadros adentro pesaría
-    cientos de megas, y el iPad —que abre el proyecto entero en memoria— no
-    lo levanta. Así el proyecto solo guarda a QUÉ referencia apunta.
-
-Cada referencia son DOS archivos, y la división es la que hace que la mesa
-abra rápido con cientos de imágenes:
-    <id>.json  etiquetas + MINIATURA (se lee siempre, al abrir la mesa)
-    <id>.jpg   la imagen completa (se lee solo cuando la abres en grande)
-Leer trescientas miniaturas de 10 KB es instantáneo; leer trescientas
-imágenes completas no lo sería. */
-
-// referencesDir devuelve (creándola si hace falta) la carpeta de la mesa de luz.
-func referencesDir() (string, error) {
-	dir, err := projectsDir()
-	if err != nil {
-		return "", err
-	}
-	ref := filepath.Join(dir, "Referencias")
-	if err := os.MkdirAll(ref, 0o755); err != nil {
-		return "", err
-	}
-	return ref, nil
-}
-
-// ListReferences lee la ficha (.json) de todas las referencias. Devuelve el
-// texto tal cual: quien las pinta ya sabe leerlas y aquí no hay que entenderlas.
 func (a *App) ListReferences() ([]string, error) {
-	dir, err := referencesDir()
-	if err != nil {
-		return nil, err
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	out := []string{}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".json") {
-			continue
-		}
-		if data, err := os.ReadFile(filepath.Join(dir, e.Name())); err == nil {
-			out = append(out, string(data))
-		}
-	}
-	return out, nil
+	return a.assetStore.ListReferences()
 }
 
-// SaveReference guarda la ficha y, si viene, la imagen completa.
-// imageDataURL vacío = solo se están cambiando etiquetas: no se toca el .jpg,
-// que es lo pesado. Cambiar una etiqueta escribe 10 KB, no 300.
 func (a *App) SaveReference(id string, meta string, imageDataURL string) error {
-	id = sanitizeProjectID(id)
-	if id == "" {
-		return nil
-	}
-	dir, err := referencesDir()
-	if err != nil {
-		return err
-	}
-	if imageDataURL != "" {
-		if comma := strings.IndexByte(imageDataURL, ','); comma >= 0 {
-			imageDataURL = imageDataURL[comma+1:]
-		}
-		data, err := base64.StdEncoding.DecodeString(imageDataURL)
-		if err != nil {
-			return err
-		}
-		if err := writeAtomic(filepath.Join(dir, id+".jpg"), data); err != nil {
-			return err
-		}
-	}
-	return writeAtomic(filepath.Join(dir, id+".json"), []byte(meta))
+	return a.assetStore.SaveReference(id, meta, imageDataURL)
 }
 
-// LoadReferenceImage devuelve la imagen completa como data URL, lista para un
-// <img src>. Cadena vacía si ya no está (una referencia puede sobrevivir a su
-// archivo si alguien lo borró desde el Finder, y eso no debe romper la mesa).
 func (a *App) LoadReferenceImage(id string) (string, error) {
-	id = sanitizeProjectID(id)
-	if id == "" {
-		return "", nil
-	}
-	dir, err := referencesDir()
-	if err != nil {
-		return "", err
-	}
-	data, err := os.ReadFile(filepath.Join(dir, id+".jpg"))
-	if err != nil {
-		return "", nil
-	}
-	return "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(data), nil
+	return a.assetStore.LoadReferenceImage(id)
 }
 
-// DeleteReference no borra: manda ficha e imagen a la papelera interna, igual
-// que un proyecto. Una referencia buena cuesta encontrarla y un dedo en un
-// iPad se equivoca de cuadro con facilidad.
 func (a *App) DeleteReference(id string) error {
-	id = sanitizeProjectID(id)
-	if id == "" {
-		return nil
-	}
-	dir, err := referencesDir()
-	if err != nil {
-		return err
-	}
-	trash, err := trashDir()
-	if err != nil {
-		return err
-	}
-	marca := time.Now().Format("20060102-150405")
-	for _, ext := range []string{".json", ".jpg"} {
-		origen := filepath.Join(dir, id+ext)
-		if _, err := os.Stat(origen); err != nil {
-			continue
-		}
-		if err := os.Rename(origen, filepath.Join(trash, id+"-"+marca+ext)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return a.assetStore.DeleteReference(id)
 }
 
-/* ------------------------------ La agenda ------------------------------
-Los contactos viven en ~/Documents/ProduccionTV/Contactos, al lado de los
-proyectos y de la fototeca, por la misma razón que ellas: tu gente no es de un
-proyecto. El camarógrafo que te salvó el rodaje de marzo te sirve en el de
-noviembre, y guardarlo dentro de un .ptv lo encerraría en uno solo.
-
-A diferencia de las referencias, aquí es UN archivo por persona y no dos: la
-foto es un retrato chico que cabe dentro de la propia ficha. No hace falta
-partirlo — una cara se reconoce a 480 px y eso pesa como una página de texto,
-mientras que un fotograma de referencia hay que poder verlo en grande.
-
-ESTO NO ES UN DIRECTORIO PÚBLICO. Es tu agenda: la gente con la que ya trabajas
-o a la que ya le llamaste, guardada en TU disco, como los contactos de tu
-teléfono. No se publica, no se sube a ningún lado y no sale de aquí. */
-
-// contactsDir devuelve (creándola si hace falta) la carpeta de la agenda.
-func contactsDir() (string, error) {
-	dir, err := projectsDir()
-	if err != nil {
-		return "", err
-	}
-	con := filepath.Join(dir, "Contactos")
-	if err := os.MkdirAll(con, 0o755); err != nil {
-		return "", err
-	}
-	return con, nil
-}
-
-// ListContacts lee la ficha de todas las personas de la agenda.
 func (a *App) ListContacts() ([]string, error) {
-	dir, err := contactsDir()
-	if err != nil {
-		return nil, err
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	out := []string{}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".json") {
-			continue
-		}
-		if data, err := os.ReadFile(filepath.Join(dir, e.Name())); err == nil {
-			out = append(out, string(data))
-		}
-	}
-	return out, nil
+	return a.assetStore.ListContacts()
 }
 
-// SaveContact guarda (o reemplaza) la ficha de una persona.
 func (a *App) SaveContact(id string, meta string) error {
-	id = sanitizeProjectID(id)
-	if id == "" {
-		return nil
-	}
-	dir, err := contactsDir()
-	if err != nil {
-		return err
-	}
-	return writeAtomic(filepath.Join(dir, id+".json"), []byte(meta))
+	return a.assetStore.SaveContact(id, meta)
 }
 
-// DeleteContact no destruye: manda la ficha a la papelera interna. Los datos de
-// contacto de alguien cuestan meses de conocer a la gente; un dedo en un iPad
-// se equivoca de fila en un segundo.
 func (a *App) DeleteContact(id string) error {
-	id = sanitizeProjectID(id)
-	if id == "" {
-		return nil
-	}
-	dir, err := contactsDir()
-	if err != nil {
-		return err
-	}
-	trash, err := trashDir()
-	if err != nil {
-		return err
-	}
-	origen := filepath.Join(dir, id+".json")
-	if _, err := os.Stat(origen); err != nil {
-		return nil
-	}
-	return os.Rename(origen, filepath.Join(trash, id+"-"+time.Now().Format("20060102-150405")+".json"))
+	return a.assetStore.DeleteContact(id)
 }
 
-// writeAtomic escribe primero a .tmp y luego renombra, para que un corte a
-// media escritura no deje media referencia en el disco.
-func writeAtomic(path string, data []byte) error {
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+/* ---------------- Delegación a SettingsStore ---------------- */
+
+func (a *App) LoadSettings() (string, error) {
+	return a.settingsStore.LoadSettings()
 }
 
-// fileFilter deduce el filtro del diálogo a partir de la extensión, para que
-// guardar CSV/EDL/TXT desde las herramientas no fuerce el filtro JSON.
+func (a *App) SaveSettings(content string) error {
+	return a.settingsStore.SaveSettings(content)
+}
+
+/* ---------------- Diálogos Nativos de Guardado ---------------- */
+
 func fileFilter(filename string) []runtime.FileFilter {
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(filename), "."))
 	names := map[string]string{
@@ -1052,12 +274,12 @@ func fileFilter(filename string) []runtime.FileFilter {
 	}
 	name, ok := names[ext]
 	if !ok {
-		return nil // sin filtro: se respeta el nombre sugerido tal cual
+		return nil
 	}
 	return []runtime.FileFilter{{DisplayName: name + " (*." + ext + ")", Pattern: "*." + ext}}
 }
 
-// SaveTextFile asks for a destination and writes a UTF-8 text file.
+// SaveTextFile abre un diálogo nativo para guardar un archivo de texto UTF-8.
 func (a *App) SaveTextFile(defaultFilename string, content string) (string, error) {
 	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
 		Title:                "Exportar archivo",
@@ -1071,7 +293,7 @@ func (a *App) SaveTextFile(defaultFilename string, content string) (string, erro
 	return path, os.WriteFile(path, []byte(content), 0o644)
 }
 
-// SaveBase64File asks for a destination and writes a PNG data URL.
+// SaveBase64File abre un diálogo nativo para guardar una imagen PNG desde un Data URL.
 func (a *App) SaveBase64File(defaultFilename string, dataURL string) (string, error) {
 	if comma := strings.IndexByte(dataURL, ','); comma >= 0 {
 		dataURL = dataURL[comma+1:]

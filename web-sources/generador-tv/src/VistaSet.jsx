@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import { Trash2 } from "lucide-react";
 import { MUEBLES_CATALOGO } from "./catalogos.js";
 import { computeFuentes } from "./escaleta.js";
@@ -6,75 +6,136 @@ import { MuebleIcon } from "./glifos.jsx";
 import { EstudioCenital } from "./EstudioCenital.jsx";
 import { PanelIluminacion } from "./PanelIluminacion.jsx";
 import { PersonalGrid } from "./PersonalGrid.jsx";
-import { posMuebleDefault, reacomodoDe, setActivoDe, setNuevo, upSetPor } from "./sets.js";
-import { NAVY } from "./theme.js";
-import { Box, SecTitle, TarjetaAyuda } from "./ui.jsx";
+import { SetCommandManager, AddFurnitureCommand, RemoveFurnitureCommand, ToggleTalentSeatCommand } from "./setCommands.js";
+import { SET_LAYOUT_STRATEGIES, applyLayoutStrategy } from "./layoutStrategies.js";
+import { posMuebleDefault, setActivoDe, setNuevo, upSetPor } from "./sets.js";
+import { TarjetaAyuda } from "./ui.jsx";
 import { trunc, uid } from "./util.js";
 
-// Estado inicial de las ayudas visuales del lienzo (etiquetas y cuadrícula).
-const SET_CANVAS_DEFAULTS = {
-  showLabels: false,
-  showGuides: false,
-};
-
-// Pestaña "Set": ¿qué hay en el espacio físico y quién lo opera?
-// Solo el plano cenital interactivo y el personal de operación.
+/**
+ * VistaSet:
+ * Estación de trabajo profesional CAD/Estudio para televisión (macOS Studio Layout).
+ * Doble panel: Canvas 2D interactivo central + Inspector lateral derecho colapsable.
+ * Integra patrones GoF: Abstract Factory, Command Pattern, State Pattern, Strategy Pattern.
+ */
 export function VistaSet({ cfg, setCfg }) {
   const fuentes = useMemo(() => computeFuentes(cfg), [cfg]);
   const cams = fuentes.filter((f) => f.tipo === "cam");
   const editable = typeof setCfg === "function";
   const sets = cfg.sets || [];
   const activo = setActivoDe(cfg);
+
+  // Inspector lateral y pestaña activa
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [inspectorTab, setInspectorTab] = useState("set"); // 'set' | 'luces' | 'muebles' | 'personal'
+  const [selectedEntityKey, setSelectedEntityKey] = useState(null);
+
+  // Toggles visuales del Canvas
+  const [showLabels, setShowLabels] = useState(true);
+  const [showGuides, setShowGuides] = useState(true);
   const [confirmaDel, setConfirmaDel] = useState(false);
-  const [showLabels, setShowLabels] = useState(SET_CANVAS_DEFAULTS.showLabels);
-  const [showGuides, setShowGuides] = useState(SET_CANVAS_DEFAULTS.showGuides);
-  const tieneCustom = Object.keys(activo.setLayout?.pos || {}).length > 0 || Object.keys(activo.setLayout?.rot || {}).length > 0;
-  const etiquetasOcultas = Object.keys(activo.setLayout?.labelsOff || {}).length;
+  const [strategyMenuOpen, setStrategyMenuOpen] = useState(false);
 
-  const agregarMueble = (tipo) => setCfg((c) => upSetPor(c, activo.id, (s) => {
+  // Gestor de Comandos GoF con soporte Undo/Redo
+  const commandManagerRef = useRef(null);
+  if (!commandManagerRef.current && editable) {
+    commandManagerRef.current = new SetCommandManager(setCfg);
+  }
+  const cmdMgr = commandManagerRef.current;
+  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
+
+  useEffect(() => {
+    if (!cmdMgr) return;
+    return cmdMgr.subscribe(setHistoryState);
+  }, [cmdMgr]);
+
+  // Selección de entidad en el Canvas -> activa automáticamente la pestaña correspondiente en el Inspector
+  const handleSelectEntity = (key, type) => {
+    setSelectedEntityKey(key);
+    if (!key) return;
+    if (type === "light") setInspectorTab("luces");
+    else if (type === "furniture") setInspectorTab("muebles");
+    else if (type === "talent" || type === "camera") setInspectorTab("personal");
+    else if (type === "focus") setInspectorTab("set");
+  };
+
+  // Acciones de mobiliario con Command Pattern
+  const agregarMueble = (tipo) => {
+    if (!editable) return;
     const id = uid();
-    const n = (s.muebles || []).length;
-    return {
-      ...s,
-      muebles: [...(s.muebles || []), { id, tipo, ocupantes: [] }],
-      setLayout: { ...(s.setLayout || {}), pos: { ...(s.setLayout?.pos || {}), [`mue:${id}`]: posMuebleDefault(n) } },
-    };
-  }), { commit: true });
+    const n = (activo.muebles || []).length;
+    const item = { id, tipo, ocupantes: [] };
+    const pos = posMuebleDefault(n);
 
-  const quitarMueble = (id) => setCfg((c) => upSetPor(c, activo.id, (s) => {
-    const pos = { ...(s.setLayout?.pos || {}) };
-    const rot = { ...(s.setLayout?.rot || {}) };
-    delete pos[`mue:${id}`]; delete rot[`mue:${id}`];
-    return { ...s, muebles: (s.muebles || []).filter((m) => m.id !== id), setLayout: { ...(s.setLayout || {}), pos, rot } };
-  }), { commit: true });
+    if (cmdMgr) {
+      cmdMgr.execute(new AddFurnitureCommand(activo.id, item, pos));
+    } else {
+      setCfg((c) => upSetPor(c, activo.id, (s) => ({
+        ...s,
+        muebles: [...(s.muebles || []), item],
+        setLayout: { ...(s.setLayout || {}), pos: { ...(s.setLayout?.pos || {}), [`mue:${id}`]: pos } },
+      })), { commit: true });
+    }
+  };
 
-  // Sentar/levantar un talento. Un talento solo ocupa un mueble a la vez.
+  const quitarMueble = (id) => {
+    if (!editable) return;
+    const mueble = (activo.muebles || []).find((m) => m.id === id);
+    if (!mueble) return;
+    const curPos = activo.setLayout?.pos?.[`mue:${id}`];
+    const curRot = activo.setLayout?.rot?.[`mue:${id}`];
+
+    if (cmdMgr) {
+      cmdMgr.execute(new RemoveFurnitureCommand(activo.id, mueble, curPos, curRot));
+    } else {
+      setCfg((c) => upSetPor(c, activo.id, (s) => {
+        const pos = { ...(s.setLayout?.pos || {}) };
+        const rot = { ...(s.setLayout?.rot || {}) };
+        delete pos[`mue:${id}`]; delete rot[`mue:${id}`];
+        return { ...s, muebles: (s.muebles || []).filter((m) => m.id !== id), setLayout: { ...(s.setLayout || {}), pos, rot } };
+      }), { commit: true });
+    }
+  };
+
   const toggleAsiento = (muebleId, talId) => {
+    if (!editable) return;
     const mueble = (activo.muebles || []).find((m) => m.id === muebleId);
     if (!mueble) return;
     const dentro = (mueble.ocupantes || []).includes(talId);
     const cap = MUEBLES_CATALOGO[mueble.tipo]?.cap || 1;
-    if (!dentro && (mueble.ocupantes || []).length >= cap) return; // lleno
-    setCfg((c) => upSetPor(c, activo.id, (s) => ({
-      ...s,
-      muebles: (s.muebles || []).map((m) => {
-        if (m.id === muebleId) {
-          return dentro
-            ? { ...m, ocupantes: (m.ocupantes || []).filter((x) => x !== talId) }
-            : { ...m, ocupantes: [...(m.ocupantes || []), talId] };
-        }
-        // Al sentarse aquí, se levanta de cualquier otro mueble.
-        return dentro ? m : { ...m, ocupantes: (m.ocupantes || []).filter((x) => x !== talId) };
-      }),
-    })), { commit: true });
+    if (!dentro && (mueble.ocupantes || []).length >= cap) return;
+
+    if (cmdMgr) {
+      cmdMgr.execute(new ToggleTalentSeatCommand(activo.id, muebleId, talId, dentro));
+    } else {
+      setCfg((c) => upSetPor(c, activo.id, (s) => ({
+        ...s,
+        muebles: (s.muebles || []).map((m) => {
+          if (m.id === muebleId) {
+            return dentro
+              ? { ...m, ocupantes: (m.ocupantes || []).filter((x) => x !== talId) }
+              : { ...m, ocupantes: [...(m.ocupantes || []), talId] };
+          }
+          return dentro ? m : { ...m, ocupantes: (m.ocupantes || []).filter((x) => x !== talId) };
+        }),
+      })), { commit: true });
+    }
   };
 
-  const elegirSet = (id) => { setConfirmaDel(false); setCfg((c) => ({ ...c, setActivo: id }), { commit: true }); };
+  // Gestión de sets
+  const elegirSet = (id) => {
+    setConfirmaDel(false);
+    setSelectedEntityKey(null);
+    setCfg((c) => ({ ...c, setActivo: id }), { commit: true });
+  };
+
   const agregarSet = () => setCfg((c) => {
     const nuevo = setNuevo((c.sets || []).length + 1);
     return { ...c, sets: [...(c.sets || []), nuevo], setActivo: nuevo.id };
   }, { commit: true });
+
   const upActivo = (patch, opts) => setCfg((c) => upSetPor(c, activo.id, (s) => ({ ...s, ...patch })), opts);
+
   const eliminarSet = () => {
     if (!confirmaDel) { setConfirmaDel(true); return; }
     setConfirmaDel(false);
@@ -83,209 +144,384 @@ export function VistaSet({ cfg, setCfg }) {
       return rest.length ? { ...c, sets: rest, setActivo: rest[0].id } : c;
     }, { commit: true });
   };
-  // Los chips de esta vista viven sobre la mesa de trabajo, así que siguen
-  // al tema como el resto de la app (antes eran blancos fijos).
-  const chip = { borderColor: "var(--vidrio-borde)", color: "var(--tinta)", background: "var(--vidrio-a)" };
+
+  const aplicarEstrategia = (stratId) => {
+    setStrategyMenuOpen(false);
+    setCfg((c) => ({
+      ...c,
+      sets: (c.sets || []).map((s) => s.id === activo.id ? applyLayoutStrategy(stratId, c, s) : s),
+    }), { commit: true });
+  };
 
   return (
-    <div className="scrollwrap overflow-auto px-2 py-4">
-      <div className="vista-foco mx-auto flex flex-col gap-3" style={{ width: "100%", padding: 16 }}>
-        <Box title={`Set / Estudio — planta física${sets.length > 1 ? ` (${sets.length} sets)` : ""}`}>
+    <div className="flex h-[calc(100vh-50px)] w-full flex-col overflow-hidden bg-[#0a0f18] text-white select-none">
+      {/* 1. BARRA SUPERIOR UNIFICADA DE ESTUDIO (macOS Studio Toolbar) */}
+      <div className="no-print z-20 flex h-12 w-full flex-shrink-0 items-center justify-between border-b border-white/10 bg-black/40 px-4 backdrop-blur-xl">
+        {/* Lado Izquierdo: Selector de Sets estilo Segmented Control */}
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <div className="flex items-center rounded-xl bg-white/[0.06] p-1 border border-white/10">
+            {sets.map((s) => {
+              const esActivo = s.id === activo.id;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => elegirSet(s.id)}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold transition-all ${
+                    esActivo
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "text-white/70 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <span>{s.nombre}</span>
+                  <span className="text-[10px] font-normal opacity-70">
+                    {s.locacion === "ext" ? "EXT" : "INT"}
+                  </span>
+                </button>
+              );
+            })}
+            {editable && (
+              <button
+                onClick={agregarSet}
+                className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                title="Crear un nuevo set de rodaje"
+              >
+                + Nuevo
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Centro: Herramientas del Canvas y Reacomodo Inteligente */}
+        <div className="flex items-center gap-2">
+          {/* Toggles de Guías y Etiquetas */}
+          <div className="flex items-center rounded-xl bg-white/[0.06] p-1 border border-white/10">
+            <button
+              onClick={() => setShowLabels(!showLabels)}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                showLabels ? "bg-white/20 text-white font-bold" : "text-white/60 hover:text-white"
+              }`}
+              title="Mostrar u ocultar nombres en el plano"
+            >
+              Etiquetas
+            </button>
+            <button
+              onClick={() => setShowGuides(!showGuides)}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                showGuides ? "bg-white/20 text-white font-bold" : "text-white/60 hover:text-white"
+              }`}
+              title="Mostrar u ocultar conos de visión y proyección de luz"
+            >
+              Guías
+            </button>
+          </div>
+
+          {/* Menú de Reacomodo Inteligente (Strategy Pattern) */}
           {editable && (
-            <div className="no-print flex flex-wrap items-center gap-1.5" style={{ marginBottom: 8 }}>
-              {sets.map((s) => (
-                <button key={s.id} onClick={() => elegirSet(s.id)}
-                  className="rounded-lg border px-2.5 py-1 text-xs font-bold"
-                  style={s.id === activo.id ? { background: "var(--gel-f)", borderColor: "var(--gel-f)", color: "#fff" } : chip}>
-                  {s.nombre} {s.locacion === "ext" ? "· EXT" : "· INT"}
+            <div className="relative">
+              <button
+                onClick={() => setStrategyMenuOpen(!strategyMenuOpen)}
+                className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/20 transition-colors shadow-sm"
+              >
+                <span>Reacomodar set</span>
+                <span className="text-[10px] opacity-70">▾</span>
+              </button>
+
+              {strategyMenuOpen && (
+                <div className="absolute top-10 left-0 z-30 w-64 rounded-2xl border border-white/15 bg-[#141b27] p-1.5 shadow-2xl backdrop-blur-2xl">
+                  <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/50 border-b border-white/10 mb-1">
+                    Presets de distribución
+                  </div>
+                  {SET_LAYOUT_STRATEGIES.map((strat) => (
+                    <button
+                      key={strat.id}
+                      onClick={() => aplicarEstrategia(strat.id)}
+                      className="w-full text-left rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white/80 hover:bg-blue-600 hover:text-white transition-colors"
+                    >
+                      <div className="font-bold">{strat.label}</div>
+                      <div className="text-[10px] opacity-70 line-clamp-1">{strat.description}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Deshacer / Rehacer local del Set */}
+          {editable && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => cmdMgr?.undo()}
+                disabled={!historyState.canUndo}
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-xs font-bold text-white/80 hover:bg-white/15 disabled:opacity-30 transition-colors"
+                title="Deshacer en set (⌘Z)"
+              >
+                ⟲
+              </button>
+              <button
+                onClick={() => cmdMgr?.redo()}
+                disabled={!historyState.canRedo}
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-xs font-bold text-white/80 hover:bg-white/15 disabled:opacity-30 transition-colors"
+                title="Rehacer en set (⇧⌘Z)"
+              >
+                ⟳
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Lado Derecho: Ayuda e Inspector Toggle */}
+        <div className="flex items-center gap-2">
+          <TarjetaAyuda
+            id="set"
+            titulo="Cómo montar tu set de rodaje"
+            pasos={[
+              "<b>Elige o crea un set</b> desde la barra superior; cada set guarda su propia planta física.",
+              "<b>Agrega mobiliario</b> desde el Inspector lateral y arrástralo en el plano para ubicarlo.",
+              "Lo direccional (cámaras, luces, boom) <b>gira con su manija</b>; doble clic vuelve al blanco automático.",
+              "<b>Doble clic en una etiqueta</b> la oculta individualmente; el toggle superior las controla todas.",
+              "Usa <b>Reacomodar set</b> para aplicar fórmulas probadas de la industria (Noticiero, Talk Show, Debate).",
+            ]}
+          />
+
+          <button
+            onClick={() => setInspectorOpen(!inspectorOpen)}
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all ${
+              inspectorOpen
+                ? "bg-blue-600/20 border-blue-500/50 text-blue-300"
+                : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+            }`}
+            title="Mostrar u ocultar el panel de propiedades"
+          >
+            <span>Inspector</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 2. ÁREA DE TRABAJO PRINCIPAL (Canvas 2D + Inspector Lateral) */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Canvas Central */}
+        <div className="flex flex-1 flex-col items-center justify-center p-4 overflow-hidden bg-[#0d121c]">
+          <div className="w-full max-w-5xl">
+            <EstudioCenital
+              key={activo.id}
+              cfg={cfg}
+              set={activo}
+              cams={cams}
+              editable={editable}
+              setCfg={setCfg}
+              showLabels={showLabels}
+              showGuides={showGuides}
+              selectedKey={selectedEntityKey}
+              onSelectEntity={handleSelectEntity}
+              commandManager={cmdMgr}
+            />
+          </div>
+        </div>
+
+        {/* Inspector Lateral Derecho (Apple Studio Inspector) */}
+        {inspectorOpen && (
+          <aside className="no-print flex w-[350px] flex-shrink-0 flex-col border-l border-white/10 bg-[#111824]/95 backdrop-blur-2xl shadow-2xl overflow-hidden">
+            {/* Pestañas del Inspector */}
+            <div className="flex border-b border-white/10 bg-black/20 p-1">
+              {[
+                { id: "set", label: "Espacio" },
+                { id: "luces", label: "Iluminación" },
+                { id: "muebles", label: "Mobiliario" },
+                { id: "personal", label: "Equipo" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setInspectorTab(tab.id)}
+                  className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition-all ${
+                    inspectorTab === tab.id
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-white/60 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  {tab.label}
                 </button>
               ))}
-              <button onClick={agregarSet} className="rounded-lg border px-2.5 py-1 text-xs font-bold" style={chip}>
-                + Nuevo set
-              </button>
-              <span className="ml-auto">
-                <TarjetaAyuda id="set" titulo="Cómo montar tu set"
-                  pasos={[
-                    "<b>Elige o crea un set</b> con los botones de arriba; cada set guarda su propia planta física.",
-                    "<b>Agrega mobiliario</b> desde la paleta y arrástralo en el plano para colocarlo donde va.",
-                    "Lo direccional (cámaras, luces, boom) <b>gira con su manija</b>; doble clic en la manija vuelve al ángulo automático.",
-                    "<b>Doble clic en una etiqueta</b> la oculta; las casillas <b>Mostrar etiquetas / guías</b> controlan todo de golpe.",
-                    "Si el plano se enreda, <b>Reacomodar automáticamente</b> reparte todo de nuevo.",
-                  ]} />
-              </span>
             </div>
-          )}
-          {editable && (
-            <div className="no-print flex flex-wrap items-center gap-2" style={{ marginBottom: 8 }}>
-              <input value={activo.nombre}
-                onChange={(e) => upActivo({ nombre: e.target.value })}
-                className="rounded-lg border px-2 py-1 text-xs font-bold"
-                style={{ ...chip, width: 170 }} placeholder="Nombre del set…" />
-              <select value={activo.locacion === "ext" ? "ext" : "int"}
-                onChange={(e) => upActivo({ locacion: e.target.value }, { commit: true })}
-                className="rounded-lg border px-2 py-1 text-xs font-bold" style={chip}>
-                <option value="int">Estudio (interior)</option>
-                <option value="ext">Locación exterior</option>
-              </select>
-              {/* LA MESA FIJA es cosa de proyectos anteriores. Desde 2026-08-28
-                  la mesa se agrega abajo, en Mobiliario, donde se mueve, se
-                  gira, se duplica y además hay mesa redonda. Esta casilla se
-                  queda solo para poder apagar la de los proyectos que ya la
-                  traían; en un set nuevo ni siquiera aparece. */}
-              {activo.mesaVisible !== false && (
-                <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "var(--tinta)" }}
-                  title="La mesa fija de los proyectos anteriores. Quítala y agrégala abajo, en Mobiliario: ahí se mueve, se gira y puedes elegir mesa redonda.">
-                  <input type="checkbox" checked
-                    onChange={() => upActivo({ mesaVisible: false }, { commit: true })} />
-                  Mesa fija (heredada)
-                </label>
-              )}
-              {/* Los rótulos que se dibujan EN el plano. Antes vivían en Datos
-                  generales, junto al título del proyecto; aquí se ve al momento
-                  lo que uno escribe. */}
-              {editable && (
-                <input value={cfg.pantalla || ""} title="Lo que aparece en la pantalla del set"
-                  onChange={(e) => setCfg((c) => ({ ...c, pantalla: e.target.value }))}
-                  className="rounded-lg border px-2 py-1 text-xs font-bold"
-                  style={{ ...chip, width: 190 }} placeholder="Texto de la pantalla…" />
-              )}
-              {editable && activo.mesaVisible !== false && (
-                <input value={cfg.mesa || ""} title="Lo que aparece en el frente de la mesa"
-                  onChange={(e) => setCfg((c) => ({ ...c, mesa: e.target.value }))}
-                  className="rounded-lg border px-2 py-1 text-xs font-bold"
-                  style={{ ...chip, width: 170 }} placeholder="Texto de la mesa…" />
-              )}
-              <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "var(--tinta)" }} title="Muestra u oculta todos los nombres. Doble clic sobre una etiqueta del plano la oculta individualmente. Mantén el puntero encima de un icono para ver su nombre.">
-                <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
-                Mostrar etiquetas
-              </label>
-              <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "var(--tinta)" }} title="Muestra u oculta los conos de cámara, luz y boom.">
-                <input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} />
-                Mostrar guías
-              </label>
-              {etiquetasOcultas > 0 && (
-                <button onClick={() => setCfg((c) => upSetPor(c, activo.id, (s) => ({ ...s, setLayout: { ...s.setLayout, labelsOff: {} } })), { commit: true })}
-                  className="rounded-lg border px-2.5 py-1 text-xs font-bold" style={chip}
-                  title="Vuelve a mostrar las etiquetas ocultadas con doble clic">
-                  ⟲ Restaurar {etiquetasOcultas} etiqueta{etiquetasOcultas === 1 ? "" : "s"}
-                </button>
-              )}
-              {tieneCustom && (
-                <button onClick={() => setCfg((c) => upSetPor(c, activo.id, reacomodoDe), { commit: true })}
-                  className="rounded-lg border px-2.5 py-1 text-xs font-bold" style={chip}>
-                  Reacomodar automáticamente
-                </button>
-              )}
-              {sets.length > 1 && (
-                <button onClick={eliminarSet} className="rounded-lg border px-2.5 py-1 text-xs font-bold"
-                  style={{ borderColor: confirmaDel ? "var(--e5-f)" : "var(--vidrio-borde)", color: confirmaDel ? "var(--e5-t)" : "var(--tinta-media)", background: "var(--vidrio-a)" }}>
-                  {confirmaDel ? "¿Eliminar este set y sus luces?" : "Eliminar set"}
-                </button>
-              )}
-              {confirmaDel && (
-                <button onClick={() => setConfirmaDel(false)} className="rounded-lg border px-2.5 py-1 text-xs font-bold" style={chip}>Cancelar</button>
-              )}
-            </div>
-          )}
-          <div className="no-print" style={{ marginBottom: 8 }}>
-            <span className="text-xs" style={{ color: "var(--tinta-media)" }}>
-              Arrastra talentos, mesa, micrófonos, luces y cámaras; lo direccional gira con su manija (doble clic en la manija: volver al automático).
-              {activo.mesaVisible === false ? " El punto de foco marca a dónde apuntan cámaras y luces; la mesa se agrega abajo, en Mobiliario." : ""}
-            </span>
-          </div>
-          {/* `lienzo-tema` marca este plano como superficie de TRABAJO, y es lo
-              único que hace que se apague en modo oscuro. El MISMO dibujo sale
-              en la infografía, que es una hoja y se imprime: ahí no lleva la
-              clase y se queda blanco. Al imprimir desde aquí también vuelve a
-              papel (ver @media print en index.css). */}
-          <div className="lienzo-tema">
-            <EstudioCenital key={activo.id} cfg={cfg} set={activo} cams={cams} editable={editable} setCfg={setCfg}
-              showLabels={showLabels} showGuides={showGuides} />
-          </div>
-        </Box>
-        <Box title={`Mobiliario de ${activo.nombre}${(activo.muebles || []).length ? ` (${activo.muebles.length})` : ""}`}>
-          {editable ? (
-            <div className="flex flex-col gap-2.5">
-              <SecTitle>Agregar mueble — haz clic para ponerlo en el plano</SecTitle>
-              <div className="flex flex-wrap gap-1.5">
-                {Object.entries(MUEBLES_CATALOGO).map(([id, d]) => (
-                  <button key={id} onClick={() => agregarMueble(id)} title={`Agregar ${d.es} al set`}
-                    className="flex flex-col items-center gap-0.5 rounded-lg border px-2.5 py-1.5"
-                    style={{ borderColor: "var(--vidrio-borde)", background: "var(--vidrio-a)", minWidth: 96, cursor: "pointer" }}>
-                    <MuebleIcon tipo={id} />
-                    <span className="text-xs font-bold" style={{ color: "var(--tinta)" }}>{d.es}</span>
-                    <span style={{ fontSize: 9, color: "var(--tinta-media)", fontWeight: 700 }}>
-                      {d.cap > 1 ? `${d.cap} plazas` : "1 plaza"}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              {(activo.muebles || []).length > 0 && (
-                <>
-                  <SecTitle>En el set ({(activo.muebles || []).length}) — siéntales talentos</SecTitle>
-                  <p className="text-xs" style={{ color: "var(--tinta-media)", margin: 0 }}>
-                    El talento sentado se dibuja sobre el mueble y deja de aparecer suelto en el plano; cada quien solo ocupa un lugar.
-                  </p>
-                </>
-              )}
-              {(activo.muebles || []).map((m) => {
-                const def = MUEBLES_CATALOGO[m.tipo] || { es: m.tipo, cap: 1 };
-                const ocupantes = m.ocupantes || [];
-                return (
-                  <div key={m.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2" style={{ borderColor: "var(--linea)" }}>
-                    <MuebleIcon tipo={m.tipo} width={48} height={22} />
-                    <div className="flex flex-col" style={{ minWidth: 118 }}>
-                      <span className="text-xs font-bold" style={{ color: "var(--tinta)" }}>{def.es}</span>
-                      <span style={{ fontSize: 11, letterSpacing: 2, color: NAVY }} title={`${ocupantes.length} de ${def.cap} plazas ocupadas`}>
-                        {"●".repeat(ocupantes.length)}<span style={{ color: "var(--tinta-media)" }}>{"○".repeat(Math.max(0, def.cap - ocupantes.length))}</span>
-                      </span>
-                    </div>
-                    <span className="text-xs font-bold" style={{ color: "var(--tinta-media)" }}>Sentar:</span>
-                    {(cfg.talentos || []).map((t) => {
-                      const dentro = ocupantes.includes(t.id);
-                      const lleno = !dentro && ocupantes.length >= def.cap;
-                      const col = t.tipo === "invitado" ? "#0E9F9E" : NAVY;
-                      return (
-                        <button key={t.id} onClick={() => toggleAsiento(m.id, t.id)} disabled={lleno}
-                          title={dentro ? `Levantar a ${t.nombre}` : lleno ? "Sin plazas libres" : `Sentar a ${t.nombre} aquí`}
-                          className="rounded-lg border px-2 py-0.5 text-xs font-bold"
-                          style={dentro
-                            ? { background: col, borderColor: col, color: "#fff" }
-                            : { background: "var(--vidrio-a)", borderColor: "var(--vidrio-borde)", color: "var(--tinta)", opacity: lleno ? 0.4 : 1 }}>
-                          {dentro ? "✓" : "+"} {trunc(t.nombre, 16)}
-                        </button>
-                      );
-                    })}
-                    {!(cfg.talentos || []).length && (
-                      <span className="text-xs" style={{ color: "var(--tinta-media)" }}>No hay talentos: créalos en la pestaña Editar.</span>
-                    )}
-                    <span className="flex-1" />
-                    <button onClick={() => quitarMueble(m.id)} title="Quitar este mueble del set"
-                      className="flex items-center justify-center rounded-lg border"
-                      style={{ width: 26, height: 26, borderColor: "color-mix(in srgb, var(--e5) 40%, transparent)", color: "var(--e5-t)", background: "var(--vidrio-a)", cursor: "pointer" }}>
-                      <Trash2 size={13} />
-                    </button>
+
+            {/* Contenido scrolleable del Inspector */}
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 text-xs">
+              {/* TAB 1: SET & ESPACIO */}
+              {inspectorTab === "set" && (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-white/60">Nombre del set</label>
+                    <input
+                      value={activo.nombre}
+                      onChange={(e) => upActivo({ nombre: e.target.value })}
+                      disabled={!editable}
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white focus:border-blue-500 focus:outline-none"
+                      placeholder="Nombre del set…"
+                    />
                   </div>
-                );
-              })}
-              {!(activo.muebles || []).length && (
-                <p className="text-xs" style={{ color: "var(--tinta-media)", margin: 0 }}>
-                  Aún no hay muebles en este set: haz clic en uno de arriba y luego arrástralo en el plano.
-                </p>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-white/60">Tipo de locación</label>
+                    <div className="flex rounded-xl bg-white/5 p-1 border border-white/10">
+                      <button
+                        onClick={() => upActivo({ locacion: "int" }, { commit: true })}
+                        disabled={!editable}
+                        className={`flex-1 rounded-lg py-1 text-xs font-bold transition-all ${
+                          activo.locacion !== "ext" ? "bg-blue-600 text-white" : "text-white/60 hover:text-white"
+                        }`}
+                      >
+                        Estudio interior
+                      </button>
+                      <button
+                        onClick={() => upActivo({ locacion: "ext" }, { commit: true })}
+                        disabled={!editable}
+                        className={`flex-1 rounded-lg py-1 text-xs font-bold transition-all ${
+                          activo.locacion === "ext" ? "bg-blue-600 text-white" : "text-white/60 hover:text-white"
+                        }`}
+                      >
+                        Locación exterior
+                      </button>
+                    </div>
+                  </div>
+
+                  {editable && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-white/60">Rótulo de Pantalla</label>
+                      <input
+                        value={cfg.pantalla || ""}
+                        onChange={(e) => setCfg((c) => ({ ...c, pantalla: e.target.value }))}
+                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white focus:border-blue-500 focus:outline-none"
+                        placeholder="Texto de la pantalla de fondo…"
+                      />
+                    </div>
+                  )}
+
+                  {editable && activo.mesaVisible !== false && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-white/60">Rótulo de Mesa</label>
+                      <input
+                        value={cfg.mesa || ""}
+                        onChange={(e) => setCfg((c) => ({ ...c, mesa: e.target.value }))}
+                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white focus:border-blue-500 focus:outline-none"
+                        placeholder="Texto al frente de la mesa…"
+                      />
+                    </div>
+                  )}
+
+                  {/* Eliminar set si hay más de 1 */}
+                  {editable && sets.length > 1 && (
+                    <div className="pt-3 border-t border-white/10 flex flex-col gap-2">
+                      <button
+                        onClick={eliminarSet}
+                        className="w-full rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 py-1.5 font-bold transition-colors"
+                      >
+                        {confirmaDel ? "¿Confirmar eliminación del set?" : "Eliminar este set"}
+                      </button>
+                      {confirmaDel && (
+                        <button
+                          onClick={() => setConfirmaDel(false)}
+                          className="w-full rounded-xl border border-white/10 text-white/60 hover:bg-white/5 py-1 text-xs transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 2: ILUMINACIÓN */}
+              {inspectorTab === "luces" && (
+                <PanelIluminacion key={activo.id} cfg={cfg} set={activo} setCfg={setCfg} />
+              )}
+
+              {/* TAB 3: MOBILIARIO */}
+              {inspectorTab === "muebles" && (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-white/60">Catálogo de mobiliario</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {Object.entries(MUEBLES_CATALOGO).map(([id, d]) => (
+                        <button
+                          key={id}
+                          onClick={() => agregarMueble(id)}
+                          disabled={!editable}
+                          className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/5 p-2 hover:bg-white/10 hover:border-white/20 transition-all text-center"
+                        >
+                          <MuebleIcon tipo={id} width={42} height={20} />
+                          <span className="mt-1 font-bold text-[11px] text-white/90">{d.es}</span>
+                          <span className="text-[9px] text-white/50">{d.cap > 1 ? `${d.cap} plazas` : "1 plaza"}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Lista de muebles en el set */}
+                  {(activo.muebles || []).length > 0 && (
+                    <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-white/60">
+                        En el set ({(activo.muebles || []).length})
+                      </label>
+                      {(activo.muebles || []).map((m) => {
+                        const def = MUEBLES_CATALOGO[m.tipo] || { es: m.tipo, cap: 1 };
+                        const ocupantes = m.ocupantes || [];
+                        return (
+                          <div key={m.id} className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-2.5 shadow-sm">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <MuebleIcon tipo={m.tipo} width={36} height={18} />
+                                <span className="font-bold text-white/90">{def.es}</span>
+                              </div>
+                              {editable && (
+                                <button
+                                  onClick={() => quitarMueble(m.id)}
+                                  className="text-white/40 hover:text-red-400 transition-colors p-1"
+                                  title="Quitar mueble del plano"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Talentos para sentar */}
+                            <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-white/5">
+                              <span className="text-[10px] text-white/50">Sentar:</span>
+                              {(cfg.talentos || []).map((t) => {
+                                const dentro = ocupantes.includes(t.id);
+                                const lleno = !dentro && ocupantes.length >= def.cap;
+                                return (
+                                  <button
+                                    key={t.id}
+                                    onClick={() => toggleAsiento(m.id, t.id)}
+                                    disabled={lleno || !editable}
+                                    className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold transition-all ${
+                                      dentro
+                                        ? "bg-purple-600 border-purple-500 text-white"
+                                        : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30"
+                                    }`}
+                                  >
+                                    {dentro ? "✓ " : "+ "}{trunc(t.nombre, 12)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 4: PERSONAL */}
+              {inspectorTab === "personal" && (
+                <div className="flex flex-col gap-3">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-white/60">Personal de Operación</label>
+                  <PersonalGrid cfg={cfg} cams={cams} />
+                </div>
               )}
             </div>
-          ) : (
-            <p className="text-xs" style={{ color: "var(--tinta-media)", margin: 0 }}>
-              {(activo.muebles || []).map((m) => (MUEBLES_CATALOGO[m.tipo] || { es: m.tipo }).es).join(" · ") || "Sin mobiliario."}
-            </p>
-          )}
-        </Box>
-        <Box title={`Iluminación de ${activo.nombre}${(activo.iluminacion?.luces || []).length ? ` (${activo.iluminacion.luces.length} luces)` : ""}`}>
-          <PanelIluminacion key={activo.id} cfg={cfg} set={activo} setCfg={setCfg} />
-        </Box>
-        <Box title={`Personal de operación (${(cfg.personal || []).length}${cfg.includeCamOps ? ` + ${cams.length} cám.` : ""})`}>
-          <PersonalGrid cfg={cfg} cams={cams} />
-        </Box>
+          </aside>
+        )}
       </div>
     </div>
   );

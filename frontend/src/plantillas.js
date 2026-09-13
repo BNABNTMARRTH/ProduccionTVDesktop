@@ -55,7 +55,7 @@ const invitado = (nombre) => ({ name: nombre, tipo: 'invitado' });
    a cámara se pone ARRIBA del centro, y el público estaría abajo.            */
 export const PLANTILLAS_SET = [
     {
-        id: 'podcast', kind: 'podcast', nombre: 'Podcast',
+        id: 'podcast', kind: 'podcast', nombre: 'Podcast', category: 'dialogue',
         resumen: 'Dos sillones, mesa baja y luz práctica',
         detalle: 'La conversación de siempre: dos personas frente a frente, cámaras cruzadas y una luz cálida que no parece estudio.',
         cams: 2, mesa: false, locacion: 'int',
@@ -71,7 +71,7 @@ export const PLANTILLAS_SET = [
         },
     },
     {
-        id: 'entrevista', kind: 'entrevista', nombre: 'Entrevista',
+        id: 'entrevista', kind: 'entrevista', nombre: 'Entrevista', category: 'dialogue',
         resumen: 'Tres cámaras y luz de tres puntos',
         detalle: 'Quien pregunta y quien responde, cada uno con su cámara y una tercera abierta para el plano que ubica.',
         cams: 3, mesa: false, locacion: 'int',
@@ -88,7 +88,7 @@ export const PLANTILLAS_SET = [
         },
     },
     {
-        id: 'noticiero', kind: 'noticiero', nombre: 'Noticiero',
+        id: 'noticiero', kind: 'noticiero', nombre: 'Noticiero', category: 'multicam',
         resumen: 'Escritorio al centro y luz de estudio',
         detalle: 'La mesa de noticias: conductor(a) al frente, tres cámaras (general, medio y detalle) y la pantalla del set al fondo.',
         cams: 3, mesa: false, locacion: 'int',
@@ -100,7 +100,7 @@ export const PLANTILLAS_SET = [
         plano: { mesa: { x: 490, y: 250 }, muebles: [{ x: 490, y: 258 }], mics: [{ x: 690, y: 340 }] },
     },
     {
-        id: 'streaming', kind: 'streaming', nombre: 'Streaming en vivo',
+        id: 'streaming', kind: 'streaming', nombre: 'Streaming en vivo', category: 'dialogue',
         resumen: 'Una persona, dos cámaras y fondo RGB',
         detalle: 'El set de una sola persona para YouTube o Twitch: principal suave, recorte y un tubo de color en el fondo.',
         cams: 2, mesa: false, locacion: 'int',
@@ -112,7 +112,7 @@ export const PLANTILLAS_SET = [
         plano: { mesa: { x: 490, y: 262 }, muebles: [{ x: 490, y: 290 }, { x: 490, y: 212 }] },
     },
     {
-        id: 'panel', kind: 'multicamara', nombre: 'Mesa redonda / Panel',
+        id: 'panel', kind: 'multicamara', nombre: 'Mesa redonda / Panel', category: 'multicam',
         resumen: 'Mesa redonda, luz cruzada y baño de set',
         detalle: 'La mesa de debate: cuatro participantes en corro alrededor de la mesa redonda, luz cruzada para que nadie quede en sombra y cámaras que abren y cierran.',
         cams: 4, mesa: false, locacion: 'int',
@@ -133,7 +133,7 @@ export const PLANTILLAS_SET = [
         },
     },
     {
-        id: 'evento', kind: 'multicamara', nombre: 'Evento multicámara',
+        id: 'evento', kind: 'multicamara', nombre: 'Evento multicámara', category: 'multicam',
         resumen: 'Cinco cámaras alrededor del escenario',
         detalle: 'Un concierto, una ceremonia o una obra: sin mesa, con punto de foco al centro y las cámaras rodeando el escenario.',
         cams: 5, mesa: false, locacion: 'int',
@@ -149,7 +149,7 @@ export const PLANTILLAS_SET = [
         },
     },
     {
-        id: 'croma', kind: 'streaming', nombre: 'Pantalla verde (croma)',
+        id: 'croma', kind: 'streaming', nombre: 'Pantalla verde (croma)', category: 'special',
         resumen: 'Fondo verde parejo y sujeto separado',
         detalle: 'Para recortar la figura y meterla en cualquier fondo: el verde se ilumina aparte y la persona lleva su propio contraluz.',
         cams: 2, mesa: false, locacion: 'int',
@@ -161,7 +161,7 @@ export const PLANTILLAS_SET = [
         plano: { mesa: { x: 490, y: 264 }, talentos: [{ x: 490, y: 214 }] },
     },
     {
-        id: 'exterior', kind: 'entrevista', nombre: 'Locación exterior',
+        id: 'exterior', kind: 'entrevista', nombre: 'Locación exterior', category: 'special',
         resumen: 'A cielo abierto, con rebote y bandera',
         detalle: 'La entrevista en la calle o en el campus: el sol es la luz principal, el rebote llena la cara y la bandera corta lo que sobra.',
         cams: 2, mesa: false, locacion: 'ext',
@@ -178,6 +178,16 @@ export const PLANTILLAS_SET = [
 ];
 
 export const plantillaPorId = (id) => PLANTILLAS_SET.find((p) => p.id === id) || null;
+
+/**
+ * Prototype Pattern (GoF):
+ * Clona profundamente una plantilla para garantizar inmutabilidad en el catálogo.
+ */
+export function cloneTemplate(templateOrId) {
+    const tpl = typeof templateOrId === 'string' ? plantillaPorId(templateOrId) : templateOrId;
+    if (!tpl) return null;
+    return JSON.parse(JSON.stringify(tpl));
+}
 
 /* Arma el proyecto COMPLETO de una plantilla, con el set ya puesto.
  *

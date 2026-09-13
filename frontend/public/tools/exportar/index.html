@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Exportar — Producción TV</title>
 <link rel="stylesheet" href="../shared/sheets.css">
+<link rel="stylesheet" href="../shared/liquid-glass.css">
+<link rel="stylesheet" href="../shared/accesibilidad.css">
 <style>
   *{box-sizing:border-box}
   /* ============================================================================
@@ -14,167 +16,344 @@
      LAS HOJAS SE QUEDAN BLANCAS. Son papel y se imprimen; el tema no las toca.
      ============================================================================ */
   :root{
-    --yeso:#F1EEE8; --tinta:#171512; --tinta-media:#57534B; --tinta-baja:#625D55;
-    --linea:rgba(23,21,18,.08);
-    --gel:#D9602B; --gel-t:#8F3A11; --gel-f:#8F3A11;
-    --vidrio-a:rgba(255,255,255,.78); --vidrio-b:rgba(255,255,255,.52);
-    --vidrio-borde:rgba(255,255,255,.75); --vidrio-filo:rgba(255,255,255,.95);
-    --hueco-fondo:rgba(255,255,255,.55); --grano:.5;
+    --yeso:#16171a; --tinta:#f5f5f7; --tinta-media:#98989d; --tinta-baja:#636366;
+    --linea:rgba(255,255,255,.08);
+    --gel:#0a84ff; --gel-t:#64d2ff; --gel-f:#0071e3;
+    --vidrio-a:rgba(255,255,255,.08); --vidrio-b:rgba(255,255,255,.035);
+    --vidrio-borde:rgba(255,255,255,.10); --vidrio-filo:rgba(255,255,255,.16);
+    --hueco-fondo:rgba(0,0,0,.30); --grano:.12;
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-tema="claro"]){
-      --yeso:#1C1A18; --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#A8A297;
-      --linea:rgba(255,255,255,.09); --gel-t:#FF9A6B;
-      --vidrio-a:rgba(255,255,255,.10); --vidrio-b:rgba(255,255,255,.045);
-      --vidrio-borde:rgba(255,255,255,.14); --vidrio-filo:rgba(255,255,255,.16);
-      --hueco-fondo:rgba(0,0,0,.28); --grano:.30;
+      --yeso:#16171a; --tinta:#f5f5f7; --tinta-media:#98989d; --tinta-baja:#636366;
+      --linea:rgba(255,255,255,.08); --gel-t:#64d2ff;
+      --vidrio-a:rgba(255,255,255,.08); --vidrio-b:rgba(255,255,255,.035);
+      --vidrio-borde:rgba(255,255,255,.10); --vidrio-filo:rgba(255,255,255,.16);
+      --hueco-fondo:rgba(0,0,0,.32); --grano:.12;
     }
   }
   :root[data-tema="oscuro"]{
-    --yeso:#1C1A18; --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#A8A297;
-    --linea:rgba(255,255,255,.09); --gel-t:#FF9A6B;
-    --vidrio-a:rgba(255,255,255,.10); --vidrio-b:rgba(255,255,255,.045);
-    --vidrio-borde:rgba(255,255,255,.14); --vidrio-filo:rgba(255,255,255,.16);
-    --hueco-fondo:rgba(0,0,0,.28); --grano:.30;
+    --yeso:#16171a; --tinta:#f5f5f7; --tinta-media:#98989d; --tinta-baja:#636366;
+    --linea:rgba(255,255,255,.08); --gel-t:#64d2ff;
+    --vidrio-a:rgba(255,255,255,.08); --vidrio-b:rgba(255,255,255,.035);
+    --vidrio-borde:rgba(255,255,255,.10); --vidrio-filo:rgba(255,255,255,.16);
+    --hueco-fondo:rgba(0,0,0,.32); --grano:.12;
   }
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
-    background:var(--yeso);color:var(--tinta)}
-  /* La pared: el yeso con su grano y la luz de la etapa. */
+  html, body{height:100vh;max-height:100vh;overflow:hidden}
+  body{margin:0;font-family:var(--lg-font-family,-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",sans-serif);
+    background:var(--yeso);color:var(--tinta);-webkit-font-smoothing:antialiased}
+  /* La pared: fondo neutro y oscuro estilo macOS Studio con sutil oclusión */
   .pared{position:fixed;inset:0;z-index:0;pointer-events:none}
   .pared::before{content:"";position:absolute;inset:0;
-    background:radial-gradient(70% 55% at 10% 0%,rgba(217,96,43,.20),transparent 62%),
-               radial-gradient(90% 70% at 100% 100%,rgba(217,96,43,.09),transparent 68%)}
+    background:radial-gradient(80% 60% at 50% 0%,rgba(32,44,65,.32),transparent 72%),
+               radial-gradient(90% 70% at 100% 100%,rgba(20,24,35,.35),transparent 80%)}
   .pared::after{content:"";position:absolute;inset:0;opacity:var(--grano);mix-blend-mode:overlay;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E")}
-  .layout{position:relative;z-index:1;display:grid;grid-template-columns:340px minmax(0,1fr);min-height:100vh}
-  /* PLEGAR EL PANEL. La hoja mide 816 px de ancho —es una carta— y el panel se
-     lleva 340 px fijos. En un monitor sobra sitio para los dos; en una tableta
-     no, y la hoja quedaba espachurrada justo cuando lo que quieres es MIRARLA.
-     Plegado, la vista previa se queda con todo el ancho, y un botón flotante
-     devuelve el panel. La elección se recuerda. */
-  /* AQUÍ NO SE APILA NUNCA. El 2-sep se probó poner el panel ARRIBA cuando la
-     ventana baja de 1180 px, para dejarle a la hoja todo el ancho. En el iPad
-     salió al revés de lo que se buscaba: el panel mide 893 x 1280 y se come la
-     pantalla entera, y la primera hoja empieza en y=1367 — o sea, fuera de la
-     vista. Reportado y medido. La columna se queda SIEMPRE en dos.
-
-     Lo que ya resolvía esto desde antes es el botón de PLEGAR: se recoge el
-     panel y la vista previa se queda con todo el ancho, y la elección se
-     recuerda. Y si el hueco es estrecho, la hoja ya no se descuadra: se encoge
-     para caber (--encaje-hoja, más abajo). */
+  
+  /* Layout Fijo con cero scroll de ventana */
+  .layout{position:relative;z-index:1;display:grid;grid-template-columns:310px minmax(0,1fr);height:100vh;max-height:100vh;overflow:hidden}
   .layout.plegado{grid-template-columns:minmax(0,1fr)}
   .layout.plegado .config{display:none}
-  .cab-panel{display:flex;align-items:center;gap:8px}
-  .cab-panel h1{flex:1}
-  /* Tamaño de dedo: 40 px de alto es lo mínimo que se acierta sin mirar. */
-  .plegar,.abrir-panel{display:inline-flex;align-items:center;gap:6px;cursor:pointer;
-    border:1px solid var(--vidrio-borde);border-radius:11px;padding:0 14px;min-height:40px;
-    background:var(--vidrio-b);color:var(--tinta-media);
-    font-family:inherit;font-size:13px;font-weight:700}
-  .plegar:hover,.abrir-panel:hover{color:var(--tinta)}
-  .abrir-panel{position:fixed;left:14px;top:14px;z-index:5;display:none;
-    background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));
-    -webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
-    box-shadow:0 12px 28px -16px rgba(0,0,0,.5)}
-  .layout.plegado .abrir-panel{display:inline-flex}
-  /* Panel de configuración */
-  .config{position:sticky;top:0;align-self:start;height:calc(100vh - 28px);margin:14px 0 14px 14px;overflow:auto;
-    display:flex;flex-direction:column;gap:18px;padding:20px 18px;color:var(--tinta);border-radius:20px;
-    background:linear-gradient(160deg,var(--vidrio-a),var(--vidrio-b));
-    -webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
-    border:1px solid var(--vidrio-borde);
-    box-shadow:inset 0 1px 0 var(--vidrio-filo),0 20px 44px -26px rgba(0,0,0,.4)}
-  .config h1{margin:0;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.055em;color:var(--tinta)}
-  .config h2{margin:0 0 9px;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.16em;color:var(--tinta-baja)}
-  .type-grid{display:flex;flex-direction:column;gap:8px}
-  .type-card{display:flex;flex-direction:column;gap:3px;text-align:left;border:1px solid var(--vidrio-borde);
-    background:var(--vidrio-b);color:var(--tinta);border-radius:12px;padding:11px 13px;cursor:pointer;font:inherit;
-    transition:background .18s,border-color .18s,box-shadow .18s,transform .1s cubic-bezier(.2,.7,.3,1)}
-  .type-card:hover{background:var(--vidrio-a);border-color:var(--gel)}
-  .type-card:active{transform:scale(.98)}
-  .type-card strong{font-size:13px}
-  .type-card small{color:var(--tinta-baja);font-size:11px}
-  .type-card.selected{border-color:var(--gel-f);color:#fff;
-    background:linear-gradient(165deg,var(--gel),var(--gel-f));
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 15px -8px var(--gel)}
-  .type-card.selected small{color:rgba(255,255,255,.88)}
-  .sec-list{display:flex;flex-direction:column;gap:6px}
-  .sec-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center;border:1px solid var(--linea);background:var(--vidrio-b);border-radius:10px;padding:7px 9px}
-  .sec-row.off{opacity:.5}
-  .sec-row label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;cursor:pointer;min-width:0}
-  .sec-row label span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .sec-row input{width:15px;height:15px;accent-color:var(--gel);flex:none}
-  .sec-row button{width:26px;height:26px;border:1px solid var(--linea);border-radius:7px;background:var(--vidrio-a);color:var(--tinta-media);cursor:pointer;font-size:12px}
-  .sec-row button:hover:not(:disabled){color:var(--tinta);border-color:var(--gel)}
-  .sec-row button:disabled{opacity:.3;cursor:default}
-  /* Sub-opciones de una sección. Hoy solo las usa "Hojas imprimibles", que
-     antes era una herramienta aparte (Guías) y hacía exactamente esto: elegir
-     qué hojas se imprimen y cuántos renglones en blanco dejarles. */
-  .sec-sub{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:-2px 0 2px 26px;padding:9px 11px;border:1px dashed var(--linea);border-radius:9px;background:var(--vidrio-b)}
-  .sec-sub label{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap}
-  .sec-sub input[type=checkbox]{width:14px;height:14px;accent-color:var(--gel)}
-  .sec-sub input[type=number]{width:52px;border:1px solid var(--linea);border-radius:7px;background:var(--vidrio-a);color:var(--tinta);padding:4px 6px;font:inherit;font-size:11.5px}
-  .sec-sub .nota{width:100%;font-size:11px;color:var(--tinta-baja);line-height:1.5}
-  .pages-hint{font-size:11px;color:var(--tinta-baja);line-height:1.5;margin:6px 0 0}
-  .go{margin-top:auto;border:1px solid var(--gel-f);color:#fff;border-radius:11px;padding:13px;font-weight:700;font-size:15px;cursor:pointer;
-    background:linear-gradient(170deg,var(--gel),var(--gel-f));
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 8px 18px -9px var(--gel);
-    transition:filter .18s,transform .1s cubic-bezier(.2,.7,.3,1)}
-  .go:active{transform:scale(.97)}
-  .go:hover:not(:disabled){filter:brightness(1.07)}
-  .go:disabled{opacity:.45;cursor:default}
-  /* Previsualización */
-  /* Las páginas se acomodan en tantas columnas como quepan: en pantalla grande
-     se revisan varias de un vistazo en lugar de una sola con aire a los lados. */
-  /* LAS HOJAS ENCAJAN EN SU COLUMNA. Cada hoja mide 816 px —el ancho de una
-     carta— y eso no se toca: es lo que se imprime. Lo que estaba mal era
-     dejarla salirse cuando el hueco es más angosto, que es justo lo que pasa al
-     subir el tamaño de la app: la ventana efectiva se encoge (medido: de 922 a
-     480 px al 175 %) y la hoja de 816 se salía por la derecha, descuadrada.
+  
+  /* Botón plegar en sidebar */
+  .plegar{display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+    border:1px solid rgba(255,255,255,.10);border-radius:999px;padding:0 11px;min-height:28px;
+    background:rgba(255,255,255,.05);color:var(--tinta-media);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 1px 3px rgba(0,0,0,.2);
+    font-family:inherit;font-size:11.5px;font-weight:600;letter-spacing:-.01em;
+    transition:background .14s ease,color .14s ease,transform .09s var(--lg-spring-touch)}
+  .plegar:hover{color:var(--tinta);background:rgba(255,255,255,.10);transform:translateY(-1px)}
+  .plegar:active{transform:scale(.965)}
 
-     Ahora se mide la columna y se le pone a la hoja el factor que haga falta,
-     igual que hace el plano del set con su viewBox. `zoom` y no
-     `transform:scale` porque zoom encoge la caja y no deja hueco fantasma
-     debajo. Al imprimir se quita: ahí la hoja va a tamaño real. */
-  .preview{position:relative;z-index:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,816px),1fr));justify-items:center;align-items:start;gap:22px;padding:24px 16px 60px;overflow:auto}
-  .export-page{zoom:var(--encaje-hoja,1)}
-  @media print{ .export-page{zoom:1} }
-  .preview-title{grid-column:1/-1;align-self:stretch;text-align:center;color:var(--tinta-baja);font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase}
+  /* Botón integrado en la barra de herramientas del PDF (sin superposición ni posición fixed) */
+  .doc-sidebar-toggle{display:none;align-items:center;gap:6px;cursor:pointer;
+    border:1px solid var(--vidrio-borde);border-radius:7px;padding:0 10px;height:28px;
+    background:rgba(255,255,255,.06);color:var(--tinta-media);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 1px 3px rgba(0,0,0,.15);
+    font-family:inherit;font-size:11.5px;font-weight:600;letter-spacing:-.01em;
+    transition:background .12s ease,color .12s ease,border-color .12s ease,transform .08s var(--lg-spring-touch);
+    flex-shrink:0}
+  .doc-sidebar-toggle:hover{color:var(--tinta);background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);transform:translateY(-1px)}
+  .doc-sidebar-toggle:active{transform:scale(.97)}
+  .layout.plegado .doc-sidebar-toggle{display:inline-flex}
+
+  /* Panel de configuración — Apple macOS Studio Sidebar con Coherencia Visual */
+  .config{position:relative;height:calc(100vh - 24px);margin:12px 0 12px 12px;
+    display:flex;flex-direction:column;color:var(--tinta);border-radius:14px;overflow:hidden;
+    background:rgba(26,26,28,.82);
+    -webkit-backdrop-filter:blur(40px) saturate(190%);backdrop-filter:blur(40px) saturate(190%);
+    border:1px solid rgba(255,255,255,.09);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 18px 40px -15px rgba(0,0,0,.6)}
+  
+  .config-header{height:46px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid var(--linea);flex-shrink:0;background:rgba(255,255,255,.02)}
+  .config-header h1{margin:0;font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--tinta);display:flex;align-items:center;gap:7px}
+  .config-header h1 .badge-sub{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-media);
+    padding:2px 6px;border-radius:5px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.10)}
+
+  .config-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:14px 13px 18px;
+    display:flex;flex-direction:column;gap:16px;scrollbar-width:thin}
+  .config-body::-webkit-scrollbar{width:4px}
+  .config-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:999px}
+
+  .config-footer{padding:12px 13px 14px;border-top:1px solid var(--linea);flex-shrink:0;
+    background:linear-gradient(180deg,transparent,rgba(0,0,0,.25));display:flex;flex-direction:column;gap:6px}
+
+  /* Tipografía y títulos de sección */
+  .config h2{margin:0 0 9px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tinta-baja);display:flex;align-items:center;gap:6px}
+  .type-grid{display:flex;flex-direction:column;gap:5px}
+
+  /* Tarjetas de formato Apple macOS Sidebar Items */
+  .type-card{display:flex;align-items:center;gap:10px;text-align:left;
+    border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);color:var(--tinta);
+    border-radius:10px;padding:8px 10px;cursor:pointer;font:inherit;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 1px 3px rgba(0,0,0,.15);
+    transition:background .15s ease,border-color .15s ease,box-shadow .15s ease,transform .1s var(--lg-spring-touch)}
+  .type-card:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15);transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 4px 10px rgba(0,0,0,.25)}
+  .type-card:active{transform:scale(.985)}
+  
+  .type-card-badge{flex-shrink:0;width:28px;height:28px;border-radius:7px;
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);font-size:9.5px;font-weight:700;
+    letter-spacing:.04em;color:var(--tinta-media);display:grid;place-items:center;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.12);transition:background .15s,color .15s,box-shadow .15s}
+  .type-card-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .type-card strong{font-size:12px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;justify-content:space-between;color:var(--tinta)}
+  .type-card small{color:var(--tinta-baja);font-size:10.5px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  
+  .type-card.selected{border-color:rgba(10,132,255,.65);color:#fff;
+    background:linear-gradient(160deg,rgba(10,132,255,.20),rgba(0,113,227,.10));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 4px 16px -4px rgba(10,132,255,.40)}
+  .type-card.selected .type-card-badge{background:linear-gradient(180deg,#0a84ff,#0071e3);border-color:transparent;color:#fff;box-shadow:0 2px 8px rgba(10,132,255,.45)}
+  .type-card.selected strong{color:#fff}
+  .type-card.selected small{color:rgba(255,255,255,.82)}
+
+  /* Lista de secciones del dossier con micro-switches Apple */
+  .sec-list{display:flex;flex-direction:column;gap:5px}
+  .sec-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center;
+    border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.025);border-radius:9px;padding:6px 9px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06);transition:background .14s ease,border-color .14s ease}
+  .sec-row:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.10)}
+  .sec-row.off{opacity:.38}
+  .sec-row label{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;letter-spacing:-.01em;cursor:pointer;min-width:0;color:var(--tinta)}
+  .sec-row label span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  
+  /* Micro-Switch iOS / macOS HIG */
+  .sec-row input[type="checkbox"]{appearance:none;-webkit-appearance:none;width:32px;height:18px;border-radius:999px;
+    background:rgba(120,120,128,.32);position:relative;cursor:pointer;outline:none;
+    transition:background .2s cubic-bezier(.4,0,.2,1),border-color .2s ease;
+    flex-shrink:0;border:1px solid rgba(255,255,255,.10)}
+  .sec-row input[type="checkbox"]::after{content:"";position:absolute;top:1px;left:1px;width:14px;height:14px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .2s cubic-bezier(.4,0,.2,1)}
+  .sec-row input[type="checkbox"]:checked{background:#34c759;border-color:rgba(52,199,89,.5)}
+  .sec-row input[type="checkbox"]:checked::after{transform:translateX(14px)}
+
+  .sec-row button{width:22px;height:22px;border:1px solid rgba(255,255,255,.08);border-radius:6px;
+    background:rgba(255,255,255,.04);color:var(--tinta-media);cursor:pointer;font-size:10px;display:grid;place-items:center;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.10);transition:color .12s,background .12s,transform .08s var(--lg-spring-touch)}
+  .sec-row button:hover:not(:disabled){color:#fff;border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.12);transform:scale(1.06)}
+  .sec-row button:active:not(:disabled){transform:scale(.92)}
+  .sec-row button:disabled{opacity:.18;cursor:default}
+
+  /* Sub-opciones con cápsula sutil */
+  .sec-sub{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:-2px 0 2px 16px;padding:8px 10px;
+    border:1px dashed rgba(255,255,255,.12);border-radius:9px;background:rgba(255,255,255,.02)}
+  .sec-sub label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:500;color:var(--tinta);cursor:pointer;white-space:nowrap}
+  .sec-sub input[type=checkbox]{appearance:none;-webkit-appearance:none;width:14px;height:14px;border-radius:4px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.05);cursor:pointer;position:relative;display:grid;place-items:center}
+  .sec-sub input[type=checkbox]:checked{background:#0a84ff;border-color:#0a84ff}
+  .sec-sub input[type=checkbox]:checked::after{content:"";width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);margin-top:-2px}
+  .sec-sub input[type=number]{width:48px;border:1px solid rgba(255,255,255,.12);border-radius:6px;background:rgba(255,255,255,.05);color:var(--tinta);padding:3px 6px;font:inherit;font-size:11px;font-variant-numeric:tabular-nums;outline:none}
+  .sec-sub input[type=number]:focus{border-color:#0a84ff;box-shadow:0 0 0 2px rgba(10,132,255,.25)}
+  .sec-sub .nota{width:100%;font-size:10px;color:var(--tinta-baja);line-height:1.4}
+  .pages-hint{font-size:10.5px;color:var(--tinta-baja);line-height:1.4;margin:2px 0 0}
+
+  /* Botón Prominente Apple HIG siempre fijo en el pie */
+  .go{width:100%;border:1px solid #0056b3;color:#fff;border-radius:10px;height:38px;font-weight:600;font-size:12.5px;
+    letter-spacing:-.01em;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    background:linear-gradient(180deg,#0a84ff,#0071e3);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 4px 14px -3px rgba(10,132,255,.5);
+    transition:filter .14s ease,transform .08s var(--lg-spring-touch),box-shadow .14s ease}
+  .go:active{transform:scale(.98)}
+  .go:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 8px 18px -4px rgba(10,132,255,.6)}
+  .go:disabled{opacity:.35;cursor:default;transform:none!important;box-shadow:none!important}
+  .go-icon{display:grid;place-items:center}
+
+  /* ============================================================================
+     Área de Previsualización: Cabecera Fija Apple macOS Studio + Barra de Marcado
+     ============================================================================ */
+  .preview-wrapper{position:relative;height:100vh;max-height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+  .doc-header{position:relative;z-index:100;display:flex;flex-direction:column;flex-shrink:0;
+    background:var(--vidrio-a);
+    -webkit-backdrop-filter:blur(32px) saturate(190%);backdrop-filter:blur(32px) saturate(190%);
+    border-bottom:1px solid var(--vidrio-borde);
+    box-shadow:inset 0 1px 0 var(--vidrio-filo),0 4px 18px -6px rgba(0,0,0,.15);
+    user-select:none;transition:background .2s ease,border-color .2s ease}
+
+  :root[data-tema="oscuro"] .doc-header{background:rgba(28,26,24,.88);
+    border-bottom-color:rgba(255,255,255,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 8px 24px -8px rgba(0,0,0,.55)}
+
+  .doc-header-main{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;gap:10px}
+  .doc-header-left, .doc-header-center, .doc-header-right{display:flex;align-items:center;gap:8px}
+
+  .doc-header-title{font-size:12px;font-weight:700;letter-spacing:-.01em;color:var(--tinta);display:flex;align-items:center;gap:6px}
+  .doc-header-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tinta-media);
+    padding:2px 6px;border-radius:5px;background:rgba(0,0,0,.04);border:1px solid var(--vidrio-borde)}
+  :root[data-tema="oscuro"] .doc-header-badge{background:rgba(255,255,255,.06)}
+
+  /* Segmented Controls Apple macOS Sonoma / Sequoia */
+  .doc-seg-group{display:inline-flex;align-items:center;border:1px solid var(--vidrio-borde);border-radius:8px;
+    background:var(--hueco-fondo);padding:2px;gap:1px;box-shadow:inset 0 1px 1px rgba(0,0,0,.06)}
+  
+  .doc-seg-btn{border:none;background:transparent;color:var(--tinta-media);border-radius:6px;
+    padding:4px 9px;font-family:inherit;font-size:11px;font-weight:600;letter-spacing:-.01em;cursor:pointer;
+    display:inline-flex;align-items:center;gap:5px;transition:background .12s ease,color .12s ease,box-shadow .12s ease}
+  .doc-seg-btn:hover:not(:disabled){color:var(--tinta);background:rgba(255,255,255,.3)}
+  .doc-seg-btn.active{background:var(--vidrio-a);color:var(--tinta);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  :root[data-tema="oscuro"] .doc-seg-btn.active{background:rgba(255,255,255,.14);box-shadow:0 1px 3px rgba(0,0,0,.35)}
+  .doc-seg-btn:disabled{opacity:.28;cursor:default}
+
+  .doc-icon-btn{width:26px;height:24px;border:none;background:transparent;color:var(--tinta-media);
+    border-radius:6px;cursor:pointer;display:grid;place-items:center;transition:background .12s,color .12s,transform .08s}
+  .doc-icon-btn:hover:not(:disabled){color:var(--tinta);background:rgba(255,255,255,.4);transform:scale(1.04)}
+  .doc-icon-btn:active:not(:disabled){transform:scale(.95)}
+  .doc-icon-btn:disabled{opacity:.25;cursor:default}
+
+  .doc-seg-label{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--tinta);padding:0 8px;white-space:nowrap}
+
+  /* Botón Anotar (Markup Toggle) */
+  .doc-action-pill{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;
+    border:1px solid var(--vidrio-borde);border-radius:7px;background:var(--vidrio-b);color:var(--tinta-media);
+    font-family:inherit;font-size:11.5px;font-weight:600;letter-spacing:-.01em;cursor:pointer;
+    box-shadow:inset 0 1px 0 var(--vidrio-filo),var(--lg-shadow-sm);
+    transition:background .12s ease,color .12s ease,border-color .12s ease,transform .08s var(--lg-spring-touch)}
+  .doc-action-pill:hover{color:var(--tinta);background:var(--vidrio-a);transform:translateY(-1px)}
+  .doc-action-pill:active{transform:scale(.97)}
+  .doc-action-pill.active{background:linear-gradient(160deg,rgba(10,132,255,.18),rgba(0,113,227,.12));
+    border-color:rgba(10,132,255,.55);color:#64d2ff;font-weight:600;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 2px 8px -2px rgba(10,132,255,.35)}
+
+  /* Botón Prominente Exportar en cabecera */
+  .doc-primary-pill{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;
+    border:1px solid #0056b3;border-radius:7px;background:linear-gradient(180deg,#0a84ff,#0071e3);
+    color:#fff;font-family:inherit;font-size:11.5px;font-weight:600;letter-spacing:-.01em;cursor:pointer;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 3px 10px -3px rgba(10,132,255,.45);
+    transition:filter .14s ease,transform .08s var(--lg-spring-touch),box-shadow .14s ease}
+  .doc-primary-pill:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 6px 14px -3px rgba(10,132,255,.55)}
+  .doc-primary-pill:active:not(:disabled){transform:scale(.97)}
+  .doc-primary-pill:disabled{opacity:.35;cursor:default;transform:none!important;box-shadow:none!important}
+
+  /* Sub-barra de Marcado Apple PencilKit */
+  .doc-markup-bar{display:flex;align-items:center;justify-content:center;gap:12px;height:38px;padding:0 16px;
+    border-top:1px solid var(--linea);background:rgba(0,0,0,.025);overflow:hidden;
+    transition:height .22s cubic-bezier(.16,1,.3,1),opacity .18s ease,padding .22s ease,border .22s ease}
+  :root[data-tema="oscuro"] .doc-markup-bar{background:rgba(0,0,0,.2);border-top-color:rgba(255,255,255,.07)}
+  
+  .doc-markup-bar.collapsed{height:0;min-height:0;padding-top:0;padding-bottom:0;opacity:0;pointer-events:none;border-top-color:transparent}
+
+  .markup-tools-group{display:inline-flex;align-items:center;border:1px solid var(--vidrio-borde);border-radius:7px;
+    background:var(--hueco-fondo);padding:2px;gap:2px}
+  
+  .markup-tool-btn{border:none;background:transparent;color:var(--tinta-media);border-radius:5px;
+    padding:3px 9px;font-family:inherit;font-size:11px;font-weight:600;letter-spacing:-.01em;cursor:pointer;
+    display:inline-flex;align-items:center;gap:5px;transition:background .12s,color .12s,transform .08s}
+  .markup-tool-btn:hover{color:var(--tinta);background:rgba(255,255,255,.3)}
+  .markup-tool-btn.active{background:var(--vidrio-a);color:var(--tinta);box-shadow:0 1px 2px rgba(0,0,0,.15);font-weight:700}
+  :root[data-tema="oscuro"] .markup-tool-btn.active{background:rgba(10,132,255,.22);border:1px solid rgba(10,132,255,.5);color:#fff}
+
+  .markup-sep{width:1px;height:16px;background:var(--linea);flex-shrink:0}
+
+  .markup-colors{display:flex;align-items:center;gap:6px}
+  .markup-color-dot{width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(255,255,255,.9);cursor:pointer;
+    box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .12s var(--lg-spring-touch),outline .12s ease}
+  .markup-color-dot:hover{transform:scale(1.2)}
+  .markup-color-dot.active{outline:2px solid var(--tinta);outline-offset:1.5px;transform:scale(1.1)}
+
+  .markup-widths{display:inline-flex;align-items:center;border:1px solid var(--vidrio-borde);border-radius:6px;
+    background:var(--hueco-fondo);padding:2px;gap:1px}
+  .markup-width-btn{border:none;background:transparent;color:var(--tinta-media);border-radius:4px;
+    padding:2px 7px;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;transition:background .12s,color .12s}
+  .markup-width-btn:hover{color:var(--tinta)}
+  .markup-width-btn.active{background:var(--vidrio-a);color:var(--tinta);box-shadow:0 1px 2px rgba(0,0,0,.1)}
+  :root[data-tema="oscuro"] .markup-width-btn.active{background:rgba(255,255,255,.18);color:#fff}
+
+  .markup-actions{display:flex;align-items:center;gap:3px}
+  .markup-icon-btn{width:26px;height:24px;border:1px solid var(--vidrio-borde);background:var(--vidrio-b);
+    color:var(--tinta-media);border-radius:6px;cursor:pointer;display:grid;place-items:center;
+    box-shadow:inset 0 1px 0 var(--vidrio-filo);transition:background .12s,color .12s,transform .08s}
+  .markup-icon-btn:hover:not(:disabled){background:var(--vidrio-a);color:var(--tinta);transform:scale(1.05)}
+  .markup-icon-btn:active:not(:disabled){transform:scale(.95)}
+  .markup-icon-btn:disabled{opacity:.25;cursor:default}
+  .markup-icon-btn.active{background:linear-gradient(160deg,rgba(10,132,255,.20),rgba(0,113,227,.12));border-color:rgba(10,132,255,.55);color:#64d2ff}
+
+  /* Sello Vo.Bo. Broadcast en SVG */
+  .tinta-stamp{transition:transform .12s ease,opacity .12s ease;filter:drop-shadow(0 2px 5px rgba(0,0,0,.18))}
+  .tinta-stamp:hover{filter:drop-shadow(0 4px 8px rgba(0,0,0,.25))}
+
+  /* Área interna de Scroll del documento */
+  .preview-scroll-area{flex:1;min-height:0;height:auto;overflow-y:auto;overflow-x:hidden;
+    padding-top:16px;padding-bottom:60px;width:100%;display:flex;flex-direction:column;align-items:center;scrollbar-width:thin}
+  .preview-scroll-area::-webkit-scrollbar{width:6px}
+  .preview-scroll-area::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:999px}
+
+  .preview{position:relative;z-index:1;width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,816px),1fr));
+    justify-items:center;align-items:start;gap:30px;padding:10px 24px;overflow:visible}
+  .preview.single-view{display:flex;flex-direction:column;align-items:center}
+  .preview.single-view .export-page{display:none!important}
+  .preview.single-view .export-page.current-page{display:flex!important}
+
+  .export-page{zoom:var(--encaje-hoja,1);transition:transform .2s ease}
+  @media print{ .export-page{zoom:1!important;display:flex!important} }
   .empty{margin-top:80px;text-align:center;color:var(--tinta-media);font-size:14px;line-height:1.7}
+
   @media print{
-    body{background:#fff}
-    .config,.preview-title{display:none!important}
-    .layout{display:block}
+    body{background:#fff;height:auto!important;overflow:visible!important}
+    .config,.doc-header,.abrir-panel{display:none!important}
+    .layout{display:block;height:auto!important;overflow:visible!important}
+    .preview-wrapper,.preview-scroll-area{display:block;height:auto!important;overflow:visible!important;padding:0!important}
     .preview{padding:0;gap:0;display:block;overflow:visible}
-    .page,.sheet{width:auto;min-height:auto;box-shadow:none;border-radius:0;padding:10mm 12mm;page-break-after:always}
+    .page,.sheet{width:auto;min-height:auto;box-shadow:none!important;border-radius:0;padding:10mm 12mm;page-break-after:always}
     .export-page:last-child{page-break-after:auto}
   }
   @page{size:letter;margin:8mm}
 </style>
-<!-- Estilos de las páginas del documento. Van en un bloque aparte (solo
-     selectores con clase) porque se envían junto con el HTML al shell para la
-     impresión multipágina (producciontv:print-document). -->
+<!-- Estilos Editoriales Apple TV+ Dossier para las páginas impresas -->
 <style id="page-styles">
-  .page{width:816px;min-height:1000px;background:#fff;border-radius:6px;box-shadow:0 14px 40px #0006;padding:38px 44px;position:relative;display:flex;flex-direction:column;color:#15233D;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
-  .pg-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #16365F;padding-bottom:10px;margin-bottom:14px}
-  .pg-head h1{margin:0;font-size:21px;color:#16365F;text-transform:uppercase;letter-spacing:.5px}
-  .pg-head .sub{margin:3px 0 0;font-size:11px;color:#5b6b82;font-weight:700;text-transform:uppercase;letter-spacing:1px}
-  .pg-head .org{text-align:right;font-size:11px;color:#5b6b82;font-weight:700;text-transform:uppercase}
-  .pg-foot{margin-top:auto;padding-top:18px;display:flex;justify-content:space-between;font-size:9px;color:#8a97a8;letter-spacing:1px;text-transform:uppercase}
-  .page table{width:100%;border-collapse:collapse;font-size:12px}
-  .page th{background:#16365F;color:#fff;text-transform:uppercase;font-size:10px;letter-spacing:.8px;padding:6px 8px;text-align:left}
-  .page td{border:1px solid #C8D2DE;padding:6px 8px;vertical-align:middle}
-  .page td.num{width:26px;text-align:center;color:#5b6b82;font-weight:700}
-  .chip{display:inline-block;color:#fff;font-weight:800;font-size:10.5px;border-radius:5px;padding:2px 8px}
-  .kv{display:grid;grid-template-columns:170px 1fr;font-size:12.5px}
-  .kv span{padding:8px 10px;background:#F2F5F8;border-bottom:1px solid #fff;font-weight:800;font-size:10px;text-transform:uppercase;color:#5b6b82;letter-spacing:.8px}
-  .kv b{padding:8px 10px;border-bottom:1px solid #EDF1F5}
-  .people{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-  .person{display:flex;align-items:center;gap:10px;border:1.5px solid #C8D2DE;border-radius:9px;padding:9px 11px}
-  .person i{width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:50%;background:#16365F;color:#fff;font-style:normal;font-size:16px}
+  .page{width:816px;min-height:1056px;background:#fff;border-radius:10px;
+    box-shadow:0 1px 3px rgba(0,0,0,.06),0 8px 22px -4px rgba(0,0,0,.25),0 26px 52px -12px rgba(0,0,0,.35);
+    border:1px solid rgba(0,0,0,.06);padding:44px 50px;position:relative;display:flex;flex-direction:column;
+    color:#0F172A;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",sans-serif;-webkit-font-smoothing:antialiased}
+  
+  .pg-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5px solid #16365F;padding-bottom:12px;margin-bottom:18px}
+  .pg-head h1{margin:0;font-size:21px;color:#16365F;font-weight:800;letter-spacing:-.02em;text-transform:uppercase}
+  .pg-head .sub{margin:3px 0 0;font-size:10.5px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+  .pg-head .org{text-align:right;font-size:10.5px;color:#64748B;font-weight:700;text-transform:uppercase;line-height:1.45}
+  
+  .pg-foot{margin-top:auto;padding-top:16px;border-top:1px solid rgba(0,0,0,.06);display:flex;justify-content:space-between;font-size:9px;color:#94A3B8;letter-spacing:1px;text-transform:uppercase}
+  
+  /* Tablas de producción con estilo editorial */
+  .page table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid rgba(0,0,0,.08);border-radius:8px;overflow:hidden;font-size:11.5px}
+  .page th{background:#16365F;color:#fff;text-transform:uppercase;font-size:9.5px;font-weight:700;letter-spacing:.06em;padding:7px 10px;text-align:left}
+  .page td{border-bottom:1px solid rgba(0,0,0,.06);padding:7px 10px;vertical-align:middle;color:#1E293B}
+  .page tr:last-child td{border-bottom:none}
+  .page td.num{width:28px;text-align:center;color:#64748B;font-weight:700;background:rgba(0,0,0,.015)}
+  
+  .chip{display:inline-block;color:#fff;font-weight:700;font-size:10px;border-radius:5px;padding:2px 7px;letter-spacing:.02em}
+  
+  /* Ficha de datos (kv) estilo Apple Executive Summary */
+  .kv{display:grid;grid-template-columns:160px 1fr;font-size:12px;border:1px solid rgba(0,0,0,.08);border-radius:8px;overflow:hidden;margin-bottom:14px}
+  .kv span{padding:7px 12px;background:rgba(0,0,0,.02);border-bottom:1px solid rgba(0,0,0,.05);font-weight:700;font-size:9.5px;text-transform:uppercase;color:#64748B;letter-spacing:.06em}
+  .kv b{padding:7px 12px;border-bottom:1px solid rgba(0,0,0,.05);font-weight:600;color:#0F172A}
+  .kv span:last-of-type, .kv b:last-of-type{border-bottom:none}
+
+  .people{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+  .person{display:flex;align-items:center;gap:9px;border:1px solid rgba(0,0,0,.08);border-radius:8px;padding:8px 10px;background:#FAFAFA}
+  .person i{width:30px;height:30px;flex:none;display:grid;place-items:center;border-radius:50%;background:#16365F;color:#fff;font-style:normal;font-size:14px}
   .person div{min-width:0}
-  .person strong{display:block;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .person small{font-size:9.5px;color:#5b6b82;text-transform:uppercase;font-weight:700;letter-spacing:.5px}
+  .person strong{display:block;font-size:11px;font-weight:700;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .person small{font-size:9px;color:#64748B;text-transform:uppercase;font-weight:700;letter-spacing:.5px}
+
+  .cat2{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#16365F;margin:16px 0 8px;display:flex;align-items:center;gap:8px}
+  .cat2::after{content:"";flex:1;height:1px;background:rgba(22,54,95,.18)}
   /* Guion literario: formato tradicional, Courier y sangrías del oficio. */
   /* LA CAPA DE TINTA. Va DENTRO de la página, encima de todo, y por eso se
      imprime con ella: lo que se imprime es el outerHTML de .export-page.
@@ -188,14 +367,10 @@
      desplace la hoja como si la capa no existiera. */
   .tinta{position:absolute;inset:0;width:100%;height:100%;z-index:5;touch-action:pan-y}
   .tinta.escribiendo{touch-action:none;cursor:crosshair}
+  .tinta.borrando{touch-action:none;cursor:cell}
   .export-page{position:relative}
-  .tinta-barra{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:8px}
-  .tinta-color{width:26px;height:26px;border-radius:7px;cursor:pointer;border:1px solid var(--vidrio-borde)}
-  .tinta-color[aria-pressed="true"]{border:3px solid var(--tinta)}
-  .tinta-grosor{min-height:30px;padding:0 10px;border-radius:8px;cursor:pointer;font:inherit;
-    font-size:11.5px;font-weight:700;border:1px solid var(--vidrio-borde);
-    background:var(--vidrio-b);color:var(--tinta-media)}
-  .tinta-grosor[aria-pressed="true"]{background:var(--tinta);color:var(--yeso);border-color:var(--tinta)}
+
+
   /* LA TABLA DE PATCHEO. Es la hoja que se pega junto al switcher, así que se
      lee de reojo y con mala luz: número grande a la izquierda, canal en
      monospace (donde "SDI 11" y "SDI 1" no se confunden) y una casilla al final
@@ -221,37 +396,192 @@
 <body>
 <div class="pared" aria-hidden="true"></div>
 <div class="layout">
-  <button class="abrir-panel no-print" id="abrir-panel" title="Volver a abrir las opciones de exportación">⇩ Exportar ›</button>
   <aside class="config no-print">
-    <div class="cab-panel">
-      <h1>⇩ Exportar</h1>
-      <button class="plegar" id="plegar" title="Plegar este panel para ver las hojas más grandes">‹ Plegar</button>
+    <div class="config-header">
+      <h1>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
+        <span>Exportar</span>
+        <span class="badge-sub">Master</span>
+      </h1>
+      <button class="plegar" id="plegar" title="Plegar este panel para ampliar la vista del documento">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        <span>Plegar</span>
+      </button>
     </div>
-    <section>
-      <h2>¿Qué quieres exportar?</h2>
-      <div class="type-grid" id="type-grid">
-        <button class="type-card" data-type="proyecto"><strong>◆ Proyecto editable (.ptv)</strong><small>Archivo de Producción TV: doble clic lo abre en la app, o impórtalo desde Inicio</small></button>
-        <button class="type-card selected" data-type="pdf"><strong>⎙ PDF imprimible</strong><small>Documento con las secciones elegidas, en el orden que definas</small></button>
-        <button class="type-card" data-type="png"><strong>▧ PNG por sección</strong><small>Una imagen de alta resolución por cada página del documento</small></button>
-      </div>
-    </section>
-    <section id="sections-panel">
-      <h2>Selecciona qué secciones quieres incluir</h2>
-      <div class="sec-list" id="sec-list"></div>
-      <p class="pages-hint">Usa ▲▼ para ordenar las páginas del documento. La vista previa de la derecha es exactamente lo que se genera.</p>
-
-      <h2>Escribir a mano</h2>
-      <p class="pages-hint" id="tinta-pista">Con un <b>Apple Pencil</b> escribe directo sobre la hoja: el lápiz siempre escribe y el dedo siempre desplaza, sin encender nada. Con ratón o dedo, enciende <b>Modo escritura</b>.</p>
-      <div class="tinta-barra" id="tinta-barra"></div>
-    </section>
-    <button class="go" id="go">Generar</button>
+    <div class="config-body">
+      <section>
+        <h2>Formato de salida</h2>
+        <div class="type-grid" id="type-grid">
+          <button class="type-card" data-type="proyecto">
+            <span class="type-card-badge">PTV</span>
+            <div class="type-card-info">
+              <strong>Proyecto editable (.ptv)</strong>
+              <small>Archivo reimportable desde el Inicio</small>
+            </div>
+          </button>
+          <button class="type-card selected" data-type="pdf">
+            <span class="type-card-badge">PDF</span>
+            <div class="type-card-info">
+              <strong>PDF Broadcast Dossier</strong>
+              <small>Documento vectorial con secciones personalizadas</small>
+            </div>
+          </button>
+          <button class="type-card" data-type="png">
+            <span class="type-card-badge">PNG</span>
+            <div class="type-card-info">
+              <strong>PNG por sección</strong>
+              <small>Imágenes de alta resolución por cada página</small>
+            </div>
+          </button>
+          <button class="type-card" data-type="edl">
+            <span class="type-card-badge">EDL</span>
+            <div class="type-card-info">
+              <strong>Lista de edición EDL</strong>
+              <small>CMX 3600 para DaVinci Resolve, Premiere y FCP</small>
+            </div>
+          </button>
+          <button class="type-card" data-type="csv">
+            <span class="type-card-badge">CSV</span>
+            <div class="type-card-info">
+              <strong>Tablas estructuradas</strong>
+              <small>Escaleta, cámaras y presupuesto en CSV</small>
+            </div>
+          </button>
+        </div>
+      </section>
+      <section id="sections-panel">
+        <h2>Secciones del Dossier</h2>
+        <div class="sec-list" id="sec-list"></div>
+        <p class="pages-hint">Usa las flechas para ordenar las páginas del documento. La vista previa refleja exactamente el documento final.</p>
+      </section>
+    </div>
+    <div class="config-footer">
+      <button class="go" id="go">
+        <span class="go-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </span>
+        <span class="go-label" id="go-label">Generar PDF</span>
+      </button>
+      <small style="font-size:10px;color:var(--tinta-baja);text-align:center;letter-spacing:.02em">Atajo: ⌘P para imprimir o exportar rápido</small>
+    </div>
   </aside>
-  <main class="preview" id="preview">
-    <div class="empty">Abre un proyecto para configurar su exportación.</div>
-  </main>
+  <div class="preview-wrapper">
+    <!-- Cabecera Unificada Apple macOS Studio & Barra de Marcado -->
+    <header class="doc-header no-print" id="doc-header">
+      <div class="doc-header-main">
+        <div class="doc-header-left">
+          <button class="doc-sidebar-toggle no-print" id="abrir-panel" title="Mostrar opciones de exportación (Sidebar)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+            <span>Opciones</span>
+          </button>
+          <span class="doc-header-title">Dossier Broadcast</span>
+          <div class="doc-seg-group">
+            <button class="doc-icon-btn" id="pager-prev" title="Página anterior (←)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <span class="doc-seg-label" id="pager-label">Página 1 de 1</span>
+            <button class="doc-icon-btn" id="pager-next" title="Página siguiente (→)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="doc-header-center">
+          <div class="doc-seg-group" role="radiogroup" aria-label="Modo de visualización">
+            <button class="doc-seg-btn active" id="view-mode-single" title="Vista Hoja Única">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <span>Hoja</span>
+            </button>
+            <button class="doc-seg-btn" id="view-mode-grid" title="Vista Mosaico / Miniaturas">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+              <span>Mosaico</span>
+            </button>
+          </div>
+          <div class="doc-seg-group">
+            <button class="doc-icon-btn" id="zoom-out" title="Reducir zoom">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+            <button class="doc-seg-btn active" data-zoom="fit" id="zoom-fit">Ajustar</button>
+            <button class="doc-seg-btn" data-zoom="1.0" id="zoom-100">100%</button>
+            <button class="doc-icon-btn" id="zoom-in" title="Aumentar zoom">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="doc-header-right">
+          <button class="doc-action-pill active" id="markup-toggle" title="Mostrar/Ocultar barra de marcado y Apple Pencil">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <span>Anotar</span>
+          </button>
+          <button class="doc-primary-pill" id="quick-export-btn" title="Exportar documento (⌘P)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Exportar</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de Marcado Horizontal Auténtica Apple Preview / QuickLook -->
+      <div class="doc-markup-bar" id="doc-markup-bar">
+        <div class="markup-tools-group">
+          <button class="markup-tool-btn active" id="tool-pen" data-tool="pen" title="Pluma vectorial de precisión (P)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+            <span>Pluma</span>
+          </button>
+          <button class="markup-tool-btn" id="tool-highlighter" data-tool="highlighter" title="Resaltador fluorescente traslúcido (H)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h3l6-6"/><path d="m22 7-4.5-4.5a1.5 1.5 0 0 0-2.1 0L10.5 7.4a1.5 1.5 0 0 0 0 2.1l4 4a1.5 1.5 0 0 0 2.1 0l4.9-4.9a1.5 1.5 0 0 0 0-2.1z"/><line x1="14" y1="11" x2="4" y2="21"/></svg>
+            <span>Resaltador</span>
+          </button>
+          <button class="markup-tool-btn" id="tool-eraser" data-tool="eraser" title="Borrador de trazos (E)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+            <span>Borrador</span>
+          </button>
+          <button class="markup-tool-btn" id="tool-stamp" data-tool="stamp" title="Sello Vo.Bo. Broadcast (Aprobado para Aire)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 2.5 3.4-.6 1.4 3.1 3.2 1.3-.3 3.4 2.3 2.5-1.7 3 1 3.3-3.1 1.4-.7 3.4-3.4-.4-2.1 2.7-2.1-2.7-3.4.4-.7-3.4-3.1-1.4 1-3.3-1.7-3 2.3-2.5-.3-3.4 3.2-1.3 1.4-3.1 3.4.6z"/><polyline points="9 12 11 14 15 10"/></svg>
+            <span>Sello Vo.Bo.</span>
+          </button>
+        </div>
+
+        <div class="markup-sep"></div>
+
+        <!-- Selector de Colores Apple Pro -->
+        <div class="markup-colors" id="markup-colors"></div>
+
+        <div class="markup-sep"></div>
+
+        <!-- Selector de Grosor -->
+        <div class="markup-widths" id="markup-widths"></div>
+
+        <div class="markup-sep"></div>
+
+        <!-- Acciones de Edición GoF Command -->
+        <div class="markup-actions">
+          <button class="markup-icon-btn" id="markup-undo" title="Deshacer trazo (⌘Z)" disabled>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+          </button>
+          <button class="markup-icon-btn" id="markup-redo" title="Rehacer trazo (⇧⌘Z)" disabled>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
+          </button>
+          <button class="markup-icon-btn" id="markup-clear" title="Limpiar anotaciones de la hoja">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+          <button class="markup-icon-btn" id="markup-draw-mode" title="Modo dibujo con cursor (Trackpad / Ratón)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="preview-scroll-area" id="preview-scroll-area">
+      <main class="preview" id="preview">
+        <div class="empty">Abre un proyecto para configurar su exportación.</div>
+      </main>
+    </div>
+  </div>
 </div>
 
 <script src="../shared/sheets.js"></script>
+<script src="../shared/export_visitors.js"></script>
 <script src="../shared/atajos.js"></script>
 <script src="../shared/ajustes.js"></script>
 <script>
@@ -706,11 +1036,25 @@
   }
 
   function pagPersonal() {
-    const ICON = { director: '🎧', switcher: '🎚', audio: '🔊', graficos: '🖥', playback: '▶', conductor: '🎤', floor: '🎬', luces: '💡', productor: '👥', script: '✏️', custom: '👤' };
+    const ICONS = {
+      director: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>',
+      switcher: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>',
+      audio: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>',
+      graficos: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+      playback: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+      conductor: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
+      floor: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>',
+      luces: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.76.76 1.23 1.52 1.41 2.5"/></svg>',
+      productor: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+      script: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+      custom: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+    };
+    const defaultIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+    const camIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>';
     const people = (cfg.personal || []).map((p) =>
-      `<div class="person"><i>${ICON[p.icon] || '👤'}</i><div><strong>${esc(p.rol)}</strong><small>Operación</small></div></div>`);
+      `<div class="person"><i>${ICONS[p.icon] || defaultIcon}</i><div><strong>${esc(p.rol)}</strong><small>Operación</small></div></div>`);
     const camOps = cfg.includeCamOps
-      ? (cfg.camaras || []).map((c, i) => `<div class="person"><i style="background:${esc(c.color || '#16365F')}">📷</i><div><strong>Operador(a) ${esc(c.nombre || 'CAM ' + (i + 1))}</strong><small>${esc(c.plano || 'Cámara')}</small></div></div>`)
+      ? (cfg.camaras || []).map((c, i) => `<div class="person"><i style="background:${esc(c.color || '#16365F')}">${camIcon}</i><div><strong>Operador(a) ${esc(c.nombre || 'CAM ' + (i + 1))}</strong><small>${esc(c.plano || 'Cámara')}</small></div></div>`)
       : [];
     return `
       ${pgHead('Personal de operación', '¿Quién opera qué durante la producción?')}
@@ -735,40 +1079,317 @@
 
   /* --------------------------- Composición --------------------------- */
 
-  // Devuelve la lista de páginas [{name, html, fillable}] según secciones y orden.
-  function buildPages() {
-    const pages = [];
-    orden.filter((s) => s.on).forEach((s) => {
-      if (s.id === 'completa') pages.push({ name: 'resumen', html: pagCompleta() });
-      if (s.id === 'set') pages.push(...pagsSet());
-      if (s.id === 'iluminacion') pages.push(...pagsIluminacion());
-      if (s.id === 'llamado') pages.push({ name: 'hoja-de-llamado', html: S.llamado(cfg, projectName), fillable: true });
-      if (s.id === 'guion') pages.push(...pagsGuion());
-      if (s.id === 'escaleta') pages.push({ name: 'escaleta', html: pagEscaleta() });
-      if (s.id === 'timeline') pages.push({ name: 'linea-de-tiempo', html: pagTimeline() });
-      if (s.id === 'diagrama') pages.push({ name: 'diagrama-tecnico', html: pagDiagrama() });
-      if (s.id === 'personal') pages.push({ name: 'personal', html: pagPersonal() });
-      if (s.id === 'guias') {
+  /* ==========================================================================
+   * PATRÓN GoF COMPOSITE: Estructura Jerárquica del Dossier de Producción
+   * ========================================================================== */
+  class DossierNode {
+    getPages() { return []; }
+    getPageCount() { return this.getPages().length; }
+  }
+
+  class PageLeaf extends DossierNode {
+    constructor(name, html, fillable = false) {
+      super();
+      this.name = name;
+      this.html = html;
+      this.fillable = fillable;
+    }
+    getPages() {
+      return [{ name: this.name, html: this.html, fillable: this.fillable }];
+    }
+  }
+
+  class SectionComposite extends DossierNode {
+    constructor(id, label, on = true) {
+      super();
+      this.id = id;
+      this.label = label;
+      this.on = on;
+      this.children = [];
+    }
+    addChild(child) {
+      this.children.push(child);
+      return this;
+    }
+    getPages() {
+      if (!this.on) return [];
+      return this.children.flatMap((c) => c.getPages());
+    }
+  }
+
+  class DossierComposite extends DossierNode {
+    constructor() {
+      super();
+      this.sections = [];
+    }
+    addSection(section) {
+      this.sections.push(section);
+      return this;
+    }
+    getPages() {
+      return this.sections.flatMap((s) => s.getPages());
+    }
+  }
+
+  // Factoría GoF para armar el Composite del proyecto actual
+  function assembleDossier() {
+    const dossier = new DossierComposite();
+    orden.forEach((s) => {
+      const sec = new SectionComposite(s.id, s.label, s.on);
+      if (s.id === 'completa') {
+        sec.addChild(new PageLeaf('resumen', pagCompleta()));
+      } else if (s.id === 'set') {
+        pagsSet().forEach((p) => sec.addChild(new PageLeaf(p.name, p.html)));
+      } else if (s.id === 'iluminacion') {
+        pagsIluminacion().forEach((p) => sec.addChild(new PageLeaf(p.name, p.html)));
+      } else if (s.id === 'llamado') {
+        sec.addChild(new PageLeaf('hoja-de-llamado', S.llamado(cfg, projectName), true));
+      } else if (s.id === 'guion') {
+        pagsGuion().forEach((p) => sec.addChild(new PageLeaf(p.name, p.html)));
+      } else if (s.id === 'escaleta') {
+        sec.addChild(new PageLeaf('escaleta', pagEscaleta()));
+      } else if (s.id === 'timeline') {
+        sec.addChild(new PageLeaf('linea-de-tiempo', pagTimeline()));
+      } else if (s.id === 'diagrama') {
+        sec.addChild(new PageLeaf('diagrama-tecnico', pagDiagrama()));
+      } else if (s.id === 'personal') {
+        sec.addChild(new PageLeaf('personal', pagPersonal()));
+      } else if (s.id === 'guias') {
         HOJAS.filter((h) => hojasOn.includes(h.id)).forEach((h, i) => {
-          pages.push({ name: `hoja-${i + 1}-${h.id}`, html: S[h.id](cfg, projectName, { extraRows: filasExtra }), fillable: true });
+          sec.addChild(new PageLeaf(`hoja-${i + 1}-${h.id}`, S[h.id](cfg, projectName, { extraRows: filasExtra }), true));
         });
       }
+      dossier.addSection(sec);
     });
-    return pages;
+    return dossier;
   }
+
+  function buildPages() {
+    return assembleDossier().getPages();
+  }
+
+  /* ==========================================================================
+   * PATRÓN GoF STRATEGY: Formatos y Algoritmos de Exportación
+   * ========================================================================== */
+  class ExportStrategy {
+    getLabel(pageCount) { return 'Exportar'; }
+    execute(ctx) {}
+  }
+
+  class PdfExportStrategy extends ExportStrategy {
+    getLabel(n) { return `Exportar Dossier PDF (${n} pág${n === 1 ? '' : 's'})`; }
+    execute(ctx) { ctx.printDocument(); }
+  }
+
+  class EdlExportStrategy extends ExportStrategy {
+    getLabel() { return 'Exportar EDL CMX 3600'; }
+    execute(ctx) { ctx.exportEdl(); }
+  }
+
+  class CsvExportStrategy extends ExportStrategy {
+    getLabel() { return 'Exportar Tablas CSV'; }
+    execute(ctx) { ctx.exportCsv(); }
+  }
+
+  class PngExportStrategy extends ExportStrategy {
+    getLabel(n) { return n === 1 ? 'Exportar 1 Imagen PNG' : `Exportar ${n} Imágenes PNG`; }
+    execute(ctx) { ctx.exportPng(); }
+  }
+
+  class PtvExportStrategy extends ExportStrategy {
+    getLabel() { return 'Exportar Proyecto (.ptv)'; }
+    execute(ctx) { ctx.exportPtv(); }
+  }
+
+  class ExportStrategyManager {
+    constructor() {
+      this.strategies = {
+        pdf: new PdfExportStrategy(),
+        edl: new EdlExportStrategy(),
+        csv: new CsvExportStrategy(),
+        png: new PngExportStrategy(),
+        proyecto: new PtvExportStrategy(),
+      };
+      this.currentType = 'pdf';
+    }
+    setFormat(type) {
+      if (this.strategies[type]) {
+        this.currentType = type;
+      }
+    }
+    getCurrent() {
+      return this.strategies[this.currentType] || this.strategies.pdf;
+    }
+    execute(ctx) {
+      this.getCurrent().execute(ctx);
+    }
+  }
+
+  const exportManager = new ExportStrategyManager();
+
+  /* ==========================================================================
+   * PATRÓN GoF BUILDER: DocumentPreviewBuilder
+   * Control y Navegación de la Vista Previa (Apple Preview)
+   * ========================================================================== */
+  const PreviewController = {
+    currentPage: 1,
+    totalPages: 1,
+    viewMode: 'single',
+    zoomLevel: 'fit',
+    initialized: false,
+
+    init() {
+      if (this.initialized) return;
+      this.initialized = true;
+      const prevBtn = document.querySelector('#pager-prev');
+      const nextBtn = document.querySelector('#pager-next');
+      const singleBtn = document.querySelector('#view-mode-single');
+      const gridBtn = document.querySelector('#view-mode-grid');
+      const quickBtn = document.querySelector('#quick-export-btn');
+      const markupToggle = document.querySelector('#markup-toggle');
+      const markupBar = document.querySelector('#doc-markup-bar');
+
+      if (prevBtn) prevBtn.onclick = () => this.prevPage();
+      if (nextBtn) nextBtn.onclick = () => this.nextPage();
+
+      if (singleBtn) singleBtn.onclick = () => this.setViewMode('single');
+      if (gridBtn) gridBtn.onclick = () => this.setViewMode('grid');
+
+      if (quickBtn) quickBtn.onclick = () => document.querySelector('#go')?.click();
+
+      if (markupToggle && markupBar) {
+        markupToggle.onclick = () => {
+          const isCollapsed = markupBar.classList.toggle('collapsed');
+          markupToggle.classList.toggle('active', !isCollapsed);
+        };
+      }
+
+      const zoomOutBtn = document.querySelector('#zoom-out');
+      const zoomInBtn = document.querySelector('#zoom-in');
+      const zoomFitBtn = document.querySelector('#zoom-fit');
+      const zoom100Btn = document.querySelector('#zoom-100');
+
+      if (zoomOutBtn) zoomOutBtn.onclick = () => this.stepZoom(-0.15);
+      if (zoomInBtn) zoomInBtn.onclick = () => this.stepZoom(0.15);
+      if (zoomFitBtn) zoomFitBtn.onclick = () => { this.setZoom('fit'); this.updateZoomUI('fit'); };
+      if (zoom100Btn) zoom100Btn.onclick = () => { this.setZoom('1.0'); this.updateZoomUI('1.0'); };
+
+      window.addEventListener('keydown', (e) => {
+        if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+        if ((e.metaKey || e.ctrlKey) && (e.key === 'p' || e.key === 'P')) {
+          e.preventDefault();
+          document.querySelector('#go')?.click();
+        } else if (e.key === 'ArrowRight') {
+          this.nextPage();
+        } else if (e.key === 'ArrowLeft') {
+          this.prevPage();
+        }
+      });
+
+      // Asegurar estado inicial de modo de vista
+      this.setViewMode(this.viewMode);
+    },
+
+    stepZoom(delta) {
+      const zona = document.querySelector('#preview');
+      if (!zona) return;
+      let cur = parseFloat(zona.style.getPropertyValue('--encaje-hoja')) || 1.0;
+      let next = Math.max(0.4, Math.min(2.0, +(cur + delta).toFixed(2)));
+      this.setZoom(String(next));
+      this.updateZoomUI(null);
+    },
+
+    updateZoomUI(val) {
+      const fitBtn = document.querySelector('#zoom-fit');
+      const h100Btn = document.querySelector('#zoom-100');
+      if (fitBtn) fitBtn.classList.toggle('active', val === 'fit');
+      if (h100Btn) h100Btn.classList.toggle('active', val === '1.0');
+    },
+
+    setZoom(val) {
+      this.zoomLevel = val;
+      const zona = document.querySelector('#preview');
+      if (!zona) return;
+      if (val === 'fit') {
+        if (window.aplicarEncajeAutomatico) window.aplicarEncajeAutomatico();
+      } else {
+        zona.style.setProperty('--encaje-hoja', val);
+      }
+    },
+
+    setViewMode(mode) {
+      this.viewMode = mode;
+      const isSingle = mode === 'single';
+      const zona = document.querySelector('#preview');
+      if (zona) zona.classList.toggle('single-view', isSingle);
+
+      document.querySelector('#view-mode-single')?.classList.toggle('active', isSingle);
+      document.querySelector('#view-mode-grid')?.classList.toggle('active', !isSingle);
+      this.goToPage(this.currentPage);
+    },
+
+    goToPage(pageNum) {
+      this.currentPage = Math.max(1, Math.min(this.totalPages, pageNum));
+      const pages = document.querySelectorAll('.export-page');
+      pages.forEach((p, i) => {
+        p.classList.toggle('current-page', i === (this.currentPage - 1));
+      });
+      if (this.viewMode === 'grid') {
+        const target = pages[this.currentPage - 1];
+        if (target) {
+          const scrollArea = document.querySelector('#preview-scroll-area');
+          if (scrollArea) {
+            const topOffset = target.offsetTop - 16;
+            scrollArea.scrollTo({ top: Math.max(0, topOffset), behavior: 'smooth' });
+          } else {
+            target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+      }
+      this.updatePager();
+    },
+
+    prevPage() {
+      if (this.currentPage > 1) this.goToPage(this.currentPage - 1);
+    },
+
+    nextPage() {
+      if (this.currentPage < this.totalPages) this.goToPage(this.currentPage + 1);
+    },
+
+    updatePager() {
+      const label = document.querySelector('#pager-label');
+      const prevBtn = document.querySelector('#pager-prev');
+      const nextBtn = document.querySelector('#pager-next');
+      if (label) label.textContent = `Página ${this.currentPage} de ${this.totalPages}`;
+      if (prevBtn) prevBtn.disabled = this.currentPage <= 1;
+      if (nextBtn) nextBtn.disabled = this.currentPage >= this.totalPages;
+    },
+
+    syncWithPages(pagesCount) {
+      this.totalPages = Math.max(1, pagesCount);
+      if (this.currentPage > this.totalPages) this.currentPage = this.totalPages;
+      this.goToPage(this.currentPage);
+    }
+  };
 
   /* ----------------------------- Render ----------------------------- */
 
   function renderConfig() {
+    exportManager.setFormat(tipo);
     document.querySelectorAll('[data-type]').forEach((b) => b.classList.toggle('selected', b.dataset.type === tipo));
-    document.querySelector('#sections-panel').style.display = tipo === 'proyecto' ? 'none' : '';
+    document.querySelector('#sections-panel').style.display = (tipo === 'proyecto' || tipo === 'edl' || tipo === 'csv') ? 'none' : '';
     const list = document.querySelector('#sec-list');
     list.innerHTML = orden.map((s, i) => `
       <div class="sec-row ${s.on ? '' : 'off'}">
         <input type="checkbox" data-on="${i}" ${s.on ? 'checked' : ''}>
         <label><span>${s.label}</span></label>
-        <button data-up="${i}" ${i === 0 ? 'disabled' : ''}>▲</button>
-        <button data-down="${i}" ${i === orden.length - 1 ? 'disabled' : ''}>▼</button>
+        <button data-up="${i}" ${i === 0 ? 'disabled' : ''} title="Mover arriba">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+        </button>
+        <button data-down="${i}" ${i === orden.length - 1 ? 'disabled' : ''} title="Mover abajo">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
       </div>${s.id === 'guias' && s.on ? subHojas() : ''}`).join('');
     list.querySelectorAll('[data-on]').forEach((c) => c.onchange = () => { orden[Number(c.dataset.on)].on = c.checked; render(); });
     list.querySelectorAll('[data-hoja]').forEach((c) => c.onchange = () => {
@@ -783,10 +1404,15 @@
     };
     list.querySelectorAll('[data-up]').forEach((b) => b.onclick = () => { const i = Number(b.dataset.up); [orden[i - 1], orden[i]] = [orden[i], orden[i - 1]]; render(); });
     list.querySelectorAll('[data-down]').forEach((b) => b.onclick = () => { const i = Number(b.dataset.down); [orden[i + 1], orden[i]] = [orden[i], orden[i + 1]]; render(); });
+    
     const go = document.querySelector('#go');
+    const goLabel = document.querySelector('#go-label');
     const n = buildPages().length;
-    go.textContent = tipo === 'proyecto' ? 'Exportar proyecto (.ptv)' : tipo === 'pdf' ? `Generar PDF (${n} páginas)` : `Generar ${n} PNG`;
-    go.disabled = tipo !== 'proyecto' && n === 0;
+    const currentStrat = exportManager.getCurrent();
+    const labelText = currentStrat.getLabel(n);
+    if (goLabel) goLabel.textContent = labelText;
+    else go.textContent = labelText;
+    go.disabled = (tipo === 'pdf' || tipo === 'png') && n === 0;
   }
 
   /* El panel plegado, recordado entre visitas. Va aquí y no en los ajustes de
@@ -818,10 +1444,35 @@
 
   function renderPreview() {
     const box = document.querySelector('#preview');
-    if (!cfg) return;
+    const header = document.querySelector('#doc-header');
+    if (!cfg || !box) return;
+
+    const centerGroup = header?.querySelector('.doc-header-center');
+    const markupGroup = header?.querySelector('#markup-toggle');
+    const titleEl = header?.querySelector('.doc-header-title');
+    const pagerGroup = header?.querySelector('.doc-seg-group');
+    const markupBar = document.querySelector('#doc-markup-bar');
+
+    if (tipo === 'proyecto' || tipo === 'edl' || tipo === 'csv') {
+      if (header) header.style.display = 'flex';
+      if (centerGroup) centerGroup.style.display = 'none';
+      if (markupGroup) markupGroup.style.display = 'none';
+      if (pagerGroup) pagerGroup.style.display = 'none';
+      if (markupBar) markupBar.classList.add('collapsed');
+      if (titleEl) {
+        titleEl.textContent = tipo === 'proyecto' ? 'Proyecto Editable (.ptv)' : (tipo === 'edl' ? 'Decisiones EDL (CMX 3600)' : 'Tablas de Producción (CSV)');
+      }
+    } else {
+      if (header) header.style.display = 'flex';
+      if (centerGroup) centerGroup.style.display = '';
+      if (markupGroup) markupGroup.style.display = '';
+      if (pagerGroup) pagerGroup.style.display = '';
+      if (titleEl) titleEl.textContent = 'Dossier Broadcast';
+    }
+
     if (tipo === 'proyecto') {
       box.innerHTML = `
-        <div class="preview-title no-print">Contenido del archivo</div>
+        <div class="preview-title no-print" style="margin-bottom:12px">Estructura del Proyecto Editable (.ptv)</div>
         <section class="page" style="min-height:auto">
           ${pgHead('Proyecto editable', 'Archivo JSON reimportable con todo el proyecto')}
           <div class="kv">
@@ -830,18 +1481,48 @@
             <span>Plano del set</span><b>${Object.keys(cfg.setLayout?.pos || {}).length ? 'Posiciones personalizadas incluidas' : 'Acomodo automático'}</b>
             <span>Diagrama técnico</span><b>${((diagram || {}).nodes || []).length} nodos · ${((diagram || {}).edges || []).length} conexiones</b>
           </div>
-          <p style="font-size:12px;color:#5b6b82;line-height:1.7;margin-top:14px">Este formato conserva todo: se importa de regreso en la app y se sigue editando. Es la copia de seguridad recomendada del proyecto.</p>
+          <p style="font-size:12px;color:#5b6b82;line-height:1.7;margin-top:14px">Este formato conserva la totalidad de parámetros del set, escaleta y conexiones para su reapertura en cualquier momento.</p>
         </section>`;
       return;
     }
+    if (tipo === 'edl') {
+      if (!window.PTVVisitors) { box.innerHTML = '<div class="empty">Módulo de exportación visitante no cargado.</div>'; return; }
+      const prodProject = new window.PTVVisitors.ProductionProject({ cfg, diagram, project, projectName });
+      const edlContent = prodProject.accept(new window.PTVVisitors.EdlExportVisitor(cfg.fps || 30));
+      box.innerHTML = `
+        <div class="preview-title no-print" style="margin-bottom:12px">Lista de decisiones de edición (CMX 3600 EDL)</div>
+        <section class="page" style="min-height:auto">
+          ${pgHead('CMX 3600 EDL', 'Importable en DaVinci Resolve, Adobe Premiere Pro y Final Cut')}
+          <pre style="background:var(--hueco-fondo);color:var(--tinta);padding:14px;border-radius:8px;border:1px solid var(--vidrio-borde);font-family:ui-monospace,Menlo,monospace;font-size:11.5px;overflow-x:auto;max-height:500px;line-height:1.6">${esc(edlContent)}</pre>
+          <p style="font-size:12px;color:#5b6b82;line-height:1.7;margin-top:14px">Sincroniza cortes y fuentes de la escaleta con los puntos de entrada/salida de la línea de tiempo de edición.</p>
+        </section>`;
+      return;
+    }
+    if (tipo === 'csv') {
+      if (!window.PTVVisitors) { box.innerHTML = '<div class="empty">Módulo de exportación visitante no cargado.</div>'; return; }
+      const prodProject = new window.PTVVisitors.ProductionProject({ cfg, diagram, project, projectName });
+      const csvContent = prodProject.accept(new window.PTVVisitors.CsvExportVisitor());
+      box.innerHTML = `
+        <div class="preview-title no-print" style="margin-bottom:12px">Tablas de producción estructuradas (CSV)</div>
+        <section class="page" style="min-height:auto">
+          ${pgHead('Tablas de producción (CSV)', 'Importable en Microsoft Excel, Apple Numbers y Google Sheets')}
+          <pre style="background:var(--hueco-fondo);color:var(--tinta);padding:14px;border-radius:8px;border:1px solid var(--vidrio-borde);font-family:ui-monospace,Menlo,monospace;font-size:11.5px;overflow-x:auto;max-height:500px;line-height:1.6">${esc(csvContent)}</pre>
+          <p style="font-size:12px;color:#5b6b82;line-height:1.7;margin-top:14px">Exportación universal compatible con hojas de cálculo para desglose financiero y operativo.</p>
+        </section>`;
+      return;
+    }
+
+    if (header) header.style.display = 'flex';
     const pages = buildPages();
     box.innerHTML = pages.length
-      ? `<div class="preview-title no-print">Vista previa · ${pages.length} página${pages.length === 1 ? '' : 's'} — así se verá el documento</div>`
-        + pages.map((p, i) =>
-          `<section class="export-page ${p.fillable ? 'sheet' : 'page'}" data-name="${slug(projectName)}-${p.name}" style="display:flex;flex-direction:column">
+      ? pages.map((p, i) =>
+          `<section class="export-page ${p.fillable ? 'sheet' : 'page'}" data-page-index="${i + 1}" data-name="${slug(projectName)}-${p.name}" style="display:flex;flex-direction:column">
             ${p.html}${p.fillable ? S.foot(i + 1, pages.length) : pgFoot(i + 1, pages.length)}
           </section>`).join('')
-      : '<div class="empty">Marca al menos una sección para incluir en el documento.</div>';
+      : '<div class="empty">Marca al menos una sección para incluir en el dossier.</div>';
+    
+    PreviewController.syncWithPages(pages.length);
+
     // Cada render crea hojas nuevas: hay que volver a ponerles su capa de tinta
     // y repintar lo que ya estaba escrito.
     if (window.engancharTinta) window.engancharTinta();
@@ -863,32 +1544,28 @@
     parent.postMessage({ type: 'producciontv:print-document', html, css: sheetsCss + pagesCss }, '*');
   }
 
-  /* Mide el hueco de la vista previa y calcula el factor de encaje. Se vuelve a
-     medir con ResizeObserver, que es lo que hace que cambiar el tamaño de la app
-     —o girar el iPad— reacomode las hojas en vez de descuadrarlas. */
+  /* Mide el hueco de la vista previa y calcula el factor de encaje automático. */
   (function encajarHojas() {
     const zona = document.querySelector('#preview');
-    if (!zona || !window.ResizeObserver) return;
+    if (!zona) return;
     const ANCHO_HOJA = 816;
-    /* SOLO SE ESCRIBE SI CAMBIÓ, y no es una optimización: cambiar el factor
-       cambia el alto de las hojas, eso puede hacer aparecer o desaparecer la
-       barra de desplazamiento, eso cambia el ancho, y el ResizeObserver vuelve
-       a dispararse. Sin este corte la página entra en un ciclo que no para y se
-       queda congelada. */
     let puesto = '';
-    const medir = () => {
-      const estilo = getComputedStyle(zona);
-      const hueco = zona.clientWidth
-        - parseFloat(estilo.paddingLeft || 0) - parseFloat(estilo.paddingRight || 0);
+    window.aplicarEncajeAutomatico = () => {
+      const scrollArea = document.querySelector('#preview-scroll-area') || zona;
+      const estilo = getComputedStyle(scrollArea);
+      const hueco = scrollArea.clientWidth
+        - parseFloat(estilo.paddingLeft || 0) - parseFloat(estilo.paddingRight || 0) - 48;
       if (hueco <= 0) return;
-      // Nunca por encima de 1: una hoja estirada solo se ve borrosa.
       const factor = Math.min(1, hueco / ANCHO_HOJA).toFixed(3);
       if (factor === puesto) return;
       puesto = factor;
       zona.style.setProperty('--encaje-hoja', factor);
     };
-    medir();
-    new ResizeObserver(medir).observe(zona);
+    window.aplicarEncajeAutomatico();
+    if (window.ResizeObserver) {
+      const targetObs = document.querySelector('#preview-scroll-area') || zona;
+      new ResizeObserver(window.aplicarEncajeAutomatico).observe(targetObs);
+    }
   })();
 
   /* ====================== ESCRIBIR A MANO SOBRE LA HOJA ======================
@@ -909,17 +1586,24 @@
      SE GUARDA EN EL PROYECTO (`cfg.anotaciones`), no en el navegador: la firma
      de una hoja de llamado es parte del proyecto y tiene que viajar con el
      .ptv, verse en el iPad si se hizo en el Mac, y seguir ahí mañana. */
+  /* ====================== ESCRIBIR A MANO SOBRE LA HOJA ======================
+     Apple PencilKit Markup Engine con Matriz Inversa Nativa SVG W3C y
+     Barra de Herramientas Horizontal macOS Preview (GoF State, GoF Command). */
   (function tintaAMano() {
-    const COLORES = ['#15233D', '#1D6FD1', '#D92E2E', '#E5A400'];
-    const GROSORES = [{ id: 'fino', label: 'Fino', w: 1.6 }, { id: 'medio', label: 'Medio', w: 3 }, { id: 'marca', label: 'Marcador', w: 8 }];
-    let color = COLORES[0], grosor = GROSORES[1], modoEscritura = false;
+    const COLORES = ['#15233D', '#1D6FD1', '#D92E2E', '#E5A400', '#2E7D32', '#FFFFFF'];
+    const GROSORES = [
+      { id: 'fino', label: '1.5 pt', w: 1.6 },
+      { id: 'medio', label: '3.5 pt', w: 3.5 },
+      { id: 'marca', label: '8.0 pt', w: 8.0 },
+    ];
+    let color = COLORES[0];
+    let grosor = GROSORES[1];
+    let herramienta = 'pen'; // 'pen' | 'highlighter' | 'eraser' | 'stamp'
+    let modoEscritura = false;
+    window._escribiendoAhora = false;
 
     const anotaciones = () => (cfg && (cfg.anotaciones = cfg.anotaciones || {})) || {};
 
-    /* Se avisa al caparazón para que guarde el .ptv, pero NO en cada punto: un
-       trazo son cientos de eventos y escribir el proyecto en cada uno dejaría
-       el disco trabajando toda la sesión. Al levantar el lápiz, y con un
-       respiro, que es cuando de verdad hay algo nuevo que guardar. */
     let reloj = 0;
     function guardar() {
       clearTimeout(reloj);
@@ -928,11 +1612,43 @@
       }, 700);
     }
 
-    /* De los puntos a la línea. Se parte en tramos y cada tramo lleva SU grosor,
-       sacado de la presión: es lo que hace que una firma parezca una firma y no
-       un alambre. Sin presión (ratón) la presión llega en 0.5 y sale pareja. */
+    // GoF Command Pattern para historial reversible de trazos y sellos
+    const historial = {
+      pilaUndo: [],
+      pilaRedo: [],
+      ejecutar(cmd) {
+        cmd.ejecutar();
+        this.pilaUndo.push(cmd);
+        this.pilaRedo = [];
+        this.actualizarUI();
+        guardar();
+      },
+      deshacer() {
+        if (!this.pilaUndo.length) return;
+        const cmd = this.pilaUndo.pop();
+        cmd.deshacer();
+        this.pilaRedo.push(cmd);
+        this.actualizarUI();
+        guardar();
+      },
+      rehacer() {
+        if (!this.pilaRedo.length) return;
+        const cmd = this.pilaRedo.pop();
+        cmd.ejecutar();
+        this.pilaUndo.push(cmd);
+        this.actualizarUI();
+        guardar();
+      },
+      actualizarUI() {
+        const uBtn = document.querySelector('#markup-undo');
+        const rBtn = document.querySelector('#markup-redo');
+        if (uBtn) uBtn.disabled = !this.pilaUndo.length;
+        if (rBtn) rBtn.disabled = !this.pilaRedo.length;
+      }
+    };
+
     function caminos(trazo) {
-      const pts = trazo.t;
+      const pts = trazo.t || [];
       if (pts.length < 2) {
         const [x, y, pr] = pts[0] || [0, 0, .5];
         return [{ d: `M${x} ${y} l0.1 0`, w: trazo.w * (0.5 + pr) }];
@@ -948,160 +1664,453 @@
             d: 'M' + tramo.map((p) => `${p[0]} ${p[1]}`).join(' L'),
             w: Math.max(0.5, trazo.w * (0.5 + media)),
           });
-          ini = i - 1 >= 0 ? i - 1 : i;   // un punto de traslape: sin costura
+          ini = i - 1 >= 0 ? i - 1 : i;
         }
       }
       return out;
     }
 
     function pintar(svg, trazos) {
-      svg.innerHTML = trazos.map((t) => caminos(t).map((c) =>
-        `<path d="${c.d}" fill="none" stroke="${t.c}" stroke-width="${c.w.toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"${t.c === '#E5A400' ? ' opacity="0.45"' : ''}/>`
-      ).join('')).join('');
+      svg.innerHTML = (trazos || []).map((t) => {
+        if (t.tipo === 'sello') {
+          const sx = t.x - 110;
+          const sy = t.y - 36;
+          return `
+            <g class="tinta-stamp" transform="translate(${sx}, ${sy})" style="cursor:default">
+              <rect x="0" y="0" width="220" height="72" rx="8" fill="rgba(255,255,255,0.94)" stroke="${t.c}" stroke-width="2.5" stroke-dasharray="8 3" opacity="0.96"/>
+              <rect x="3" y="3" width="214" height="66" rx="6" fill="none" stroke="${t.c}" stroke-width="1" opacity="0.5"/>
+              <circle cx="28" cy="36" r="14" fill="${t.c}" opacity="0.14"/>
+              <circle cx="28" cy="36" r="13" fill="none" stroke="${t.c}" stroke-width="1.6"/>
+              <path d="M22 36 l4 4 l8 -9" fill="none" stroke="${t.c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <text x="48" y="24" fill="${t.c}" font-size="10.5" font-weight="900" letter-spacing="1.2" font-family="-apple-system,BlinkMacSystemFont,sans-serif">${esc(t.titulo)}</text>
+              <text x="48" y="38" fill="${t.c}" font-size="8" font-weight="700" letter-spacing="0.8" font-family="-apple-system,BlinkMacSystemFont,sans-serif" opacity="0.9">${esc(t.sub)}</text>
+              <text x="48" y="51" fill="#475569" font-size="7.5" font-weight="600" font-family="ui-monospace,Menlo,monospace">${esc(t.fecha)} · ${esc(t.hora)}</text>
+              <text x="48" y="62" fill="#64748B" font-size="7" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,sans-serif">${esc(t.proyecto)}</text>
+            </g>`;
+        }
+        const esHl = t.k === 'highlighter' || t.c === '#E5A400';
+        const opacidad = esHl ? '0.42' : '1';
+        const remate = esHl ? 'square' : 'round';
+        const mezcla = esHl ? 'mix-blend-mode:multiply;' : '';
+        return caminos(t).map((c) =>
+          `<path d="${c.d}" fill="none" stroke="${t.c}" stroke-width="${c.w.toFixed(2)}" stroke-linecap="${remate}" stroke-linejoin="round" stroke-opacity="${opacidad}" style="${mezcla}"/>`
+        ).join('');
+      }).join('');
     }
 
-    // Enganchar una hoja: su capa de tinta, su historia y sus eventos.
+    function actualizarCursores() {
+      document.querySelectorAll('.tinta').forEach((s) => {
+        s.classList.toggle('escribiendo', modoEscritura && (herramienta === 'pen' || herramienta === 'highlighter'));
+        s.classList.toggle('borrando', modoEscritura && herramienta === 'eraser');
+        if (herramienta === 'stamp' && modoEscritura) {
+          s.style.cursor = 'crosshair';
+        } else if (!modoEscritura) {
+          s.style.cursor = '';
+        }
+      });
+    }
+
+    // Enganchar una hoja física al motor de tinta
     function engancharPagina(pagina) {
       const nombre = pagina.dataset.name;
-      if (!nombre || pagina.querySelector('.tinta')) return;
-      const w = pagina.offsetWidth || 816, h = pagina.offsetHeight || 1000;
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('class', 'tinta');
-      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-      svg.setAttribute('preserveAspectRatio', 'none');
-      pagina.appendChild(svg);
+      if (!nombre) return;
+      const w = 816;
+      const rect = pagina.getBoundingClientRect();
+      const h = (rect.width > 0) ? Math.round(816 * (rect.height / rect.width)) : (pagina.offsetHeight || 1056);
 
-      const trazos = anotaciones()[nombre] || [];
+      let svg = pagina.querySelector('.tinta');
+      if (!svg) {
+        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'tinta');
+        svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        svg.setAttribute('preserveAspectRatio', 'none');
+        pagina.appendChild(svg);
+      } else {
+        svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      }
+
+      let trazos = anotaciones()[nombre] || [];
       pintar(svg, trazos);
-      if (modoEscritura) svg.classList.add('escribiendo');
+      actualizarCursores();
 
       let actual = null;
+
+      // Transformación Matemática Nativa SVG W3C (0px de desfase)
       const punto = (e) => {
+        if (svg.getScreenCTM) {
+          const pt = svg.createSVGPoint();
+          pt.x = e.clientX;
+          pt.y = e.clientY;
+          const ctm = svg.getScreenCTM();
+          if (ctm) {
+            const p = pt.matrixTransform(ctm.inverse());
+            if (Number.isFinite(p.x) && Number.isFinite(p.y)) {
+              return [
+                +Math.max(0, Math.min(816, p.x)).toFixed(1),
+                +Math.max(0, Math.min(h, p.y)).toFixed(1),
+                e.pressure > 0 ? e.pressure : 0.5,
+              ];
+            }
+          }
+        }
         const r = svg.getBoundingClientRect();
+        const rw = r.width || 1;
+        const rh = r.height || 1;
         return [
-          +((e.clientX - r.left) / r.width * w).toFixed(1),
-          +((e.clientY - r.top) / r.height * h).toFixed(1),
+          +Math.max(0, Math.min(816, ((e.clientX - r.left) / rw) * 816)).toFixed(1),
+          +Math.max(0, Math.min(h, ((e.clientY - r.top) / rh) * h)).toFixed(1),
           e.pressure > 0 ? e.pressure : 0.5,
         ];
       };
-      // El lápiz escribe siempre; el ratón y el dedo, solo en modo escritura.
+
       const puedeEscribir = (e) => e.pointerType === 'pen' || modoEscritura;
+
+      const borrarCercanos = (p) => {
+        const px = p[0], py = p[1];
+        const inicial = trazos.length;
+        const eliminados = [];
+        trazos = trazos.filter((t) => {
+          if (t.tipo === 'sello') {
+            if (px >= t.x - 115 && px <= t.x + 115 && py >= t.y - 40 && py <= t.y + 40) {
+              eliminados.push(t);
+              return false;
+            }
+            return true;
+          }
+          for (const pt of (t.t || [])) {
+            if (Math.hypot(pt[0] - px, pt[1] - py) < (t.w * 2 + 12)) {
+              eliminados.push(t);
+              return false;
+            }
+          }
+          return true;
+        });
+        if (trazos.length !== inicial) {
+          anotaciones()[nombre] = trazos;
+          pintar(svg, trazos);
+          return eliminados;
+        }
+        return null;
+      };
+
+      let eliminadosEnArrastre = [];
 
       svg.addEventListener('pointerdown', (e) => {
         if (!puedeEscribir(e)) return;
         e.preventDefault();
         svg.setPointerCapture(e.pointerId);
-        actual = { c: color, w: grosor.w, t: [punto(e)] };
+        window._escribiendoAhora = true;
+
+        const p = punto(e);
+        if (herramienta === 'eraser') {
+          eliminadosEnArrastre = [];
+          const del = borrarCercanos(p);
+          if (del) eliminadosEnArrastre.push(...del);
+          return;
+        }
+
+        if (herramienta === 'stamp') {
+          const colorSello = color === '#FFFFFF' ? '#1D6FD1' : color;
+          const sello = {
+            tipo: 'sello',
+            c: colorSello,
+            x: Math.round(p[0]),
+            y: Math.round(p[1]),
+            titulo: 'APROBADO PARA AIRE',
+            sub: 'VO.BO. PRODUCCIÓN TV',
+            fecha: new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase(),
+            hora: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+            proyecto: (trunc(projectName || cfg.titulo || 'PRODUCCIÓN TV', 24)).toUpperCase()
+          };
+          const cmd = {
+            nombre,
+            trazo: sello,
+            ejecutar() {
+              const list = anotaciones()[nombre] = anotaciones()[nombre] || [];
+              if (!list.includes(this.trazo)) list.push(this.trazo);
+              pagina._tinta && pagina._tinta.repintar();
+            },
+            deshacer() {
+              const list = anotaciones()[nombre] || [];
+              const idx = list.indexOf(this.trazo);
+              if (idx >= 0) list.splice(idx, 1);
+              pagina._tinta && pagina._tinta.repintar();
+            }
+          };
+          historial.ejecutar(cmd);
+          window._escribiendoAhora = false;
+          return;
+        }
+
+        const esHl = herramienta === 'highlighter';
+        const wTrazo = esHl ? Math.max(14, grosor.w * 3.5) : grosor.w;
+        actual = { c: color, w: wTrazo, k: herramienta, t: [p] };
         trazos.push(actual);
         anotaciones()[nombre] = trazos;
-      });
-      svg.addEventListener('pointermove', (e) => {
-        if (!actual) return;
-        e.preventDefault();
-        /* Los eventos fundidos: el iPad muestrea el lápiz mucho más rápido de
-           lo que dibuja la pantalla y guarda los intermedios aquí. Sin esto una
-           línea rápida sale como una escalera de segmentos rectos. */
-        const brutos = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-        for (const b of (brutos.length ? brutos : [e])) {
-          const p = punto(b), u = actual.t[actual.t.length - 1];
-          if (Math.hypot(p[0] - u[0], p[1] - u[1]) < 1.2) continue;  // adelgaza
-          actual.t.push(p);
-        }
         pintar(svg, trazos);
       });
-      const soltar = () => { if (actual) { actual = null; guardar(); } };
-      svg.addEventListener('pointerup', soltar);
-      svg.addEventListener('pointercancel', soltar);
-      svg.addEventListener('pointerleave', soltar);
 
-      pagina._tinta = { svg, nombre, trazos: () => anotaciones()[nombre] || [], repintar: () => pintar(svg, anotaciones()[nombre] || []) };
+      svg.addEventListener('pointermove', (e) => {
+        if (!window._escribiendoAhora) return;
+        e.preventDefault();
+        const brutos = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+        for (const b of (brutos.length ? brutos : [e])) {
+          const p = punto(b);
+          if (herramienta === 'eraser') {
+            const del = borrarCercanos(p);
+            if (del) eliminadosEnArrastre.push(...del);
+          } else if (actual) {
+            const u = actual.t[actual.t.length - 1];
+            if (u && Math.hypot(p[0] - u[0], p[1] - u[1]) < 1.2) continue;
+            actual.t.push(p);
+          }
+        }
+        if (actual) pintar(svg, trazos);
+      });
+
+      const finalizarTrazo = () => {
+        if (!window._escribiendoAhora) return;
+        window._escribiendoAhora = false;
+        if (herramienta === 'eraser' && eliminadosEnArrastre.length) {
+          const borrados = [...eliminadosEnArrastre];
+          eliminadosEnArrastre = [];
+          const cmd = {
+            nombre,
+            borrados,
+            ejecutar() {
+              const list = anotaciones()[nombre] || [];
+              anotaciones()[nombre] = list.filter((t) => !this.borrados.includes(t));
+              pagina._tinta && pagina._tinta.repintar();
+            },
+            deshacer() {
+              const list = anotaciones()[nombre] = anotaciones()[nombre] || [];
+              this.borrados.forEach((t) => { if (!list.includes(t)) list.push(t); });
+              pagina._tinta && pagina._tinta.repintar();
+            }
+          };
+          historial.pilaUndo.push(cmd);
+          historial.pilaRedo = [];
+          historial.actualizarUI();
+          guardar();
+        } else if (actual) {
+          const trazoCreado = actual;
+          actual = null;
+          const cmd = {
+            nombre,
+            trazo: trazoCreado,
+            ejecutar() {
+              const list = anotaciones()[nombre] = anotaciones()[nombre] || [];
+              if (!list.includes(this.trazo)) list.push(this.trazo);
+              pagina._tinta && pagina._tinta.repintar();
+            },
+            deshacer() {
+              const list = anotaciones()[nombre] || [];
+              const idx = list.indexOf(this.trazo);
+              if (idx >= 0) list.splice(idx, 1);
+              pagina._tinta && pagina._tinta.repintar();
+            }
+          };
+          historial.pilaUndo.push(cmd);
+          historial.pilaRedo = [];
+          historial.actualizarUI();
+          guardar();
+        }
+      };
+
+      svg.addEventListener('pointerup', finalizarTrazo);
+      svg.addEventListener('pointercancel', finalizarTrazo);
+      svg.addEventListener('pointerleave', finalizarTrazo);
+
+      pagina._tinta = {
+        svg,
+        nombre,
+        trazos: () => anotaciones()[nombre] || [],
+        repintar: () => { trazos = anotaciones()[nombre] || []; pintar(svg, trazos); }
+      };
     }
 
-    // Después de cada render hay hojas nuevas: hay que volver a engancharlas.
     window.engancharTinta = () => {
       document.querySelectorAll('.export-page').forEach(engancharPagina);
     };
 
     window.tintaModo = (on) => {
       modoEscritura = !!on;
-      document.querySelectorAll('.tinta').forEach((s) => s.classList.toggle('escribiendo', modoEscritura));
+      actualizarCursores();
     };
+
+    window.tintaHerramienta = (h) => {
+      herramienta = h;
+      actualizarCursores();
+    };
+
     window.tintaColor = (c) => { color = c; };
     window.tintaGrosor = (id) => { grosor = GROSORES.find((g) => g.id === id) || grosor; };
-    window.tintaDeshacer = () => {
-      // La última hoja tocada es la que se deshace: es la que estás mirando.
-      const paginas = [...document.querySelectorAll('.export-page')].filter((p) => (anotaciones()[p.dataset.name] || []).length);
-      const ultima = paginas[paginas.length - 1];
-      if (!ultima) return;
-      anotaciones()[ultima.dataset.name].pop();
-      ultima._tinta && ultima._tinta.repintar();
-      guardar();
+
+    window.tintaDeshacer = () => historial.deshacer();
+    window.tintaRehacer = () => historial.rehacer();
+
+    window.tintaBorrarPagina = () => {
+      const curIdx = (PreviewController.currentPage || 1) - 1;
+      const paginas = [...document.querySelectorAll('.export-page')];
+      const targetPage = paginas[curIdx] || paginas[0];
+      if (!targetPage) return;
+      const nombre = targetPage.dataset.name;
+      const viejos = [...(anotaciones()[nombre] || [])];
+      if (!viejos.length) return;
+      const cmd = {
+        nombre,
+        viejos,
+        ejecutar() {
+          anotaciones()[nombre] = [];
+          targetPage._tinta?.repintar();
+        },
+        deshacer() {
+          anotaciones()[nombre] = [...this.viejos];
+          targetPage._tinta?.repintar();
+        }
+      };
+      historial.ejecutar(cmd);
     };
-    window.tintaBorrarTodo = () => {
-      if (!cfg) return;
-      cfg.anotaciones = {};
-      document.querySelectorAll('.export-page').forEach((p) => p._tinta && p._tinta.repintar());
-      guardar();
-    };
-    window.tintaCuantos = () => Object.values(anotaciones()).reduce((n, l) => n + l.length, 0);
+
     window.TINTA_COLORES = COLORES;
     window.TINTA_GROSORES = GROSORES;
   })();
 
-  /* Los controles de la tinta. Se arman aquí y no en el HTML porque los colores
-     y los grosores los define el motor: una sola lista, un solo sitio. */
-  (function barraDeTinta() {
-    const barra = document.querySelector('#tinta-barra');
-    // Cinturón: sin barra o sin motor, esto no puede tumbar el resto del script
-    // —que es justo lo que pasó al escribirlo con los bloques al revés—.
-    if (!barra || !window.TINTA_COLORES) return;
-    const boton = (html, attrs) => {
-      const b = document.createElement('button');
-      b.innerHTML = html;
-      Object.entries(attrs).forEach(([k, v]) => b.setAttribute(k, v));
-      barra.appendChild(b);
-      return b;
-    };
-    let colorPuesto = window.TINTA_COLORES[0], grosorPuesto = 'medio';
-    const pintaEstado = () => {
-      barra.querySelectorAll('[data-color]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.color === colorPuesto));
-      barra.querySelectorAll('[data-grosor]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.grosor === grosorPuesto));
-    };
-    window.TINTA_COLORES.forEach((c) => {
-      const b = boton('', { class: 'tinta-color', 'data-color': c, title: 'Escribir en este color', style: `background:${c}` });
-      b.onclick = () => { colorPuesto = c; window.tintaColor(c); pintaEstado(); };
+  /* ==========================================================================
+   * CONTROLADOR DE LA BARRA DE MARCADO APPLE PREVIEW (macOS Markup Toolbar)
+   * ========================================================================== */
+  (function markupBarController() {
+    const bar = document.querySelector('#doc-markup-bar');
+    if (!bar || !window.TINTA_COLORES) return;
+
+    let toolActual = 'pen';
+    let colorActual = window.TINTA_COLORES[0];
+    let grosorActual = 'medio';
+    let modoManual = true; // Habilitado por defecto en macOS para que dibujar con ratón/trackpad sea inmediato
+
+    // Activar modo manual inicialmente en desktop
+    window.tintaModo(modoManual);
+    const drawModeBtn = document.querySelector('#markup-draw-mode');
+    if (drawModeBtn) drawModeBtn.classList.toggle('active', modoManual);
+
+    // Herramientas (Pluma, Resaltador, Borrador, Sello)
+    bar.querySelectorAll('[data-tool]').forEach((btn) => {
+      btn.onclick = () => {
+        bar.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('active', b === btn));
+        toolActual = btn.dataset.tool;
+        window.tintaHerramienta(toolActual);
+      };
     });
-    window.TINTA_GROSORES.forEach((g) => {
-      const b = boton(g.label, { class: 'tinta-grosor', 'data-grosor': g.id, title: 'Grosor del trazo' });
-      b.onclick = () => { grosorPuesto = g.id; window.tintaGrosor(g.id); pintaEstado(); };
+
+    // Colores
+    const colorsCont = document.querySelector('#markup-colors');
+    if (colorsCont) {
+      colorsCont.innerHTML = window.TINTA_COLORES.map((c) =>
+        `<button class="markup-color-dot ${c === colorActual ? 'active' : ''}" data-color="${c}" style="background:${c}" title="Color ${c}"></button>`
+      ).join('');
+      colorsCont.querySelectorAll('[data-color]').forEach((btn) => {
+        btn.onclick = () => {
+          colorsCont.querySelectorAll('[data-color]').forEach((b) => b.classList.toggle('active', b === btn));
+          colorActual = btn.dataset.color;
+          window.tintaColor(colorActual);
+        };
+      });
+    }
+
+    // Grosores
+    const widthsCont = document.querySelector('#markup-widths');
+    if (widthsCont) {
+      widthsCont.innerHTML = window.TINTA_GROSORES.map((g) =>
+        `<button class="markup-width-btn ${g.id === grosorActual ? 'active' : ''}" data-grosor="${g.id}" title="Grosor ${g.label}">${g.label}</button>`
+      ).join('');
+      widthsCont.querySelectorAll('[data-grosor]').forEach((btn) => {
+        btn.onclick = () => {
+          widthsCont.querySelectorAll('[data-grosor]').forEach((b) => b.classList.toggle('active', b === btn));
+          grosorActual = btn.dataset.grosor;
+          window.tintaGrosor(grosorActual);
+        };
+      });
+    }
+
+    // Acciones Undo / Redo / Clear
+    document.querySelector('#markup-undo')?.addEventListener('click', () => window.tintaDeshacer());
+    document.querySelector('#markup-redo')?.addEventListener('click', () => window.tintaRehacer());
+    document.querySelector('#markup-clear')?.addEventListener('click', () => {
+      if (confirm('¿Limpiar las anotaciones de la página activa?')) {
+        window.tintaBorrarPagina();
+      }
     });
-    const modo = boton('✍ Modo escritura', { class: 'tinta-grosor', id: 'tinta-modo', title: 'Para escribir con ratón o con el dedo. Con Apple Pencil no hace falta.' });
-    modo.setAttribute('aria-pressed', 'false');
-    modo.onclick = () => {
-      const on = modo.getAttribute('aria-pressed') !== 'true';
-      modo.setAttribute('aria-pressed', String(on));
-      window.tintaModo(on);
-    };
-    boton('↶ Deshacer', { class: 'tinta-grosor', title: 'Quita el último trazo' }).onclick = () => window.tintaDeshacer();
-    boton('Borrar todo', { class: 'tinta-grosor', title: 'Quita toda la tinta de todas las hojas' }).onclick = () => {
-      if (window.tintaCuantos() && !confirm('¿Borrar toda la escritura a mano de todas las hojas?')) return;
-      window.tintaBorrarTodo();
-    };
-    pintaEstado();
+
+    // Modo dibujo manual (ratón o dedo)
+    if (drawModeBtn) {
+      drawModeBtn.onclick = () => {
+        modoManual = !modoManual;
+        drawModeBtn.classList.toggle('active', modoManual);
+        window.tintaModo(modoManual);
+      };
+    }
+
+    // Atajos de teclado Apple Markup
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        window.tintaDeshacer();
+      } else if ((e.metaKey || e.ctrlKey) && (e.shiftKey && (e.key === 'z' || e.key === 'Z') || e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault();
+        window.tintaRehacer();
+      } else if (e.key === 'p' || e.key === 'P') {
+        document.querySelector('#tool-pen')?.click();
+      } else if (e.key === 'h' || e.key === 'H') {
+        document.querySelector('#tool-highlighter')?.click();
+      } else if (e.key === 'e' || e.key === 'E') {
+        document.querySelector('#tool-eraser')?.click();
+      } else if (e.key === 's' || e.key === 'S') {
+        document.querySelector('#tool-stamp')?.click();
+      }
+    });
   })();
 
-  document.querySelector('#go').onclick = () => {
-    if (!cfg) return;
-    if (tipo === 'proyecto') {
+  /* ==========================================================================
+   * CONTEXTO Y DESPACHO DE EXPORTACIÓN (GoF Strategy Context)
+   * ========================================================================== */
+  const ExportContext = {
+    printDocument,
+    exportEdl() {
+      if (!window.PTVVisitors) return;
+      const prodProject = new window.PTVVisitors.ProductionProject({ cfg, diagram, project, projectName });
+      const edlContent = prodProject.accept(new window.PTVVisitors.EdlExportVisitor(cfg.fps || 30));
+      parent.postMessage({
+        type: 'producciontv:save-file',
+        filename: `${slug(projectName || 'produccion')}.edl`,
+        content: edlContent,
+      }, '*');
+    },
+    exportCsv() {
+      if (!window.PTVVisitors) return;
+      const prodProject = new window.PTVVisitors.ProductionProject({ cfg, diagram, project, projectName });
+      const csvContent = prodProject.accept(new window.PTVVisitors.CsvExportVisitor());
+      parent.postMessage({
+        type: 'producciontv:save-file',
+        filename: `${slug(projectName || 'produccion')}-tablas.csv`,
+        content: csvContent,
+      }, '*');
+    },
+    exportPng() {
+      parent.postMessage({ type: 'producciontv:export-pngs' }, '*');
+    },
+    exportPtv() {
       parent.postMessage({
         type: 'producciontv:save-file',
         filename: `${slug(projectName)}.ptv`,
         content: JSON.stringify({ project: project, infographic: cfg, diagram: diagram }, null, 2),
       }, '*');
-      return;
     }
-    if (tipo === 'pdf') { printDocument(); return; }
-    parent.postMessage({ type: 'producciontv:export-pngs' }, '*');
+  };
+
+  document.querySelector('#go').onclick = () => {
+    if (!cfg) return;
+    exportManager.execute(ExportContext);
   };
 
   window.addEventListener('message', (event) => {
@@ -1114,11 +2123,17 @@
     }
     const data = event.data;
     if (data && data.type === 'producciontv:load-exportar') {
+      const prevAnotaciones = cfg?.anotaciones;
       cfg = data.cfg || null;
+      if (cfg && (!cfg.anotaciones || !Object.keys(cfg.anotaciones).length) && prevAnotaciones) {
+        cfg.anotaciones = prevAnotaciones;
+      }
       diagram = data.diagram || null;
       project = data.project || null;
       projectName = data.projectName || '';
-      if (cfg) render();
+      PreviewController.init();
+      // Evitar destruir los trazos o reiniciar el DOM si el usuario está dibujando en este momento
+      if (cfg && !window._escribiendoAhora) render();
     }
   });
 })();

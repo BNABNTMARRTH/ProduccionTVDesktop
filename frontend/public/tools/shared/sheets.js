@@ -294,7 +294,8 @@
     // Set a dibujar: el indicado en opts.set, o el activo del proyecto.
     const set = opts.set || setActivo(cfg);
     const ext = set.locacion === 'ext';
-    const ink = opts.display ? '#16365F' : '#5b6b82';
+    const dark = !!opts.dark || !!opts.blueprint;
+    const ink = dark ? '#A2B4CD' : (opts.display ? '#16365F' : '#5b6b82');
     const layout = set.setLayout || {};
     const pos = layout.pos || {};
     const rots = layout.rot || {};
@@ -337,7 +338,9 @@
     const at = (k) => pos[k] || defaults[k] || { x: 490, y: 320 };
     const atTal = (t) => pos['tal:' + t.id] || (t._legacyPosKey && pos[t._legacyPosKey]) || defaults['tal:' + t.id] || { x: 490, y: 320 };
     const mesa = at('mesa');
-    const gridColor = ext ? '#DFEBDD' : '#E2E8EF';
+    const gridColor = dark ? '#1C293D' : (ext ? '#DFEBDD' : '#E2E8EF');
+    const bgFill = dark ? '#131B27' : (ext ? '#F5FAF3' : '#fff');
+    const bgStroke = dark ? '#283852' : (ext ? '#C4D9C6' : '#C8D2DE');
     const grid = [];
     for (let i = 1; i <= 17; i++) grid.push(`<line x1="${20 + i * 52}" y1="48" x2="${20 + i * 52}" y2="${H - 22}" stroke="${gridColor}"/>`);
     for (let i = 1; i <= 10; i++) grid.push(`<line x1="22" y1="${48 + i * 52}" x2="958" y2="${48 + i * 52}" stroke="${gridColor}"/>`);
@@ -379,7 +382,7 @@
       }).join('');
       return `<g transform="translate(${p.x} ${p.y})">
         <g transform="rotate(${rot})">${muebleGlyph(m.tipo)}${gente}</g>
-        ${labOk('mue:' + m.id) ? `<text y="${rotulo.mueble}" text-anchor="middle" font-size="9" font-weight="700" fill="#5F7189">${esc(def.es.toUpperCase())}</text>` : ''}
+        ${labOk('mue:' + m.id) ? `<text y="${rotulo.mueble}" text-anchor="middle" font-size="9" font-weight="700" fill="${dark ? '#9CB0CC' : '#5F7189'}">${esc(def.es.toUpperCase())}</text>` : ''}
         ${nombres}
       </g>`;
     }).join('');
@@ -398,7 +401,7 @@
         <path d="M-7 3 q7 8 14 0 l2 8 h-18 z" fill="${col}"/>
         <circle cx="11.5" cy="-11.5" r="6" fill="${col}"/>
         <text x="11.5" y="-9" text-anchor="middle" font-size="7.5" font-weight="800" fill="#fff">${t.tipo === 'invitado' ? 'I' : 'C'}</text>
-        ${labOk('tal:' + t.id) ? `<text y="30" text-anchor="middle" font-size="10" font-weight="700" fill="#33445f">${esc(trunc(t.nombre, 20))}</text>` : ''}
+        ${labOk('tal:' + t.id) ? `<text y="30" text-anchor="middle" font-size="10" font-weight="700" fill="${dark ? '#C5D6EC' : '#33445f'}">${esc(trunc(t.nombre, 20))}</text>` : ''}
         ${micTxt}
       </g>`;
     }).join('');
@@ -482,7 +485,7 @@
         </g>
         <circle cx="0" cy="-24" r="10" fill="${color}"/>
         <text x="0" y="-20" text-anchor="middle" font-size="11" font-weight="800" fill="#fff">${i + 1}</text>
-        ${labOk('cam:' + c.id) ? `<text x="0" y="34" text-anchor="middle" font-size="10" font-weight="700" fill="#33445f">${esc(trunc(c.nombre, 14))}</text>` : ''}
+        ${labOk('cam:' + c.id) ? `<text x="0" y="34" text-anchor="middle" font-size="10" font-weight="700" fill="${dark ? '#C5D6EC' : '#33445f'}">${esc(trunc(c.nombre, 14))}</text>` : ''}
         ${tally}
       </g>`;
     }).join('');
@@ -500,29 +503,29 @@
            ${[0, 45, 90, 135, 180, 225, 270, 315].map((a) => `<line transform="rotate(${a})" x1="0" y1="-19" x2="0" y2="-25" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round"/>`).join('')}
          </g>
          <text x="40" y="74" font-size="12" font-weight="800" fill="#4C7C54" letter-spacing="1">LOCACIÓN EXTERIOR</text>`
-      : `<rect x="20" y="20" width="940" height="26" rx="12" fill="${opts.display ? '#16365F' : '#33445f'}"/>
-         <text x="490" y="72" text-anchor="middle" font-size="12" font-weight="800" fill="#33445f" letter-spacing="1">PANTALLA · ${esc(trunc(cfg.pantalla || '', 42))}</text>`;
+      : `<rect x="20" y="20" width="940" height="26" rx="12" fill="${dark ? '#1A273B' : (opts.display ? '#16365F' : '#33445f')}"/>
+         <text x="490" y="72" text-anchor="middle" font-size="12" font-weight="800" fill="${dark ? '#9CB0CC' : '#33445f'}" letter-spacing="1">PANTALLA · ${esc(trunc(cfg.pantalla || '', 42))}</text>`;
     // Mesa del set, o punto de foco cuando el set no tiene mesa.
     const mesaSvg = set.mesaVisible !== false
       ? `<g transform="translate(${mesa.x} ${mesa.y})">
-           <rect x="-105" y="-32" width="210" height="64" rx="14" fill="${opts.display ? '#fff' : 'none'}" stroke="${ink}" stroke-width="2.5"/>
-           <text y="5" text-anchor="middle" font-size="12" font-weight="800" fill="#33445f">${esc(trunc(cfg.mesa || '', 24))}</text>
+           <rect x="-105" y="-32" width="210" height="64" rx="14" fill="${dark ? '#1E2C42' : (opts.display ? '#fff' : 'none')}" stroke="${ink}" stroke-width="2.5"/>
+           <text y="5" text-anchor="middle" font-size="12" font-weight="800" fill="${dark ? '#E2EAF4' : '#33445f'}">${esc(trunc(cfg.mesa || '', 24))}</text>
          </g>`
       : `<g transform="translate(${mesa.x} ${mesa.y})">
-           <circle r="16" fill="none" stroke="#8A97A8" stroke-width="1.6" stroke-dasharray="4 3"/>
-           <path d="M-23 0 H23 M0 -23 V23" stroke="#8A97A8" stroke-width="1.4"/>
-           <circle r="3" fill="#8A97A8"/>
-           ${muebleEncima ? '' : '<text y="36" text-anchor="middle" font-size="9" font-weight="700" fill="#8A97A8">PUNTO DE FOCO</text>'}
+           <circle r="16" fill="none" stroke="${dark ? '#647894' : '#8A97A8'}" stroke-width="1.6" stroke-dasharray="4 3"/>
+           <path d="M-23 0 H23 M0 -23 V23" stroke="${dark ? '#647894' : '#8A97A8'}" stroke-width="1.4"/>
+           <circle r="3" fill="${dark ? '#647894' : '#8A97A8'}"/>
+           ${muebleEncima ? '' : `<text y="36" text-anchor="middle" font-size="9" font-weight="700" fill="${dark ? '#8FA3BD' : '#8A97A8'}">PUNTO DE FOCO</text>`}
          </g>`;
     return `
-      <svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;border:1px solid #C8D2DE;border-radius:8px">
-        <rect x="20" y="20" width="940" height="${H - 40}" rx="12" fill="${ext ? '#F5FAF3' : '#fff'}" stroke="${ext ? '#C4D9C6' : '#C8D2DE'}" stroke-width="2"/>
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;border:1px solid ${bgStroke};border-radius:8px">
+        <rect x="20" y="20" width="940" height="${H - 40}" rx="12" fill="${bgFill}" stroke="${bgStroke}" stroke-width="2"/>
         ${grid.join('')}
         ${cabecera}
         ${lucesSvg}
         ${mesaSvg}
         ${mueblesSvg}${talSvg}${boomsSvg}${sueltosSvg}${camsSvg}${badgeSvg}
-        <text x="40" y="${H - 32}" font-size="10" fill="#8A97A8" letter-spacing="1">${ext ? 'EXTERIOR' : 'ESTUDIO'} · CADA CELDA ≈ 1 m</text>
+        <text x="40" y="${H - 32}" font-size="10" fill="${dark ? '#647894' : '#8A97A8'}" letter-spacing="1">${ext ? 'EXTERIOR' : 'ESTUDIO'} · CADA CELDA ≈ 1 m</text>
       </svg>`;
   }
 

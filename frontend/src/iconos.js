@@ -43,13 +43,23 @@ const TRAZOS = {
   cerrar: '<path d="M7 7l10 10M17 7L7 17"/>',
   // Más: agregar una pestaña.
   mas: '<path d="M12 5.5v13M5.5 12h13"/>',
+  // Casa / Inicio: volver a la pantalla de proyectos y plantillas.
+  casa: '<path d="M3 10.5L12 3l9 7.5V20a1.5 1.5 0 01-1.5 1.5h-4.5v-6h-6v6H4.5A1.5 1.5 0 013 20v-9.5z"/>',
+  // Búsqueda Apple
+  buscar: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
+  // Modos de vista: Cuadrícula y Lista tipo Finder
+  grid: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',
+  lista: '<line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/>',
 };
+
+TRAZOS.inicio = TRAZOS.casa;
 
 // El ensayo ES el aire: mismo dibujo, no una copia del trazo.
 TRAZOS.ensayo = TRAZOS.produccion;
-// Sol y luna del interruptor de tema.
+// Sol y luna del interruptor de tema, y pantalla para el tema del sistema.
 TRAZOS.sol = '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M4.2 12H2M22 12h-2.2M6.3 6.3 4.8 4.8M19.2 19.2l-1.5-1.5M17.7 6.3l1.5-1.5M4.8 19.2l1.5-1.5"/>';
 TRAZOS.luna = '<path d="M20.2 14.4A8.4 8.4 0 1 1 9.6 3.8a6.6 6.6 0 0 0 10.6 10.6z"/>';
+TRAZOS.pantalla = '<rect x="3" y="4" width="18" height="12" rx="2.5"/><path d="M8 20h8M12 16v4"/>';
 
 // Sacar a su propia ventana: una ventana de escritorio con su barra de título
 // y una flecha que sale. Es el gesto de arrastrar la pestaña afuera, hecho botón.

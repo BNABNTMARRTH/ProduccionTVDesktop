@@ -1,0 +1,285 @@
+/* ==========================================================================
+   Apple Liquid Glass Design System (iOS / macOS 26+)
+   Patrones GoF:
+   - Flyweight: Tokens de materiales compartidos, optimizados para GPU.
+   - Decorator: Clases modificadoras (.glass-interactive, .glass-floating, etc.)
+   - Strategy: Adaptación automática a modo claro, oscuro y alto contraste.
+   ========================================================================== */
+
+:root {
+  /* --- Superficies y Materiales Liquid Glass --- */
+  --lg-blur-regular: 28px;
+  --lg-blur-thick: 34px;
+  --lg-blur-clear: 18px;
+  
+  --lg-saturate: 190%;
+
+  /* Material Regular (Barras de navegación, toolbars, paneles laterales) */
+  --lg-material-regular: rgba(255, 255, 255, 0.72);
+  --lg-material-subtle: rgba(255, 255, 255, 0.45);
+  --lg-material-hover: rgba(255, 255, 255, 0.84);
+  --lg-material-active: rgba(255, 255, 255, 0.95);
+
+  /* Bordes de Luz y Reflejos Ópticos */
+  --lg-border-light: rgba(255, 255, 255, 0.65);
+  --lg-border-subtle: rgba(23, 21, 18, 0.08);
+  --lg-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+
+  /* Sombras y Elevación Concéntrica */
+  --lg-shadow-sm: 0 2px 8px -2px rgba(0, 0, 0, 0.08);
+  --lg-shadow-md: 0 12px 28px -10px rgba(0, 0, 0, 0.16), 0 2px 6px -1px rgba(0, 0, 0, 0.06);
+  --lg-shadow-lg: 0 24px 50px -16px rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 0, 0, 0.08);
+
+  /* Tipografía y Espaciado Óptico Apple HIG (San Francisco Font System) */
+  --lg-font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", system-ui, sans-serif;
+  --lg-font-mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+
+  /* Escala Tipográfica Semántica Apple HIG */
+  --apple-font-large-title: 700 34px/1.15 var(--lg-font-family);
+  --apple-font-title-1: 700 28px/1.2 var(--lg-font-family);
+  --apple-font-title-2: 700 22px/1.25 var(--lg-font-family);
+  --apple-font-title-3: 600 20px/1.3 var(--lg-font-family);
+  --apple-font-headline: 600 17px/1.35 var(--lg-font-family);
+  --apple-font-body: 400 15px/1.45 var(--lg-font-family);
+  --apple-font-callout: 500 14px/1.4 var(--lg-font-family);
+  --apple-font-subheadline: 600 13px/1.4 var(--lg-font-family);
+  --apple-font-footnote: 500 12px/1.4 var(--lg-font-family);
+  --apple-font-caption-1: 600 11px/1.3 var(--lg-font-family);
+  --apple-font-caption-2: 600 10px/1.3 var(--lg-font-family);
+
+  /* Optical Tracking / Letter-Spacing de Apple */
+  --apple-tracking-title: -0.022em;
+  --apple-tracking-headline: -0.012em;
+  --apple-tracking-body: -0.006em;
+  --apple-tracking-caps: 0.06em;
+
+  --lg-spring-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --lg-spring-touch: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Modo Oscuro / Dark Mode */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    --lg-material-regular: rgba(255, 255, 255, 0.05);
+    --lg-material-subtle: rgba(255, 255, 255, 0.02);
+    --lg-material-hover: rgba(255, 255, 255, 0.08);
+    --lg-material-active: rgba(255, 255, 255, 0.14);
+
+    --lg-border-light: rgba(255, 255, 255, 0.10);
+    --lg-border-subtle: rgba(255, 255, 255, 0.06);
+    --lg-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+    --lg-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.25);
+    --lg-shadow-md: 0 16px 36px -8px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
+    --lg-shadow-lg: 0 28px 64px -16px rgba(0, 0, 0, 0.65), 0 4px 16px rgba(0, 0, 0, 0.35);
+  }
+}
+
+:root[data-tema="oscuro"] {
+  --lg-material-regular: rgba(255, 255, 255, 0.05);
+  --lg-material-subtle: rgba(255, 255, 255, 0.02);
+  --lg-material-hover: rgba(255, 255, 255, 0.08);
+  --lg-material-active: rgba(255, 255, 255, 0.14);
+
+  --lg-border-light: rgba(255, 255, 255, 0.10);
+  --lg-border-subtle: rgba(255, 255, 255, 0.06);
+  --lg-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+  --lg-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --lg-shadow-md: 0 16px 36px -8px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
+  --lg-shadow-lg: 0 28px 64px -16px rgba(0, 0, 0, 0.65), 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+/* ==========================================================================
+   Clases Utilitarias del Sistema Liquid Glass
+   ========================================================================== */
+
+/* Contenedor o barra de vidrio líquido flotante */
+.lg-container {
+  background: var(--lg-material-regular);
+  -webkit-backdrop-filter: blur(var(--lg-blur-regular)) saturate(var(--lg-saturate));
+  backdrop-filter: blur(var(--lg-blur-regular)) saturate(var(--lg-saturate));
+  border: 1px solid var(--lg-border-light);
+  box-shadow: var(--lg-inner-highlight), var(--lg-shadow-md);
+  border-radius: 18px;
+}
+
+/* Cápsula interactiva de acción (Botones, pastillas, controles segmentados) */
+.lg-capsule {
+  border-radius: 999px;
+  border: 1px solid var(--lg-border-light);
+  background: var(--lg-material-subtle);
+  box-shadow: var(--lg-inner-highlight), var(--lg-shadow-sm);
+  transition: transform 0.14s var(--lg-spring-touch),
+              background 0.16s ease,
+              border-color 0.16s ease,
+              box-shadow 0.16s ease;
+}
+
+.lg-capsule:hover {
+  background: var(--lg-material-hover);
+  border-color: rgba(255, 255, 255, 0.8);
+  transform: translateY(-0.5px);
+}
+
+.lg-capsule:active {
+  transform: scale(0.97);
+  background: var(--lg-material-active);
+}
+
+/* Micro-interacción física general estilo Apple */
+.lg-interactive {
+  transition: transform 0.14s var(--lg-spring-touch),
+              filter 0.16s ease,
+              box-shadow 0.16s ease;
+  will-change: transform;
+}
+
+.lg-interactive:active {
+  transform: scale(0.97);
+}
+
+/* ==========================================================================
+   Homologación Transversal de las 3 Secciones Interactivas de Canvas
+   (Patrón Flyweight: reglas compartidas entre Shell y módulos embebidos)
+   ========================================================================== */
+
+/* 1. SECCIÓN PLANO DEL SET (Estudio Cenital & VistaSet) */
+.vista-foco, .tarjeta {
+  background: linear-gradient(160deg, var(--vidrio-a), var(--vidrio-b)) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(185%) !important;
+  backdrop-filter: blur(28px) saturate(185%) !important;
+  border-radius: 22px !important;
+  border: 1px solid var(--vidrio-borde) !important;
+  box-shadow: inset 0 1px 0 var(--vidrio-filo), var(--lg-shadow-md) !important;
+}
+
+/* Botones y chips de control del set */
+.vista-foco button, .tarjeta button {
+  font-family: var(--lg-font-family) !important;
+  transition: transform 0.09s var(--lg-spring-touch), background 0.16s ease, box-shadow 0.16s ease !important;
+}
+.vista-foco button:active, .tarjeta button:active {
+  transform: scale(0.965) !important;
+}
+
+/* Tipografía de etiquetas dentro del plano cenital SVG */
+svg text {
+  font-family: var(--lg-font-family) !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
+/* 2. SECCIÓN MESA DE LUZ (Pizarra de Referencias Visuales) */
+.rejilla-mesa figure {
+  border-radius: 16px !important;
+  background: var(--vidrio-b) !important;
+  border: 1px solid var(--vidrio-borde) !important;
+  box-shadow: inset 0 1px 0 var(--vidrio-filo), var(--lg-shadow-sm) !important;
+  transition: transform 0.14s var(--lg-spring-touch), box-shadow 0.16s ease, border-color 0.16s ease !important;
+}
+.rejilla-mesa figure:hover {
+  transform: translateY(-3px) scale(1.01) !important;
+  box-shadow: inset 0 1px 0 #fff, var(--lg-shadow-md) !important;
+  border-color: rgba(255, 255, 255, 0.85) !important;
+}
+.rejilla-mesa figure:active {
+  transform: scale(0.98) !important;
+}
+
+/* Botón estrella del tablero */
+.rejilla-mesa figure button {
+  transition: transform 0.1s var(--lg-spring-touch), filter 0.14s ease !important;
+}
+.rejilla-mesa figure button:hover {
+  transform: scale(1.12) !important;
+  filter: brightness(1.1) !important;
+}
+.rejilla-mesa figure button:active {
+  transform: scale(0.92) !important;
+}
+
+/* 3. SECCIÓN DIAGRAMA DE RUTA DE SEÑAL */
+.canvas-wrap .node {
+  border-radius: 16px !important;
+  box-shadow: var(--lg-shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+.canvas-wrap .node:hover {
+  box-shadow: var(--lg-shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+.canvas-wrap .node-head {
+  font-family: var(--lg-font-family) !important;
+  letter-spacing: -0.01em !important;
+}
+.palette .chip {
+  border-radius: 11px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), var(--lg-shadow-sm) !important;
+  transition: transform 0.09s var(--lg-spring-touch), background 0.14s ease !important;
+}
+.palette .chip:active {
+  transform: scale(0.96) !important;
+}
+
+/* 4. COMPONENTES Y CLASES DEL SISTEMA DE DISEÑO COMPARTIDO */
+.apple-capsule {
+  border-radius: 999px !important;
+  background: var(--lg-material-subtle);
+  border: 1px solid var(--lg-border-light);
+  box-shadow: var(--lg-inner-highlight), var(--lg-shadow-sm);
+  transition: all 0.16s var(--lg-spring-ease);
+}
+.apple-capsule:hover {
+  background: var(--lg-material-hover);
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: var(--lg-inner-highlight), var(--lg-shadow-md);
+}
+
+.apple-interactive {
+  transition: transform 0.1s var(--lg-spring-touch), filter 0.14s ease, background 0.16s ease !important;
+  cursor: pointer;
+  user-select: none;
+}
+.apple-interactive:active {
+  transform: scale(0.965) !important;
+}
+
+/* 5. SECCIÓN ETAPA 3: PERSONAS Y EQUIPO / AGENDA DE CREW / FICHAS */
+.campo-caja, input[type="text"], input[type="search"], select, textarea {
+  font-family: var(--lg-font-family) !important;
+  border-radius: 10px !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease !important;
+}
+.campo-caja:focus, input[type="text"]:focus, input[type="search"]:focus, select:focus, textarea:focus {
+  outline: none !important;
+  border-color: var(--azul-apple, #007AFF) !important;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.22) !important;
+}
+
+/* Fichas y tarjetas de contacto en Agenda y Crew */
+.contacto-fila, .contacto-card, .agenda-card {
+  border-radius: 14px !important;
+  border: 1px solid var(--vidrio-borde) !important;
+  background: var(--vidrio-b) !important;
+  box-shadow: inset 0 1px 0 var(--vidrio-filo), var(--lg-shadow-sm) !important;
+  transition: transform 0.12s var(--lg-spring-touch), box-shadow 0.15s ease, border-color 0.15s ease !important;
+}
+.contacto-fila:hover, .contacto-card:hover, .agenda-card:hover {
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), var(--lg-shadow-md) !important;
+}
+
+/* Pastillas de filtro en Agenda */
+button[aria-pressed] {
+  transition: transform 0.1s var(--lg-spring-touch), background 0.14s ease, color 0.14s ease, box-shadow 0.14s ease !important;
+}
+button[aria-pressed="true"] {
+  box-shadow: 0 2px 8px -1px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+button[aria-pressed="false"]:hover {
+  transform: translateY(-0.5px) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+}
+button[aria-pressed]:active {
+  transform: scale(0.965) !important;
+}

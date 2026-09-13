@@ -48,18 +48,23 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:     title,
-		Width:     1440,
-		Height:    900,
-		MinWidth:  960,
-		MinHeight: 640,
+		Title:       title,
+		Width:       1440,
+		Height:      900,
+		MinWidth:    960,
+		MinHeight:   640,
+		StartHidden: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 9, G: 20, B: 35, A: 1},
 		OnStartup:        app.startup,
+		OnDomReady:       app.domReady,
 		OnShutdown:       app.shutdown,
 		Mac: &mac.Options{
+			Appearance:           mac.NSAppearanceNameDarkAqua,
+			WebviewIsTransparent: true,
+			WindowIsTranslucent:  false,
 			// Doble clic a un .ptv en Finder: macOS entrega la ruta aquí.
 			OnFileOpen: app.handleFileOpen,
 		},

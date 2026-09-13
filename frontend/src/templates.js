@@ -1,118 +1,14 @@
 // Catálogo de plantillas y conversión entre la infografía y el diagrama de señal.
 
-// Versión del esquema de proyecto. Se estampa en cada cfg nuevo y el
-// normalizeCfg del generador la usa para migrar de forma explícita.
-// 1 = un solo set en cfg.setLayout · 2 = sets[] + talentos/mics tipados ·
-// 3 = sugerencias del asistente (iluminación/mobiliario) aplicadas al crear.
-export const SCHEMA_VERSION = 3;
+export * from './templates_data.js';
+import {
+    TEMPLATE_SPECS,
+    COLORS,
+    uid,
+} from './templates_data.js';
+import { ProjectBuilder } from './project_builder.js';
 
-export const NAVY = '#16365F';
-const COLORS = ['#1D6FD1', '#1FA14E', '#F07F13', '#8B5CF6', '#E0312F', '#0E9F9E', '#D1268F', '#4F46E5'];
-
-// Secciones visibles de la hoja de Infografía. (flujo/monitores/leyenda quedaron
-// deprecadas: el generador las ignora al renderizar, pero siguen siendo ids
-// válidos en proyectos viejos.)
-const SECTION_DEFAULTS = ['estudio', 'escaleta', 'personal', 'timeline']
-    .map((id) => ({ id, abierto: true }));
-
-/* Las plantillas de PROYECTO viven en TEMPLATE_SPECS, más abajo. Aquí había
-además dos catálogos de tarjetas —templateCatalog y narrativeCatalog— que
-llenaban las pantallas del wizard de 9 pasos; ese wizard se tiró el 11-ago-2026
-(ver nuevo-proyecto.js) y desde entonces nadie los leía. La galería de sets de
-hoy la arma plantillas.js, con el plano de verdad y no con un icono. */
-
-// Modo de proyecto: 'live' (programa en vivo / grabado como en vivo, el flujo
-// original de circuito cerrado) o 'narrative' (producción por escenas y planos).
-// `chip` es la etiqueta del encabezado del proyecto, donde sobra el ancho.
-// `corto` es la de la TARJETA de Inicio: ahí la columna mide 228 px y el chip
-// largo se comía el renglón entero hasta empujar los botones fuera de la
-// tarjeta, que los recortaba a la mitad (.proj-card lleva overflow:hidden).
-export const PROJECT_MODES = {
-    live: { label: 'Programa en vivo', chip: 'MODO · PROGRAMA EN VIVO', corto: 'EN VIVO' },
-    narrative: { label: 'Producción narrativa', chip: 'MODO · PRODUCCIÓN NARRATIVA', corto: 'NARRATIVA' },
-};
-// Catálogos del PERFIL del proyecto. Son copia de los del generador
-// (narrativa.js IMPACTOS y proyecto.js MEDIOS): el shell y el generador se
-// compilan por separado, así que no pueden compartir el módulo. Si cambias uno,
-// cambia el otro.
-export const INTENCIONES = ['Informar', 'Emocionar', 'Persuadir', 'Entretener', 'Denunciar', 'Enseñar', 'Generar reflexión', 'Promover una acción'];
-export const MEDIOS = ['TikTok', 'Instagram / Reels', 'YouTube', 'Facebook', 'WhatsApp', 'TV abierta', 'TV de paga', 'Streaming', 'Cine', 'Radio', 'Podcast', 'Prensa impresa', 'Pantallas en la calle', 'Evento en vivo'];
-
-export const perfilVacio = () => ({
-    emisor: '', mensaje: '', intencion: [], receptor: '', edad: '',
-    medios: [], presupuesto: '', presupuestoNota: '',
-});
-
-export const normalizeMode = (modo) => (modo === 'narrative' ? 'narrative' : 'live');
-
-// Roles de crew disponibles en el asistente. Los `icon` deben existir en el
-// catálogo ICONS del generador de infografías (React compilado).
-export const CREW_CATALOG = [
-    { id: 'director', rol: 'Director de cámaras', icon: 'director' },
-    { id: 'switcher', rol: 'Operador de switcher', icon: 'switcher' },
-    { id: 'audio', rol: 'Operador de audio', icon: 'audio' },
-    { id: 'graficos', rol: 'Operador de gráficos', icon: 'graficos' },
-    { id: 'playback', rol: 'Operador de playback', icon: 'playback' },
-    { id: 'floor', rol: 'Floor manager', icon: 'floor' },
-    { id: 'luces', rol: 'Iluminador', icon: 'luces' },
-    { id: 'productor', rol: 'Productor', icon: 'productor' },
-    { id: 'script', rol: 'Continuista / Script', icon: 'script' },
-];
-export const DEFAULT_CREW = ['director', 'switcher', 'audio'];
-
-const LOCATION_LABELS = { int: 'Locación interior (estudio)', ext: 'Locación exterior', mixta: 'Locación mixta (int/ext)' };
-
-// Sugerencias por plantilla: el generador las aplica UNA vez al primer set
-// del proyecto (normalizeCfg) y borra las banderas. Los ids de iluminación
-// existen en SETUPS_ILUMINACION; los de muebles en MUEBLES_CATALOGO.
-const ILUMINACION_SUGERIDA = {
-    podcast: 'podcast_practical_setup',
-    noticiero: 'news_desk_lighting_setup',
-    entrevista: 'three_point_lighting',
-    streaming: 'solo_host_streaming_setup',
-    multicamara: 'stage_wash_setup',
-};
-const MUEBLES_SUGERIDOS = {
-    podcast: ['sillon1', 'sillon1'],
-    entrevista: ['sillon1', 'sillon2'],
-    streaming: ['sillon1'],
-};
-
-export const uid = (prefix = 'id') => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-
-const source = (nombre, color, esCorte = false) => ({ id: uid('src'), nombre, color, esCorte });
-const camera = (index, plano = 'Plano Medio') => ({ id: uid('cam'), nombre: `CAM ${index}`, plano, color: COLORS[(index - 1) % COLORS.length] });
-const mic = (index, conexion = 'XLR') => ({ id: uid('mic'), nombre: `Mic ${index}`, conexion });
-const segment = (name, dur, fuente, nota = '') => ({ id: uid('seg'), segmento: name, dur, fuente, nota });
-
-const TEMPLATE_SPECS = {
-    vacio: { cams: 0, mics: 0, title: 'NUEVO PROYECTO', extras: () => [], segments: [] },
-    podcast: {
-        cams: 2, mics: 4, title: 'PODCAST',
-        extras: () => [source('PLAYBACK / MÚSICA', '#D1268F')],
-        segments: [['Open', 20], ['Presentación', 60], ['Conversación', 600], ['Cierre', 40]],
-    },
-    noticiero: {
-        cams: 3, mics: 2, title: 'NOTICIERO',
-        extras: () => [source('VTR / VIDEO', '#64748B'), source('GRÁFICOS / GFX', '#0E9F9E'), source('COMERCIALES', '#F3C513', true)],
-        segments: [['Open Show', 20], ['Titulares', 60], ['Nota principal', 150], ['Comerciales', 30], ['Cierre', 30]],
-    },
-    entrevista: {
-        cams: 3, mics: 3, title: 'ENTREVISTA',
-        extras: () => [source('GRÁFICOS / GFX', '#0E9F9E')],
-        segments: [['Presentación', 45], ['Pregunta inicial', 120], ['Conversación', 480], ['Despedida', 45]],
-    },
-    streaming: {
-        cams: 2, mics: 1, title: 'STREAMING EN VIVO',
-        extras: () => [source('PRESENTACIÓN / SLIDES', '#F07F13'), source('PLAYBACK / MÚSICA', '#D1268F')],
-        segments: [['Cuenta regresiva', 30], ['Bienvenida', 60], ['Contenido principal', 600], ['Preguntas', 300], ['Cierre', 45]],
-    },
-    multicamara: {
-        cams: 5, mics: 4, title: 'EVENTO MULTICÁMARA',
-        extras: () => [source('VTR / VIDEO', '#64748B'), source('GRÁFICOS / GFX', '#0E9F9E')],
-        segments: [['Pre-show', 120], ['Apertura', 90], ['Bloque principal', 1200], ['Intermedio', 300], ['Cierre', 90]],
-    },
-};
+export { ProjectBuilder };
 
 // Valores por defecto de cada plantilla, para pre-llenar el asistente.
 export const templateDefaults = (kind) => {
@@ -120,108 +16,11 @@ export const templateDefaults = (kind) => {
     return { cams: spec.cams, mics: spec.mics };
 };
 
-// `profile` admite, además de la identidad (projectName, company, color, logoDataUrl),
-// las respuestas del asistente: cams, location ('int'|'ext'|'mixta'),
-// talents [{name, tipo:'conductor'|'invitado'}] y crew [ids de CREW_CATALOG].
+// makeTemplate actúa como fachada hacia ProjectBuilder para preservar 100% de retrocompatibilidad.
 export function makeTemplate(kind, profile = {}) {
-    const spec = TEMPLATE_SPECS[kind] || TEMPLATE_SPECS.streaming;
-    const camCount = Number.isInteger(profile.cams) ? profile.cams : spec.cams;
-    const exterior = profile.location === 'ext';
-    const talents = (profile.talents || []).map((t) => ({ ...t, name: (t.name || '').trim() })).filter((t) => t.name);
-    const camaras = Array.from({ length: camCount }, (_, i) => camera(i + 1, i === 0 ? 'Plano General' : 'Plano Medio'));
-    // PROYECTO VACÍO = VACÍO DE VERDAD (2026-08-28). Antes, aunque la plantilla
-    // pidiera cero cámaras, el proyecto nacía con un(a) conductor(a) y el equipo
-    // básico ya puestos; el usuario pidió empezar con el lienzo en blanco y
-    // agregar él lo que haga falta. Las demás plantillas (podcast, entrevista…)
-    // siguen sembrando su gente: ahí el contenido ES la plantilla.
-    const vacio = kind === 'vacio' && !talents.length && !profile.crew?.length;
-    // Talentos como entes propios (conductores/invitados en el plano del set).
-    const talentos = (talents.length ? talents : vacio ? [] : [{ name: 'Conductor(a)', tipo: 'conductor' }])
-        .map((t) => ({ id: uid('tal'), nombre: t.name, tipo: t.tipo === 'invitado' ? 'invitado' : 'conductor' }));
-    // Un micrófono de solapa asignado a cada talento; si la plantilla pide más
-    // micrófonos, los extra quedan dinámicos sin asignar. En exteriores todos
-    // los micrófonos son inalámbricos.
-    const microfonos = [
-        ...talentos.map((t, i) => ({
-            ...mic(i + 1, exterior || i > 0 ? 'Inalámbrico' : 'XLR'),
-            nombre: `Mic ${i + 1} · ${t.nombre}`,
-            micTipo: 'solapa',
-            asignadoA: `tal:${t.id}`,
-        })),
-        ...Array.from({ length: Math.max(0, spec.mics - talentos.length) }, (_, i) => ({
-            ...mic(talentos.length + i + 1, 'Inalámbrico'),
-            micTipo: 'dinamico',
-            asignadoA: '',
-        })),
-    ];
-    // Sets del proyecto: interior, exterior, o ambos si la locación es mixta.
-    const sets = (profile.location === 'mixta'
-        ? [['Set estudio', 'int'], ['Locación exterior', 'ext']]
-        : exterior ? [['Locación exterior', 'ext']] : [['Set principal', 'int']]
-    ).map(([nombre, locacion]) => ({
-        // Sin mesa de serie: se agrega desde Mobiliario, como cualquier otro
-        // mueble (2026-08-28). El punto de foco marca a dónde apuntan las
-        // cámaras y las luces mientras no haya nada.
-        id: uid('set'), nombre, locacion, mesaVisible: false,
-        setLayout: { pos: {}, rot: {} }, iluminacion: null, muebles: [],
-    }));
-    const extras = spec.extras();
-    const fallback = camaras[0]?.id || extras[0]?.id || '';
-    const escaleta = spec.segments.map(([name, dur], i) => {
-        const esComercial = name.toLowerCase().includes('comercial');
-        const fuente = esComercial
-            ? (extras.find((x) => x.esCorte)?.id || fallback)
-            : (camaras.length ? camaras[i % camaras.length].id : fallback);
-        return segment(name, dur, fuente);
-    });
-    // Crew elegido en el asistente (o el básico) + talentos con nombre propio.
-    const crewIds = profile.crew?.length ? profile.crew : vacio ? [] : DEFAULT_CREW;
-    const personal = crewIds
-        .map((id) => CREW_CATALOG.find((r) => r.id === id))
-        .filter(Boolean)
-        .map((r) => ({ id: uid('role'), rol: r.rol, icon: r.icon }));
-    if (talents.length) {
-        personal.push(...talents.map((t) => {
-            // "Ana · Conductor(a)". Si el nombre YA es el papel (las plantillas
-            // de set siembran gente sin nombre propio), no se repite dos veces.
-            const papel = t.tipo === 'invitado' ? 'Invitado(a)' : 'Conductor(a)';
-            return { id: uid('role'), rol: t.name === papel ? papel : `${t.name} · ${papel}`, icon: 'conductor' };
-        }));
-    } else if (!vacio) {
-        personal.push({ id: uid('role'), rol: 'Conductor(a)', icon: 'conductor' });
-    }
-    const subtitulo = profile.subtitle
-        || (profile.location ? `Plan de producción · ${LOCATION_LABELS[profile.location] || ''}` : 'Plan de producción audiovisual');
-    const modo = profile.modo === 'narrative' ? 'narrative' : 'live';
-    return {
-        schema: SCHEMA_VERSION,
-        // Modo del proyecto: gobierna la navegación del shell (vivo vs narrativo).
-        modo,
-        // En narrativo se guarda el tipo elegido (ficción, videoclip…) si viene;
-        // el brief del editor lo muestra y las sugerencias lo usarán.
-        ...(modo === 'narrative' && profile.narrativeTipo ? { narrativa: { tipo: profile.narrativeTipo } } : {}),
-        // Plantilla de origen: la usa el panel de iluminación del generador
-        // para recomendar configuraciones según el tipo de producción.
-        plantilla: kind,
-        iluminacionSugerida: ILUMINACION_SUGERIDA[kind] || null,
-        mueblesSugeridos: MUEBLES_SUGERIDOS[kind] || null,
-        titulo: `${spec.title} – ${profile.projectName || 'NUEVO PROYECTO'}`,
-        subtitulo,
-        organizacion: profile.company || 'ATJ PRODUCCIONES',
-        pantalla: spec.title,
-        mesa: profile.projectName || spec.title,
-        camaras, talentos, microfonos, extras, escaleta,
-        sets, setActivo: sets[0].id,
-        flujo: { preview: true, playback: extras.length > 0 },
-        personal,
-        includeCamOps: profile.includeCamOps ?? true,
-        // Perfil capturado al crear el proyecto (todo opcional): quién habla,
-        // qué dice, a quién y con cuánto. Se termina de llenar en la etapa 1.
-        perfil: { ...perfilVacio(), ...(profile.perfil || {}) },
-        branding: { primaryColor: profile.color || NAVY, logoDataUrl: profile.logoDataUrl || '' },
-        secciones: SECTION_DEFAULTS,
-    };
+    return new ProjectBuilder(kind).withProfile(profile).build();
 }
+
 
 // Genera los nodos iniciales del diagrama a partir de la configuración de la infografía.
 export function diagramFromConfig(cfg) {

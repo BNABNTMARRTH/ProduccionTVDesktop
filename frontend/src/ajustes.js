@@ -304,5 +304,7 @@ export function crearAjustes({ alAplicar, leerDeDisco, escribirEnDisco } = {}) {
         // tercer estado ("el del sistema") vive en el panel, que es donde hay
         // sitio para explicarlo.
         alternarTema: () => poner('tema', temaEfectivo() === 'oscuro' ? 'claro' : 'oscuro'),
+        ponerTema: (t) => poner('tema', t),
+        temaGuardado: () => a.tema,
     };
 }
