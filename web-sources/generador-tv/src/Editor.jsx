@@ -12,6 +12,7 @@ import { IMPACTOS, TIPOS_PROYECTO } from "./narrativa.js";
 import { ALCANCES, BLANCO, CONOCIMIENTOS, DEMO, MEDIOS, formatoSugerido, normalizeCfg,
          objetivoSegDe, perfilVacio, porSegundo } from "./proyecto.js";
 import { EMBEDDED, descargarArchivo } from "./puente.js";
+import { AIR_COLOR, NAVY, PALETTE } from "./theme.js";
 import { Aviso, Btn, btn, Campo, Campos, Card, Chips, ColorPickerField, Formatos, inp, inpStyle,
          Lectura, Seccion, Swatches, Tabulador } from "./ui.jsx";
 import { fmt, parseDur, reorder, slug, textOn, trunc, uid } from "./util.js";
