@@ -12,8 +12,7 @@ import { IMPACTOS, TIPOS_PROYECTO } from "./narrativa.js";
 import { ALCANCES, BLANCO, CONOCIMIENTOS, DEMO, MEDIOS, formatoSugerido, normalizeCfg,
          objetivoSegDe, perfilVacio, porSegundo } from "./proyecto.js";
 import { EMBEDDED, descargarArchivo } from "./puente.js";
-import { AIR_COLOR, NAVY, PALETTE } from "./theme.js";
-import { Aviso, Btn, btn, Campo, Campos, Card, Chips, Formatos, inp, inpStyle,
+import { Aviso, Btn, btn, Campo, Campos, Card, Chips, ColorPickerField, Formatos, inp, inpStyle,
          Lectura, Seccion, Swatches, Tabulador } from "./ui.jsx";
 import { fmt, parseDur, reorder, slug, textOn, trunc, uid } from "./util.js";
 
@@ -160,21 +159,21 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
           </datalist>
           <Campo etiqueta="Fecha de entrega" type="date" ancho="medio"
             value={perfil.entrega} onChange={(e) => upPerfil({ entrega: e.target.value })} />
-          <label className="campo">
-            <span className="campo-et">Color de marca</span>
-            <input type="color" className="campo-caja" style={{ maxWidth: 62, padding: 4, cursor: "pointer" }}
-              value={cfg.branding?.primaryColor || NAVY}
-              onChange={(e) => setCfg((c) => ({ ...c, branding: { ...(c.branding || {}), primaryColor: e.target.value } }))} />
-          </label>
+          <ColorPickerField
+            etiqueta="Color de marca"
+            value={cfg.branding?.primaryColor || "#1D6FD1"}
+            onChange={(e) => setCfg((c) => ({ ...c, branding: { ...(c.branding || {}), primaryColor: e.target.value } }))}
+          />
           <div className="campo">
             <span className="campo-et">Logotipo</span>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2.5 flex-wrap">
               {cfg.branding?.logoDataUrl && (
-                <img src={cfg.branding.logoDataUrl} alt="Logotipo actual"
-                  style={{ height: 34, width: "auto", borderRadius: 6, border: "1px solid var(--filo)" }} />
+                <div className="logo-preview-box">
+                  <img src={cfg.branding.logoDataUrl} alt="Logotipo actual" className="logo-preview-img" />
+                </div>
               )}
-              <Btn rango={2} icono={Upload} onClick={() => logoRef.current?.click()}>
-                {cfg.branding?.logoDataUrl ? "Cambiar" : "Subir imagen"}
+              <Btn rango={2} icono={Upload} onClick={() => logoRef.current?.click()} className="btn-upload-logo">
+                {cfg.branding?.logoDataUrl ? "Cambiar logo" : "Subir logotipo"}
               </Btn>
               {cfg.branding?.logoDataUrl && (
                 <Btn rango="x" icono={X} titulo="Quitar el logotipo"

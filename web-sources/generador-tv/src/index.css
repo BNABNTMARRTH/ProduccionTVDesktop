@@ -41,6 +41,7 @@
 html, body, #root { margin:0; padding:0; min-height:100%; }
 
 :root{
+  --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", system-ui, sans-serif;
   --yeso:#F1EEE8;
   --tinta:#171512; --tinta-media:#57534B; --tinta-baja:#625D55;
   --linea:rgba(23,21,18,.08);
@@ -54,34 +55,29 @@ html, body, #root { margin:0; padding:0; min-height:100%; }
   --e5:#D53238; --e5-t:#93191E;   /* 5 Producción  · tally, al aire      */
 
   /* La gelatina en curso. Cada pantalla la reasigna con data-etapa. */
-
-  /* RELLENO vs TEXTO. Los `-t` cambian con el tema (sobre yeso hacen falta
-     oscuros, sobre negro claros). Los `-f` NO cambian nunca: son el fondo de
-     un botón lleno, y encima siempre va texto blanco. Si el relleno siguiera
-     al tema, en oscuro quedaría blanco sobre azul claro: 2.5:1, ilegible. */
   --e1-f:#1C5FA8; --e2-f:#0A6E41; --e3-f:#8A5300; --e4-f:#8F3A11; --e5-f:#93191E;
   --gel-f:var(--e1-f);
   --gel:var(--e1); --gel-t:var(--e1-t);
   --gel-halo:rgba(60,143,224,.24);
   --luz-a:rgba(60,143,224,.20); --luz-b:rgba(60,143,224,.09);
 
-  --r-panel:18px; --r-campo:11px; --r-boton:11px;
+  --r-panel:18px; --r-campo:10px; --r-boton:10px;
 
-  /* El material, en variables: el modo oscuro solo reasigna estas. */
+  /* El material Liquid Glass en variables */
   --vidrio-a:rgba(255,255,255,.78); --vidrio-b:rgba(255,255,255,.52);
   --vidrio-borde:rgba(255,255,255,.75); --vidrio-filo:rgba(255,255,255,.95);
   --hueco-fondo:rgba(255,255,255,.55); --hueco-borde:rgba(23,21,18,.10);
   --reflejo:rgba(255,255,255,.55); --grano:.5;
 
-  --t-eti:clamp(10.5px,.16vw + 9.4px,13px);
-  --t-cuerpo:clamp(13.5px,.26vw + 11.6px,17px);
-  --t-sec:clamp(11px,.18vw + 9.7px,13.5px);
-  --t-tit:clamp(17px,.42vw + 14px,24px);
-  --alto:clamp(36px,.5vw + 32px,46px);
-  --p-panel:clamp(15px,.5vw + 11px,26px);
-  --p-rejilla:clamp(12px,.45vw + 8px,22px);
-  --hueco:clamp(12px,.36vw + 9px,20px);
-  --hueco-campo:clamp(10px,.22vw + 8px,15px);
+  --t-eti:clamp(10.5px,.16vw + 9.4px,12.5px);
+  --t-cuerpo:clamp(13px,.26vw + 11.6px,15px);
+  --t-sec:clamp(11px,.18vw + 9.7px,13px);
+  --t-tit:clamp(15px,.4vw + 13px,18px);
+  --alto:clamp(34px,.5vw + 30px,40px);
+  --p-panel:clamp(14px,.5vw + 11px,22px);
+  --p-rejilla:clamp(12px,.45vw + 8px,20px);
+  --hueco:clamp(12px,.36vw + 9px,18px);
+  --hueco-campo:clamp(10px,.22vw + 8px,14px);
 }
 /* Cada etapa reasigna su gelatina y la luz que baña la pared. */
 [data-etapa="1"]{--gel:var(--e1);--gel-t:var(--e1-t);--gel-f:var(--e1-f);--gel-halo:rgba(60,143,224,.24);--luz-a:rgba(60,143,224,.20);--luz-b:rgba(60,143,224,.09)}
@@ -91,44 +87,41 @@ html, body, #root { margin:0; padding:0; min-height:100%; }
 [data-etapa="5"]{--gel:var(--e5);--gel-t:var(--e5-t);--gel-f:var(--e5-f);--gel-halo:rgba(213,50,56,.26);--luz-a:rgba(213,50,56,.20);--luz-b:rgba(213,50,56,.09)}
 
 /* ============================================================================
-   MODO OSCURO — la misma pared, con las luces apagadas
-   ---------------------------------------------------------------------------
-   No es invertir colores. Es el mismo foro de yeso a oscuras: el blanco se
-   vuelve un negro CÁLIDO (#1C1A18), porque una pared apagada no es azul, y la
-   gelatina de la etapa la sigue bañando igual. El vidrio se vuelve ahumado.
-
-   Lo único que cambia de la escala son los tonos `-t`: sobre yeso hacen falta
-   OSCUROS para pasar contraste, sobre negro hacen falta CLAROS. Los vivos no
-   se tocan, así la identidad es la misma en los dos modos.
-
-   Tres estados, como debe ser: sin elección se respeta el sistema; con
-   elección manda `data-tema`.
+   MODO OSCURO — Apple Liquid Glass Homologado
    ============================================================================ */
 @media (prefers-color-scheme: dark){
   :root:not([data-tema="claro"]){
-    --yeso:#1C1A18;
-    --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#A8A297;
-    --linea:rgba(255,255,255,.09);
+    --yeso:#091423;
+    --tinta:#F2EFE9; --tinta-media:rgba(242,239,233,.75); --tinta-baja:rgba(242,239,233,.55);
+    --linea:rgba(255,255,255,.08);
     --e1-t:#8FC4F7; --e2-t:#5CE0A0; --e3-t:#FFC569; --e4-t:#FF9A6B; --e5-t:#FF8A8E;
-    --vidrio-a:rgba(255,255,255,.10); --vidrio-b:rgba(255,255,255,.045);
-    --vidrio-borde:rgba(255,255,255,.14); --vidrio-filo:rgba(255,255,255,.16);
-    --hueco-fondo:rgba(0,0,0,.28); --hueco-borde:rgba(255,255,255,.12);
-    --reflejo:rgba(255,255,255,.13); --grano:.30;
+    --vidrio-a:rgba(255,255,255,.06); --vidrio-b:rgba(255,255,255,.022);
+    --vidrio-borde:rgba(255,255,255,.09); --vidrio-filo:rgba(255,255,255,.14);
+    --hueco-fondo:rgba(0,0,0,.26); --hueco-borde:rgba(255,255,255,.10);
+    --reflejo:rgba(255,255,255,.10); --grano:.20;
   }
 }
 :root[data-tema="oscuro"]{
-  --yeso:#1C1A18;
-  --tinta:#F2EFE9; --tinta-media:#B0AAA0; --tinta-baja:#A8A297;
-  --linea:rgba(255,255,255,.09);
+  --yeso:#091423;
+  --tinta:#F2EFE9; --tinta-media:rgba(242,239,233,.75); --tinta-baja:rgba(242,239,233,.55);
+  --linea:rgba(255,255,255,.08);
   --e1-t:#8FC4F7; --e2-t:#5CE0A0; --e3-t:#FFC569; --e4-t:#FF9A6B; --e5-t:#FF8A8E;
-  --vidrio-a:rgba(255,255,255,.10); --vidrio-b:rgba(255,255,255,.045);
-  --vidrio-borde:rgba(255,255,255,.14); --vidrio-filo:rgba(255,255,255,.16);
-  --hueco-fondo:rgba(0,0,0,.28); --hueco-borde:rgba(255,255,255,.12);
-  --reflejo:rgba(255,255,255,.13); --grano:.30;
+  --vidrio-a:rgba(255,255,255,.06); --vidrio-b:rgba(255,255,255,.022);
+  --vidrio-borde:rgba(255,255,255,.09); --vidrio-filo:rgba(255,255,255,.14);
+  --hueco-fondo:rgba(0,0,0,.26); --hueco-borde:rgba(255,255,255,.10);
+  --reflejo:rgba(255,255,255,.10); --grano:.20;
 }
 
-body{ background:var(--yeso); color:var(--tinta); }
-.cond{ font-family:'Barlow Condensed','Arial Narrow',sans-serif; }
+/* Transparencia cuando se incrusta en el Shell de Wails */
+html.embedded, body.embedded {
+  background: transparent !important;
+}
+.embedded .pared {
+  display: none !important;
+}
+
+body{ background:var(--yeso); color:var(--tinta); font-family:var(--font-system); -webkit-font-smoothing:antialiased; }
+.cond{ font-family:var(--font-system); }
 .mono{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; }
 
 /* ============================ LA PARED ============================
@@ -214,48 +207,72 @@ button:not(.b):not(:disabled):active{ transform:scale(.97); }
 
 /* Chip: vidrio apagado / vidrio teñido. El CSS lee aria-pressed. */
 .b-chip{ min-height:calc(var(--alto) - 7px); padding:0 clamp(13px,.3vw + 11px,18px);
-  border-radius:999px; font-size:var(--t-eti); font-weight:700;
-  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); }
+  border-radius:999px; font-family:var(--font-system); font-size:12px; font-weight:550;
+  -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+  transition:all .18s cubic-bezier(.16,1,.3,1); }
 .b-chip[aria-pressed="false"]{ background:var(--vidrio-b); border-color:var(--vidrio-borde); color:var(--tinta-media); }
-.b-chip[aria-pressed="false"]:hover{ background:var(--vidrio-a); color:var(--tinta); }
-.b-chip[aria-pressed="true"]{ background:linear-gradient(165deg, var(--gel), var(--gel-f));
-  border-color:var(--gel-f); color:#fff; box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 5px 12px -6px var(--gel); }
+.b-chip[aria-pressed="false"]:hover{ background:rgba(255,255,255,.09); border-color:rgba(255,255,255,.18); color:#fff; transform:translateY(-1px); }
+.b-chip[aria-pressed="true"]{ background:linear-gradient(165deg, rgba(10,132,255,.92), rgba(0,102,214,.98));
+  border-color:rgba(10,132,255,.75); color:#fff; box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 5px 14px -3px rgba(10,132,255,.55); }
+.b-chip:active{ transform:scale(.95); }
 
 /* AGREGAR: el punteado dice "aquí todavía no hay nada" — regla 2. */
-/* El fondo y el borde eran blanco y negro FIJOS. Con las luces apagadas el
-   35% de blanco aclaraba la pastilla y la tinta media encima quedaba en
-   3.04:1; el borde punteado oscuro, directamente no se veía. Ahora los dos
-   salen del tema, y la tinta sube a la plena porque es texto de botón. */
 .b-agregar{ display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 15px;
   border:1.5px dashed color-mix(in srgb, var(--tinta) 26%, transparent); border-radius:999px;
   background:var(--vidrio-b);
-  color:var(--tinta); font-size:var(--t-eti); font-weight:700; line-height:1; cursor:pointer;
-  transition:border-color .18s, background .18s, color .18s, transform .1s cubic-bezier(.2,.7,.3,1); }
-.b-agregar:hover{ border-style:solid; border-color:var(--gel); background:var(--vidrio-a); color:var(--gel-t); }
+  color:var(--tinta); font-size:var(--t-eti); font-weight:600; line-height:1; cursor:pointer;
+  transition:border-color .18s, background .18s, color .18s, transform .1s cubic-bezier(.16,1,.3,1); }
+.b-agregar:hover{ border-style:solid; border-color:var(--gel); background:rgba(255,255,255,.08); color:var(--gel-t); transform:translateY(-1px); }
 .b-agregar:active{ transform:scale(.97); }
 
-/* ============================ CAMPOS ============================
-   Huecos EN el vidrio: se hunden, no se montan encima. Al escribir el
-   vidrio se despeja ahí y el campo se pone sólido. */
-.campo{ display:flex; flex-direction:column; gap:6px; min-width:0; }
-.campo-et{ font-size:var(--t-eti); font-weight:600; letter-spacing:.1em;
+/* ============================ CAMPOS (APPLE HIG) ============================
+   Huecos translúcidos en el vidrio: estética nativa de macOS / visionOS. */
+.campo{ display:flex; flex-direction:column; gap:7px; min-width:0; }
+.campo-et{ font-family:var(--font-system); font-size:11.5px; font-weight:600; letter-spacing:.04em;
   text-transform:uppercase; color:var(--tinta-baja); }
 .campo-caja{
-  width:100%; min-height:var(--alto); padding:8px clamp(11px,.2vw + 9px,15px);
+  width:100%; min-height:38px; padding:8px 12px;
   background:var(--hueco-fondo); border:1px solid var(--hueco-borde);
   border-radius:var(--r-campo);
-  box-shadow:inset 0 1px 3px rgba(23,21,18,.07), inset 0 -1px 0 rgba(255,255,255,.7);
-  color:var(--tinta); font:inherit; font-size:var(--t-cuerpo);
-  transition:background .18s, border-color .18s, box-shadow .18s;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.22), inset 0 0 0 1px rgba(255,255,255,.02);
+  color:var(--tinta); font-family:var(--font-system); font-size:13.5px; font-weight:450;
+  transition:background .18s, border-color .18s, box-shadow .18s, color .18s;
 }
-.campo-caja::placeholder{ color:#A9A49A; }
-.campo-caja:hover{ background:color-mix(in srgb, var(--hueco-fondo) 70%, var(--tinta) 4%); border-color:var(--vidrio-borde); }
-.campo-caja:focus{ outline:0; background:color-mix(in srgb, var(--yeso) 55%, #fff 45%); border-color:var(--gel);
-  box-shadow:0 0 0 3.5px var(--gel-halo), inset 0 1px 2px rgba(23,21,18,.05); }
+.campo-caja::placeholder{ color:rgba(242,239,233,.38); }
+.campo-caja:hover{ background:rgba(0,0,0,.32); border-color:rgba(255,255,255,.16); }
+.campo-caja:focus{ outline:0; background:rgba(0,0,0,.42); border-color:#0A84FF;
+  box-shadow:0 0 0 3px rgba(10,132,255,.28), inset 0 1px 2px rgba(0,0,0,.2); }
+select.campo-caja{
+  appearance:none; -webkit-appearance:none; padding-right:32px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 11px center; cursor:pointer;
+}
+select.campo-caja:hover{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.85)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
 textarea.campo-caja{ min-height:calc(var(--alto) * 1.9); line-height:1.55; resize:vertical; }
-.campo-pista{ margin:0; font-size:var(--t-eti); color:var(--tinta-baja); line-height:1.45; }
+.campo-pista{ margin:0; font-family:var(--font-system); font-size:var(--t-eti); color:var(--tinta-baja); line-height:1.45; }
 .a-corto{ max-width:17ch } .a-medio{ max-width:32ch }
 .a-largo{ max-width:58ch } .a-texto{ max-width:78ch } .a-libre{ max-width:none }
+
+/* Selector de color y vista previa de logo Apple */
+.color-swatch-btn{
+  display:inline-flex; align-items:center; gap:9px; height:38px; padding:0 12px;
+  background:var(--hueco-fondo); border:1px solid var(--hueco-borde); border-radius:var(--r-campo);
+  cursor:pointer; box-shadow:inset 0 1px 2px rgba(0,0,0,.22);
+  transition:background .18s, border-color .18s;
+}
+.color-swatch-btn:hover{ background:rgba(0,0,0,.32); border-color:rgba(255,255,255,.16); }
+.color-swatch-dot{
+  width:16px; height:16px; border-radius:50%; border:1px solid rgba(255,255,255,.35);
+  box-shadow:0 0 6px rgba(0,0,0,.3); flex:none;
+}
+.color-swatch-hex{ font-size:12px; font-weight:600; color:var(--tinta); }
+.logo-preview-box{
+  height:38px; padding:3px 8px; border-radius:8px; border:1px solid var(--vidrio-borde);
+  background:rgba(0,0,0,.25); display:flex; align-items:center; justify-content:center;
+}
+.logo-preview-img{ height:30px; width:auto; max-width:90px; object-fit:contain; border-radius:4px; }
 
 /* ============================ REJILLAS ============================ */
 .rejilla-tarjetas{ display:grid; align-items:start; align-content:start;
@@ -278,56 +295,93 @@ textarea.campo-caja{ min-height:calc(var(--alto) * 1.9); line-height:1.55; resiz
 .b8{ grid-column:span 8; align-self:start } .b4{ grid-column:span 4; align-self:start }
 @media(max-width:1180px){ .b7,.b5,.b8,.b4{ grid-column:span 12 } }
 
-/* ============================ PANELES ============================ */
-.tarjeta{ position:relative; display:flex; flex-direction:column; overflow:hidden;
-  background:linear-gradient(160deg, var(--vidrio-a), var(--vidrio-b));
-  -webkit-backdrop-filter:blur(26px) saturate(180%);
-  backdrop-filter:blur(26px) saturate(180%);
-  border:1px solid var(--vidrio-borde); border-radius:var(--r-panel);
+/* ============================ PANELES LIQUID GLASS ============================ */
+.tarjeta{
+  position:relative; display:flex; flex-direction:column; overflow:hidden;
+  background:linear-gradient(165deg, var(--vidrio-a), var(--vidrio-b));
+  -webkit-backdrop-filter:blur(28px) saturate(190%);
+  backdrop-filter:blur(28px) saturate(190%);
+  border:1px solid var(--vidrio-borde); border-radius:18px;
   box-shadow:
-    inset 0 1px 0 var(--vidrio-filo), inset 0 -1px 0 rgba(255,255,255,.18),
-    0 1px 2px rgba(23,21,18,.05), 0 18px 40px -22px rgba(23,21,18,.30); }
+    inset 0 1px 0 var(--vidrio-filo),
+    0 12px 28px -10px rgba(0,0,0,.35),
+    0 2px 6px -1px rgba(0,0,0,.15);
+  transition:border-color .22s, box-shadow .22s, transform .22s cubic-bezier(.16,1,.3,1);
+}
+.tarjeta:hover{
+  border-color:rgba(255,255,255,.14);
+  box-shadow:
+    inset 0 1px 0 var(--vidrio-filo),
+    0 16px 36px -10px rgba(0,0,0,.45),
+    0 4px 10px -2px rgba(0,0,0,.2);
+}
 .tarjeta::after{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
-  background:linear-gradient(150deg, var(--reflejo), transparent 38%); }
+  background:linear-gradient(150deg, var(--reflejo), transparent 42%); }
 .tarjeta > *{ position:relative; z-index:1; }
 
-.tarjeta-cab{ display:flex; align-items:center; gap:11px;
-  padding:clamp(13px,.3vw + 10px,18px) var(--p-panel);
+.tarjeta-cab{
+  display:flex; align-items:center; gap:12px;
+  padding:14px 20px;
   border-bottom:1px solid var(--linea); cursor:pointer; list-style:none;
-  font-family:'Barlow Condensed','Arial Narrow',sans-serif;
-  font-size:var(--t-tit); font-weight:700; letter-spacing:.055em; text-transform:uppercase;
-  line-height:1; color:var(--tinta); transition:background .18s; }
+  font-family:var(--font-system);
+  font-size:13.5px; font-weight:650; letter-spacing:-.01em; text-transform:uppercase;
+  line-height:1; color:var(--tinta); transition:background .18s; user-select:none;
+}
 .tarjeta-cab::-webkit-details-marker{ display:none }
-.tarjeta-cab:hover{ background:var(--vidrio-b) }
-.tarjeta-cab:focus-visible{ outline:2px solid var(--gel-t); outline-offset:-3px }
-.tarjeta-cab::before{ content:""; width:8px; height:8px; border-radius:50%; flex:none;
-  background:var(--gel); box-shadow:0 0 10px 1px var(--gel); }
-.tarjeta-flecha{ margin-left:auto; flex:none; opacity:.4;
-  transition:transform .2s cubic-bezier(.2,.7,.3,1) }
+.tarjeta-cab:hover{ background:rgba(255,255,255,.03); }
+.tarjeta-cab:focus-visible{ outline:2px solid #0A84FF; outline-offset:-3px }
+.tarjeta-cab::before{
+  content:""; width:8px; height:8px; border-radius:50%; flex:none;
+  background:var(--gel); box-shadow:0 0 12px var(--gel-halo), 0 0 4px var(--gel);
+}
+.gel-rosa .tarjeta-cab::before{ background:#FF375F; box-shadow:0 0 12px rgba(255,55,95,.7); }
+.gel-azul .tarjeta-cab::before{ background:#0A84FF; box-shadow:0 0 12px rgba(10,132,255,.7); }
+.gel-ambar .tarjeta-cab::before{ background:#FF9F0A; box-shadow:0 0 12px rgba(255,159,10,.7); }
+.gel-verde .tarjeta-cab::before{ background:#30D158; box-shadow:0 0 12px rgba(48,209,88,.7); }
+
+.tarjeta-titulo{ flex:1; }
+.tarjeta-flecha{ margin-left:auto; flex:none; opacity:.5;
+  transition:transform .24s cubic-bezier(.16,1,.3,1), opacity .18s }
+.tarjeta-cab:hover .tarjeta-flecha{ opacity:1 }
 details[open] > .tarjeta-cab .tarjeta-flecha{ transform:rotate(180deg) }
 .tarjeta-cuerpo{ flex:1; display:flex; flex-direction:column; gap:var(--hueco); padding:var(--p-panel); }
 
 .seccion{ display:flex; flex-direction:column; gap:var(--hueco-campo) }
 .seccion + .seccion{ padding-top:var(--hueco); border-top:1px solid var(--linea) }
 .seccion-cab{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap }
-.seccion-tit{ font-family:'Barlow Condensed','Arial Narrow',sans-serif;
-  font-size:var(--t-sec); font-weight:600; letter-spacing:.16em; text-transform:uppercase;
+.seccion-tit{ font-family:var(--font-system);
+  font-size:11.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
   color:var(--tinta-baja) }
-.seccion-pista{ margin:0; font-size:var(--t-eti); color:var(--tinta-baja); line-height:1.45 }
+.seccion-pista{ margin:0; font-family:var(--font-system); font-size:var(--t-eti); color:var(--tinta-baja); line-height:1.45 }
 .seccion.crece textarea.campo-caja{ min-height:clamp(58px,17vh,240px) }
 
-/* ============================ FORMATO ============================ */
-.formatos{ display:flex; gap:9px; flex-wrap:wrap }
-.fmt{ display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer;
-  padding:9px 11px 8px; border-radius:var(--r-campo); border:1px solid var(--vidrio-borde);
-  background:var(--vidrio-b); transition:.18s }
-.fmt:hover{ background:var(--vidrio-a) }
-.fmt .caja{ background:var(--tinta-baja); border-radius:2px; transition:.18s }
-.fmt .nom{ font-size:10.5px; font-weight:700; letter-spacing:.05em; color:var(--tinta-baja); line-height:1 }
-.fmt[aria-pressed="true"]{ border-color:var(--gel); background:var(--vidrio-a) }
-.fmt[aria-pressed="true"] .caja{ background:var(--gel) }
-.fmt[aria-pressed="true"] .nom{ color:var(--gel-t) }
-.fmt:active{ transform:scale(.97) }
+/* ============================ FORMATO (APPLE HIG VIEWPORT) ============================ */
+.formatos{ display:flex; gap:10px; flex-wrap:wrap }
+.fmt{
+  display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer;
+  padding:10px 14px 9px; border-radius:12px; border:1px solid var(--vidrio-borde);
+  background:var(--vidrio-b);
+  box-shadow:inset 0 1px 0 var(--vidrio-filo), 0 2px 6px rgba(0,0,0,.15);
+  transition:all .18s cubic-bezier(.16,1,.3,1);
+}
+.fmt:hover{ background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.18); transform:translateY(-1px); }
+.fmt .caja{
+  background:rgba(255,255,255,.25); border:1px solid rgba(255,255,255,.15);
+  border-radius:4px; transition:all .18s; box-shadow:0 1px 3px rgba(0,0,0,.2);
+}
+.fmt .nom{
+  font-family:var(--font-system); font-size:11px; font-weight:650; letter-spacing:.02em;
+  color:var(--tinta-baja); line-height:1; transition:color .18s;
+}
+.fmt[aria-pressed="true"]{
+  border-color:rgba(10,132,255,.8); background:rgba(10,132,255,.14);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 0 0 1px rgba(10,132,255,.4), 0 6px 18px -4px rgba(10,132,255,.45);
+}
+.fmt[aria-pressed="true"] .caja{
+  background:#0A84FF; border-color:rgba(255,255,255,.5); box-shadow:0 0 10px rgba(10,132,255,.6);
+}
+.fmt[aria-pressed="true"] .nom{ color:#5AC8FA; font-weight:700; }
+.fmt:active{ transform:scale(.96); }
 
 /* ============================ TABULADOR ============================ */
 .lectura{ display:flex; flex-direction:column; gap:3px }

@@ -6,6 +6,17 @@
 // ¿Corre dentro de la app de escritorio (iframe del shell de Producción TV)?
 export const EMBEDDED = typeof window !== "undefined" && window.parent !== window;
 
+if (typeof document !== "undefined" && EMBEDDED) {
+  document.documentElement.classList.add("embedded");
+  if (document.body) {
+    document.body.classList.add("embedded");
+  } else {
+    window.addEventListener("DOMContentLoaded", () => {
+      document.body?.classList.add("embedded");
+    });
+  }
+}
+
 // Descarga un archivo de texto generado en el navegador
 export function descargarArchivo(nombre, contenido, mime = "text/plain") {
   try {

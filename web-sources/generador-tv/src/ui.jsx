@@ -102,17 +102,58 @@ export function Box({ title, children, style }) {
 // `gel` es el color de la gelatina clipeada al filo (rosa = acción y dónde
 // estás, ámbar = revísalo, azul = dato técnico). `ancho` la hace ocupar la
 // fila completa de la rejilla.
+// Tarjeta plegable con encabezado Liquid Glass. `ancho` la hace ocupar la fila completa.
+// `gel` es el color de la gelatina (rosa = acción/identidad, azul = técnico/encargo, ámbar = recursos).
 export function Card({ title, children, open = true, className = "", ancho = false, gel = "rosa" }) {
   return (
     <details open={open} className={`tarjeta gel-${gel} ${ancho ? "ancho-total" : ""} ${className}`}>
-      <summary className="tarjeta-cab cond">
-        {title}
-        <ChevronDown className="tarjeta-flecha" size={18} aria-hidden="true" />
+      <summary className="tarjeta-cab">
+        <span className="tarjeta-titulo">{title}</span>
+        <ChevronDown className="tarjeta-flecha" size={16} aria-hidden="true" />
       </summary>
       <div className="tarjeta-cuerpo">{children}</div>
     </details>
   );
 }
+
+// ── Selector de color estilo Apple Liquid Glass ───────────────────────────
+export function ColorPickerField({ etiqueta = "Color de marca", value, onChange }) {
+  const inputRef = React.useRef(null);
+  const colorActual = value || "#1D6FD1";
+  return (
+    <div className="campo">
+      {etiqueta && <span className="campo-et">{etiqueta}</span>}
+      <button
+        type="button"
+        className="color-swatch-btn"
+        onClick={() => inputRef.current?.click()}
+        title="Seleccionar color de marca"
+        aria-label={`Color de marca actual: ${colorActual}`}
+      >
+        <span className="color-swatch-dot" style={{ backgroundColor: colorActual }} />
+        <span className="color-swatch-hex mono">{String(colorActual).toUpperCase()}</span>
+        <input
+          ref={inputRef}
+          type="color"
+          style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: 1, height: 1 }}
+          value={colorActual}
+          onChange={onChange}
+        />
+      </button>
+    </div>
+  );
+}
+
+// ── GoF Abstract Factory: Fábrica de Componentes de Interfaz ──────────────
+export const EditorUIFactory = {
+  createCard: (props) => <Card {...props} />,
+  createField: (props) => <Campo {...props} />,
+  createFieldsGroup: (props) => <Campos {...props} />,
+  createChips: (props) => <Chips {...props} />,
+  createFormatPicker: (props) => <Formatos {...props} />,
+  createColorPicker: (props) => <ColorPickerField {...props} />,
+  createButton: (props) => <Btn {...props} />,
+};
 
 // ── Ayuda contextual ──────────────────────────────────────────────────────
 // Botón "?" con una tarjeta que se auto-muestra la primera vez (recordada en
