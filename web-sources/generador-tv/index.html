@@ -1,62 +1,78 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#16365F" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Generador de infografías de producción TV</title>
-    <meta
-      name="description"
-      content="Crea infografías profesionales de producción de TV: cámaras, escaleta, flujo de producción, línea de tiempo y personal."
-    />
-    <script>
-      (function() {
-        var tema = new URLSearchParams(window.location.search).get('tema');
-        if (!tema && window.parent && window.parent !== window) {
-          try { tema = window.parent.document.documentElement.dataset.tema; } catch(e) {}
-        }
-        if (window.parent && window.parent !== window) {
-          document.documentElement.classList.add('embedded');
-        }
-        if (tema === 'claro' || tema === 'oscuro') {
-          document.documentElement.dataset.tema = tema;
-          document.documentElement.style.colorScheme = tema;
-        }
-        window.addEventListener('message', function(e) {
-          if (!e.data) return;
-          if (e.data.type === 'producciontv:tema') {
-            var t = e.data.tema;
-            if (t === 'claro' || t === 'oscuro') {
-              document.documentElement.dataset.tema = t;
-              document.documentElement.style.colorScheme = t;
-            } else {
-              delete document.documentElement.dataset.tema;
-              document.documentElement.style.colorScheme = '';
-            }
-          } else if (e.data.type === 'producciontv:layout-changed' && e.data.layout) {
-            document.documentElement.dataset.layout = e.data.layout;
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#16365F" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Generador de infografías de producción TV</title>
+  <meta name="description"
+    content="Crea infografías profesionales de producción de TV: cámaras, escaleta, flujo de producción, línea de tiempo y personal." />
+  <script>
+    (function () {
+      var tema = new URLSearchParams(window.location.search).get('tema');
+      if (!tema && window.parent && window.parent !== window) {
+        try { tema = window.parent.document.documentElement.dataset.tema; } catch (e) { }
+      }
+      if (window.parent && window.parent !== window) {
+        document.documentElement.classList.add('embedded');
+      }
+      if (tema === 'claro' || tema === 'oscuro') {
+        document.documentElement.dataset.tema = tema;
+        document.documentElement.style.colorScheme = tema;
+      }
+      window.addEventListener('message', function (e) {
+        if (!e.data) return;
+        if (e.data.type === 'producciontv:tema') {
+          var t = e.data.tema;
+          if (t === 'claro' || t === 'oscuro') {
+            document.documentElement.dataset.tema = t;
+            document.documentElement.style.colorScheme = t;
+          } else {
+            delete document.documentElement.dataset.tema;
+            document.documentElement.style.colorScheme = '';
           }
-        });
-      })();
-    </script>
-    <style>
-      :root { color-scheme: light dark; }
-      html, body { margin: 0; padding: 0; background: transparent !important; }
-      html.embedded, body.embedded { background-color: transparent !important; }
-      .embedded .pared { display: none !important; }
-    </style>
-    <link rel="stylesheet" href="../shared/liquid-glass.css">
-    <link rel="stylesheet" href="../shared/accesibilidad.css">
-  </head>
-  <body>
-    <!-- Las hojas imprimibles compartidas: el guion se imprime desde su propio
+        } else if (e.data.type === 'producciontv:layout-changed' && e.data.layout) {
+          document.documentElement.dataset.layout = e.data.layout;
+        }
+      });
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: transparent !important;
+    }
+
+    html.embedded,
+    body.embedded {
+      background-color: transparent !important;
+    }
+
+    .embedded .pared {
+      display: none !important;
+    }
+  </style>
+  <link rel="stylesheet" href="../shared/liquid-glass.css">
+  <link rel="stylesheet" href="../shared/accesibilidad.css">
+</head>
+
+<body>
+  <!-- Las hojas imprimibles compartidas: el guion se imprime desde su propio
          editor con EXACTAMENTE la misma hoja que sale en Guías, sin duplicar
          el formato. La ruta es relativa porque la app va empotrada en
          tools/infografias/ dentro del binario. -->
-    <script src="../shared/sheets.js"></script>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+  <script src="../shared/sheets.js"></script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>
