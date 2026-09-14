@@ -62,10 +62,10 @@ export class CompactLayoutStrategy extends LayoutStrategy {
 
   apply(rootEl, viewportInfo) {
     super.apply(rootEl, viewportInfo);
-    // Configuración específica de modo compacto (1 columna, controles apilados)
+    // Configuración específica de modo compacto (1 columna, barra lateral compacta 58px)
     if (rootEl && rootEl.style && rootEl.style.setProperty) {
       rootEl.style.setProperty('--responsive-columns', '1');
-      rootEl.style.setProperty('--responsive-rail-width', '0px');
+      rootEl.style.setProperty('--responsive-rail-width', '58px');
     }
   }
 }
@@ -98,10 +98,10 @@ export class ExpandedLayoutStrategy extends LayoutStrategy {
 
   apply(rootEl, viewportInfo) {
     super.apply(rootEl, viewportInfo);
-    // Configuración de pantalla de estudio completa (sidebar expandida, 3+ columnas)
+    // Configuración de pantalla de estudio completa (sidebar de iconos 92px, 3+ columnas)
     if (rootEl && rootEl.style && rootEl.style.setProperty) {
       rootEl.style.setProperty('--responsive-columns', '3');
-      rootEl.style.setProperty('--responsive-rail-width', '240px');
+      rootEl.style.setProperty('--responsive-rail-width', '92px');
     }
   }
 }

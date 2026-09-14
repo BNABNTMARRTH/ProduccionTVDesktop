@@ -230,9 +230,7 @@ button{font:inherit}
 .secciones button.active{color:#fff;background:rgba(255,255,255,.18);box-shadow:0 1px 3px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.24)}
 .secciones button:active{transform:scale(.965)}
 .secciones button:focus-visible{outline:2px solid var(--gel-t);outline-offset:2px}
-/* LAS PESTAÑAS DEL PROYECTO (Apple Safari / Xcode Elastic Tabstrip)
-   Las pestañas se adaptan elásticamente al espacio disponible sin expulsar controles. */
-.pestanas{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:4px;padding:0;position:relative}
+.pestanas{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;padding:0;position:relative}
 .pestanas[hidden]{display:none}
 /* Pestaña Elástica: se comprime ergonómicamente y se expande en hover */
 .pestana{position:relative;flex:0 1 150px;min-width:42px;max-width:176px;height:32px;display:flex;align-items:center;justify-content:flex-start;gap:6px;padding:0 8px 0 10px;border:1px solid var(--vidrio-borde);border-radius:999px;background:var(--vidrio-b);color:var(--tinta-media);font-size:11.5px;font-weight:600;letter-spacing:.01em;white-space:nowrap;cursor:pointer;user-select:none;touch-action:none;transition:flex-basis .18s cubic-bezier(.16,1,.3,1),max-width .18s cubic-bezier(.16,1,.3,1),min-width .18s cubic-bezier(.16,1,.3,1),background .16s ease,color .16s ease,opacity .12s ease,border-color .16s ease,box-shadow .16s ease}
@@ -2436,7 +2434,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* Variables base responsivas */
 :root {
-  --responsive-rail-width: 240px;
+  --responsive-rail-width: 92px;
   --responsive-columns: 3;
 }
 
@@ -2444,101 +2442,224 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
    1. ESTRATEGIA COMPACTA: data-layout="compact" (< 768px: Mobile / Split View)
    -------------------------------------------------------------------------- */
 :root[data-layout="compact"] {
-  --responsive-rail-width: 0px;
+  --responsive-rail-width: 58px;
   --responsive-columns: 1;
 }
 
-:root[data-layout="compact"] .desktop-shell,
-:root[data-layout="compact"] .app-layout {
-  flex-direction: column;
+:root[data-layout="compact"] .desktop-shell {
+  display: flex !important;
+  flex-direction: row !important;
+  height: 100% !important;
 }
 
-/* En modo compacto, el rail se transforma en barra compacta flotante inferior */
+/* En modo compacto, el rail se mantiene vertical en el lateral izquierdo, ultra-esbelto */
 :root[data-layout="compact"] .rail {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  width: 100% !important;
-  height: 56px !important;
-  margin: 0 !important;
-  border-radius: 0 !important;
-  border-left: none !important;
-  border-right: none !important;
-  border-bottom: none !important;
-  flex-direction: row;
-  justify-content: space-around;
-  align-items: center;
-  padding: 0 12px !important;
-  z-index: 1000;
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  position: relative !important;
+  width: 58px !important;
+  min-width: 58px !important;
+  max-width: 58px !important;
+  margin: 14px 0 14px 14px !important;
+  padding: 55px 4px 14px !important;
+  border-radius: 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  z-index: 50 !important;
+  gap: 4px !important;
+  bottom: auto !important;
+  left: auto !important;
+  right: auto !important;
+  height: calc(100% - 28px) !important;
 }
 
-:root[data-layout="compact"] .rail-logo,
-:root[data-layout="compact"] .rail-version,
-:root[data-layout="compact"] .rail-separator,
-:root[data-layout="compact"] .rail-separador {
-  display: none !important;
+:root[data-layout="compact"] .rail-logo {
+  display: flex !important;
+  width: 34px !important;
+  height: 34px !important;
+  top: 27px !important;
+  left: 26px !important;
+}
+
+:root[data-layout="compact"] .rail-logo img {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 :root[data-layout="compact"] .rail-grupo,
-:root[data-layout="compact"] .rail-nav {
+:root[data-layout="compact"] .rail-group {
   display: flex !important;
-  flex-direction: row !important;
-  width: auto !important;
-  justify-content: space-around;
-  align-items: center;
-  gap: 4px;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 4px !important;
+  width: 100% !important;
 }
 
 :root[data-layout="compact"] .rail-footer {
   display: flex !important;
-  flex-direction: row !important;
-  align-items: center;
-  margin: 0 !important;
-  padding: 0 !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  width: 100% !important;
+  margin-top: auto !important;
+  padding-top: 4px !important;
 }
 
-:root[data-layout="compact"] .rail button em {
+:root[data-layout="compact"] .rail button em,
+:root[data-layout="compact"] #rail-home button em,
+:root[data-layout="compact"] .rail-footer button em {
   display: none !important;
 }
 
-:root[data-layout="compact"] .rail button {
+:root[data-layout="compact"] .rail button,
+:root[data-layout="compact"] #rail-home button,
+:root[data-layout="compact"] .rail-footer button {
   width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
   height: 44px !important;
   min-height: 44px !important;
   padding: 0 !important;
-  justify-content: center;
+  margin: 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 12px !important;
 }
 
-/* El contenido principal no debe quedar tapado por la barra inferior */
+:root[data-layout="compact"] .rail-sep,
+:root[data-layout="compact"] .rail-footer .rail-sep {
+  width: 32px !important;
+  margin: 4px auto !important;
+}
+
 :root[data-layout="compact"] .workspace,
 :root[data-layout="compact"] .home-scroll {
-  width: 100% !important;
-  padding-bottom: 72px !important;
+  width: auto !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  padding-bottom: 0 !important;
 }
 
-/* Cabecera del workspace en modo compacto */
+/* Cabecera del workspace en modo compacto: SIEMPRE UNA SOLA LÍNEA FLUIDA (Apple HIG) */
 :root[data-layout="compact"] .workspace-header {
-  flex-wrap: wrap;
-  height: auto;
-  min-height: 48px;
-  padding: 6px 12px;
-  gap: 6px;
+  flex-wrap: nowrap !important;
+  height: 50px !important;
+  min-height: 50px !important;
+  margin: 10px 10px 0 10px !important;
+  padding: 0 10px !important;
+  gap: 6px !important;
+  overflow: hidden !important;
 }
 
-:root[data-layout="compact"] .workspace-title {
-  font-size: 15px;
-  max-width: 160px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+:root[data-layout="compact"] .header-inicio-btn span {
+  display: none !important;
+}
+
+:root[data-layout="compact"] .header-inicio-btn {
+  padding: 6px 8px !important;
+  min-width: 32px !important;
+}
+
+:root[data-layout="compact"] .offline-badge {
+  max-width: 90px !important;
+  font-size: 11.5px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  padding: 3px 8px !important;
+}
+
+:root[data-layout="compact"] .header-crumb-sep {
+  opacity: 0.6;
 }
 
 :root[data-layout="compact"] .save-status,
 :root[data-layout="compact"] .mode-chip {
   display: none !important;
+}
+
+:root[data-layout="compact"] .header-nav {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+}
+
+:root[data-layout="compact"] .header-nav::-webkit-scrollbar {
+  display: none !important;
+}
+
+:root[data-layout="compact"] .pestanas,
+:root[data-layout="compact"] .secciones {
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+}
+
+:root[data-layout="compact"] .secciones button {
+  padding: 4px 8px !important;
+  font-size: 11px !important;
+  white-space: nowrap !important;
+}
+
+:root[data-layout="compact"] .header-actions {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+}
+
+:root[data-layout="compact"] .header-actions button {
+  width: 30px !important;
+  height: 30px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+:root[data-layout="compact"] #tour-btn {
+  display: none !important;
+}
+
+/* Inicio: barra de herramientas superior adaptable */
+:root[data-layout="compact"] .home-top {
+  padding: 14px 16px 8px !important;
+}
+
+:root[data-layout="compact"] .home-top-inner {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 12px !important;
+}
+
+:root[data-layout="compact"] .home-tools {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+:root[data-layout="compact"] .apple-segmented {
+  flex: 1 1 auto !important;
+}
+
+:root[data-layout="compact"] .apple-search-wrap {
+  flex: 1 1 100% !important;
+  width: 100% !important;
+}
+
+:root[data-layout="compact"] .apple-search-wrap .project-search {
+  width: 100% !important;
+}
+
+:root[data-layout="compact"] .apple-search-wrap .project-search:focus {
+  width: 100% !important;
 }
 
 /* Inicio y Cuadrículas a 1 columna */
@@ -2582,21 +2703,143 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   --responsive-columns: 2;
 }
 
+:root[data-layout="tablet"] .desktop-shell {
+  display: flex !important;
+  flex-direction: row !important;
+  height: 100% !important;
+}
+
 :root[data-layout="tablet"] .rail {
+  position: relative !important;
   width: 60px !important;
+  min-width: 60px !important;
+  max-width: 60px !important;
+  margin: 14px 0 14px 14px !important;
+  padding: 55px 4px 14px !important;
+  border-radius: 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  z-index: 50 !important;
+  gap: 4px !important;
+  bottom: auto !important;
+  left: auto !important;
+  right: auto !important;
+  height: calc(100% - 28px) !important;
 }
 
 :root[data-layout="tablet"] .rail-logo {
-  left: 27px;
+  display: flex !important;
+  width: 34px !important;
+  height: 34px !important;
+  top: 27px !important;
+  left: 27px !important;
 }
 
-:root[data-layout="tablet"] .rail button em {
+:root[data-layout="tablet"] .rail-logo img {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+:root[data-layout="tablet"] .rail-grupo,
+:root[data-layout="tablet"] .rail-group {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 4px !important;
+  width: 100% !important;
+}
+
+:root[data-layout="tablet"] .rail-footer {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  width: 100% !important;
+  margin-top: auto !important;
+  padding-top: 4px !important;
+}
+
+:root[data-layout="tablet"] .rail button em,
+:root[data-layout="tablet"] #rail-home button em,
+:root[data-layout="tablet"] .rail-footer button em {
   display: none !important;
 }
 
-:root[data-layout="tablet"] .rail button {
-  justify-content: center;
-  padding: 8px 0;
+:root[data-layout="tablet"] .rail button,
+:root[data-layout="tablet"] #rail-home button,
+:root[data-layout="tablet"] .rail-footer button {
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 12px !important;
+}
+
+:root[data-layout="tablet"] .rail-sep,
+:root[data-layout="tablet"] .rail-footer .rail-sep {
+  width: 32px !important;
+  margin: 4px auto !important;
+}
+
+/* Cabecera del workspace en modo tablet: SIEMPRE UNA SOLA LÍNEA FLUIDA */
+:root[data-layout="tablet"] .workspace-header {
+  flex-wrap: nowrap !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  margin: 14px 14px 0 14px !important;
+  padding: 0 12px !important;
+  gap: 8px !important;
+  overflow: hidden !important;
+}
+
+:root[data-layout="tablet"] .offline-badge {
+  max-width: 130px !important;
+  font-size: 11.5px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+:root[data-layout="tablet"] .header-nav {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+}
+
+:root[data-layout="tablet"] .header-nav::-webkit-scrollbar {
+  display: none !important;
+}
+
+:root[data-layout="tablet"] .pestanas,
+:root[data-layout="tablet"] .secciones {
+  flex: 0 0 auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+}
+
+:root[data-layout="tablet"] .secciones button {
+  padding: 4px 9px !important;
+  font-size: 11.5px !important;
+  white-space: nowrap !important;
+}
+
+:root[data-layout="tablet"] .header-actions {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
 }
 
 :root[data-layout="tablet"] .home-hero-wrap,
@@ -2613,6 +2856,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
    3. ESTRATEGIA EXPANDIDA: data-layout="expanded" (>= 1100px: Estudio Monitor)
    -------------------------------------------------------------------------- */
 :root[data-layout="expanded"] {
-  --responsive-rail-width: 240px;
+  --responsive-rail-width: 92px;
   --responsive-columns: 3;
 }

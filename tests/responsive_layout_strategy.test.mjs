@@ -55,7 +55,7 @@ test('GoF Strategy: apply() muta atributos y estilos en el elemento raíz', () =
   assert.equal(mockElement.classes.has('layout-compact'), true);
   assert.equal(mockElement.classes.has('layout-expanded'), false);
   assert.equal(mockElement.styles['--responsive-columns'], '1');
-  assert.equal(mockElement.styles['--responsive-rail-width'], '0px');
+  assert.equal(mockElement.styles['--responsive-rail-width'], '58px');
 });
 
 test('GoF Inversión de Control (IoC): El GoF es quien LLAMA a los componentes registrados', () => {
