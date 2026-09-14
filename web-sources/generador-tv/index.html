@@ -11,10 +11,37 @@
       name="description"
       content="Crea infografías profesionales de producción de TV: cámaras, escaleta, flujo de producción, línea de tiempo y personal."
     />
+    <script>
+      (function() {
+        var tema = new URLSearchParams(window.location.search).get('tema');
+        if (!tema && window.parent && window.parent !== window) {
+          try { tema = window.parent.document.documentElement.dataset.tema; } catch(e) {}
+        }
+        if (window.parent && window.parent !== window) {
+          document.documentElement.classList.add('embedded');
+        }
+        if (tema === 'claro' || tema === 'oscuro') {
+          document.documentElement.dataset.tema = tema;
+          document.documentElement.style.colorScheme = tema;
+        }
+        window.addEventListener('message', function(e) {
+          if (!e.data || e.data.type !== 'producciontv:tema') return;
+          var t = e.data.tema;
+          if (t === 'claro' || t === 'oscuro') {
+            document.documentElement.dataset.tema = t;
+            document.documentElement.style.colorScheme = t;
+          } else {
+            delete document.documentElement.dataset.tema;
+            document.documentElement.style.colorScheme = '';
+          }
+        });
+      })();
+    </script>
     <style>
-      :root { color-scheme: dark; }
-      html, body { margin: 0; padding: 0; color: #f5f5f7; }
+      :root { color-scheme: light dark; }
+      html, body { margin: 0; padding: 0; background: transparent !important; }
       html.embedded, body.embedded { background-color: transparent !important; }
+      .embedded .pared { display: none !important; }
     </style>
     <link rel="stylesheet" href="../shared/liquid-glass.css">
     <link rel="stylesheet" href="../shared/accesibilidad.css">

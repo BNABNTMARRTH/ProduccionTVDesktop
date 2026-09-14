@@ -138,20 +138,40 @@ export function crearAjustes({ alAplicar, leerDeDisco, escribirEnDisco } = {}) {
         } catch { /* la herramienta todavía no escucha; la hidratación insiste */ }
     }
 
-    function aplicar() {
+    function conBloqueoTransicion(fn) {
         const raiz = document.documentElement;
-        if (a.tema) raiz.dataset.tema = a.tema; else delete raiz.dataset.tema;
-        raiz.style.zoom = a.escala === 1 ? '' : String(a.escala);
-        raiz.dataset.contraste = a.contraste;
-        raiz.dataset.movimiento = a.movimiento;
-        document.querySelectorAll('iframe').forEach((f) => mandarA(f.contentWindow));
-        /* EL TEMA VA COMO ARGUMENTO, no lo va a buscar quien escucha. Esto se
-           llama una vez desde dentro de crearAjustes(), o sea ANTES de que la
-           constante que recibe el módulo exista: si el aviso tuviera que leer
-           `ajustes.temaEfectivo()` reventaría por acceder a una const a medio
-           construir — y con ella se caía main.js entero y la ventana se
-           quedaba en blanco. Pasado como dato, no hay a quién ir a buscar. */
-        alAplicar?.({ tema: temaEfectivo() });
+        raiz.classList.add('sin-transicion');
+        document.querySelectorAll('iframe').forEach((f) => {
+            try { f.contentDocument?.documentElement?.classList.add('sin-transicion'); } catch (_) {}
+        });
+        fn();
+        void raiz.offsetHeight;
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                raiz.classList.remove('sin-transicion');
+                document.querySelectorAll('iframe').forEach((f) => {
+                    try { f.contentDocument?.documentElement?.classList.remove('sin-transicion'); } catch (_) {}
+                });
+            });
+        });
+    }
+
+    function aplicar() {
+        conBloqueoTransicion(() => {
+            const raiz = document.documentElement;
+            if (a.tema) {
+                raiz.dataset.tema = a.tema;
+                raiz.style.colorScheme = a.tema;
+            } else {
+                delete raiz.dataset.tema;
+                raiz.style.colorScheme = '';
+            }
+            raiz.style.zoom = a.escala === 1 ? '' : String(a.escala);
+            raiz.dataset.contraste = a.contraste;
+            raiz.dataset.movimiento = a.movimiento;
+            document.querySelectorAll('iframe').forEach((f) => mandarA(f.contentWindow));
+            alAplicar?.({ tema: temaEfectivo() });
+        });
     }
 
     function poner(campo, valor, foco) {

@@ -144,7 +144,12 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
           quién → qué dice → con cuánto. */}
       {ver('perfil') && (<>
 
-      <Card title="Identidad" gel="rosa" className="b7">
+      <Card
+        title="Identidad"
+        gel="rosa"
+        className="b7"
+        resumen={[cfg.titulo || "Sin título", perfil.formato, perfil.genero].filter(Boolean).join(" • ")}
+      >
         <Campos>
           <Campo etiqueta="Título principal" value={cfg.titulo}
             onChange={(e) => up({ titulo: e.target.value })} className="col-2" />
@@ -190,7 +195,12 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
           onChange={(f) => upPerfil({ formato: f })} />
       </Card>
 
-      <Card title="El encargo" gel="azul" className="b5">
+      <Card
+        title="El encargo"
+        gel="azul"
+        className="b5"
+        resumen={[perfil.receptor || perfil.emisor, perfil.edad ? `${perfil.edad} años` : null, perfil.alcance].filter(Boolean).join(" • ") || "Público y alcance"}
+      >
         <Campos>
           <Campo etiqueta="Emisor — quién produce" placeholder="FCC-UASLP, taller de documental"
             value={perfil.emisor} onChange={(e) => upPerfil({ emisor: e.target.value })} className="col-2" />
@@ -220,7 +230,12 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
           opciones={MEDIOS} valor={perfil.medios} onChange={(v) => upPerfil({ medios: v })} />
       </Card>
 
-      <Card title="La idea" gel="rosa" className="b8">
+      <Card
+        title="La idea"
+        gel="rosa"
+        className="b8"
+        resumen={perfil.mensaje ? `"${perfil.mensaje.slice(0, 45)}${perfil.mensaje.length > 45 ? '…' : ''}"` : (perfil.tono || "Mensaje y narrativa")}
+      >
         <div className="seccion crece">
           <Campos>
             <Campo etiqueta="Mensaje — la idea en una frase" area rows={2}
@@ -244,7 +259,12 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
           opciones={IMPACTOS} valor={perfil.intencion} onChange={(v) => upPerfil({ intencion: v })} />
       </Card>
 
-      <Card title="Recursos" gel="ambar" className="b4">
+      <Card
+        title="Recursos"
+        gel="ambar"
+        className="b4"
+        resumen={perfil.presupuesto ? `$${Number(perfil.presupuesto).toLocaleString("es-MX")} MXN` : "Presupuesto y costos"}
+      >
         {segundos > 0 && costoSegundo != null && (
           <Lectura cifra={`$${costoSegundo.toLocaleString("es-MX")}`} pie="por segundo en pantalla" />
         )}

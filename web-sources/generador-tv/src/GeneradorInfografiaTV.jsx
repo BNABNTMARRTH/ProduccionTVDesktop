@@ -105,8 +105,26 @@ function useHistory(inicial) {
 export default function GeneradorInfografiaTV() {
   const compartido = useMemo(() => leerProyectoCompartido(), []);
   const readonly = !!compartido;
-  const { cfg, setCfg, undo, redo, reset, canUndo, canRedo } = useHistory(normalizeCfg(compartido || DEMO()));
-  const [modo, setModo] = useState("vista");
+  const initialCfg = useMemo(() => {
+    if (compartido) return normalizeCfg(compartido);
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        const auto = window.localStorage.getItem("tvprod:autosave");
+        if (auto) return normalizeCfg(JSON.parse(auto));
+      } catch {}
+    }
+    return normalizeCfg(DEMO());
+  }, [compartido]);
+  const { cfg, setCfg, undo, redo, reset, canUndo, canRedo } = useHistory(initialCfg);
+  const modoInicial = useMemo(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const m = params.get("modo");
+      if (m && MODOS.includes(m)) return m;
+    }
+    return EMBEDDED ? "perfil" : "vista";
+  }, []);
+  const [modo, setModo] = useState(modoInicial);
   const [proyectos, setProyectos] = useState([]);
   const [cargado, setCargado] = useState(false);
   const [copiado, setCopiado] = useState(false);
@@ -191,6 +209,7 @@ export default function GeneradorInfografiaTV() {
       if (event.data?.type === "producciontv:load-infografia" && event.data.cfg) {
         reset(normalizeCfg(event.data.cfg));
         setModo(event.data.mode || "editar");
+        setCargado(true);
       }
       // El tema viaja del marco al iframe: son dos documentos y el iframe no
       // hereda nada. Sin esto el contenido arrancaría siempre en claro.
@@ -215,6 +234,12 @@ export default function GeneradorInfografiaTV() {
   useEffect(() => {
     window.parent.postMessage({ type: "producciontv:infografia-state", cfg }, "*");
   }, [cfg]);
+
+  useLayoutEffect(() => {
+    if (EMBEDDED) {
+      window.parent.postMessage({ type: "producciontv:view-rendered", mode: modo }, "*");
+    }
+  }, [modo]);
 
   // El estado de los botones que el shell dibuja por nosotros: si hay algo que
   // deshacer o rehacer y si la guía está abierta. Sin este aviso quedarían

@@ -47,6 +47,7 @@ func NewApp(projectID string, projectJSON string, openFileJSON string, toolView 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.registerWindow()
+	initColorPanelBackend(ctx)
 
 	// Garantía de seguridad: si OnDomReady tarda más de 600ms por cualquier motivo,
 	// asegurar que la ventana sea visible.
@@ -129,12 +130,19 @@ func (a *App) ListOpenProjects() []string {
 	return a.windowMgr.ListOpenProjects()
 }
 
+func (a *App) ReleaseCurrentProject() {
+	a.releaseWindow()
+	a.projectID = ""
+	a.projectJSON = ""
+	a.toolView = ""
+}
+
 func (a *App) ClaimProject(projectID string, projectJSON string) bool {
 	id := sanitizeProjectID(projectID)
 	if id == "" {
 		return false
 	}
-	if a.FocusProjectWindow(id) {
+	if a.projectID != id && a.FocusProjectWindow(id) {
 		return false
 	}
 	a.releaseWindow()
@@ -312,4 +320,20 @@ func (a *App) SaveBase64File(defaultFilename string, dataURL string) (string, er
 		return path, err
 	}
 	return path, os.WriteFile(path, data, 0o644)
+}
+
+// OpenNativeColorPicker abre la ventana nativa de colores de macOS (NSColorPanel)
+// semitransparente, en modo de lápices de color, justo debajo de donde se solicita.
+func (a *App) OpenNativeColorPicker(elemLeft, elemBottom float64, initialHex string) {
+	if a.ctx == nil {
+		return
+	}
+	println("[PTV] OpenNativeColorPicker invoked:", elemLeft, elemBottom, initialHex)
+	x, y := runtime.WindowGetPosition(a.ctx)
+	openMacColorPanel(float64(x), float64(y), elemLeft, elemBottom, initialHex)
+}
+
+// CloseNativeColorPicker cierra el selector de color nativo si está visible.
+func (a *App) CloseNativeColorPicker() {
+	closeMacColorPanel()
 }

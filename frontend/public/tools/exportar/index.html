@@ -7,6 +7,21 @@
 <link rel="stylesheet" href="../shared/sheets.css">
 <link rel="stylesheet" href="../shared/liquid-glass.css">
 <link rel="stylesheet" href="../shared/accesibilidad.css">
+<script>
+  (function() {
+    var tema = new URLSearchParams(window.location.search).get('tema');
+    if (!tema && window.parent && window.parent !== window) {
+      try { tema = window.parent.document.documentElement.dataset.tema; } catch(e) {}
+    }
+    if (window.parent && window.parent !== window) {
+      document.documentElement.classList.add('embedded');
+    }
+    if (tema === 'claro' || tema === 'oscuro') {
+      document.documentElement.dataset.tema = tema;
+      document.documentElement.style.colorScheme = tema;
+    }
+  })();
+</script>
 <style>
   *{box-sizing:border-box}
   /* ============================================================================

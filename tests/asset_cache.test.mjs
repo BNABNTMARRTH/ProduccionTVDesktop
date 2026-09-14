@@ -29,3 +29,25 @@ test('AssetFlyweightCache: desaloja elementos más antiguos al exceder capacidad
     assert.equal(cache.has('c'), true);
     assert.equal(cache.size, 2);
 });
+
+test('AssetFlyweightCache: diferencia llaves de tema claro y oscuro para evitar inconsistencias visuales', () => {
+    const cache = new AssetFlyweightCache();
+    const projId = 'proj-101';
+
+    const keyDark = `${projId}:dark`;
+    const keyLight = `${projId}:light`;
+
+    cache.set(keyDark, '<svg class="dark">Blueprint Dark</svg>');
+    cache.set(keyLight, '<svg class="light">Blueprint Light</svg>');
+
+    assert.equal(cache.get(keyDark), '<svg class="dark">Blueprint Dark</svg>');
+    assert.equal(cache.get(keyLight), '<svg class="light">Blueprint Light</svg>');
+    assert.notEqual(cache.get(keyDark), cache.get(keyLight));
+
+    // Invalidation upon save/delete
+    cache.delete(keyDark);
+    cache.delete(keyLight);
+    assert.equal(cache.has(keyDark), false);
+    assert.equal(cache.has(keyLight), false);
+});
+

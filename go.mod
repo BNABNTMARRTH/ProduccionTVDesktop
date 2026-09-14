@@ -34,5 +34,3 @@ require (
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 )
-
-// replace github.com/wailsapp/wails/v2 v2.12.0 => /Users/aldomaster666/Documents/Codex/2026-06-19/ho/work/go-mod-cache

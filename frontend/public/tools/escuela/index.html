@@ -8,11 +8,29 @@
 <link rel="stylesheet" href="../shared/accesibilidad.css">
 <script>
   /* Sincronización inmediata de tema con la ventana principal de macOS */
+  (function() {
+    var tema = new URLSearchParams(window.location.search).get('tema');
+    if (!tema && window.parent && window.parent !== window) {
+      try { tema = window.parent.document.documentElement.dataset.tema; } catch(e) {}
+    }
+    if (window.parent && window.parent !== window) {
+      document.documentElement.classList.add('embedded');
+    }
+    if (tema === 'claro' || tema === 'oscuro') {
+      document.documentElement.dataset.tema = tema;
+      document.documentElement.style.colorScheme = tema;
+    }
+  })();
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.type !== 'producciontv:tema') return;
     var t = e.data.tema;
-    if (t === 'claro' || t === 'oscuro') document.documentElement.dataset.tema = t;
-    else delete document.documentElement.dataset.tema;
+    if (t === 'claro' || t === 'oscuro') {
+      document.documentElement.dataset.tema = t;
+      document.documentElement.style.colorScheme = t;
+    } else {
+      delete document.documentElement.dataset.tema;
+      document.documentElement.style.colorScheme = '';
+    }
   });
 </script>
 <style>

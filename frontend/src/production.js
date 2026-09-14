@@ -125,7 +125,7 @@ function liveSetSVG(cfg, air, preview) {
     return window.PTVSheets.planoSvg(cfg, {
         display: true,
         dark: isDark,
-        blueprint: true,
+        blueprint: isDark,
         air: air || null,
         preview: preview && preview !== air ? preview : null,
     });

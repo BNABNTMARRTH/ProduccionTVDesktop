@@ -26,7 +26,11 @@ export class PanelProxy {
         if (this.el) return this.el;
         const iframe = document.createElement('iframe');
         iframe.className = this.className;
-        iframe.src = this.src;
+        const currentTheme = (typeof document !== 'undefined' && document?.documentElement?.dataset?.tema) || '';
+        const srcWithTheme = currentTheme && !this.src.includes('tema=')
+            ? `${this.src}${this.src.includes('?') ? '&' : '?'}tema=${encodeURIComponent(currentTheme)}`
+            : this.src;
+        iframe.src = srcWithTheme;
         if (this.title) iframe.title = this.title;
         iframe.dataset.panel = this.id;
         iframe.onload = () => {

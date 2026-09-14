@@ -1,28 +1,22 @@
 <!DOCTYPE html>
-<html lang="es" style="background-color: #091423; color-scheme: dark;">
+<html lang="es">
 <head>
     <meta charset="UTF-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Producción TV</title>
     <style>
-      :root {
-        color-scheme: dark;
-        background-color: #091423 !important;
-      }
-      html, body {
-        background-color: #091423 !important;
-        background: #091423 !important;
-        color: #f5f5f7;
+      html, body, #app {
         margin: 0;
         padding: 0;
         width: 100%;
         height: 100%;
         overflow: hidden;
       }
-      #app {
-        width: 100%;
-        height: 100%;
-        background-color: #091423;
+      :root[data-tema="claro"], :root[data-tema="claro"] body {
+        background-color: #F2F2F7 !important;
+      }
+      :root[data-tema="oscuro"], :root[data-tema="oscuro"] body {
+        background-color: #091423 !important;
       }
     </style>
     <!-- Contraste alto y menos movimiento: la MISMA hoja que cargan las tres
@@ -30,8 +24,8 @@
          Ver tools/shared/accesibilidad.css. -->
     <link rel="stylesheet" href="/tools/shared/accesibilidad.css">
 </head>
-<body style="background-color: #091423;">
-<div id="app" style="background-color: #091423;"></div>
+<body>
+<div id="app"></div>
 <!-- Renderizadores de hojas compartidos con las herramientas (window.PTVSheets);
      el shell los usa para el plano cenital en vivo del Modo Producción. -->
 <script src="/tools/shared/sheets.js"></script>

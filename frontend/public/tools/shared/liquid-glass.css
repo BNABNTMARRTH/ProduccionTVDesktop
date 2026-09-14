@@ -53,6 +53,23 @@
   --apple-tracking-body: -0.006em;
   --apple-tracking-caps: 0.06em;
 
+  /* Touch Targets & Dimensiones Mínimas Apple HIG */
+  --apple-touch-min: 44px;
+  --apple-control-radius: 10px;
+  --apple-card-radius: 18px;
+  --apple-modal-radius: 22px;
+
+  /* Semantic System Colors (Apple HIG Core Palette) */
+  --apple-system-blue: #0A84FF;
+  --apple-system-green: #30D158;
+  --apple-system-indigo: #5E5CE6;
+  --apple-system-orange: #FF9F0A;
+  --apple-system-pink: #FF375F;
+  --apple-system-purple: #BF5AF2;
+  --apple-system-red: #FF453A;
+  --apple-system-teal: #40C8E0;
+  --apple-system-yellow: #FFD60A;
+
   --lg-spring-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --lg-spring-touch: cubic-bezier(0.2, 0.8, 0.2, 1);
 }

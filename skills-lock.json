@@ -7,6 +7,12 @@
       "skillPath": "skills/apple-hig-designer/SKILL.md",
       "computedHash": "d6f35edf97a7545d967e4d5bbb5666712d732c9e40328835d8f3f585ae416f0a"
     },
+    "ios-hig-design": {
+      "source": "wondelai/skills",
+      "sourceType": "github",
+      "skillPath": "ios-hig-design/SKILL.md",
+      "computedHash": "57f41a91308e10b3315ee2ddabea4e9254bf119dc0265d03b37c6afc88e1c009"
+    },
     "ios-liquid-glass": {
       "source": "prisma-labs-dev/apple-skills",
       "sourceType": "github",

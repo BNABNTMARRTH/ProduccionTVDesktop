@@ -57,14 +57,14 @@ func main() {
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 9, G: 20, B: 35, A: 1},
+		BackgroundColour: &options.RGBA{R: 242, G: 242, B: 247, A: 0},
 		OnStartup:        app.startup,
 		OnDomReady:       app.domReady,
 		OnShutdown:       app.shutdown,
 		Mac: &mac.Options{
-			Appearance:           mac.NSAppearanceNameDarkAqua,
+			Appearance:           mac.DefaultAppearance,
 			WebviewIsTransparent: true,
-			WindowIsTranslucent:  false,
+			WindowIsTranslucent:  true,
 			// Doble clic a un .ptv en Finder: macOS entrega la ruta aquí.
 			OnFileOpen: app.handleFileOpen,
 		},

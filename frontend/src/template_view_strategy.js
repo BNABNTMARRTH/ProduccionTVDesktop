@@ -37,7 +37,7 @@ export class TemplateGridViewStrategy extends TemplateViewStrategy {
 
         const cards = templates.map((p) => {
             const cfg = cfgFn(p);
-            const thumbSvg = thumbFn(cfg);
+            const thumbSvg = thumbFn(cfg, p);
             return builder.buildCardDirect({ template: p, cfg, thumbSvg, isDark });
         }).join('');
 
@@ -60,7 +60,7 @@ export class TemplateListViewStrategy extends TemplateViewStrategy {
 
         const rows = templates.map((p) => {
             const cfg = cfgFn(p);
-            const thumbSvg = thumbFn(cfg);
+            const thumbSvg = thumbFn(cfg, p);
             return builder.buildRowDirect({ template: p, cfg, thumbSvg, isDark });
         }).join('');
 
