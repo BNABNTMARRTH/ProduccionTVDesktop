@@ -2429,3 +2429,190 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 }
 
 @media(max-width:1100px){.production-layout{grid-template-columns:1fr}}
+
+/* ==========================================================================
+   ARQUITECTURA FIRST RESPONSIVE GOF (MOBILE-FIRST / SPLIT VIEW / TABLET)
+   ========================================================================== */
+
+/* Variables base responsivas */
+:root {
+  --responsive-rail-width: 240px;
+  --responsive-columns: 3;
+}
+
+/* --------------------------------------------------------------------------
+   1. ESTRATEGIA COMPACTA: data-layout="compact" (< 768px: Mobile / Split View)
+   -------------------------------------------------------------------------- */
+:root[data-layout="compact"] {
+  --responsive-rail-width: 0px;
+  --responsive-columns: 1;
+}
+
+:root[data-layout="compact"] .desktop-shell,
+:root[data-layout="compact"] .app-layout {
+  flex-direction: column;
+}
+
+/* En modo compacto, el rail se transforma en barra compacta flotante inferior */
+:root[data-layout="compact"] .rail {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100% !important;
+  height: 56px !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  flex-direction: row;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0 12px !important;
+  z-index: 1000;
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+:root[data-layout="compact"] .rail-logo,
+:root[data-layout="compact"] .rail-version,
+:root[data-layout="compact"] .rail-separator,
+:root[data-layout="compact"] .rail-separador {
+  display: none !important;
+}
+
+:root[data-layout="compact"] .rail-grupo,
+:root[data-layout="compact"] .rail-nav {
+  display: flex !important;
+  flex-direction: row !important;
+  width: auto !important;
+  justify-content: space-around;
+  align-items: center;
+  gap: 4px;
+}
+
+:root[data-layout="compact"] .rail-footer {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+:root[data-layout="compact"] .rail button em {
+  display: none !important;
+}
+
+:root[data-layout="compact"] .rail button {
+  width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  justify-content: center;
+}
+
+/* El contenido principal no debe quedar tapado por la barra inferior */
+:root[data-layout="compact"] .workspace,
+:root[data-layout="compact"] .home-scroll {
+  width: 100% !important;
+  padding-bottom: 72px !important;
+}
+
+/* Cabecera del workspace en modo compacto */
+:root[data-layout="compact"] .workspace-header {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 48px;
+  padding: 6px 12px;
+  gap: 6px;
+}
+
+:root[data-layout="compact"] .workspace-title {
+  font-size: 15px;
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:root[data-layout="compact"] .save-status,
+:root[data-layout="compact"] .mode-chip {
+  display: none !important;
+}
+
+/* Inicio y Cuadrículas a 1 columna */
+:root[data-layout="compact"] .home-hero-wrap,
+:root[data-layout="compact"] .continue-card,
+:root[data-layout="compact"] .recent-grid,
+:root[data-layout="compact"] .templates-grid {
+  grid-template-columns: 1fr !important;
+  gap: 12px;
+}
+
+:root[data-layout="compact"] .home-hero {
+  padding: 16px;
+}
+
+:root[data-layout="compact"] .home-hero h1 {
+  font-size: 24px;
+}
+
+/* Sala de control / Producción en vivo en modo compacto */
+:root[data-layout="compact"] .production-layout {
+  grid-template-columns: 1fr !important;
+  gap: 12px;
+}
+
+:root[data-layout="compact"] .production-monitors {
+  flex-direction: column !important;
+}
+
+:root[data-layout="compact"] .studio-transport-hud {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. ESTRATEGIA TABLET: data-layout="tablet" (768px - 1099px: iPad / Split View)
+   -------------------------------------------------------------------------- */
+:root[data-layout="tablet"] {
+  --responsive-rail-width: 60px;
+  --responsive-columns: 2;
+}
+
+:root[data-layout="tablet"] .rail {
+  width: 60px !important;
+}
+
+:root[data-layout="tablet"] .rail-logo {
+  left: 27px;
+}
+
+:root[data-layout="tablet"] .rail button em {
+  display: none !important;
+}
+
+:root[data-layout="tablet"] .rail button {
+  justify-content: center;
+  padding: 8px 0;
+}
+
+:root[data-layout="tablet"] .home-hero-wrap,
+:root[data-layout="tablet"] .recent-grid,
+:root[data-layout="tablet"] .templates-grid {
+  grid-template-columns: repeat(2, 1fr) !important;
+}
+
+:root[data-layout="tablet"] .production-layout {
+  grid-template-columns: 1fr !important;
+}
+
+/* --------------------------------------------------------------------------
+   3. ESTRATEGIA EXPANDIDA: data-layout="expanded" (>= 1100px: Estudio Monitor)
+   -------------------------------------------------------------------------- */
+:root[data-layout="expanded"] {
+  --responsive-rail-width: 240px;
+  --responsive-columns: 3;
+}

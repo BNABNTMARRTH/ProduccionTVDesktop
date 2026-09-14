@@ -51,8 +51,8 @@ func main() {
 		Title:       title,
 		Width:       1440,
 		Height:      900,
-		MinWidth:    960,
-		MinHeight:   640,
+		MinWidth:    480,
+		MinHeight:   500,
 		StartHidden: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
