@@ -63,6 +63,51 @@
 
   window.go = { main: { App: App } };
 
+  /* EL SELECTOR DE COLOR NATIVO ES DEL MAC, NO DEL IPAD (23-sep-2026).
+     `OpenNativeColorPicker` y `CloseNativeColorPicker` sí existen en app.go
+     —abren el NSColorPanel de macOS— así que el paquete las importa de las
+     ligas de Wails y las llama DERECHO, sin preguntar si están. En el iPad eso
+     reventaba: `window.go.main.App.OpenNativeColorPicker is not a function`, y
+     el toque en cualquier muestra de color del Plano del set o de la Mesa de
+     luz se quedaba muerto.
+
+     Van aparte de FUNCIONES y de SOLO_IPAD a propósito: no viajan a Swift.
+     iPadOS ya trae su propia rueda de color y la enseña al tocar un
+     <input type="color">, así que aquí la respuesta es de JavaScript. El color
+     se devuelve por el MISMO evento que emite Go en el Mac (`ptv:color-changed`),
+     que es el que escucha el caparazón para reenviarlo al módulo. Así el
+     frontend sigue siendo uno solo: no sabe en qué máquina está. */
+  (function selectorDeColorDeIPad() {
+    var campo = null;
+
+    function avisar() { repartir('ptv:color-changed', [campo.value]); }
+
+    App.OpenNativeColorPicker = function (elemLeft, elemBottom, initialHex) {
+      if (!campo) {
+        campo = document.createElement('input');
+        campo.type = 'color';
+        campo.setAttribute('aria-hidden', 'true');
+        campo.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;border:0;padding:0;margin:0';
+        campo.addEventListener('input', avisar);
+        campo.addEventListener('change', avisar);
+        document.body.appendChild(campo);
+      }
+      /* La rueda de iPadOS sale pegada al campo que la abrió. El caparazón ya
+         nos manda el punto en coordenadas de la ventana (le sumó la posición
+         del iframe), así que movemos el campo ahí y la rueda cae junto a la
+         muestra que se tocó, no en una esquina. */
+      campo.style.left = Math.max(0, Math.round(elemLeft || 0)) + 'px';
+      campo.style.top = Math.max(0, Math.round(elemBottom || 0)) + 'px';
+      campo.value = /^#[0-9a-fA-F]{6}$/.test(initialHex || '') ? initialHex : '#1D6FD1';
+      campo.click();
+      return Promise.resolve();
+    };
+
+    /* La rueda de iPadOS la cierra el usuario; no hay nada que cerrar a mano,
+       pero la función tiene que EXISTIR porque el caparazón la llama derecho. */
+    App.CloseNativeColorPicker = function () { return Promise.resolve(); };
+  })();
+
   /* ------------------------- runtime de Wails -------------------------
      El paquete solo usa EventsOn, WindowIsFullscreen y WindowUnfullscreen,
      pero el módulo runtime.js de Wails toca window.runtime.<lo que sea> en

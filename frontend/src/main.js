@@ -145,7 +145,13 @@ no se veía nunca. */
 const ETAPAS = [
     { id: 'perfil', n: '1', gel: '1', etiqueta: 'Perfil', icono: 'perfil',
       ayuda: 'Quién habla, qué dice y a quién (⌘1)',
-      secciones: [['perfil', 'Datos y mensaje'], ['referencias', 'Mesa de luz'], ['escuela', 'Escuela de cámara']] },
+      // ESCUELA DE CÁMARA ESTÁ GUARDADA, NO BORRADA (23-sep-2026). La sección no
+      // convenció y sale del menú, que es la ÚNICA puerta: `selectView` sólo
+      // deja pasar lo que vive en `secciones`, así que quitarla de aquí la
+      // apaga en el Mac y en el iPad de una vez. La herramienta sigue en
+      // `frontend/public/tools/escuela/`; para revivirla se devuelve el par
+      // ['escuela', 'Escuela de cámara'] a esta lista y su ficha a `toolInfo`.
+      secciones: [['perfil', 'Datos y mensaje'], ['referencias', 'Mesa de luz']] },
     { id: 'guion', n: '2', gel: '2', etiqueta: 'Guion', icono: 'guion',
       ayuda: 'Qué pasa, en qué orden y cómo se ve cada toma (⌘2)',
       secciones: [['guionLiterario', 'Guion literario', 'narrative'], ['escaleta', 'Escaleta y guion técnico'], ['tiempos', 'Tiempos']] },
@@ -386,7 +392,7 @@ const toolInfo = {
     perfil: { title: 'Perfil del proyecto', description: 'Quién habla, qué dice y a quién: datos generales, mensaje e intención', src: './tools/infografias/index.html', mode: 'perfil' },
     agenda: { title: 'Agenda de crew', description: 'Tu gente: a quién le llamas para cada puesto. Vive en tu disco, no se publica', src: './tools/infografias/index.html', mode: 'agenda' },
     referencias: { title: 'Mesa de luz', description: 'La fototeca de referencias visuales: a qué se tiene que parecer, con etiquetas y color', src: './tools/infografias/index.html', mode: 'referencias' },
-    escuela: { title: 'Escuela de cámara', description: 'Una foto, todas las cámaras posibles: probar diafragma, obturador e ISO antes de rodar', src: './tools/escuela/index.html' },
+    // escuela: { title: 'Escuela de cámara', description: 'Una foto, todas las cámaras posibles: probar diafragma, obturador e ISO antes de rodar', src: './tools/escuela/index.html' },  // apagada 23-sep-2026, ver ETAPAS
     necesidades: { title: 'Necesidades', description: 'Qué hace falta conseguir: talentos, personal, cámaras y micrófonos', src: './tools/infografias/index.html', mode: 'necesidades' },
     guionLiterario: { title: 'Guion literario', description: 'El guion en su forma tradicional: encabezado, acción, personaje y diálogo', src: './tools/infografias/index.html', mode: 'guion' },
     tiempos: { title: 'Tiempos y salida a edición', description: 'Rundown con duraciones, análisis de tiempos y exportación EDL/CSV', src: './tools/infografias/index.html', mode: 'tiempos' },

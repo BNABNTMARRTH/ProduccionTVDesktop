@@ -11,8 +11,46 @@
       name="description"
       content="Crea infografías profesionales de producción de TV: cámaras, escaleta, flujo de producción, línea de tiempo y personal."
     />
-    <script type="module" crossorigin src="./assets/index-CE8eDCX7.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-CQJkWEID.css">
+    <script>
+      (function() {
+        var tema = new URLSearchParams(window.location.search).get('tema');
+        if (!tema && window.parent && window.parent !== window) {
+          try { tema = window.parent.document.documentElement.dataset.tema; } catch(e) {}
+        }
+        if (window.parent && window.parent !== window) {
+          document.documentElement.classList.add('embedded');
+        }
+        if (tema === 'claro' || tema === 'oscuro') {
+          document.documentElement.dataset.tema = tema;
+          document.documentElement.style.colorScheme = tema;
+        }
+        window.addEventListener('message', function(e) {
+          if (!e.data) return;
+          if (e.data.type === 'producciontv:tema') {
+            var t = e.data.tema;
+            if (t === 'claro' || t === 'oscuro') {
+              document.documentElement.dataset.tema = t;
+              document.documentElement.style.colorScheme = t;
+            } else {
+              delete document.documentElement.dataset.tema;
+              document.documentElement.style.colorScheme = '';
+            }
+          } else if (e.data.type === 'producciontv:layout-changed' && e.data.layout) {
+            document.documentElement.dataset.layout = e.data.layout;
+          }
+        });
+      })();
+    </script>
+    <style>
+      :root { color-scheme: light dark; }
+      html, body { margin: 0; padding: 0; background: transparent !important; }
+      html.embedded, body.embedded { background-color: transparent !important; }
+      .embedded .pared { display: none !important; }
+    </style>
+    <link rel="stylesheet" href="../shared/liquid-glass.css">
+    <link rel="stylesheet" href="../shared/accesibilidad.css">
+    <script type="module" crossorigin src="./assets/index-Bz2sV9er.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-C64qR_cn.css">
   </head>
   <body>
     <!-- Las hojas imprimibles compartidas: el guion se imprime desde su propio

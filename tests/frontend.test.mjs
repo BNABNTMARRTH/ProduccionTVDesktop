@@ -1370,12 +1370,16 @@ test('el archivo de cada herramienta existe de verdad', async () => {
   }
 });
 
-test('la Escuela de cámara vive en la etapa 1, junto a la Mesa de luz', () => {
-  // Su sitio se acordó a propósito: la Mesa de luz dice a qué se tiene que
-  // parecer, y la Escuela explica por qué se ve así. Si alguien la mueve de
-  // etapa, que sea decidiéndolo, no por accidente.
+test('la etapa 1 son Perfil y Mesa de luz: la Escuela de cámara está apagada', () => {
+  // La Escuela se apagó el 23-sep-2026 porque la sección no convenció. Esta
+  // prueba ya no vigila dónde vive, sino que NO vuelva sola: la única puerta
+  // es `secciones`, así que basta con que no esté ahí para que no se abra ni
+  // en el Mac ni en el iPad. Si algún día se decide revivirla, se devuelve el
+  // par a `secciones` y su ficha a `toolInfo`, y esta prueba se vuelve a dar
+  // la vuelta a propósito, no por accidente.
   const etapa1 = MAIN.match(/id: 'perfil',[\s\S]*?secciones: \[([\s\S]*?)\]\s*\}/)[1];
+  assert.ok(etapa1.includes("'perfil'"), 'el Perfil sigue en la etapa 1');
   assert.ok(etapa1.includes("'referencias'"), 'la Mesa de luz sigue en la etapa 1');
-  assert.ok(etapa1.includes("'escuela'"), 'la Escuela de cámara sigue en la etapa 1');
-  assert.ok(herramientas.includes('escuela'), 'y está dada de alta');
+  assert.ok(!etapa1.includes("'escuela'"), 'la Escuela de cámara NO vuelve al menú');
+  assert.ok(!herramientas.includes('escuela'), 'y sigue dada de baja en toolInfo');
 });

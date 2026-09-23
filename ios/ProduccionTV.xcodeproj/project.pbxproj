@@ -290,7 +290,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.22.0;
+				MARKETING_VERSION = 0.23.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.abiudtt.ProduccionTV;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTS_MACCATALYST = NO;
@@ -318,7 +318,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.22.0;
+				MARKETING_VERSION = 0.23.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.abiudtt.ProduccionTV;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTS_MACCATALYST = NO;
