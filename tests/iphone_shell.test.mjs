@@ -9,6 +9,7 @@ const ADAPTACION = leer('../ios/ProduccionTV/Recursos/adaptacion-ipad.js');
 const MAIN = leer('../frontend/src/main.js');
 const STYLE = leer('../frontend/src/style.css');
 const EDITOR_GUION = leer('../web-sources/generador-tv/src/EditorGuion.jsx');
+const MESA_LUZ = leer('../web-sources/generador-tv/src/MesaDeLuz.jsx');
 const GENERADOR_STYLE = leer('../web-sources/generador-tv/src/index.css');
 
 test('el target nativo admite iPhone y iPad en Debug y Release', () => {
@@ -91,4 +92,19 @@ test('Guion literario ofrece selector táctil de tipos sobre visualViewport', ()
   assert.match(EDITOR_GUION, /onPointerDown=\{\(e\) => \{ e\.preventDefault\(\); cambiarTipoEnfocado\(tipo\); \}\}/);
   assert.match(GENERADOR_STYLE, /\.guion-tipos-scroll button\s*\{[^}]*min-height:44px!important/s);
   assert.match(GENERADOR_STYLE, /\.guion-bloque-texto\s*\{\s*min-height:44px!important/s);
+});
+
+test('el compacto horizontal pinta a los bordes y concentra el encabezado en una fila', () => {
+  assert.match(STYLE, /\.rail-logo\s*\{[^}]*left:max\(12px,var\(--ptv-safe-left/s);
+  assert.match(STYLE, /@media \(orientation:landscape\) and \(max-height:499px\)/);
+  assert.match(STYLE, /\.workspace-header:has\(\.secciones:not\(\[hidden\]\)\)\s*\{[^}]*grid-template-rows:44px/s);
+  assert.match(STYLE, /\.header-nav\s*\{[^}]*overflow-x:auto/s);
+});
+
+test('la ficha compacta de Mesa de luz apila imagen, metadatos y campos', () => {
+  assert.match(MESA_LUZ, /className="mesa-luz-ficha-cuerpo grid gap-3 p-3"/);
+  assert.match(MESA_LUZ, /className="mesa-luz-ficha-titulo flex-1 truncate text-sm"/);
+  assert.match(GENERADOR_STYLE, /\.mesa-luz-ficha-cuerpo\s*\{[^}]*grid-template-columns:minmax\(0,1fr\)!important/s);
+  assert.match(GENERADOR_STYLE, /\.mesa-luz-ficha-acciones button\s*\{[^}]*min-height:44px!important/s);
+  assert.match(EDITOR_GUION, /className="guion-encabezado/);
 });

@@ -205,40 +205,43 @@ function FichaAbierta({ ficha, editable, onCerrar, onCambiar, onBorrar, enTabler
   const poner = (parche) => onCambiar({ ...ficha, ...parche });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto p-3"
+    <div className="mesa-luz-ficha-capa fixed inset-0 z-50 flex items-start justify-center overflow-auto p-3"
+      role="dialog" aria-modal="true" aria-label={`Referencia: ${ficha.nota || ficha.plano || "Sin título"}`}
       style={{ background: "rgba(10,10,14,.72)" }} onClick={onCerrar}>
-      <div className="w-full max-w-5xl rounded-xl border" onClick={(e) => e.stopPropagation()}
+      <div className="mesa-luz-ficha w-full max-w-5xl rounded-xl border" onClick={(e) => e.stopPropagation()}
         /* --yeso, no --vidrio: este panel tapa la mesa entera y tiene que ser
            OPACO. Con el material translúcido de las tarjetas se leían los
            filtros y la rejilla POR DEBAJO de la ficha abierta. */
         style={{ borderColor: "var(--vidrio-borde)", background: "var(--yeso)", marginTop: 8 }}>
-        <div className="flex items-center gap-2 border-b px-3 py-2" style={{ borderColor: "var(--vidrio-borde)" }}>
-          <strong className="flex-1 truncate text-sm">{ficha.nota || ficha.plano || "Referencia"}</strong>
-          <Btn rango={2} icono={Star} onClick={onTablero}
-            titulo={enTablero ? "Quitar del tablero" : "Poner en el tablero"}>
-            {enTablero ? "En el tablero" : "Al tablero"}
-          </Btn>
-          <Btn rango={3} icono={X} onClick={onCerrar} titulo="Cerrar">Cerrar</Btn>
+        <div className="mesa-luz-ficha-cab flex items-center gap-2 border-b px-3 py-2" style={{ borderColor: "var(--vidrio-borde)" }}>
+          <strong className="mesa-luz-ficha-titulo flex-1 truncate text-sm">{ficha.nota || ficha.plano || "Referencia"}</strong>
+          <div className="mesa-luz-ficha-acciones flex items-center gap-2">
+            <Btn rango={2} icono={Star} onClick={onTablero}
+              titulo={enTablero ? "Quitar del tablero" : "Poner en el tablero"}>
+              {enTablero ? "En el tablero" : "Al tablero"}
+            </Btn>
+            <Btn rango={3} icono={X} onClick={onCerrar} titulo="Cerrar">Cerrar</Btn>
+          </div>
         </div>
 
-        <div className="grid gap-3 p-3" style={{ gridTemplateColumns: "minmax(0,1.35fr) minmax(260px,.65fr)" }}>
-          <div>
+        <div className="mesa-luz-ficha-cuerpo grid gap-3 p-3" style={{ gridTemplateColumns: "minmax(0,1.35fr) minmax(260px,.65fr)" }}>
+          <div className="mesa-luz-ficha-imagen">
             {pidiendo && <div className="grid place-items-center rounded-lg" style={{ aspectRatio: "16/9", background: "var(--vidrio-b)", color: "var(--tinta-baja)", fontSize: 12 }}>Trayendo la imagen…</div>}
             {!pidiendo && (grande
               ? <img src={grande} alt={ficha.nota || "Referencia"} className="block w-full rounded-lg" />
               : <div className="grid place-items-center rounded-lg" style={{ aspectRatio: "16/9", background: "var(--vidrio-b)", color: "var(--tinta-baja)", fontSize: 12 }}>
                   No se encontró el archivo de esta imagen.
                 </div>)}
-            <div className="mt-2 overflow-hidden rounded" style={{ border: "1px solid var(--vidrio-borde)" }}>
+            <div className="mesa-luz-ficha-paleta mt-2 overflow-hidden rounded" style={{ border: "1px solid var(--vidrio-borde)" }}>
               <Franja colores={ficha.colores} alto={22} />
             </div>
-            <p className="mt-1 text-[11px]" style={{ color: "var(--tinta-baja)" }}>
+            <p className="mesa-luz-ficha-meta mt-1 text-[11px]" style={{ color: "var(--tinta-baja)" }}>
               {ficha.ancho ? `${ficha.ancho}×${ficha.alto} px · ` : ""}
               paleta sacada de la propia imagen
             </p>
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="mesa-luz-ficha-campos flex flex-col gap-2">
             <label className="campo">
               <span className="campo-et">Nota</span>
               <textarea className="campo-caja" rows={2} value={ficha.nota} disabled={!editable}

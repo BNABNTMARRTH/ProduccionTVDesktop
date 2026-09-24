@@ -400,14 +400,26 @@ export function EditorGuion({ cfg, setCfg }) {
             {/* Encabezado de escena */}
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold" style={{ color: TINTA_PAPEL_BAJA, minWidth: 22 }}>{i + 1}</span>
-              <input
+              <textarea
+                rows={1}
                 value={esc.encabezado || ""}
                 disabled={!editable}
-                onChange={(e) => upEscena(esc.id, { encabezado: e.target.value.toUpperCase() })}
+                ref={(el) => acomoda(el)}
+                onFocus={(e) => acomoda(e.currentTarget)}
+                onChange={(e) => {
+                  acomoda(e.currentTarget);
+                  upEscena(esc.id, { encabezado: e.target.value.toUpperCase().replace(/\n/g, " ") });
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                }}
                 onBlur={(e) => upEscena(esc.id, { encabezado: normalizarEncabezado(e.target.value) })}
                 placeholder="INT. LUGAR – DÍA"
-                className="w-full border-0 bg-transparent py-1 text-sm font-bold outline-none"
-                style={{ fontFamily: PAPEL.fontFamily, letterSpacing: 0.5, color: TINTA_PAPEL }}
+                aria-label={`Encabezado de la escena ${i + 1}`}
+                className="guion-encabezado w-full resize-none border-0 bg-transparent py-1 text-sm font-bold outline-none"
+                style={{ fontFamily: PAPEL.fontFamily, letterSpacing: 0.5, color: TINTA_PAPEL, overflow: "hidden" }}
               />
               <span className="no-print text-xs" style={{ color: TINTA_PAPEL_BAJA, whiteSpace: "nowrap" }}>{fmt(esc.dur || 0)}</span>
               {editable && escenas.length > 1 && (

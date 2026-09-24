@@ -31,6 +31,20 @@ const narrativeProject = process.env.PTV_NARRATIVE
 const projectFiles = fs.readdirSync(path.dirname(liveProject))
   .filter((name) => /^project-m.*\.ptv$/.test(name))
   .map((name) => path.join(path.dirname(liveProject), name));
+const mesaImage = `data:image/svg+xml;base64,${Buffer.from(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="432" height="540" viewBox="0 0 432 540">
+    <defs><linearGradient id="f" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#18283f"/><stop offset=".55" stop-color="#d58b52"/><stop offset="1" stop-color="#131820"/></linearGradient></defs>
+    <rect width="432" height="540" fill="url(#f)"/><circle cx="312" cy="156" r="92" fill="#f4c987" opacity=".7"/>
+    <path d="M0 410L155 255l88 96 64-72 125 137v124H0z" fill="#1b2531"/><rect x="42" y="52" width="128" height="250" rx="6" fill="#3f7f8e" opacity=".68"/>
+  </svg>`).toString('base64')}`;
+const mesaReference = JSON.stringify({
+  id: 'ref-auditoria-iphone', creada: '2026-09-20T12:00:00.000Z',
+  nota: 'Plano Entero · Pasillo nocturno', plano: 'Plano Entero', movimiento: 'Travelling',
+  formato: 'Vertical 9:16', luz: 'claroscuro', lugar: 'Interior', momento: 'Noche',
+  gente: '1 persona', libres: ['pasillo', 'contraluz', 'soledad'], auto: [],
+  colores: ['#18283F', '#D58B52', '#F4C987', '#3F7F8E', '#131820'],
+  familias: ['azul', 'naranja', 'oscuro'], ancho: 2160, alto: 2700, min: mesaImage,
+});
 
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -79,12 +93,14 @@ function bundleInfo(file) {
   return { text, bundle, project: bundle.project || bundle };
 }
 
-async function makePage(width, height, projectFile = null) {
+async function makePage(width, height, projectFile = null, safeOverride = null) {
   /* single-process admite una superficie estable por proceso. Separar Inicio,
      proyecto vivo y narrativo evita que un cierre derribe al siguiente caso. */
   const browser = await launchAuditBrowser();
+  const phoneViewport = width < 768 || height < 500;
+  const pageSafeArea = safeOverride || safeArea;
   const page = await browser.newPage({
-    viewport: { width, height }, hasTouch: true, isMobile: width < 768, deviceScaleFactor: width < 768 ? 3 : 1,
+    viewport: { width, height }, hasTouch: true, isMobile: phoneViewport, deviceScaleFactor: phoneViewport ? 3 : 1,
     colorScheme: 'dark',
   });
   await page.route('http://ptv.local/**', async (route) => {
@@ -119,7 +135,9 @@ async function makePage(width, height, projectFile = null) {
     window.__ctx=${JSON.stringify(context)};
     window.__archivos=${JSON.stringify(bundles)};
     window.__proyectoActual=${JSON.stringify(currentText)};
-    window.__ptvAuditSafeArea=${JSON.stringify(safeArea)};
+    window.__referencias=${JSON.stringify([mesaReference])};
+    window.__referenciaImagen=${JSON.stringify(mesaImage)};
+    window.__ptvAuditSafeArea=${JSON.stringify(pageSafeArea)};
     const aplicarSafeAreaDeAuditoria = () => {
       const a = window.__ptvAuditSafeArea;
       for (const [lado, valor] of Object.entries(a)) {
@@ -143,6 +161,8 @@ async function makePage(width, height, projectFile = null) {
       if(m.fn==='GetLaunchContext') return Promise.resolve(window.__ctx);
       if(m.fn==='LoadAllProjects') return Promise.resolve(window.__archivos||[]);
       if(m.fn==='LoadProjectFile') return Promise.resolve(window.__proyectoActual||null);
+      if(m.fn==='ListReferences') return Promise.resolve(window.__referencias||[]);
+      if(m.fn==='LoadReferenceImage') return Promise.resolve(window.__referenciaImagen||'');
       if(m.fn==='ListProjects'||m.fn==='ListTemplates'||m.fn==='ListOpenProjects'||m.fn==='ListOpenTools') return Promise.resolve([]);
       if(m.fn==='ClaimProject') return Promise.resolve(true);
       return Promise.resolve(null);
@@ -212,7 +232,7 @@ async function auditFrame(frame, documentName) {
         : null;
     };
     const activeLayer = [
-      ...document.querySelectorAll('[aria-modal="true"],.help-card.show,.checks.open'),
+      ...document.querySelectorAll('[aria-modal="true"],.help-card.show,.checks.open,.fixed.inset-0.z-50'),
     ].filter(visible).sort((a, b) => Number(getComputedStyle(a).zIndex || 0) - Number(getComputedStyle(b).zIndex || 0)).at(-1);
     const inActiveLayer = (element) => !activeLayer || activeLayer.contains(element);
     const text = (element) => String(
@@ -317,6 +337,7 @@ async function auditFrame(frame, documentName) {
       layout: root.dataset.layout || body?.dataset.layout || '',
       bodyPaddingBottom: body ? getComputedStyle(body).paddingBottom : '',
       safeAreaBottom: getComputedStyle(root).getPropertyValue('--ptv-safe-bottom').trim(),
+      safeAreaHorizontal: ['left', 'right'].map((side) => getComputedStyle(root).getPropertyValue(`--ptv-safe-${side}`).trim()),
       interactive: interactive.length,
       touchSmall,
       clippedText,
@@ -334,14 +355,22 @@ async function auditScreen(page, label, screenshot = false) {
       const element = document.querySelector(selector);
       if (!element || element.hidden || getComputedStyle(element).display === 'none') return null;
       const rect = element.getBoundingClientRect();
-      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, bottom: rect.bottom };
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom };
     };
     const style = getComputedStyle(document.body);
     const root = getComputedStyle(document.documentElement);
+    const surface = box('.desktop-shell');
+    const edgeBands = surface ? {
+      top: Math.max(0, surface.y),
+      right: Math.max(0, window.innerWidth - surface.right),
+      bottom: Math.max(0, window.innerHeight - surface.bottom),
+      left: Math.max(0, surface.x),
+    } : null;
     return {
       bodyPadding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft],
       safeArea: ['top', 'right', 'bottom', 'left'].map((lado) => root.getPropertyValue(`--ptv-safe-${lado}`).trim()),
-      header: box('#workspace-header'), logo: box('#logo-btn'), content: box('#frame-wrap'),
+      surface, edgeBands, header: box('#workspace-header'), logo: box('#logo-btn'),
+      actions: box('#compact-actions-btn'), content: box('#frame-wrap'),
     };
   });
   const documents = [await auditFrame(page.mainFrame(), 'shell')];
@@ -399,7 +428,11 @@ async function selectProjectView(page, stage, section) {
 }
 
 async function compactAudit() {
-  const sizes = [[402, 874], [375, 667]];
+  const sizes = [
+    [402, 874, safeArea],
+    [375, 667, safeArea],
+    [874, 402, { top: 0, right: 62, bottom: 21, left: 62, legacyBodyPadding: false }],
+  ];
   const report = { generatedAt: new Date().toISOString(), mode, screens: [] };
   const liveViews = [
     ['perfil', 'perfil', null], ['referencias', 'perfil', 'referencias'],
@@ -409,26 +442,76 @@ async function compactAudit() {
     ['infografias', 'planeacion', 'infografias'], ['exportar', 'salida', null],
     ['ensayo', 'ensayo', null],
   ];
-  for (const [width, height] of sizes) {
+  for (const [width, height, viewportSafeArea] of sizes) {
     const suffix = `${width}x${height}`;
-    const launcher = await makePage(width, height);
+    const launcher = await makePage(width, height, null, viewportSafeArea);
     report.screens.push(await auditScreen(launcher, `${suffix}-inicio`, true));
     await launcher.evaluate(() => document.querySelector('[data-accion="plantillas"]')?.click());
     await launcher.waitForTimeout(400);
     report.screens.push(await auditScreen(launcher, `${suffix}-plantillas`, true));
     await closeSurface(launcher);
 
-    const live = await makePage(width, height, liveProject);
+    const live = await makePage(width, height, liveProject, viewportSafeArea);
     for (const [label, stage, section] of liveViews) {
       await selectProjectView(live, stage, section);
       report.screens.push(await auditScreen(live, `${suffix}-${label}`, true));
     }
     await closeSurface(live);
 
-    const narrative = await makePage(width, height, narrativeProject);
+    const narrative = await makePage(width, height, narrativeProject, viewportSafeArea);
     await selectProjectView(narrative, 'guion', 'guionLiterario');
     report.screens.push(await auditScreen(narrative, `${suffix}-guion-literario`, true));
     await closeSurface(narrative);
+  }
+  return report;
+}
+
+async function mesaAudit() {
+  const sizes = [
+    [402, 874, { top: 62, right: 0, bottom: 34, left: 0, legacyBodyPadding: false }],
+    [375, 667, { top: 20, right: 0, bottom: 21, left: 0, legacyBodyPadding: false }],
+    [874, 402, { top: 0, right: 62, bottom: 21, left: 62, legacyBodyPadding: false }],
+  ];
+  const report = { generatedAt: new Date().toISOString(), mode, screens: [] };
+  for (const [width, height, viewportSafeArea] of sizes) {
+    const page = await makePage(width, height, liveProject, viewportSafeArea);
+    await selectProjectView(page, 'perfil', 'referencias');
+    const tool = page.frames().find((frame) => frame !== page.mainFrame() && frame.url().includes('/infografias/'));
+    if (tool) await tool.waitForSelector('.rejilla-mesa figure', { timeout: 8000 });
+    report.screens.push(await auditScreen(page, `${width}x${height}-mesa-rejilla`, true));
+    if (tool) {
+      await tool.locator('.rejilla-mesa figure > button').first().click();
+      await tool.waitForSelector('.fixed.inset-0.z-50');
+    }
+    const detail = await auditScreen(page, `${width}x${height}-mesa-detalle`, true);
+    if (tool) {
+      detail.mesaDetail = await tool.evaluate(() => {
+        const panel = document.querySelector('.mesa-luz-ficha') || document.querySelector('.fixed.inset-0.z-50 > div');
+        const header = document.querySelector('.mesa-luz-ficha-cab') || panel?.firstElementChild;
+        const body = document.querySelector('.mesa-luz-ficha-cuerpo') || panel?.children?.[1];
+        const title = document.querySelector('.mesa-luz-ficha-titulo') || header?.querySelector('strong');
+        const image = document.querySelector('.mesa-luz-ficha-imagen img') || body?.querySelector('img');
+        const meta = document.querySelector('.mesa-luz-ficha-meta') || [...(body?.querySelectorAll('p') || [])]
+          .find((node) => node.textContent.includes('paleta sacada'));
+        const fields = document.querySelector('.mesa-luz-ficha-campos') || body?.lastElementChild;
+        const rect = (element) => element ? element.getBoundingClientRect().toJSON() : null;
+        const lineCount = (element) => {
+          if (!element) return 0;
+          const range = document.createRange();
+          range.selectNodeContents(element);
+          return new Set([...range.getClientRects()].map((item) => Math.round(item.top))).size;
+        };
+        return {
+          panel: rect(panel), header: rect(header), body: rect(body), image: rect(image), fields: rect(fields),
+          columns: body ? getComputedStyle(body).gridTemplateColumns : '',
+          title: title ? { text: title.textContent.trim(), clientWidth: title.clientWidth, scrollWidth: title.scrollWidth, rect: rect(title) } : null,
+          meta: meta ? { text: meta.textContent.replace(/\s+/g, ' ').trim(), lines: lineCount(meta), rect: rect(meta) } : null,
+          actionRects: [...(header?.querySelectorAll('button') || [])].map((button) => ({ text: button.textContent.trim(), rect: rect(button) })),
+        };
+      });
+    }
+    report.screens.push(detail);
+    await closeSurface(page);
   }
   return report;
 }
@@ -555,6 +638,7 @@ async function focusedGuionAudit() {
 
 try {
   const report = mode === 'visual' ? await visualAudit()
+    : mode === 'mesa' ? await mesaAudit()
     : mode === 'review' ? await reviewAudit()
     : mode === 'guion-focus' ? await focusedGuionAudit()
       : await compactAudit();

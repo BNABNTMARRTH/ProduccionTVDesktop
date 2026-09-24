@@ -193,6 +193,19 @@ export class ResponsiveLayoutManager {
   }
 
   /**
+   * Distingue un iPhone girado de una ventana baja de Mac o de un iPad en
+   * Split View. El ancho solo no basta: 874 pt parece tablet, pero la pantalla
+   * física conserva un lado corto propio de teléfono y apenas 402 pt de alto.
+   */
+  isPhoneLandscape(width, height) {
+    const screen = this.window?.screen;
+    const physicalSides = [Number(screen?.width), Number(screen?.height)]
+      .filter((side) => side > 0);
+    const physicalShortSide = physicalSides.length ? Math.min(...physicalSides) : Infinity;
+    return width > height && height < 500 && physicalShortSide < 600;
+  }
+
+  /**
    * Evalúa las dimensiones del viewport y selecciona la estrategia adecuada.
    * Si la estrategia cambia, el GoF ejecuta la mutación y LLAMA a todos los componentes.
    * @param {number} [overrideWidth] Ancho explícito opcional (útil en pruebas)
@@ -202,7 +215,12 @@ export class ResponsiveLayoutManager {
     const width = typeof overrideWidth === 'number' ? overrideWidth : this.getViewportWidth();
     const height = this.getViewportHeight();
 
-    const matchedStrategy = this.strategies.find(s => s.matches(width)) || this.strategies[0];
+    /* Un teléfono horizontal usa la arquitectura compacta aunque su lado largo
+       cruce 768 pt. iPad y Mac conservan tablet porque su pantalla física no
+       tiene un lado corto de teléfono. */
+    const matchedStrategy = this.isPhoneLandscape(width, height)
+      ? this.strategies[0]
+      : (this.strategies.find(s => s.matches(width)) || this.strategies[0]);
 
     const hasChanged = !this.currentStrategy || this.currentStrategy.name !== matchedStrategy.name;
     this.currentStrategy = matchedStrategy;

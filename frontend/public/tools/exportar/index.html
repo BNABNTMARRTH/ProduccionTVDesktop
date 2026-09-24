@@ -401,7 +401,11 @@
   }
   :root[data-layout="compact"] .markup-color-dot{width:44px;padding:0}
   :root[data-layout="compact"] .preview-scroll-area{padding:8px 0 32px;overflow-x:hidden}
-  :root[data-layout="compact"] .preview{padding:4px 8px;gap:14px;max-width:100%;overflow:hidden}
+  /* flex:none es lo que deja bajar. El área de scroll es una columna flex y,
+     con overflow:hidden, la hoja se volvía encogible hasta el alto de la
+     ventana: el documento quedaba recortado a ~211 px y no había nada que
+     desplazar. Así conserva su alto real y el área de scroll sí se mueve. */
+  :root[data-layout="compact"] .preview{padding:4px 8px;gap:14px;max-width:100%;overflow:hidden;flex:none}
 
   @media print{
     body{background:#fff;height:auto!important;overflow:visible!important}

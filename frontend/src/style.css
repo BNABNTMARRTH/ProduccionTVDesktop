@@ -2522,7 +2522,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 }
 :root[data-layout="compact"] .rail-logo {
   position:fixed;
-  left:var(--ptv-safe-left,env(safe-area-inset-left));
+  left:max(12px,var(--ptv-safe-left,env(safe-area-inset-left)));
   top:var(--ptv-safe-top,env(safe-area-inset-top));
   width:44px;
   height:44px;
@@ -2576,7 +2576,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   min-height:calc(var(--ptv-safe-top,env(safe-area-inset-top)) + 44px);
   height:auto;
   margin:0;
-  padding:var(--ptv-safe-top,env(safe-area-inset-top)) var(--ptv-safe-right,env(safe-area-inset-right)) 0 var(--ptv-safe-left,env(safe-area-inset-left));
+  padding:var(--ptv-safe-top,env(safe-area-inset-top)) max(12px,var(--ptv-safe-right,env(safe-area-inset-right))) 0 max(12px,var(--ptv-safe-left,env(safe-area-inset-left)));
   gap:0;
   overflow:visible;
   box-sizing:border-box;
@@ -3256,6 +3256,109 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   font-size:15px;
 }
 
+/* Un iPhone girado sigue siendo teléfono aunque su lado largo mida más de
+   768 pt. El material pinta hasta los cuatro bordes; isla y esquinas sólo
+   apartan controles. La navegación comparte una única fila de 44 pt y se
+   desplaza dentro de ella, en vez de gastar media pantalla en dos barras. */
+@media (orientation:landscape) and (max-height:499px) {
+  :root[data-layout="compact"] .workspace-header,
+  :root[data-layout="compact"] .workspace-header:has(.secciones:not([hidden])) {
+    grid-template-rows:44px;
+    min-height:45px;
+    height:45px;
+    padding-top:0;
+  }
+  :root[data-layout="compact"] .header-nav {
+    grid-column:3;
+    grid-row:1;
+    min-width:0;
+    height:44px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    scrollbar-width:none;
+    scroll-snap-type:x proximity;
+  }
+  :root[data-layout="compact"] .header-nav::-webkit-scrollbar {
+    display:none;
+  }
+  :root[data-layout="compact"] .pestanas,
+  :root[data-layout="compact"] .secciones:not([hidden]) {
+    position:static;
+    grid-column:auto;
+    grid-row:auto;
+    flex:0 0 auto;
+    width:max-content;
+    min-width:max-content;
+    max-width:none;
+    height:44px;
+    margin:0;
+    padding:0;
+    overflow:visible;
+    scroll-snap-align:start;
+  }
+  :root[data-layout="compact"] .secciones:not([hidden]) {
+    gap:6px;
+  }
+  :root[data-layout="compact"] .rail,
+  :root[data-layout="compact"] .compact-actions-sheet {
+    left:max(12px,var(--ptv-safe-left,env(safe-area-inset-left)));
+    right:max(12px,var(--ptv-safe-right,env(safe-area-inset-right)));
+  }
+
+  /* Inicio usa dos columnas para sus tarjetas y una cabecera de dos renglones
+     cortos. El logo ocupa el carril seguro izquierdo, no una fila vertical. */
+  :root[data-layout="compact"] .home-top,
+  :root[data-layout="compact"] .desktop-shell.vista-inicio.rail-plegado .home-top {
+    padding:6px max(12px,var(--ptv-safe-right,env(safe-area-inset-right))) 8px calc(max(12px,var(--ptv-safe-left,env(safe-area-inset-left))) + 56px)!important;
+  }
+  :root[data-layout="compact"] .home-top-inner {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:center;
+    gap:6px 12px;
+  }
+  :root[data-layout="compact"] .home-caption,
+  :root[data-layout="compact"] .home-sub {
+    display:none;
+  }
+  :root[data-layout="compact"] .home-heading {
+    margin:0;
+    font-size:25px;
+  }
+  :root[data-layout="compact"] .home-tools {
+    grid-column:1 / -1;
+    display:grid;
+    grid-template-columns:minmax(240px,1.2fr) minmax(180px,1fr) auto;
+    gap:8px;
+  }
+  :root[data-layout="compact"] .apple-segmented,
+  :root[data-layout="compact"] .apple-search-wrap,
+  :root[data-layout="compact"] .apple-primary-btn,
+  :root[data-layout="compact"] .apple-secondary-btn {
+    width:100%;
+    height:44px;
+    min-height:44px;
+  }
+  :root[data-layout="compact"] .home-scroll-body,
+  :root[data-layout="compact"] .tpl-scroll-body {
+    padding-left:max(12px,var(--ptv-safe-left,env(safe-area-inset-left)));
+    padding-right:max(12px,var(--ptv-safe-right,env(safe-area-inset-right)));
+    padding-bottom:max(21px,var(--ptv-safe-bottom,env(safe-area-inset-bottom)));
+  }
+  :root[data-layout="compact"] .proj-grid,
+  :root[data-layout="compact"] .tpl-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:12px;
+  }
+  :root[data-layout="compact"] .production-view {
+    padding-left:max(12px,var(--ptv-safe-left,env(safe-area-inset-left)));
+    padding-right:max(12px,var(--ptv-safe-right,env(safe-area-inset-right)));
+  }
+}
+
 /* --------------------------------------------------------------------------
    2. ESTRATEGIA TABLET: data-layout="tablet" (768px - 1099px: iPad / Split View)
    -------------------------------------------------------------------------- */
@@ -3450,7 +3553,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 /* En compacto el logo ya ocupa la primera celda real del encabezado. El estado
    plegado no debe sumar otro hueco: sólo se conserva el inset lateral de iOS. */
 :root[data-layout="compact"] .desktop-shell.rail-plegado .workspace-header {
-  padding-left: var(--ptv-safe-left,env(safe-area-inset-left)) !important;
+  padding-left: max(12px,var(--ptv-safe-left,env(safe-area-inset-left))) !important;
 }
 /* En iPad el logo guardado ocupa hasta los 57 px y el encabezado empieza en 14. */
 :root[data-layout="tablet"] .desktop-shell.rail-plegado .workspace-header {

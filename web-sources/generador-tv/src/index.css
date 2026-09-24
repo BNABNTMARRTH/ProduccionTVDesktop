@@ -1098,6 +1098,18 @@ details[open] > summary.ptv-plegable .ptv-caret{transform:rotate(90deg)}
 :root[data-layout="compact"] .guion-bloque-texto {
   min-height:44px!important;
 }
+:root[data-layout="compact"] .guion-encabezado {
+  min-width:0;
+  min-height:44px!important;
+  height:auto;
+  padding-top:4px;
+  padding-bottom:4px;
+  font-size:clamp(11px,3.2vw,14px)!important;
+  line-height:1.3;
+  letter-spacing:0!important;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
 :root[data-layout="compact"] .guion-tipo-etiqueta:not(.activa) {
   display:none;
 }
@@ -1343,6 +1355,88 @@ details[open] > summary.ptv-plegable .ptv-caret{transform:rotate(90deg)}
   overflow-y:auto;
 }
 
+/* La ficha es una pantalla de detalle, no una tabla de escritorio encogida.
+   La foto conserva un lienzo ancho arriba; título, acciones, metadatos y
+   campos forman después una lectura vertical sin columnas residuales. */
+:root[data-layout="compact"] .mesa-luz-ficha-capa {
+  align-items:flex-start;
+  padding:8px 8px max(8px,var(--ptv-safe-bottom,env(safe-area-inset-bottom)))!important;
+}
+:root[data-layout="compact"] .mesa-luz-ficha {
+  width:100%!important;
+  max-width:100%!important;
+  max-height:calc(100dvh - max(16px,var(--ptv-safe-bottom,env(safe-area-inset-bottom))))!important;
+  margin:0!important;
+  padding:0!important;
+  border-radius:20px;
+  overflow-x:hidden;
+  overflow-y:auto;
+}
+:root[data-layout="compact"] .mesa-luz-ficha-cab {
+  min-height:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:8px;
+  padding:12px!important;
+}
+:root[data-layout="compact"] .mesa-luz-ficha-titulo {
+  width:100%;
+  min-width:0;
+  white-space:normal;
+  overflow:visible;
+  text-overflow:clip;
+  overflow-wrap:anywhere;
+  font-size:16px;
+  line-height:1.3;
+}
+:root[data-layout="compact"] .mesa-luz-ficha-acciones {
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+:root[data-layout="compact"] .mesa-luz-ficha-acciones button {
+  width:100%;
+  min-width:44px!important;
+  min-height:44px!important;
+  justify-content:center;
+}
+:root[data-layout="compact"] .mesa-luz-ficha-cuerpo {
+  width:100%;
+  grid-template-columns:minmax(0,1fr)!important;
+  padding:12px!important;
+}
+:root[data-layout="compact"] .mesa-luz-ficha-imagen {
+  width:100%;
+  min-width:0;
+}
+:root[data-layout="compact"] .mesa-luz-ficha-imagen > img,
+:root[data-layout="compact"] .mesa-luz-ficha-imagen > div:first-child {
+  width:100%;
+  height:min(42dvh,340px);
+  max-height:340px;
+  object-fit:contain;
+  background:var(--vidrio-b);
+}
+:root[data-layout="compact"] .mesa-luz-ficha-paleta,
+:root[data-layout="compact"] .mesa-luz-ficha-meta,
+:root[data-layout="compact"] .mesa-luz-ficha-campos {
+  width:100%;
+  min-width:0;
+}
+:root[data-layout="compact"] .mesa-luz-ficha-meta {
+  min-height:18px;
+  margin-top:6px;
+  white-space:normal;
+  line-height:1.35;
+}
+:root[data-layout="compact"] .mesa-luz-ficha-campos .grid-cols-2 {
+  grid-template-columns:minmax(0,1fr);
+}
+:root[data-layout="compact"] .mesa-luz-ficha-campos > button {
+  min-height:44px!important;
+}
+
 /* Set deja el doble panel CAD de macOS. El lienzo y el inspector se recorren
    uno después del otro; la barra superior se convierte en grupos completos,
    no en una cinta recortada fuera del teléfono. */
@@ -1415,6 +1509,45 @@ details[open] > summary.ptv-plegable .ptv-caret{transform:rotate(90deg)}
 }
 :root[data-layout="compact"] .set-inspector > div:nth-child(2) {
   overflow:visible;
+}
+
+/* En horizontal el fondo del iframe sigue llegando a la isla y al indicador;
+   el contenido táctil es el que recibe los insets. Rejilla y filtros recuperan
+   dos columnas para aprovechar el lado largo sin volver al layout de iPad. */
+@media (orientation:landscape) and (max-height:499px) {
+  :root[data-layout="compact"] .scrollwrap {
+    padding-left:max(12px,var(--ptv-safe-left,env(safe-area-inset-left)))!important;
+    padding-right:max(12px,var(--ptv-safe-right,env(safe-area-inset-right)))!important;
+    padding-bottom:max(21px,var(--ptv-safe-bottom,env(safe-area-inset-bottom)))!important;
+  }
+  :root[data-layout="compact"] .mesa-luz-ficha-capa {
+    padding-left:max(8px,var(--ptv-safe-left,env(safe-area-inset-left)))!important;
+    padding-right:max(8px,var(--ptv-safe-right,env(safe-area-inset-right)))!important;
+  }
+  :root[data-layout="compact"] .mesa-luz-topbar {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(180px,240px);
+    gap:8px;
+  }
+  :root[data-layout="compact"] .mesa-luz-topbar > .ml-auto {
+    grid-column:1 / -1;
+    display:flex;
+    justify-content:flex-end;
+  }
+  :root[data-layout="compact"] .mesa-luz-filtros-row {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    align-items:start;
+    gap:10px;
+  }
+  :root[data-layout="compact"] .rejilla-mesa {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+  }
+  :root[data-layout="compact"] .mesa-luz-ficha-imagen > img,
+  :root[data-layout="compact"] .mesa-luz-ficha-imagen > div:first-child {
+    height:min(42dvh,210px);
+  }
 }
 
 /* El iframe puede medir menos de 768px dentro del layout tablet. Este respaldo

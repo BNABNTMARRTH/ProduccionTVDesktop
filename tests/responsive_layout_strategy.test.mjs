@@ -74,6 +74,25 @@ test('iPhone de 390 pt elige CompactLayoutStrategy', () => {
   assert.equal(root.attributes['data-layout'], 'compact');
 });
 
+test('iPhone horizontal conserva Compact sin convertir iPad o Mac bajos', () => {
+  const crear = (screen, width = 874, height = 402) => {
+    const root = {
+      clientWidth: width, clientHeight: height, attributes: {},
+      setAttribute(k, v) { this.attributes[k] = v; },
+      classList: { toggle() {} },
+    };
+    const manager = new ResponsiveLayoutManager({
+      rootElement: root,
+      win: { innerWidth: width, innerHeight: height, screen },
+    });
+    return manager.evaluate();
+  };
+
+  assert.equal(crear({ width: 874, height: 402 }).name, 'compact');
+  assert.equal(crear({ width: 1180, height: 820 }).name, 'tablet', 'iPad en Split View sigue siendo tablet');
+  assert.equal(crear({ width: 1440, height: 900 }).name, 'tablet', 'una ventana baja de Mac no finge ser iPhone');
+});
+
 test('GoF Inversión de Control (IoC): El GoF es quien LLAMA a los componentes registrados', () => {
   const mockElement = {
     clientWidth: 1200,
