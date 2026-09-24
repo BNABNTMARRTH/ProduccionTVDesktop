@@ -1088,6 +1088,80 @@ details[open] > summary.ptv-plegable .ptv-caret{transform:rotate(90deg)}
 :root[data-layout="compact"] .scrollwrap > * {
   max-width:100%;
 }
+
+/* El área de guion no hereda los 88 pt de los textareas de formulario: cada
+   bloque crece con su texto y un bloque vacío conserva sólo el renglón táctil.
+   Así dos acciones vacías no parecen páginas en blanco entre escenas. */
+:root[data-layout="compact"] .guion-editor-scroll {
+  scroll-padding-bottom:64px;
+}
+:root[data-layout="compact"] .guion-bloque-texto {
+  min-height:44px!important;
+}
+:root[data-layout="compact"] .guion-tipo-etiqueta:not(.activa) {
+  display:none;
+}
+:root[data-layout="compact"] .guion-tipo-etiqueta.activa {
+  min-width:68px;
+  min-height:44px;
+  display:flex;
+  align-items:center;
+  padding:0 6px;
+  border-radius:8px;
+  pointer-events:auto;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+
+/* Input accessory al estilo de un editor de guion móvil. top viene de
+   visualViewport, porque dentro del iframe el teclado no coincide con 100vh. */
+.guion-tipos-barra {
+  position:fixed;
+  z-index:80;
+  left:0;
+  right:0;
+  height:52px;
+  padding:4px max(4px,var(--ptv-safe-right,env(safe-area-inset-right))) 4px max(4px,var(--ptv-safe-left,env(safe-area-inset-left)));
+  background:color-mix(in srgb,var(--yeso) 92%,transparent);
+  border-top:1px solid var(--vidrio-borde);
+  box-shadow:0 -8px 24px rgba(0,0,0,.24);
+  -webkit-backdrop-filter:blur(24px) saturate(170%);
+  backdrop-filter:blur(24px) saturate(170%);
+}
+.guion-tipos-scroll {
+  width:100%;
+  height:44px;
+  display:flex;
+  gap:4px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  overscroll-behavior-x:contain;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+.guion-tipos-scroll::-webkit-scrollbar {
+  display:none;
+}
+.guion-tipos-scroll button {
+  flex:0 0 auto;
+  min-width:44px!important;
+  min-height:44px!important;
+  padding:0 13px;
+  border:1px solid transparent;
+  border-radius:10px;
+  background:transparent;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.035em;
+  text-transform:uppercase;
+  white-space:nowrap;
+  touch-action:manipulation;
+}
+.guion-tipos-scroll button[aria-pressed="true"] {
+  border-color:currentColor;
+  background:var(--vidrio-a);
+  box-shadow:inset 0 1px 0 var(--vidrio-filo);
+}
 :root[data-layout="compact"] table {
   display:block;
   width:100%;

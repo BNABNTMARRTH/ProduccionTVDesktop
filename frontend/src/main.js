@@ -395,6 +395,7 @@ document.querySelector('#app').innerHTML = `
       <button type="button" data-compact-source="guia-btn">${icono('guia', 20)}<span>Guía del módulo</span></button>
       <button type="button" data-compact-source="tour-btn">${icono('ayuda', 20)}<span>Recorrido guiado</span></button>
       <button type="button" data-compact-source="desanclar-btn">${icono('desanclar', 20)}<span>Abrir módulo en una pestaña</span></button>
+      <button type="button" data-compact-source="reanclar-btn">${icono('reanclar', 20)}<span>Volver a la ventana del proyecto</span></button>
       <button type="button" data-compact-command="modulos">${icono('mas', 20)}<span>Abrir otro módulo</span></button>
     </div>
   </section>
@@ -555,12 +556,26 @@ compactActionsSheet?.addEventListener('click', (event) => {
     cerrarAccionesCompactas({ devolverFoco: false });
     fuente?.click();
 });
+
+/* Estas capas ya tienen su propio Escape y deben conservar la precedencia.
+   El listener compacto corre en captura para alcanzar también los iframes;
+   sin esta frontera plegaba el rail antes de que un diálogo pudiera cerrar. */
+function hayCapaConEscapePropio() {
+    return [
+        '#welcome-overlay', '.aj-overlay:not([hidden])', '.np-overlay:not([hidden])',
+        '.tour-overlay', '.menu-modulos', '.trash-overlay', '.prompter-overlay',
+    ].some((selector) => {
+        const capa = document.querySelector(selector);
+        return capa && getComputedStyle(capa).display !== 'none' && getComputedStyle(capa).visibility !== 'hidden';
+    });
+}
+
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !compactActionsSheet?.hidden) {
         event.preventDefault();
         event.stopPropagation();
         cerrarAccionesCompactas();
-    } else if (event.key === 'Escape' && esLayoutCompacto() && !railPlegado()) {
+    } else if (event.key === 'Escape' && esLayoutCompacto() && !railPlegado() && !hayCapaConEscapePropio()) {
         event.preventDefault();
         event.stopPropagation();
         plegarRailSinAnimacion();
@@ -786,6 +801,10 @@ function plegarRailSinAnimacion() {
 let layoutAnterior = '';
 let modoProyectoAntesDeCompacto = 'grid';
 let modoPlantillasAntesDeCompacto = 'grid';
+const reflejarModoDeVista = (gridId, listId, modo) => {
+    document.querySelector(gridId)?.classList.toggle('active', modo !== 'list');
+    document.querySelector(listId)?.classList.toggle('active', modo === 'list');
+};
 globalResponsiveManager.subscribe((layoutState) => {
     if (layoutState.isCompact) {
         plegarRailSinAnimacion();
@@ -811,6 +830,10 @@ globalResponsiveManager.subscribe((layoutState) => {
             modoPlantillasAntesDeCompacto === 'list' ? new TemplateListViewStrategy() : new TemplateGridViewStrategy(),
             modoPlantillasAntesDeCompacto,
         );
+        /* La estrategia y su indicador son un solo estado perceptible. Si se
+           restaura Lista, Mosaico no puede seguir pareciendo seleccionado. */
+        reflejarModoDeVista('#view-grid-btn', '#view-list-btn', modoProyectoAntesDeCompacto);
+        reflejarModoDeVista('#tpl-view-grid-btn', '#tpl-view-list-btn', modoPlantillasAntesDeCompacto);
     }
     if (layoutAnterior !== layoutState.name) {
         try {

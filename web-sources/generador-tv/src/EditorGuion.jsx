@@ -88,7 +88,45 @@ export function EditorGuion({ cfg, setCfg }) {
   const [foco, setFoco] = useState(null);          // id del bloque a enfocar
   const [sugiere, setSugiere] = useState(null);    // {bloqueId, opciones}
   const [enfocado, setEnfocado] = useState(null);  // {escenaId, bloqueId} donde está el cursor
+  const [entradaTactil, setEntradaTactil] = useState(false);
+  const [topeBarraTipos, setTopeBarraTipos] = useState(null);
   const areas = useRef({});
+
+  /* El teclado de iPhone no ofrece Tab. La barra sólo existe en entrada táctil
+     o layout compact y sigue el borde visible de visualViewport, que es el
+     borde superior real del teclado incluso dentro del iframe. */
+  useEffect(() => {
+    const media = window.matchMedia?.("(pointer: coarse)");
+    const actualizar = () => setEntradaTactil(
+      document.documentElement.dataset.layout === "compact" || !!media?.matches,
+    );
+    const cambios = new MutationObserver(actualizar);
+    cambios.observe(document.documentElement, { attributes: true, attributeFilter: ["data-layout"] });
+    media?.addEventListener?.("change", actualizar);
+    actualizar();
+    return () => {
+      cambios.disconnect();
+      media?.removeEventListener?.("change", actualizar);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!entradaTactil || !enfocado) { setTopeBarraTipos(null); return undefined; }
+    const viewport = window.visualViewport;
+    const actualizar = () => {
+      const bordeVisible = (viewport?.offsetTop || 0) + (viewport?.height || window.innerHeight);
+      setTopeBarraTipos(Math.max(0, Math.round(bordeVisible - 52)));
+    };
+    viewport?.addEventListener("resize", actualizar);
+    viewport?.addEventListener("scroll", actualizar);
+    window.addEventListener("resize", actualizar);
+    actualizar();
+    return () => {
+      viewport?.removeEventListener("resize", actualizar);
+      viewport?.removeEventListener("scroll", actualizar);
+      window.removeEventListener("resize", actualizar);
+    };
+  }, [entradaTactil, enfocado]);
 
   // Enfoca el bloque recién creado y coloca el cursor al final.
   useEffect(() => {
@@ -109,6 +147,18 @@ export function EditorGuion({ cfg, setCfg }) {
 
   const upBloque = (escId, bId, parche) =>
     upGuion(escId, (g) => g.map((b) => (b.id === bId ? { ...b, ...parche } : b)));
+
+  const cambiarTipoEnfocado = (tipo) => {
+    if (!enfocado || !ORDEN_TIPOS.includes(tipo)) return;
+    const area = areas.current[enfocado.bloqueId];
+    const seleccion = area ? [area.selectionStart, area.selectionEnd] : null;
+    upBloque(enfocado.escenaId, enfocado.bloqueId, { tipo });
+    requestAnimationFrame(() => {
+      const actual = areas.current[enfocado.bloqueId];
+      actual?.focus({ preventScroll: true });
+      if (actual && seleccion) actual.setSelectionRange(seleccion[0], seleccion[1]);
+    });
+  };
 
   const insertarTras = (escId, bId, tipo) => {
     const nuevo = bloqueNuevo(tipo);
@@ -234,7 +284,7 @@ export function EditorGuion({ cfg, setCfg }) {
   };
 
   return (
-    <div className="scrollwrap hoja-tema overflow-auto px-2 py-4" style={{ background: "var(--vidrio-b)" }}>
+    <div className="scrollwrap guion-editor-scroll hoja-tema overflow-auto px-2 py-4" style={{ background: "var(--vidrio-b)" }}>
       <div className="mx-auto grid gap-4 xl:grid-cols-[250px_minmax(0,1fr)]"
         style={{ maxWidth: "100%" }}>
       {/* Índice de escenas: solo aparece cuando hay ancho para él. Antes ese
@@ -322,7 +372,7 @@ export function EditorGuion({ cfg, setCfg }) {
         )}
         <TarjetaAyuda id="guion-literario" titulo="Cómo se escribe aquí" pasos={[
           "Escribe y da <b>Enter</b>: la app pasa sola al bloque que toca. Después de un <b>PERSONAJE</b> siempre viene su <b>diálogo</b>.",
-          "¿Necesitas otro tipo de bloque? <b>Tab</b> lo cambia: acción → personaje → paréntesis → diálogo → transición.",
+          "¿Necesitas otro tipo de bloque? En iPhone usa la barra sobre el teclado; con teclado físico, <b>Tab</b> lo cambia.",
           "<b>⌘+Enter</b> abre una escena nueva. Su encabezado se escribe arriba: <b>INT. LUGAR – DÍA</b>.",
           "Cada escena que abres aquí <b>aparece también en Guion técnico</b>, con su duración, para desglosarla en planos. Y sus datos de producción —función, personajes, qué cambia— se llenan en <b>Datos de la escena</b>, plegado bajo cada encabezado.",
           "La regla del oficio: <b>una página ≈ un minuto</b> de pantalla. Arriba te digo cuánto llevas.",
@@ -336,7 +386,7 @@ export function EditorGuion({ cfg, setCfg }) {
           tipo. Con el margen angosto de antes, ACCIÓN y TRANSICIÓN se salían
           de la hoja y caían sobre la pared: en modo oscuro, tinta oscura
           sobre negro. Ahora las cinco etiquetas caen sobre el papel. */}
-      <div className="rounded-xl py-8 shadow-sm"
+      <div className="guion-pagina rounded-xl py-8 shadow-sm"
         style={{ ...PAPEL, border: `1px solid ${LINEA_PAPEL}`,
           paddingLeft: "clamp(84px, 11%, 118px)", paddingRight: "clamp(28px, 7%, 76px)" }}>
         {!escenas.length && (
@@ -411,7 +461,7 @@ export function EditorGuion({ cfg, setCfg }) {
             {guionDe(esc).map((b) => {
               const t = TIPOS[b.tipo] || TIPOS.accion;
               return (
-                <div key={b.id} style={{ position: "relative", marginLeft: `${t.sangria}%`, width: `${t.ancho}%` }}>
+                <div key={b.id} className="guion-bloque" style={{ position: "relative", marginLeft: `${t.sangria}%`, width: `${t.ancho}%` }}>
                   {/* Capa del marcatextos: una copia EXACTA del texto, con el
                       color de fondo en los trozos marcados. Va detrás del área
                       de escritura, que es transparente, así que el resaltado
@@ -432,16 +482,34 @@ export function EditorGuion({ cfg, setCfg }) {
                     onChange={(e) => { acomoda(e.target); escribe(esc, b, t.mayus ? e.target.value.toUpperCase() : e.target.value); }}
                     onKeyDown={(e) => teclas(e, esc, b)}
                     onFocus={(e) => { acomoda(e.target); setEnfocado({ escenaId: esc.id, bloqueId: b.id }); }}
-                    className="w-full resize-none border-0 bg-transparent outline-none"
+                    onBlur={() => setEnfocado((actual) => actual?.bloqueId === b.id ? null : actual)}
+                    className="guion-bloque-texto w-full resize-none border-0 bg-transparent outline-none"
                     style={{ ...tipografia(b, t), position: "relative", background: "transparent", overflow: "hidden" }}
                   />
-                  {/* Etiqueta del tipo, solo en el bloque enfocado */}
                   {/* Etiqueta del tipo: cada uno con su color, porque en gris
-                      claro se perdían y no se distinguía acción de diálogo. */}
-                  <span className="no-print" style={{
+                      claro se perdían y no se distinguía acción de diálogo.
+                      En iPhone sólo aparece la activa y también rota el tipo. */}
+                  <span
+                    className={`guion-tipo-etiqueta no-print${enfocado?.bloqueId === b.id ? " activa" : ""}`}
+                    role={entradaTactil && enfocado?.bloqueId === b.id ? "button" : undefined}
+                    tabIndex={entradaTactil && enfocado?.bloqueId === b.id ? 0 : -1}
+                    aria-label={entradaTactil ? `Tipo ${t.nombre}. Toca para cambiar al siguiente.` : undefined}
+                    onPointerDown={(e) => {
+                      if (!entradaTactil || enfocado?.bloqueId !== b.id) return;
+                      e.preventDefault();
+                      cambiarTipoEnfocado(siguienteEnRotacion(b.tipo));
+                    }}
+                    onMouseDown={(e) => { if (entradaTactil) e.preventDefault(); }}
+                    onKeyDown={(e) => {
+                      if (!entradaTactil || !["Enter", " "].includes(e.key)) return;
+                      e.preventDefault();
+                      cambiarTipoEnfocado(siguienteEnRotacion(b.tipo));
+                    }}
+                    style={{
                     position: "absolute", left: -74, top: 8, fontSize: 9.5, fontWeight: 800,
                     letterSpacing: 0.7, textTransform: "uppercase", color: `var(--tipo-${b.tipo}, ${t.color})`,
-                    fontFamily: "system-ui, sans-serif", pointerEvents: "none",
+                    fontFamily: "system-ui, sans-serif",
+                    pointerEvents: entradaTactil && enfocado?.bloqueId === b.id ? "auto" : "none",
                   }}>{t.nombre}</span>
 
                   {sugiere?.bloqueId === b.id && (
@@ -485,6 +553,26 @@ export function EditorGuion({ cfg, setCfg }) {
       </div>
 
       </div>
+      {entradaTactil && enfocado && topeBarraTipos != null && (
+        <div className="guion-tipos-barra no-print" role="toolbar" aria-label="Tipo del bloque de guion"
+          style={{ top: topeBarraTipos }}>
+          <div className="guion-tipos-scroll">
+            {ORDEN_TIPOS.map((tipo) => {
+              const info = TIPOS[tipo] || TIPOS.accion;
+              const activo = escenas.some((esc) => esc.id === enfocado.escenaId
+                && guionDe(esc).some((bloque) => bloque.id === enfocado.bloqueId && bloque.tipo === tipo));
+              return (
+                <button key={tipo} type="button" aria-pressed={activo}
+                  onPointerDown={(e) => { e.preventDefault(); cambiarTipoEnfocado(tipo); }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  style={{ color: `var(--tipo-${tipo}, ${info.color})` }}>
+                  {info.nombre}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

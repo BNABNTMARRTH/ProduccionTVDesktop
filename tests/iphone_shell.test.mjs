@@ -8,6 +8,8 @@ const PLIST = leer('../ios/ProduccionTV/Info.plist');
 const ADAPTACION = leer('../ios/ProduccionTV/Recursos/adaptacion-ipad.js');
 const MAIN = leer('../frontend/src/main.js');
 const STYLE = leer('../frontend/src/style.css');
+const EDITOR_GUION = leer('../web-sources/generador-tv/src/EditorGuion.jsx');
+const GENERADOR_STYLE = leer('../web-sources/generador-tv/src/index.css');
 
 test('el target nativo admite iPhone y iPad en Debug y Release', () => {
   assert.equal([...PBX.matchAll(/TARGETED_DEVICE_FAMILY = "1,2";/g)].length, 2);
@@ -32,6 +34,8 @@ test('el puente iOS conserva las cuatro áreas seguras y limita la escala del iP
   assert.match(ADAPTACION, /viewport-fit=cover/);
   assert.match(ADAPTACION, /ANCHO_MINIMO_IPHONE\s*=\s*320/);
   assert.match(ADAPTACION, /Math\.min\(escala, Math\.max\(1, ladoCorto \/ ANCHO_MINIMO_IPHONE\)\)/);
+  assert.match(ADAPTACION, /:root:not\(\[data-layout=\"compact\"\]\) body/);
+  assert.match(ADAPTACION, /:root\[data-layout=\"compact\"\] body\{box-sizing:border-box;padding:0\}/);
 });
 
 test('el modo compacto pliega el rail al entrar y deja el logo como salida', () => {
@@ -59,8 +63,32 @@ test('el encabezado compacto reserva Proyecto y mueve lo secundario a una hoja',
   const compacto = STYLE.slice(STYLE.indexOf('1. ESTRATEGIA COMPACTA'), STYLE.indexOf('2. ESTRATEGIA TABLET'));
   assert.match(MAIN, /id="compact-actions-btn"/);
   assert.match(MAIN, /id="compact-actions-sheet"/);
-  assert.match(compacto, /grid-template-columns:\s*44px minmax\(100px,1fr\) 44px/);
+  assert.match(compacto, /grid-template-columns:\s*44px 44px minmax\(0,1fr\) 44px/);
+  assert.match(compacto, /min-height:calc\(var\(--ptv-safe-top,env\(safe-area-inset-top\)\) \+ 88px\)/);
   assert.match(compacto, /\.pestana\.fija \.pestana-txt\s*\{[^}]*overflow:\s*visible/s);
   assert.match(compacto, /\.compact-actions-btn\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
   assert.match(compacto, /\.compact-sheet-list button\s*\{[^}]*min-height:\s*56px/s);
+  assert.match(compacto, /\.compact-sheet-list button\[hidden\]\s*\{\s*display:\s*none/s);
+  assert.match(MAIN, /data-compact-source="reanclar-btn"/);
+});
+
+test('al salir de compacto se restaura también el indicador de lista o mosaico', () => {
+  assert.match(MAIN, /reflejarModoDeVista\('#view-grid-btn', '#view-list-btn', modoProyectoAntesDeCompacto\)/);
+  assert.match(MAIN, /reflejarModoDeVista\('#tpl-view-grid-btn', '#tpl-view-list-btn', modoPlantillasAntesDeCompacto\)/);
+});
+
+test('Escape deja cerrar primero diálogos y menús antes de plegar el rail', () => {
+  assert.match(MAIN, /function hayCapaConEscapePropio\(\)/);
+  assert.match(MAIN, /\.aj-overlay:not\(\[hidden\]\)/);
+  assert.match(MAIN, /\.tour-overlay/);
+  assert.match(MAIN, /\.menu-modulos/);
+  assert.match(MAIN, /!railPlegado\(\) && !hayCapaConEscapePropio\(\)/);
+});
+
+test('Guion literario ofrece selector táctil de tipos sobre visualViewport', () => {
+  assert.match(EDITOR_GUION, /window\.visualViewport/);
+  assert.match(EDITOR_GUION, /className="guion-tipos-barra no-print"/);
+  assert.match(EDITOR_GUION, /onPointerDown=\{\(e\) => \{ e\.preventDefault\(\); cambiarTipoEnfocado\(tipo\); \}\}/);
+  assert.match(GENERADOR_STYLE, /\.guion-tipos-scroll button\s*\{[^}]*min-height:44px!important/s);
+  assert.match(GENERADOR_STYLE, /\.guion-bloque-texto\s*\{\s*min-height:44px!important/s);
 });

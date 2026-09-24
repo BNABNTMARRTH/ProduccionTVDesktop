@@ -3,6 +3,7 @@
 /* Banco reproducible para medir la interfaz real servida desde frontend/dist.
    No forma parte de la aplicación: deja sus JSON y capturas fuera del repo. */
 import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -12,9 +13,17 @@ const playwrightPath = process.env.PTV_PLAYWRIGHT
 const { chromium } = require(playwrightPath);
 
 const repo = path.resolve(process.argv[2] || '.');
-const dist = path.join(repo, 'frontend', 'dist');
+const dist = path.resolve(process.env.PTV_DIST || path.join(repo, 'frontend', 'dist'));
 const outDir = path.resolve(process.env.OUT || '/private/tmp/ptv-audit');
 const mode = process.env.AUDIT_MODE || 'compact';
+const safeArea = {
+  top: Number(process.env.SAFE_TOP || 0),
+  right: Number(process.env.SAFE_RIGHT || 0),
+  bottom: Number(process.env.SAFE_BOTTOM || 0),
+  left: Number(process.env.SAFE_LEFT || 0),
+  legacyBodyPadding: process.env.SAFE_LEGACY === '1',
+};
+const auditNow = process.env.AUDIT_NOW ? Number(process.env.AUDIT_NOW) : null;
 const liveProject = process.env.PTV_LIVE
   || path.join(process.env.HOME, 'Documents/ProduccionTV/project-mtf1u2jv-966xe.ptv');
 const narrativeProject = process.env.PTV_NARRATIVE
@@ -57,7 +66,12 @@ async function closeSurface(page) {
 }
 
 const bridge = fs.readFileSync(path.join(repo, 'ios/ProduccionTV/Recursos/puente-ios.js'), 'utf8');
-const ipad = fs.readFileSync(path.join(repo, 'ios/ProduccionTV/Recursos/adaptacion-ipad.js'), 'utf8').replace(/\u2028/g, '');
+const ipad = (process.env.PTV_BASELINE_COMMIT
+  ? execFileSync('git', [
+      'show', `${process.env.PTV_BASELINE_COMMIT}:ios/ProduccionTV/Recursos/adaptacion-ipad.js`,
+    ], { cwd: repo, encoding: 'utf8' })
+  : fs.readFileSync(path.join(repo, 'ios/ProduccionTV/Recursos/adaptacion-ipad.js'), 'utf8'))
+  .replace(/\u2028/g, '');
 
 function bundleInfo(file) {
   const text = fs.readFileSync(file, 'utf8');
@@ -71,6 +85,7 @@ async function makePage(width, height, projectFile = null) {
   const browser = await launchAuditBrowser();
   const page = await browser.newPage({
     viewport: { width, height }, hasTouch: true, isMobile: width < 768, deviceScaleFactor: width < 768 ? 3 : 1,
+    colorScheme: 'dark',
   });
   await page.route('http://ptv.local/**', async (route) => {
     const url = new URL(route.request().url());
@@ -93,9 +108,35 @@ async function makePage(width, height, projectFile = null) {
     context = { mode: 'project', projectID: info.project.id, projectJSON: info.text };
   }
   await page.addInitScript({ content: `
+    if (${JSON.stringify(auditNow)} !== null) {
+      const FechaReal = Date;
+      const instanteAuditoria = ${JSON.stringify(auditNow)};
+      window.Date = class extends FechaReal {
+        constructor(...args) { super(...(args.length ? args : [instanteAuditoria])); }
+        static now() { return instanteAuditoria; }
+      };
+    }
     window.__ctx=${JSON.stringify(context)};
     window.__archivos=${JSON.stringify(bundles)};
     window.__proyectoActual=${JSON.stringify(currentText)};
+    window.__ptvAuditSafeArea=${JSON.stringify(safeArea)};
+    const aplicarSafeAreaDeAuditoria = () => {
+      const a = window.__ptvAuditSafeArea;
+      for (const [lado, valor] of Object.entries(a)) {
+        if (lado === 'legacyBodyPadding') continue;
+        document.documentElement.style.setProperty('--ptv-safe-' + lado, valor + 'px');
+      }
+      /* Reproduce el contrato anterior: el documento exterior perdía esos
+         puntos porque el relleno estaba fuera del shell. */
+      if (a.legacyBodyPadding && window.top === window) {
+        document.body.style.setProperty('padding-top', a.top + 'px', 'important');
+        document.body.style.setProperty('padding-right', a.right + 'px', 'important');
+        document.body.style.setProperty('padding-bottom', a.bottom + 'px', 'important');
+        document.body.style.setProperty('padding-left', a.left + 'px', 'important');
+      }
+    };
+    if (document.documentElement && document.body) aplicarSafeAreaDeAuditoria();
+    else document.addEventListener('DOMContentLoaded', aplicarSafeAreaDeAuditoria, { once: true });
   ` });
   await page.addInitScript({ content: `
     window.webkit={messageHandlers:{producciontv:{postMessage:(m)=>{
@@ -274,6 +315,8 @@ async function auditFrame(frame, documentName) {
       document: name,
       viewport: [root.clientWidth, root.clientHeight],
       layout: root.dataset.layout || body?.dataset.layout || '',
+      bodyPaddingBottom: body ? getComputedStyle(body).paddingBottom : '',
+      safeAreaBottom: getComputedStyle(root).getPropertyValue('--ptv-safe-bottom').trim(),
       interactive: interactive.length,
       touchSmall,
       clippedText,
@@ -286,6 +329,21 @@ async function auditFrame(frame, documentName) {
 
 async function auditScreen(page, label, screenshot = false) {
   await page.waitForTimeout(350);
+  const geometry = await page.evaluate(() => {
+    const box = (selector) => {
+      const element = document.querySelector(selector);
+      if (!element || element.hidden || getComputedStyle(element).display === 'none') return null;
+      const rect = element.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, bottom: rect.bottom };
+    };
+    const style = getComputedStyle(document.body);
+    const root = getComputedStyle(document.documentElement);
+    return {
+      bodyPadding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft],
+      safeArea: ['top', 'right', 'bottom', 'left'].map((lado) => root.getPropertyValue(`--ptv-safe-${lado}`).trim()),
+      header: box('#workspace-header'), logo: box('#logo-btn'), content: box('#frame-wrap'),
+    };
+  });
   const documents = [await auditFrame(page.mainFrame(), 'shell')];
   for (const frame of page.frames().filter((item) => item !== page.mainFrame())) {
     try {
@@ -306,7 +364,7 @@ async function auditScreen(page, label, screenshot = false) {
     overlaps: sum.overlaps + document.overlaps.length,
     horizontalOverflowDocuments: sum.horizontalOverflowDocuments + (document.horizontalOverflow > 0 ? 1 : 0),
   }), { interactive: 0, touchSmall: 0, clippedText: 0, overlaps: 0, horizontalOverflowDocuments: 0 });
-  return { label, totals, documents };
+  return { label, totals, geometry, documents };
 }
 
 async function selectProjectView(page, stage, section) {
@@ -391,11 +449,122 @@ async function visualAudit() {
   return report;
 }
 
+async function reviewAudit() {
+  const report = { generatedAt: new Date().toISOString(), mode, checks: {} };
+
+  const launcher = await makePage(402, 874);
+  await launcher.evaluate(() => document.querySelector('#compact-actions-btn')?.click());
+  report.checks.homeSheetActions = await launcher.locator('.compact-sheet-list button:not([hidden]) span')
+    .allTextContents();
+  await launcher.evaluate(() => document.querySelector('#compact-actions-close')?.click());
+
+  await launcher.locator('#logo-btn').click();
+  await launcher.locator('#rail-ajustes-btn').click();
+  await launcher.locator('.menu-ajustes [data-accion="configuracion"]').click();
+  await launcher.keyboard.press('Escape');
+  report.checks.escapePrecedence = await launcher.evaluate(() => ({
+    settingsClosed: !!document.querySelector('.aj-overlay')?.hidden,
+    railRemainsOpen: !document.querySelector('#app-shell')?.classList.contains('rail-plegado'),
+  }));
+  await closeSurface(launcher);
+
+  const restoration = await makePage(820, 900);
+  await restoration.evaluate(() => {
+    document.querySelector('#view-list-btn')?.click();
+    document.querySelector('#tpl-view-list-btn')?.click();
+  });
+  await restoration.setViewportSize({ width: 402, height: 874 });
+  await restoration.waitForTimeout(250);
+  await restoration.setViewportSize({ width: 820, height: 900 });
+  await restoration.waitForTimeout(250);
+  report.checks.restoredViewIndicators = await restoration.evaluate(() => ({
+    projectsGrid: document.querySelector('#view-grid-btn')?.classList.contains('active'),
+    projectsList: document.querySelector('#view-list-btn')?.classList.contains('active'),
+    templatesGrid: document.querySelector('#tpl-view-grid-btn')?.classList.contains('active'),
+    templatesList: document.querySelector('#tpl-view-list-btn')?.classList.contains('active'),
+  }));
+  await closeSurface(restoration);
+
+  const project = await makePage(402, 874, narrativeProject);
+  await selectProjectView(project, 'guion', 'guionLiterario');
+  await project.locator('#compact-actions-btn').click({ force: true });
+  report.checks.projectSheetActions = await project.locator('.compact-sheet-list button:not([hidden]) span')
+    .allTextContents();
+  await closeSurface(project);
+
+  return report;
+}
+
+async function focusedGuionAudit() {
+  const width = Number(process.env.FOCUS_W || 402);
+  const height = Number(process.env.FOCUS_H || 874);
+  const report = { generatedAt: new Date().toISOString(), mode, safeArea, screens: [] };
+  const page = await makePage(width, height, narrativeProject);
+  await selectProjectView(page, 'guion', 'guionLiterario');
+  const tool = page.frames().find((frame) => frame !== page.mainFrame() && frame.url().includes('/infografias/'));
+  let typeInteraction = null;
+  if (tool) {
+    await tool.locator('textarea').first().focus();
+    await tool.evaluate(() => {
+      const viewport = window.visualViewport;
+      if (!viewport) return;
+      const alto = Math.max(260, viewport.height - 300);
+      try {
+        Object.defineProperty(viewport, 'height', { configurable: true, get: () => alto });
+        Object.defineProperty(viewport, 'offsetTop', { configurable: true, get: () => 0 });
+      } catch { /* WebKit/Chromium puede no permitir redefinir el objeto nativo. */ }
+      viewport.dispatchEvent(new Event('resize'));
+    });
+    await page.waitForTimeout(200);
+    const personButton = tool.locator('.guion-tipos-scroll button').filter({ hasText: 'Personaje' });
+    if (await personButton.count()) {
+      const focusedBefore = await tool.evaluate(() => document.activeElement?.tagName || '');
+      await personButton.click();
+      await page.waitForTimeout(80);
+      typeInteraction = await tool.evaluate((before) => ({
+        focusedBefore: before,
+        focusedAfter: document.activeElement?.tagName || '',
+        selectedType: document.querySelector('.guion-tipos-scroll button[aria-pressed="true"]')?.textContent?.trim() || '',
+      }), focusedBefore);
+    }
+  }
+  const screen = await auditScreen(page, `${width}x${height}-guion-teclado`, true);
+  if (tool) {
+    screen.editor = await tool.evaluate(() => {
+      const active = document.activeElement;
+      const bar = document.querySelector('.guion-tipos-barra');
+      const labels = [...document.querySelectorAll('textarea + span.no-print, .guion-tipo-etiqueta')]
+        .filter((el) => el.offsetParent);
+      const barRect = bar?.getBoundingClientRect();
+      return {
+        focused: active?.tagName || '',
+        typeBarVisible: !!bar && getComputedStyle(bar).display !== 'none' && barRect.width > 0 && barRect.height > 0,
+        typeBarRect: barRect ? barRect.toJSON() : null,
+        visibleTypeLabels: labels.length,
+        activeBlockHeight: active?.closest('.guion-bloque')?.getBoundingClientRect().height
+          || active?.getBoundingClientRect().height
+          || null,
+      };
+    });
+    screen.editor.typeInteraction = typeInteraction;
+  }
+  report.screens.push(screen);
+  await closeSurface(page);
+  return report;
+}
+
 try {
-  const report = mode === 'visual' ? await visualAudit() : await compactAudit();
+  const report = mode === 'visual' ? await visualAudit()
+    : mode === 'review' ? await reviewAudit()
+    : mode === 'guion-focus' ? await focusedGuionAudit()
+      : await compactAudit();
   const reportPath = path.join(outDir, 'report.json');
   fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
-  console.log(JSON.stringify(report.screens.map(({ label, totals }) => ({ label, ...totals })), null, 2));
+  if (report.screens) {
+    console.log(JSON.stringify(report.screens.map(({ label, totals }) => ({ label, ...totals })), null, 2));
+  } else {
+    console.log(JSON.stringify(report.checks, null, 2));
+  }
   console.log(`Reporte: ${reportPath}`);
 } finally {
   await Promise.all([...browsers].map((browser) => browser.close().catch(() => {})));

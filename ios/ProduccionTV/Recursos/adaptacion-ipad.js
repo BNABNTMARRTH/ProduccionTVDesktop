@@ -40,6 +40,10 @@
     var reglas = [
       'html{overscroll-behavior:none}',
       'body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent}',
+      ':root{--ptv-safe-top:env(safe-area-inset-top);',
+      '      --ptv-safe-right:env(safe-area-inset-right);',
+      '      --ptv-safe-bottom:env(safe-area-inset-bottom);',
+      '      --ptv-safe-left:env(safe-area-inset-left)}',
       /* Mantener apretado un botón no saca la lupa ni el menú de copiar. */
       'button,a,label,summary,[role="button"],[data-modulo],[data-pestana],[data-view],[data-etapa]{',
       '  -webkit-touch-callout:none;-webkit-user-select:none;user-select:none}',
@@ -50,11 +54,24 @@
     if (esElDeAfuera) {
       reglas.push(
         '@supports (padding:env(safe-area-inset-top)){',
-        '  body{box-sizing:border-box;',
-        '       padding-top:env(safe-area-inset-top);',
-        '       padding-right:env(safe-area-inset-right);',
-        '       padding-bottom:env(safe-area-inset-bottom);',
-        '       padding-left:env(safe-area-inset-left)}}'
+        /* iPad y escritorio conservan el lienzo interior que ya tenían. En
+           iPhone el shell pinta detrás de la hora y reparte cada inset dentro
+           del encabezado o del scroll que realmente lo necesita. */
+        '  :root:not([data-layout="compact"]) body{box-sizing:border-box;',
+        '       padding-top:var(--ptv-safe-top,env(safe-area-inset-top));',
+        '       padding-right:var(--ptv-safe-right,env(safe-area-inset-right));',
+        '       padding-bottom:var(--ptv-safe-bottom,env(safe-area-inset-bottom));',
+        '       padding-left:var(--ptv-safe-left,env(safe-area-inset-left))}',
+        '  :root[data-layout="compact"] body{box-sizing:border-box;padding:0}}'
+      );
+    } else {
+      reglas.push(
+        '@supports (padding:env(safe-area-inset-bottom)){',
+        /* El iframe llega al borde inferior en iPhone. Este relleno forma parte
+           de su documento desplazable, para que el último control pueda subir
+           por encima del indicador de inicio. */
+        '  :root[data-layout="compact"] body{box-sizing:border-box;',
+        '       padding-bottom:var(--ptv-safe-bottom,env(safe-area-inset-bottom))}}'
       );
     }
     var hoja = document.createElement('style');
