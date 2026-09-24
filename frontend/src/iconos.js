@@ -43,6 +43,8 @@ const TRAZOS = {
   cerrar: '<path d="M7 7l10 10M17 7L7 17"/>',
   // Más: agregar una pestaña.
   mas: '<path d="M12 5.5v13M5.5 12h13"/>',
+  // Más acciones: los puntos horizontales son el patrón de desbordamiento de iOS.
+  masAcciones: '<circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/>',
   // Casa / Inicio: volver a la pantalla de proyectos y plantillas.
   casa: '<path d="M3 10.5L12 3l9 7.5V20a1.5 1.5 0 01-1.5 1.5h-4.5v-6h-6v6H4.5A1.5 1.5 0 013 20v-9.5z"/>',
   // Búsqueda Apple

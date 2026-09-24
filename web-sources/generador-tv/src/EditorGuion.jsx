@@ -275,7 +275,7 @@ export function EditorGuion({ cfg, setCfg }) {
             de un instrumento. Antes era texto gris de paso junto al título y
             el usuario ni lo veía. */}
         <div className="flex items-baseline gap-2">
-          <span className="mono" style={{ fontSize: 30, fontWeight: 600, lineHeight: 1,
+          <span className="mono" style={{ fontSize: 30, fontWeight: 600, lineHeight: 1.1,
             letterSpacing: "-.03em", color: "var(--gel-t)" }}>{medidas.paginas.toFixed(1)}</span>
           <span className="cond" style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".14em",
             textTransform: "uppercase", color: "var(--tinta-baja)" }}>páginas</span>

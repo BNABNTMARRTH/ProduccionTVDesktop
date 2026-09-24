@@ -276,6 +276,8 @@ document.querySelector('#app').innerHTML = `
           </span>
           <button id="tour-btn" title="Recorrido guiado: cómo usar la app paso a paso">${icono('ayuda', 17)}</button>
           <button id="desanclar-btn" title="Desanclar esta sección en su propia pestaña (⌘D)${globalThis.__ptvSinVentanas ? '' : '. Después puedes arrastrar la pestaña fuera para abrirla en otra ventana'}.">${icono('desanclar', 17)}</button>
+          <button class="compact-only compact-actions-btn" id="compact-actions-btn" type="button"
+            aria-label="Más acciones" aria-haspopup="dialog" aria-expanded="false">${icono('masAcciones', 21)}</button>
         </div>
       </header>
       <section class="home-view" id="home-view">
@@ -374,7 +376,28 @@ document.querySelector('#app').innerHTML = `
       <section class="production-view" id="production-view"></section>
       <div class="export-toast" id="export-toast"></div>
     </main>
+    <button class="compact-only compact-rail-scrim" id="compact-rail-scrim" type="button" tabindex="-1" aria-label="Cerrar menú de navegación"></button>
   </div>
+  <button class="compact-only compact-sheet-scrim" id="compact-sheet-scrim" type="button" tabindex="-1" aria-label="Cerrar acciones"></button>
+  <section class="compact-only compact-actions-sheet" id="compact-actions-sheet" role="dialog" aria-modal="true"
+    aria-labelledby="compact-actions-title" hidden>
+    <div class="compact-sheet-handle" aria-hidden="true"></div>
+    <div class="compact-sheet-heading">
+      <div>
+        <span>PROYECTO</span>
+        <h2 id="compact-actions-title">Acciones</h2>
+      </div>
+      <button type="button" id="compact-actions-close" aria-label="Cerrar acciones">${icono('cerrar', 20)}</button>
+    </div>
+    <div class="compact-sheet-list">
+      <button type="button" data-compact-source="undo-btn">${icono('deshacer', 20)}<span>Deshacer</span></button>
+      <button type="button" data-compact-source="redo-btn">${icono('rehacer', 20)}<span>Rehacer</span></button>
+      <button type="button" data-compact-source="guia-btn">${icono('guia', 20)}<span>Guía del módulo</span></button>
+      <button type="button" data-compact-source="tour-btn">${icono('ayuda', 20)}<span>Recorrido guiado</span></button>
+      <button type="button" data-compact-source="desanclar-btn">${icono('desanclar', 20)}<span>Abrir módulo en una pestaña</span></button>
+      <button type="button" data-compact-command="modulos">${icono('mas', 20)}<span>Abrir otro módulo</span></button>
+    </div>
+  </section>
   ${showWelcome ? `
   <div class="welcome-overlay" id="welcome-overlay" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
     <div class="welcome-card">
@@ -466,6 +489,83 @@ const panelLifecycle = new PanelLifecycleManager({
 const railButtons = [...document.querySelectorAll('[data-etapa]')];
 const toast = document.querySelector('#export-toast');
 let toastTimer;
+
+/* En iPhone las acciones secundarias no compiten por los pocos puntos del
+   encabezado. Viven en una hoja inferior con renglones completos de 56 pt;
+   los botones originales siguen siendo la fuente de verdad para no duplicar
+   la lógica del generador, el recorrido ni el desanclado. */
+const compactActionsBtn = document.querySelector('#compact-actions-btn');
+const compactActionsSheet = document.querySelector('#compact-actions-sheet');
+const compactSheetScrim = document.querySelector('#compact-sheet-scrim');
+const compactRailScrim = document.querySelector('#compact-rail-scrim');
+
+function esLayoutCompacto() {
+    return document.documentElement.dataset.layout === 'compact';
+}
+
+function sincronizarAccionesCompactas() {
+    if (!compactActionsSheet) return;
+    compactActionsSheet.querySelectorAll('[data-compact-source]').forEach((proxy) => {
+        const fuente = document.getElementById(proxy.dataset.compactSource);
+        const caja = fuente?.closest('#tool-acciones');
+        const oculto = !fuente || fuente.hidden || (caja && caja.hidden);
+        proxy.hidden = !!oculto;
+        proxy.disabled = !!fuente?.disabled;
+        proxy.classList.toggle('on', !!fuente?.classList.contains('on'));
+        if (fuente?.hasAttribute('aria-pressed')) {
+            proxy.setAttribute('aria-pressed', fuente.getAttribute('aria-pressed'));
+        } else {
+            proxy.removeAttribute('aria-pressed');
+        }
+    });
+}
+
+function cerrarAccionesCompactas({ devolverFoco = true } = {}) {
+    if (!compactActionsSheet || compactActionsSheet.hidden) return;
+    compactActionsSheet.hidden = true;
+    compactSheetScrim?.classList.remove('visible');
+    compactActionsBtn?.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('compact-sheet-open');
+    if (devolverFoco) compactActionsBtn?.focus({ preventScroll: true });
+}
+
+function abrirAccionesCompactas() {
+    if (!esLayoutCompacto() || !compactActionsSheet) return;
+    sincronizarAccionesCompactas();
+    compactActionsSheet.hidden = false;
+    compactSheetScrim?.classList.add('visible');
+    compactActionsBtn?.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('compact-sheet-open');
+    compactActionsSheet.querySelector('button:not([hidden]):not(:disabled)')?.focus({ preventScroll: true });
+}
+
+compactActionsBtn?.addEventListener('click', abrirAccionesCompactas);
+document.querySelector('#compact-actions-close')?.addEventListener('click', () => cerrarAccionesCompactas());
+compactSheetScrim?.addEventListener('click', () => cerrarAccionesCompactas());
+compactRailScrim?.addEventListener('click', () => plegarRailSinAnimacion());
+compactActionsSheet?.addEventListener('click', (event) => {
+    const boton = event.target.closest('button[data-compact-source], button[data-compact-command]');
+    if (!boton) return;
+    if (boton.dataset.compactCommand === 'modulos') {
+        cerrarAccionesCompactas({ devolverFoco: false });
+        menuDeModulos(compactActionsBtn);
+        return;
+    }
+    const fuente = document.getElementById(boton.dataset.compactSource);
+    cerrarAccionesCompactas({ devolverFoco: false });
+    fuente?.click();
+});
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !compactActionsSheet?.hidden) {
+        event.preventDefault();
+        event.stopPropagation();
+        cerrarAccionesCompactas();
+    } else if (event.key === 'Escape' && esLayoutCompacto() && !railPlegado()) {
+        event.preventDefault();
+        event.stopPropagation();
+        plegarRailSinAnimacion();
+    }
+}, true);
 
 /* ---------------- LA BARRA DE ETAPAS SE METE AL LOGO ----------------------
 El logo hace de interruptor de la barra lateral. Al plegarla, cada botón de
@@ -649,7 +749,21 @@ function desplegarRail() {
     }, VUELO_MS + 80 + botonesRail().length * PASO_MS);
 }
 
-logoBtn.onclick = () => (railPlegado() ? desplegarRail() : plegarRail());
+logoBtn.onclick = () => {
+    if (!esLayoutCompacto()) {
+        if (railPlegado()) desplegarRail();
+        else plegarRail();
+        return;
+    }
+    /* El vuelo lateral fue concebido para monitor. En teléfono la navegación
+       es una hoja y debe responder al toque sin congelar ni estrechar el iframe. */
+    if (railPlegado()) {
+        shell.classList.remove('rail-plegado', 'plegando', 'desplegando', 'maniobra');
+        pintarLogo();
+    } else {
+        plegarRailSinAnimacion();
+    }
+};
 
 /* En un ancho de iPhone la barra abierta se comería justo el espacio que hace
    utilizables Inicio, Plantillas y la herramienta. Se pliega sin vuelo al
@@ -669,8 +783,42 @@ function plegarRailSinAnimacion() {
 /* ---- GESTOR RESPONSIVO GOF (MOBILE-FIRST / SPLIT VIEW / MONITORES) ----
    El único contrato visual es data-layout, escrito por el gestor y leído por
    style.css. Ya no hay variables responsivas en línea que compitan con él. */
+let layoutAnterior = '';
+let modoProyectoAntesDeCompacto = 'grid';
+let modoPlantillasAntesDeCompacto = 'grid';
 globalResponsiveManager.subscribe((layoutState) => {
-    if (layoutState.isCompact) plegarRailSinAnimacion();
+    if (layoutState.isCompact) {
+        plegarRailSinAnimacion();
+        cerrarAccionesCompactas({ devolverFoco: false });
+        if (layoutAnterior !== 'compact') {
+            modoProyectoAntesDeCompacto = projectViewContext.getMode();
+            modoPlantillasAntesDeCompacto = templateViewContext.getMode();
+        }
+        /* Una tabla ancha no se vuelve móvil por encogerla: en iPhone se usa
+           siempre la tarjeta de una columna y al salir se restaura la elección. */
+        projectViewContext.setStrategy(new GridViewStrategy(), 'grid');
+        templateViewContext.setStrategy(new TemplateGridViewStrategy(), 'grid');
+        document.querySelector('#view-grid-btn')?.classList.add('active');
+        document.querySelector('#view-list-btn')?.classList.remove('active');
+        document.querySelector('#tpl-view-grid-btn')?.classList.add('active');
+        document.querySelector('#tpl-view-list-btn')?.classList.remove('active');
+    } else if (layoutAnterior === 'compact') {
+        projectViewContext.setStrategy(
+            modoProyectoAntesDeCompacto === 'list' ? new ListViewStrategy() : new GridViewStrategy(),
+            modoProyectoAntesDeCompacto,
+        );
+        templateViewContext.setStrategy(
+            modoPlantillasAntesDeCompacto === 'list' ? new TemplateListViewStrategy() : new TemplateGridViewStrategy(),
+            modoPlantillasAntesDeCompacto,
+        );
+    }
+    if (layoutAnterior !== layoutState.name) {
+        try {
+            if (typeof renderRecent === 'function') renderRecent();
+            if (typeof renderPlantillas === 'function') renderPlantillas();
+        } catch (_) {}
+    }
+    layoutAnterior = layoutState.name;
     try {
         const aviso = {
             type: 'producciontv:layout-changed',
@@ -1547,13 +1695,15 @@ function pintarAccionesHerramienta() {
     const caja = document.querySelector('#tool-acciones');
     if (!caja) return;
     caja.hidden = !esGenerador(vistaVisible());
-    if (caja.hidden) return;
-    const ui = panelAlFrente()?.ui || {};
-    document.querySelector('#undo-btn').disabled = !ui.canUndo;
-    document.querySelector('#redo-btn').disabled = !ui.canRedo;
-    const guia = document.querySelector('#guia-btn');
-    guia.classList.toggle('on', !!ui.guia);
-    guia.setAttribute('aria-pressed', String(!!ui.guia));
+    if (!caja.hidden) {
+        const ui = panelAlFrente()?.ui || {};
+        document.querySelector('#undo-btn').disabled = !ui.canUndo;
+        document.querySelector('#redo-btn').disabled = !ui.canRedo;
+        const guia = document.querySelector('#guia-btn');
+        guia.classList.toggle('on', !!ui.guia);
+        guia.setAttribute('aria-pressed', String(!!ui.guia));
+    }
+    sincronizarAccionesCompactas();
 }
 
 function activarPestana(id) {

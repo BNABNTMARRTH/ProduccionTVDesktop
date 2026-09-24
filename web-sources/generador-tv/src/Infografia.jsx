@@ -194,8 +194,8 @@ export function Infografia({ cfg, setCfg }) {
         }}
       >
         {/* Encabezado Editorial Apple */}
-        <div className="flex items-stretch gap-4 mb-4 pb-4 border-b border-white/10">
-          <div className="cond flex items-center justify-center text-center rounded-xl border border-white/15 bg-white/[0.04] font-bold uppercase w-44 p-2">
+        <div className="infografia-cabecera flex items-stretch gap-4 mb-4 pb-4 border-b border-white/10">
+          <div className="infografia-marca cond flex items-center justify-center text-center rounded-xl border border-white/15 bg-white/[0.04] font-bold uppercase w-44 p-2">
             {cfg.branding?.logoDataUrl ? (
               <img src={cfg.branding.logoDataUrl} alt={cfg.organizacion} style={{ maxWidth: "100%", maxHeight: 58, objectFit: "contain" }} />
             ) : (
@@ -210,7 +210,7 @@ export function Infografia({ cfg, setCfg }) {
               {cfg.subtitulo}
             </p>
           </div>
-          <div className="flex flex-col items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] w-44 p-2">
+          <div className="infografia-duracion flex flex-col items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] w-44 p-2">
             <span className="cond uppercase font-bold text-xs text-white/50 tracking-wider">Duración</span>
             <span className="cond font-bold text-2xl text-white leading-none mt-1">{fmt(total)}</span>
             <span className="text-[10px] text-white/40 mt-1">{new Date().toLocaleDateString()}</span>

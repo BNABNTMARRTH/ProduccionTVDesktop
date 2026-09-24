@@ -154,11 +154,11 @@ export function VistaSet({ cfg, setCfg }) {
   };
 
   return (
-    <div className="flex h-[calc(100vh-50px)] w-full flex-col overflow-hidden bg-[#0a0f18] text-white select-none">
+    <div className="vista-set flex h-[calc(100vh-50px)] w-full flex-col overflow-hidden bg-[#0a0f18] text-white select-none">
       {/* 1. BARRA SUPERIOR UNIFICADA DE ESTUDIO (macOS Studio Toolbar) */}
-      <div className="no-print z-20 flex h-12 w-full flex-shrink-0 items-center justify-between border-b border-white/10 bg-black/40 px-4 backdrop-blur-xl">
+      <div className="set-toolbar no-print z-20 flex h-12 w-full flex-shrink-0 items-center justify-between border-b border-white/10 bg-black/40 px-4 backdrop-blur-xl">
         {/* Lado Izquierdo: Selector de Sets estilo Segmented Control */}
-        <div className="flex items-center gap-2 overflow-x-auto">
+        <div className="set-toolbar-left flex items-center gap-2 overflow-x-auto">
           <div className="flex items-center rounded-xl bg-white/[0.06] p-1 border border-white/10">
             {sets.map((s) => {
               const esActivo = s.id === activo.id;
@@ -192,7 +192,7 @@ export function VistaSet({ cfg, setCfg }) {
         </div>
 
         {/* Centro: Herramientas del Canvas y Reacomodo Inteligente */}
-        <div className="flex items-center gap-2">
+        <div className="set-toolbar-center flex items-center gap-2">
           {/* Toggles de Guías y Etiquetas */}
           <div className="flex items-center rounded-xl bg-white/[0.06] p-1 border border-white/10">
             <button
@@ -270,7 +270,7 @@ export function VistaSet({ cfg, setCfg }) {
         </div>
 
         {/* Lado Derecho: Ayuda e Inspector Toggle */}
-        <div className="flex items-center gap-2">
+        <div className="set-toolbar-right flex items-center gap-2">
           <TarjetaAyuda
             id="set"
             titulo="Cómo montar tu set de rodaje"
@@ -298,9 +298,9 @@ export function VistaSet({ cfg, setCfg }) {
       </div>
 
       {/* 2. ÁREA DE TRABAJO PRINCIPAL (Canvas 2D + Inspector Lateral) */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="set-workspace flex flex-1 overflow-hidden">
         {/* Canvas Central */}
-        <div className="flex flex-1 flex-col items-center justify-center p-4 overflow-hidden bg-[#0d121c]">
+        <div className="set-canvas flex flex-1 flex-col items-center justify-center p-4 overflow-hidden bg-[#0d121c]">
           <div className="w-full max-w-5xl">
             <EstudioCenital
               key={activo.id}
@@ -320,7 +320,7 @@ export function VistaSet({ cfg, setCfg }) {
 
         {/* Inspector Lateral Derecho (Apple Studio Inspector) */}
         {inspectorOpen && (
-          <aside className="no-print flex w-[350px] flex-shrink-0 flex-col border-l border-white/10 bg-[#111824]/95 backdrop-blur-2xl shadow-2xl overflow-hidden">
+          <aside className="set-inspector no-print flex w-[350px] flex-shrink-0 flex-col border-l border-white/10 bg-[#111824]/95 backdrop-blur-2xl shadow-2xl overflow-hidden">
             {/* Pestañas del Inspector */}
             <div className="flex border-b border-white/10 bg-black/20 p-1">
               {[

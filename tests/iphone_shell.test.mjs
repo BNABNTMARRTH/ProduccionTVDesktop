@@ -36,19 +36,31 @@ test('el puente iOS conserva las cuatro áreas seguras y limita la escala del iP
 
 test('el modo compacto pliega el rail al entrar y deja el logo como salida', () => {
   assert.ok(MAIN.indexOf('function plegarRailSinAnimacion()') < MAIN.indexOf('globalResponsiveManager.subscribe'));
-  assert.match(MAIN, /if \(layoutState\.isCompact\) plegarRailSinAnimacion\(\);/);
+  assert.match(MAIN, /if \(layoutState\.isCompact\)\s*\{\s*plegarRailSinAnimacion\(\);/);
   assert.match(STYLE, /data-layout="compact"/);
   assert.match(STYLE, /rail-plegado \.rail/);
   assert.match(STYLE, /width:\s*0\s*!important/);
-  assert.match(STYLE, /\.rail-logo\s*\{[^}]*width:\s*44px\s*!important[^}]*height:\s*44px\s*!important/s);
+  assert.match(STYLE, /data-layout="compact"\] \.rail-logo\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
+  assert.match(STYLE, /data-layout="compact"\] \.rail-logo,[\s\S]*data-layout="tablet"\] \.rail-logo\s*\{\s*z-index:\s*51\s*!important/);
 });
 
-test('Inicio y Plantillas usan una columna, controles táctiles y desborde desplazable', () => {
+test('Inicio y Plantillas usan tarjetas de una columna y controles táctiles', () => {
   const compacto = STYLE.slice(STYLE.indexOf('1. ESTRATEGIA COMPACTA'), STYLE.indexOf('2. ESTRATEGIA TABLET'));
   assert.match(compacto, /\.proj-grid,/);
   assert.match(compacto, /\.tpl-grid\s*\{/);
-  assert.match(compacto, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*!important/);
-  assert.match(compacto, /\.apple-segmented\s*\{[^}]*overflow-x:\s*auto\s*!important/s);
-  assert.match(compacto, /\.tpl-table-wrap\s*\{[^}]*overflow-x:\s*auto\s*!important/s);
-  assert.match(compacto, /\.header-actions button\s*\{[^}]*width:\s*44px\s*!important[^}]*height:\s*44px\s*!important/s);
+  assert.match(compacto, /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(compacto, /\.apple-segmented\s*\{[^}]*overflow-x:\s*auto/s);
+  assert.match(compacto, /\.view-switcher\s*\{\s*display:\s*none/s);
+  assert.match(compacto, /\.tpl-table-wrap\s*\{\s*display:\s*none/s);
+  assert.match(MAIN, /projectViewContext\.setStrategy\(new GridViewStrategy\(\), 'grid'\)/);
+});
+
+test('el encabezado compacto reserva Proyecto y mueve lo secundario a una hoja', () => {
+  const compacto = STYLE.slice(STYLE.indexOf('1. ESTRATEGIA COMPACTA'), STYLE.indexOf('2. ESTRATEGIA TABLET'));
+  assert.match(MAIN, /id="compact-actions-btn"/);
+  assert.match(MAIN, /id="compact-actions-sheet"/);
+  assert.match(compacto, /grid-template-columns:\s*44px minmax\(100px,1fr\) 44px/);
+  assert.match(compacto, /\.pestana\.fija \.pestana-txt\s*\{[^}]*overflow:\s*visible/s);
+  assert.match(compacto, /\.compact-actions-btn\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
+  assert.match(compacto, /\.compact-sheet-list button\s*\{[^}]*min-height:\s*56px/s);
 });

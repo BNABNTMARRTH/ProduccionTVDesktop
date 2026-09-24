@@ -3,6 +3,37 @@ import ReactDOM from "react-dom/client";
 import GeneradorInfografiaTV from "./GeneradorInfografiaTV.jsx";
 import "./index.css";
 
+/* El iframe es otro documento y no hereda data-layout. Se toma el valor del
+   caparazón antes del primer render para evitar un destello de escritorio y
+   después se sigue el mismo contrato por postMessage. */
+function ponerLayout(layout) {
+  if (!["compact", "tablet", "expanded"].includes(layout)) return;
+  if (layout === "compact") {
+    document.documentElement.dataset.layout = layout;
+    if (document.body) document.body.dataset.layout = layout;
+    return;
+  }
+
+  /* Tablet y escritorio conservaron históricamente el layout responsivo del
+     propio iframe; sólo compact necesita sustituirlo por la arquitectura móvil. */
+  delete document.documentElement.dataset.layout;
+  if (document.body) delete document.body.dataset.layout;
+}
+
+try {
+  if (window.parent !== window) {
+    ponerLayout(window.parent.document.documentElement.dataset.layout);
+  }
+} catch (_) {
+  /* En un origen distinto el mensaje del caparazón llega inmediatamente. */
+}
+
+window.addEventListener("message", (event) => {
+  if (event.data?.type === "producciontv:layout-changed") {
+    ponerLayout(event.data.layout);
+  }
+});
+
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);

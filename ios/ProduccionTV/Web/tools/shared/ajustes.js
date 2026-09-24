@@ -13,6 +13,12 @@
 (function () {
   if (window.parent === window) return;   // abierta suelta: no hay marco que mande
 
+  function ponerLayout(layout) {
+    if (['compact', 'tablet', 'expanded'].indexOf(layout) === -1) return;
+    document.documentElement.dataset.layout = layout;
+    if (document.body) document.body.dataset.layout = layout;
+  }
+
   function poner(a) {
     var raiz = document.documentElement;
     raiz.dataset.contraste = a && a.contraste === 'alto' ? 'alto' : 'normal';
@@ -21,5 +27,10 @@
 
   window.addEventListener('message', function (e) {
     if (e.data && e.data.type === 'producciontv:ajustes') poner(e.data.ajustes);
+    if (e.data && e.data.type === 'producciontv:layout-changed') ponerLayout(e.data.layout);
   });
+
+  /* Mismo origen en la app: esto evita esperar al segundo mensaje de
+     hidratación y hace que el primer cuadro ya use la arquitectura correcta. */
+  try { ponerLayout(window.parent.document.documentElement.dataset.layout); } catch (_) {}
 })();

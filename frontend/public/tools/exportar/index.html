@@ -320,6 +320,89 @@
   @media print{ .export-page{zoom:1!important;display:flex!important} }
   .empty{margin-top:80px;text-align:center;color:var(--tinta-media);font-size:14px;line-height:1.7}
 
+  /* En iPhone configuración y documento forman una sola columna. Cada zona
+     conserva su propio scroll para que el papel siga escalando con precisión,
+     pero ninguna barra ni tabla ensancha el documento raíz. */
+  :root[data-layout="compact"] html,
+  :root[data-layout="compact"] body{width:100%;max-width:100%;overflow:hidden}
+  :root[data-layout="compact"] .layout{
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:minmax(300px,46dvh) minmax(0,1fr);
+    width:100%;height:100dvh;max-height:100dvh;overflow:hidden
+  }
+  :root[data-layout="compact"] .layout.plegado{
+    grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)
+  }
+  :root[data-layout="compact"] .config{
+    width:auto;height:auto;min-width:0;min-height:0;margin:8px 8px 0;
+    border-radius:18px
+  }
+  :root[data-layout="compact"] .config-header{height:56px;min-height:56px;padding:0 12px}
+  :root[data-layout="compact"] .config-header h1{font-size:16px}
+  :root[data-layout="compact"] .plegar{min-width:44px;min-height:44px;padding:0 12px}
+  :root[data-layout="compact"] .config-body{padding:14px;gap:18px}
+  :root[data-layout="compact"] .type-card{min-height:60px;padding:9px 12px}
+  :root[data-layout="compact"] .type-card-badge{width:44px;height:44px;border-radius:10px}
+  :root[data-layout="compact"] .type-card strong{font-size:14px}
+  :root[data-layout="compact"] .type-card small{
+    white-space:normal;overflow:visible;text-overflow:clip;font-size:12px;line-height:1.35
+  }
+  :root[data-layout="compact"] .sec-row{
+    min-height:60px;grid-template-columns:auto minmax(0,1fr) 44px 44px;
+    gap:8px;padding:7px 8px
+  }
+  :root[data-layout="compact"] .sec-row label{min-height:44px;font-size:13px}
+  :root[data-layout="compact"] .sec-row .sec-toggle{
+    min-width:44px;width:44px;height:44px;justify-content:center
+  }
+  :root[data-layout="compact"] .sec-row label span{white-space:normal;overflow:visible;text-overflow:clip}
+  :root[data-layout="compact"] .sec-row button{width:44px;height:44px;border-radius:10px}
+  :root[data-layout="compact"] .sec-sub{margin-left:0;padding:8px;gap:4px 10px}
+  :root[data-layout="compact"] .sec-sub label{min-height:44px;white-space:normal;font-size:13px}
+  :root[data-layout="compact"] .sec-sub input[type=number]{width:64px;min-height:44px;font-size:16px}
+  :root[data-layout="compact"] .config-footer{padding:10px 14px max(12px,env(safe-area-inset-bottom))}
+  :root[data-layout="compact"] .go{height:48px;min-height:48px;font-size:15px}
+  :root[data-layout="compact"] .preview-wrapper{height:auto;max-height:none;min-width:0;min-height:0}
+  :root[data-layout="compact"] .doc-header{min-width:0}
+  :root[data-layout="compact"] .doc-header-main{
+    height:auto;min-height:0;flex-direction:column;align-items:stretch;
+    padding:8px;gap:8px
+  }
+  :root[data-layout="compact"] .doc-header-left,
+  :root[data-layout="compact"] .doc-header-center,
+  :root[data-layout="compact"] .doc-header-right{
+    width:100%;min-height:44px;overflow-x:auto;overflow-y:hidden;
+    justify-content:flex-start;overscroll-behavior-x:contain;scrollbar-width:none
+  }
+  :root[data-layout="compact"] .doc-header-left::-webkit-scrollbar,
+  :root[data-layout="compact"] .doc-header-center::-webkit-scrollbar,
+  :root[data-layout="compact"] .doc-header-right::-webkit-scrollbar,
+  :root[data-layout="compact"] .doc-markup-bar::-webkit-scrollbar{display:none}
+  :root[data-layout="compact"] .doc-header-title{font-size:14px;white-space:nowrap}
+  :root[data-layout="compact"] .doc-sidebar-toggle,
+  :root[data-layout="compact"] .doc-icon-btn,
+  :root[data-layout="compact"] .doc-seg-btn,
+  :root[data-layout="compact"] .doc-action-pill,
+  :root[data-layout="compact"] .doc-primary-pill{
+    min-width:44px;min-height:44px;height:44px;padding:0 12px
+  }
+  :root[data-layout="compact"] .doc-markup-bar{
+    height:60px;min-height:60px;justify-content:flex-start;gap:8px;
+    padding:8px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none
+  }
+  :root[data-layout="compact"] .doc-markup-bar.collapsed{
+    height:0;min-height:0;padding-top:0;padding-bottom:0
+  }
+  :root[data-layout="compact"] .markup-tool-btn,
+  :root[data-layout="compact"] .markup-width-btn,
+  :root[data-layout="compact"] .markup-icon-btn,
+  :root[data-layout="compact"] .markup-color-dot{
+    min-width:44px;width:auto;min-height:44px;height:44px;padding:0 10px
+  }
+  :root[data-layout="compact"] .markup-color-dot{width:44px;padding:0}
+  :root[data-layout="compact"] .preview-scroll-area{padding:8px 0 32px;overflow-x:hidden}
+  :root[data-layout="compact"] .preview{padding:4px 8px;gap:14px;max-width:100%;overflow:hidden}
+
   @media print{
     body{background:#fff;height:auto!important;overflow:visible!important}
     .config,.doc-header,.abrir-panel{display:none!important}
@@ -1397,7 +1480,9 @@
     const list = document.querySelector('#sec-list');
     list.innerHTML = orden.map((s, i) => `
       <div class="sec-row ${s.on ? '' : 'off'}">
-        <input type="checkbox" data-on="${i}" ${s.on ? 'checked' : ''}>
+        <label class="sec-toggle" aria-label="Incluir ${s.label}">
+          <input type="checkbox" data-on="${i}" ${s.on ? 'checked' : ''}>
+        </label>
         <label><span>${s.label}</span></label>
         <button data-up="${i}" ${i === 0 ? 'disabled' : ''} title="Mover arriba">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>

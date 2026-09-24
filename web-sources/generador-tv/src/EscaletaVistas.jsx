@@ -95,8 +95,8 @@ export function Timeline({ rows, byId, total, bloques }) {
         {zoom > 1 && <span style={{ fontSize: 11, color: "var(--ui-tinta-media)" }}>Desliza horizontalmente →</span>}
       </div>
 
-      <div className="overflow-x-auto" style={{ paddingBottom: 4 }}>
-        <div style={{ width: `${Math.round(100 * zoom)}%`, minWidth: "100%" }}>
+      <div className="timeline-scroll overflow-x-auto" style={{ paddingBottom: 4 }}>
+        <div className="timeline-track" style={{ "--timeline-zoom": `${Math.round(100 * zoom)}%`, width: "var(--timeline-zoom)", minWidth: "100%" }}>
           <div className="relative w-full" style={{ height: 16 }}>
             {marks.map((t) => (
               <span key={t} className="absolute font-semibold" style={{

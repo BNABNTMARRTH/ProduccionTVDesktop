@@ -106,7 +106,7 @@ export function VistaEscaleta({ cfg, setCfg }) {
             storyboard, así que viven aquí arriba y no dentro de una pestaña. */}
         <datalist id="gt-planos">{PLANOS.map((p) => <option key={p} value={p} />)}</datalist>
         <datalist id="gt-movs">{MOVIMIENTOS.map((m) => <option key={m} value={m} />)}</datalist>
-        <div className="no-print mx-auto flex items-center gap-1 rounded-lg p-1" style={{ background: "var(--ui-franja)" }}>
+        <div className="escaleta-subtabs no-print mx-auto flex items-center gap-1 rounded-lg p-1" style={{ background: "var(--ui-franja)" }}>
           {!narr && subTab("escaleta", "≡ Escaleta editorial")}
           {subTab("guion", narr ? "✎ Guion técnico" : "✎ Rundown técnico")}
           {subTab("storyboard", "▦ Storyboard")}

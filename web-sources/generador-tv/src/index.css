@@ -947,41 +947,426 @@ details[open] > summary.ptv-plegable .ptv-caret{transform:rotate(90deg)}
 }
 
 /* ==========================================================================
-   ARQUITECTURA FIRST RESPONSIVE (MOBILE-FIRST / SPLIT VIEW) EN HERRAMIENTAS
+   ARQUITECTURA COMPACTA — iPhone
+   ---------------------------------------------------------------------------
+   En 375 pt no se reducen rejillas de escritorio: cada tarjeta y cada campo
+   forman un recorrido vertical. Las tablas técnicas que de verdad necesitan
+   columnas desplazan su propio contenido, nunca el documento completo.
    ========================================================================== */
 
+:root[data-layout="compact"] {
+  --alto:44px;
+  --t-cuerpo:15px;
+  --t-sec:13px;
+  --t-eti:12px;
+  --t-tit:18px;
+  --p-panel:16px;
+  --p-rejilla:12px;
+  --hueco:14px;
+  --hueco-campo:12px;
+}
+:root[data-layout="compact"],
+:root[data-layout="compact"] body,
+:root[data-layout="compact"] #root {
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+}
+:root[data-layout="compact"] .rejilla-tarjetas,
+:root[data-layout="compact"] .rejilla-campos,
+:root[data-layout="compact"] .rejilla-filas,
+:root[data-layout="compact"] .mesa,
+:root[data-layout="compact"] .rejilla-mesa,
+:root[data-layout="compact"] .grid-cols-2,
+:root[data-layout="compact"] .grid-cols-3,
+:root[data-layout="compact"] .grid-cols-4 {
+  grid-template-columns:minmax(0,1fr);
+}
+:root[data-layout="compact"] .b7,
+:root[data-layout="compact"] .b5,
+:root[data-layout="compact"] .b8,
+:root[data-layout="compact"] .b4,
+:root[data-layout="compact"] .rejilla-campos > .col-2 {
+  grid-column:1;
+}
+:root[data-layout="compact"] .rejilla-tarjetas,
+:root[data-layout="compact"] .mesa {
+  min-height:100%;
+  padding:12px;
+}
+:root[data-layout="compact"] .tarjeta {
+  width:100%;
+  min-width:0;
+  border-radius:18px;
+}
+:root[data-layout="compact"] .tarjeta-cab {
+  min-height:56px;
+  padding:10px 14px;
+  align-items:center;
+  line-height:1.3;
+}
+:root[data-layout="compact"] .tarjeta-titulo,
+:root[data-layout="compact"] .tarjeta-resumen-pill {
+  min-width:0;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+:root[data-layout="compact"] .tarjeta-cuerpo {
+  padding:16px;
+}
 :root[data-layout="compact"] .campo,
-body[data-layout="compact"] .campo {
-  width: 100% !important;
+:root[data-layout="compact"] .a-corto,
+:root[data-layout="compact"] .a-medio,
+:root[data-layout="compact"] .a-largo,
+:root[data-layout="compact"] .a-texto {
+  width:100%;
+  max-width:none;
+  min-width:0;
+}
+:root[data-layout="compact"] .campo-caja,
+:root[data-layout="compact"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+:root[data-layout="compact"] select,
+:root[data-layout="compact"] textarea {
+  min-width:0;
+  max-width:100%;
+  min-height:44px!important;
+  box-sizing:border-box;
+  font-size:16px;
+}
+:root[data-layout="compact"] textarea {
+  min-height:88px!important;
+}
+:root[data-layout="compact"] button,
+:root[data-layout="compact"] [role="button"] {
+  min-width:44px!important;
+  min-height:44px!important;
+  white-space:normal;
+}
+:root[data-layout="compact"] summary.ptv-plegable {
+  min-height:44px!important;
+}
+:root[data-layout="compact"] .b,
+:root[data-layout="compact"] .b-agregar,
+:root[data-layout="compact"] .b-chip {
+  min-height:44px;
+  line-height:1.2;
+}
+:root[data-layout="compact"] .b-min,
+:root[data-layout="compact"] .b-ic,
+:root[data-layout="compact"] .tema-btn,
+:root[data-layout="compact"] .color-pill-btn,
+:root[data-layout="compact"] .color-palette-ext-btn {
+  width:44px;
+  min-width:44px;
+  height:44px;
+  min-height:44px;
+}
+:root[data-layout="compact"] .color-pill-circle {
+  width:26px;
+  height:26px;
+}
+:root[data-layout="compact"] label:has(input[type="checkbox"]),
+:root[data-layout="compact"] label:has(input[type="radio"]) {
+  min-height:44px;
+  align-items:center;
+}
+:root[data-layout="compact"] .tarjeta [style*="grid-template-columns"],
+:root[data-layout="compact"] .mesa-luz-toolbar [style*="grid-template-columns"],
+:root[data-layout="compact"] .scrollwrap > [style*="grid-template-columns"] {
+  grid-template-columns:minmax(0,1fr)!important;
+}
+:root[data-layout="compact"] .tarjeta [style*="min-width"],
+:root[data-layout="compact"] .mesa-luz-toolbar [style*="min-width"] {
+  min-width:0!important;
+  max-width:100%;
+}
+:root[data-layout="compact"] .scrollwrap {
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+}
+:root[data-layout="compact"] .scrollwrap > * {
+  max-width:100%;
+}
+:root[data-layout="compact"] table {
+  display:block;
+  width:100%;
+  max-width:100%;
+  overflow-x:auto;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+}
+:root[data-layout="compact"] img,
+:root[data-layout="compact"] video,
+:root[data-layout="compact"] canvas {
+  max-width:100%;
+}
+:root[data-layout="compact"] [class*="w-["] {
+  max-width:100%;
+}
+:root[data-layout="compact"] .mesa-luz-toolbar {
+  padding:14px;
+  border-radius:18px;
+}
+:root[data-layout="compact"] .mesa-luz-topbar,
+:root[data-layout="compact"] .mesa-luz-filtros-row {
+  flex-direction:column;
+  align-items:stretch;
+  gap:10px;
+}
+:root[data-layout="compact"] .mesa-luz-topbar > *,
+:root[data-layout="compact"] .mesa-luz-filtros-row > * {
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%;
+}
+:root[data-layout="compact"] .mesa-luz-color-row {
+  min-height:52px;
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  padding:4px 0 8px;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+}
+:root[data-layout="compact"] .mesa-luz-color-row > .campo-et {
+  flex:0 0 auto;
+  min-width:44px!important;
+  white-space:nowrap;
+}
+:root[data-layout="compact"] .mesa-luz-dropzone {
+  padding:30px 18px;
+}
+:root[data-layout="compact"] .tab-fila,
+:root[data-layout="compact"] .tab-tot {
+  grid-template-columns:minmax(0,1fr);
+  gap:8px;
+}
+:root[data-layout="compact"] .fila-segmento {
+  width:100%;
+  min-width:0;
+}
+:root[data-layout="compact"] .fixed.inset-0 > [class*="w-"] {
+  width:calc(100% - 16px);
+  max-width:calc(100% - 16px);
+  max-height:calc(100dvh - 16px);
+  margin:8px;
+  border-radius:20px;
+  overflow-y:auto;
+}
+:root[data-layout="compact"] .fixed.inset-0.justify-end > [class*="w-"] {
+  width:100%;
+  max-width:100%;
+  margin:0;
+  border-radius:22px 22px 0 0;
+  border-left:0!important;
+}
+:root[data-layout="compact"] .fixed.inset-0.justify-end {
+  align-items:flex-end;
+}
+:root[data-layout="compact"] .fixed.inset-0 .mt-auto.flex {
+  flex-direction:column;
+  align-items:stretch;
+}
+:root[data-layout="compact"] .fixed.inset-0 .mt-auto.flex button {
+  width:100%;
+}
+:root[data-layout="compact"] .infografia-hueco {
+  max-width:100%;
+  overflow:hidden;
+}
+:root[data-layout="compact"] .escaleta-subtabs {
+  width:100%;
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:6px;
+}
+:root[data-layout="compact"] .escaleta-subtabs > button {
+  width:100%;
+  border:1px solid var(--vidrio-borde);
+  background:var(--vidrio-b);
+  border-radius:12px;
+}
+:root[data-layout="compact"] .escaleta-subtabs > span {
+  margin-left:0;
+  display:flex;
+  justify-content:flex-end;
+}
+:root[data-layout="compact"] .timeline-scroll {
+  max-width:100%;
+  overscroll-behavior-x:contain;
+}
+:root[data-layout="compact"] .timeline-track {
+  width:max(720px,var(--timeline-zoom))!important;
+  min-width:720px!important;
 }
 
-@media (max-width: 767px), (max-device-width: 767px) {
-  .campo {
-    width: 100% !important;
-  }
+/* La infografía deja de ser una hoja de escritorio encogida. En iPhone cada
+   sección ocupa el ancho real, el encabezado se apila y solo las tablas o
+   líneas de tiempo conservan desplazamiento horizontal local. */
+:root[data-layout="compact"] .infografia-hueco > .infografia-sheet {
+  zoom:1!important;
+  width:100%!important;
+  max-width:100%;
+  padding:12px!important;
+  border-radius:18px;
+}
+:root[data-layout="compact"] .infografia-cabecera {
+  flex-direction:column;
+  align-items:stretch;
+  gap:10px;
+}
+:root[data-layout="compact"] .infografia-marca,
+:root[data-layout="compact"] .infografia-duracion {
+  width:100%;
+  min-height:64px;
+}
+:root[data-layout="compact"] .infografia-duracion .text-2xl {
+  line-height:1.15;
+}
+:root[data-layout="compact"] .infografia-cabecera h1 {
+  font-size:24px;
+  line-height:1.15;
+  overflow-wrap:anywhere;
+}
+:root[data-layout="compact"] .infografia-cabecera h1,
+:root[data-layout="compact"] .infografia-marca [class*="text-white"],
+:root[data-layout="compact"] .infografia-duracion .text-2xl {
+  color:var(--hoja-tinta);
+}
+:root[data-layout="compact"] .infografia-cabecera p,
+:root[data-layout="compact"] .infografia-duracion [class*="text-white"] {
+  color:var(--hoja-tinta-baja);
+}
+:root[data-layout="compact"] .infografia-sheet > p {
+  line-height:1.45;
+}
+:root[data-layout="compact"] .infografia-sheet .set-studio-canvas-container {
+  min-height:180px;
+}
+:root[data-layout="compact"] .infografia-sheet .set-studio-canvas-container > .no-print {
+  position:static;
+  width:100%;
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) 44px;
+  gap:6px;
+  margin-bottom:8px;
+  padding:0;
+  background:transparent;
+  border:0;
+  box-shadow:none;
+}
+:root[data-layout="compact"] .infografia-sheet .set-studio-canvas-container svg {
+  min-height:180px;
+}
+:root[data-layout="compact"] .infografia-sheet table {
+  min-width:680px;
+}
+:root[data-layout="compact"] .fixed.inset-0.z-50 > div {
+  width:calc(100% - 16px)!important;
+  max-height:calc(100dvh - 16px);
+  margin:8px;
+  padding:18px!important;
+  overflow-y:auto;
+}
 
-  .mesa-luz-topbar {
-    flex-direction: column !important;
-    align-items: stretch !important;
-  }
+/* Set deja el doble panel CAD de macOS. El lienzo y el inspector se recorren
+   uno después del otro; la barra superior se convierte en grupos completos,
+   no en una cinta recortada fuera del teléfono. */
+:root[data-layout="compact"] .vista-set {
+  height:100%;
+  min-height:100%;
+  overflow-x:hidden;
+  overflow-y:auto;
+}
+:root[data-layout="compact"] .set-toolbar {
+  height:auto;
+  min-height:0;
+  flex-direction:column;
+  align-items:stretch;
+  gap:8px;
+  padding:10px 12px;
+}
+:root[data-layout="compact"] .set-toolbar-left,
+:root[data-layout="compact"] .set-toolbar-center,
+:root[data-layout="compact"] .set-toolbar-right {
+  width:100%;
+  min-width:0;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-start;
+  overflow:visible;
+}
+:root[data-layout="compact"] .set-toolbar-left > div,
+:root[data-layout="compact"] .set-toolbar-center > div:first-child {
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+}
+:root[data-layout="compact"] .set-toolbar-left button,
+:root[data-layout="compact"] .set-toolbar-center button,
+:root[data-layout="compact"] .set-toolbar-right button {
+  width:auto;
+  flex:1 1 132px;
+  justify-content:center;
+}
+:root[data-layout="compact"] .set-toolbar-right .b-ic {
+  flex:0 0 44px;
+  width:44px;
+}
+:root[data-layout="compact"] .set-workspace {
+  flex:none;
+  flex-direction:column;
+  overflow:visible;
+}
+:root[data-layout="compact"] .set-canvas {
+  flex:none;
+  width:100%;
+  min-height:260px;
+  padding:12px;
+  overflow:visible;
+}
+:root[data-layout="compact"] .set-inspector {
+  width:100%;
+  flex:none;
+  overflow:visible;
+  border-left:0;
+  border-top:1px solid rgba(255,255,255,.1);
+}
+:root[data-layout="compact"] .set-inspector > div:first-child {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+  padding:8px;
+}
+:root[data-layout="compact"] .set-inspector > div:nth-child(2) {
+  overflow:visible;
+}
 
-  .mesa-luz-topbar input[type="search"] {
-    width: 100% !important;
+/* El iframe puede medir menos de 768px dentro del layout tablet. Este respaldo
+   conserva allí su composición histórica; el rediseño sólo entra con compact. */
+@media (max-width:767px), (max-device-width:767px) {
+  :root:not([data-layout]) .campo {
+    width:100% !important;
   }
-
-  .mesa-luz-filtros-row {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 8px !important;
+  :root:not([data-layout]) .mesa-luz-topbar {
+    flex-direction:column !important;
+    align-items:stretch !important;
   }
-
-  .mesa-luz-color-row {
-    overflow-x: auto !important;
-    padding-bottom: 6px !important;
-    -webkit-overflow-scrolling: touch !important;
+  :root:not([data-layout]) .mesa-luz-topbar input[type="search"] {
+    width:100% !important;
   }
-
-  .tarjeta {
-    padding: 14px 16px !important;
+  :root:not([data-layout]) .mesa-luz-filtros-row {
+    flex-direction:column !important;
+    align-items:flex-start !important;
+    gap:8px !important;
+  }
+  :root:not([data-layout]) .mesa-luz-color-row {
+    overflow-x:auto !important;
+    padding-bottom:6px !important;
+    -webkit-overflow-scrolling:touch !important;
+  }
+  :root:not([data-layout]) .tarjeta {
+    padding:14px 16px !important;
   }
 }
