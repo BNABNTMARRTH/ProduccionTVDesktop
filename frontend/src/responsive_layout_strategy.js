@@ -59,15 +59,6 @@ export class CompactLayoutStrategy extends LayoutStrategy {
   constructor() {
     super('compact', 0, 767);
   }
-
-  apply(rootEl, viewportInfo) {
-    super.apply(rootEl, viewportInfo);
-    // Configuración específica de modo compacto (1 columna, barra lateral compacta 58px)
-    if (rootEl && rootEl.style && rootEl.style.setProperty) {
-      rootEl.style.setProperty('--responsive-columns', '1');
-      rootEl.style.setProperty('--responsive-rail-width', '58px');
-    }
-  }
 }
 
 /**
@@ -77,15 +68,6 @@ export class TabletLayoutStrategy extends LayoutStrategy {
   constructor() {
     super('tablet', 768, 1099);
   }
-
-  apply(rootEl, viewportInfo) {
-    super.apply(rootEl, viewportInfo);
-    // Configuración específica de modo tablet (sidebar compacta 60px, 2 columnas)
-    if (rootEl && rootEl.style && rootEl.style.setProperty) {
-      rootEl.style.setProperty('--responsive-columns', '2');
-      rootEl.style.setProperty('--responsive-rail-width', '60px');
-    }
-  }
 }
 
 /**
@@ -94,15 +76,6 @@ export class TabletLayoutStrategy extends LayoutStrategy {
 export class ExpandedLayoutStrategy extends LayoutStrategy {
   constructor() {
     super('expanded', 1100, Infinity);
-  }
-
-  apply(rootEl, viewportInfo) {
-    super.apply(rootEl, viewportInfo);
-    // Configuración de pantalla de estudio completa (sidebar de iconos 92px, 3+ columnas)
-    if (rootEl && rootEl.style && rootEl.style.setProperty) {
-      rootEl.style.setProperty('--responsive-columns', '3');
-      rootEl.style.setProperty('--responsive-rail-width', '92px');
-    }
   }
 }
 

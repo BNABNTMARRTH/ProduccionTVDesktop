@@ -7,7 +7,7 @@ import WebKit
  El caparazón de Producción TV es HTML, CSS y JavaScript, y funciona. Reescribir
  en SwiftUI las siete etapas, el generador de infografías, el diagrama de señal
  y el modo producción sería tirar la app y volver a empezar — y no haría nada
- que no haga ya. Lo que sí hace falta es que corra dentro de una app de iPadOS
+ que no haga ya. Lo que sí hace falta es que corra dentro de una app de iOS
  de verdad: firmada, instalable, con sus archivos, su impresión y su exportación
  nativas. Eso es lo que hay aquí.
 
@@ -72,8 +72,8 @@ struct ContenedorWeb: UIViewRepresentable {
         // zoom (la lupa del plano, el tamaño de la Configuración).
         vista.scrollView.pinchGestureRecognizer?.isEnabled = false
         if #available(iOS 16.4, *) {
-            // Permite abrir el Inspector web desde Safari en el Mac con el iPad
-            // conectado: es la única forma de ver la consola de la app.
+            // Permite abrir el Inspector web desde Safari en el Mac con el iPhone
+            // o iPad conectado: es la única forma de ver la consola de la app.
             vista.isInspectable = true
         }
 

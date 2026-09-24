@@ -9,6 +9,27 @@ import {
     ReadyState,
 } from '../frontend/src/panel_state_machine.js';
 
+/* ESPERAR LA CONDICIÓN, NUNCA EL RELOJ.
+   Las dos pruebas de abajo dormían 10 ms a ciegas y fallaban ~1 de cada 10
+   corridas con la máquina ocupada. No era un fallo del código: la limpieza de
+   clases sucede tras TRES vueltas al bucle de eventos —`alCompletarHidratacion`
+   encadena dos rAF y `ReadyState.entrar()` agrega otro—, y en Node no hay
+   requestAnimationFrame, así que cada rAF cae en un setTimeout(0). Tres turnos
+   entran de sobra en 10 ms cuando la CPU está libre; cuando no, no.
+   Un número más grande solo haría el susto más raro, no imposible, y de paso
+   volvería lenta toda la suite. Preguntar por la condición termina EN CUANTO
+   pasa —casi siempre en el primer turno— y solo se rinde si de verdad no
+   ocurrió. El techo es un seguro contra cuelgues, no una espera. */
+async function hasta(condicion, queEsperabamos, limiteMs = 2000) {
+    const fin = Date.now() + limiteMs;
+    while (!condicion()) {
+        if (Date.now() > fin) {
+            throw new Error(`Se agotaron ${limiteMs} ms esperando: ${queEsperabamos}`);
+        }
+        await new Promise((seguir) => { setTimeout(seguir, 1); });
+    }
+}
+
 describe('GoF State Pattern: PanelLifecycleManager', () => {
     function crearMock() {
         const classList = new Set();
@@ -69,18 +90,20 @@ describe('GoF State Pattern: PanelLifecycleManager', () => {
         assert.equal(estaHidratado(), true);
     });
 
-    it('transiciona a ReadyState y remueve clases de carga al completar', (t, done) => {
+    it('transiciona a ReadyState y remueve clases de carga al completar', async () => {
         const { manager, panelEl, loadingEl } = crearMock();
         manager.cargar('./tools/infografias/index.html');
         manager.notificarCargado();
         manager.notificarListo();
 
-        setTimeout(() => {
-            assert.equal(manager.obtenerEstado(), 'ReadyState');
-            assert.equal(panelEl.classList.contains('cargando'), false);
-            assert.equal(loadingEl.classList.contains('hidden'), true);
-            done();
-        }, 10);
+        // Quitar 'cargando' es lo ÚLTIMO que ocurre, después de entrar a
+        // ReadyState: esperar por eso es esperar por toda la cadena.
+        await hasta(() => !panelEl.classList.contains('cargando'),
+            "que el panel suelte la clase 'cargando'");
+
+        assert.equal(manager.obtenerEstado(), 'ReadyState');
+        assert.equal(panelEl.classList.contains('cargando'), false);
+        assert.equal(loadingEl.classList.contains('hidden'), true);
     });
 
     it('vuelve a IdleState al llamar dormir()', () => {
@@ -100,14 +123,15 @@ describe('GoF State Pattern: PanelLifecycleManager', () => {
         assert.equal(loadingEl.classList.contains('hidden'), false);
     });
 
-    it('transiciona directamente de IdleState a ReadyState si recibe notificarListo()', (t, done) => {
+    it('transiciona directamente de IdleState a ReadyState si recibe notificarListo()', async () => {
         const { manager, panelEl } = crearMock();
         assert.equal(manager.obtenerEstado(), 'IdleState');
         manager.notificarListo();
         assert.equal(manager.obtenerEstado(), 'ReadyState');
-        setTimeout(() => {
-            assert.equal(panelEl.classList.contains('cargando'), false);
-            done();
-        }, 10);
+
+        await hasta(() => !panelEl.classList.contains('cargando'),
+            "que el panel suelte la clase 'cargando'");
+
+        assert.equal(panelEl.classList.contains('cargando'), false);
     });
 });

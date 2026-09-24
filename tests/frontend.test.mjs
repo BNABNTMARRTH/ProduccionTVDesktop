@@ -1342,6 +1342,10 @@ const MAIN = await (async () => {
   const { readFileSync } = await import('node:fs');
   return readFileSync(new URL('../frontend/src/main.js', import.meta.url), 'utf8');
 })();
+const STYLE = await (async () => {
+  const { readFileSync } = await import('node:fs');
+  return readFileSync(new URL('../frontend/src/style.css', import.meta.url), 'utf8');
+})();
 
 const seccionesDeclaradas = [...MAIN.matchAll(/secciones:\s*\[([\s\S]*?)\]\s*\}/g)]
   .flatMap((m) => [...m[1].matchAll(/\['(\w+)'/g)].map((s) => s[1]));
@@ -1382,4 +1386,25 @@ test('la etapa 1 son Perfil y Mesa de luz: la Escuela de cámara está apagada',
   assert.ok(etapa1.includes("'referencias'"), 'la Mesa de luz sigue en la etapa 1');
   assert.ok(!etapa1.includes("'escuela'"), 'la Escuela de cámara NO vuelve al menú');
   assert.ok(!herramientas.includes('escuela'), 'y sigue dada de baja en toolInfo');
+});
+
+test('el logo sigue activo en Inicio y el pliegue usa el mismo estado', () => {
+  const pintarEspacio = MAIN.slice(
+    MAIN.indexOf('function pintarEspacio()'),
+    MAIN.indexOf('/* ---- LOS BOTONES DE LA HERRAMIENTA', MAIN.indexOf('function pintarEspacio()')),
+  );
+  assert.doesNotMatch(pintarEspacio, /logoBtn\.disabled\s*=/,
+    'Inicio no debe apagar el interruptor de la barra');
+  assert.doesNotMatch(pintarEspacio, /restablecerRail\(\)/,
+    'entrar a Inicio no debe forzar la barra abierta');
+  assert.match(pintarEspacio, /classList\.toggle\('vista-inicio', enInicio\)/,
+    'Inicio necesita conservar el logo donde sí existe un destino');
+  assert.equal([...MAIN.matchAll(/<header class="home-top"/g)].length, 2,
+    'Inicio y Plantillas deben compartir el encabezado al que se le abre espacio');
+  assert.match(STYLE,
+    /\.desktop-shell\.vista-inicio\.rail-plegado \.home-top\{[^}]*padding-left:\s*92px!important[^}]*\}/,
+    'la barra plegada debe apartar Inicio y Plantillas del logo');
+  assert.match(STYLE,
+    /\.desktop-shell\.vista-inicio\.rail-plegado \.rail-logo\{[^}]*z-index:\s*16[^}]*\}/,
+    'la caja transparente del encabezado no debe quedarse con el clic del logo');
 });

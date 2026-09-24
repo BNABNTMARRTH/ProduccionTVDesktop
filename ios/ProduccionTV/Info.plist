@@ -52,7 +52,7 @@
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Para tomar la foto de un cuadro del storyboard con la cámara del iPad.</string>
+	<string>Para tomar la foto de un cuadro del storyboard con la cámara del dispositivo.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Producción TV</string>
 	<key>NSMicrophoneUsageDescription</key>
@@ -77,6 +77,12 @@
 	<false/>
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleLightContent</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

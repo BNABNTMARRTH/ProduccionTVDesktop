@@ -18,7 +18,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Camera, ImagePlus, Palette, Search, Star, Trash2, X } from "lucide-react";
 
-import { Card, Chips, Btn } from "./ui.jsx";
+import { Box, Card, Chips, Btn } from "./ui.jsx";
 import { EMBEDDED } from "./puente.js";
 import { PLANOS, MOVIMIENTOS } from "./catalogos.js";
 import { FORMATOS } from "./proyecto.js";

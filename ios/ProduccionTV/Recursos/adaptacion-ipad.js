@@ -1,6 +1,6 @@
-/* AJUSTES DE LA APP AL CRISTAL DEL IPAD
+/* AJUSTES DE LA APP AL CRISTAL DE iOS
    ---------------------------------------------------------------------------
-   Cosas que en un Mac no existen y en una tableta sí. Va en TODOS los
+   Cosas que en un Mac no existen y en un iPhone o iPad sí. Va en TODOS los
    documentos —el caparazón y cada herramienta dentro de su iframe— porque el
    dedo toca los dos igual; lo que solo tiene sentido en el de afuera (el área
    segura, el color de la hora) va marcado como tal.
@@ -32,7 +32,7 @@
 
     /* 2. EL ÁREA SEGURA, solo en el documento de afuera. La app se pinta de
        borde a borde para que el fondo llegue hasta la orilla, pero su contenido
-       se mete hacia adentro lo que diga iPadOS: así la barra de etapas no queda
+       se mete hacia adentro lo que diga iOS: así la barra de etapas no queda
        debajo de la hora ni el pie debajo del indicador de inicio. El
        border-box es lo que hace que el height:100% de la app siga siendo la
        pantalla y no la pantalla más el margen.
@@ -84,6 +84,12 @@
         (834 ÷ 1.75 = 476 px a tamaño Máximo) y iPadOS lo dibuja 1.75 veces más
         grande — letra incluida, porque escala el dibujo entero y no cada caja.
 
+        En un iPhone no se puede repetir esa cuenta sin límite: 390 ÷ 1.75
+        dejaría apenas 223 px para maquetar el caparazón. Se respeta el tamaño
+        pedido hasta donde siga quedando un lienzo de 320 px, que es el mínimo
+        donde caben los controles compactos. Así la letra sí crece, pero no a
+        costa de volver inalcanzables el encabezado, las pestañas o Plantillas.
+
         Cuando hay escala NO se pone `width`: `width=device-width` obliga a
         maquetar con los 834 px del iPad y entonces la página se sale por la
         derecha. Sin `width`, el ancho lo deduce de la escala, que es justo el
@@ -96,13 +102,26 @@
   var metaVista = null;
   var vistaEscrita = null;
   var escalaPedida = 1;
+  var ANCHO_MINIMO_IPHONE = 320;
+
+  function escalaQueCabeEnEsteDispositivo(escala) {
+    var pantalla = window.screen || {};
+    var lados = [Number(pantalla.width), Number(pantalla.height)]
+      .filter(function (lado) { return lado > 0; });
+    var ladoCorto = lados.length ? Math.min.apply(Math, lados) : Infinity;
+    /* El lado corto separa al iPhone incluso al girarlo; usar innerWidth haría
+       que un iPad en Split View perdiera el aumento que ya funciona bien. */
+    if (ladoCorto >= 600) return escala;
+    return Math.min(escala, Math.max(1, ladoCorto / ANCHO_MINIMO_IPHONE));
+  }
 
   function escribirVista(escala) {
     if (!metaVista) return;
     if (!(escala > 0)) escala = escalaPedida;
     escalaPedida = escala;
-    var contenido = (escala === 1 ? 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0'
-      : 'initial-scale=' + escala + ', maximum-scale=' + escala + ', minimum-scale=' + escala)
+    var escalaAplicada = escalaQueCabeEnEsteDispositivo(escala);
+    var contenido = (escalaAplicada === 1 ? 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0'
+      : 'initial-scale=' + escalaAplicada + ', maximum-scale=' + escalaAplicada + ', minimum-scale=' + escalaAplicada)
       + ', user-scalable=no, viewport-fit=cover';
     if (contenido === vistaEscrita) return;
     vistaEscrita = contenido;
@@ -126,18 +145,19 @@
      confirmaba que estaba en efecto, pero la letra no se movió — en este
      WebView esa perilla está desconectada.
 
-     Lo que sí funciona es el zoom del propio WebView (pageZoom en Swift), el
-     mismo que ⌘+ en Safari: agranda la página entera, letra incluida. Así que
-     aquí se hace el cambiazo: se le QUITA el zoom de CSS a la raíz y se manda
-     el número a la parte nativa, para que el tamaño se aplique una sola vez.
+     Lo que sí funciona es `initial-scale` en la etiqueta de vista: WebKit
+     maqueta en un lienzo más chico y escala el dibujo entero, letra incluida.
+     Así que aquí se hace el cambiazo: se le QUITA el zoom de CSS a la raíz y
+     se escribe esa escala en el viewport, una sola vez y con el tope de iPhone
+     explicado arriba.
 
      Quitarlo también deja bien las cuentas de la app: enPxCss() divide entre
-     `documentElement.style.zoom`, y con el zoom del WebView las medidas ya
-     vienen en píxeles de CSS. Al dejar ese valor vacío, enPxCss() no divide
+     `documentElement.style.zoom`, y con initial-scale las medidas ya vienen en
+     píxeles de CSS. Al dejar ese valor vacío, enPxCss() no divide
      nada y el menú de módulos y el recorrido guiado caen donde deben.
 
-     Solo el documento de afuera: el zoom del WebView agranda la página entera,
-     iframes incluidos, y dentro de ellos no hay ningún `zoom` que quitar. */
+     Solo el documento de afuera: su viewport escala la página entera, iframes
+     incluidos, y dentro de ellos no hay ningún `zoom` que quitar. */
   function seguirElTamano() {
     if (!esElDeAfuera) return;
     var raiz = document.documentElement;
@@ -234,7 +254,7 @@
   }
 
 
-  /* 3. DE QUÉ COLOR VA LA HORA. La franja de arriba la pinta iPadOS, no la app,
+  /* 3. DE QUÉ COLOR VA LA HORA. La franja de arriba la pinta iOS, no la app,
      y tiene que leerse igual con el tema claro que con el oscuro. La app marca
      el tema en <html data-tema>; sin marca manda el sistema. Se avisa a la
      parte nativa cada vez que eso cambia. */

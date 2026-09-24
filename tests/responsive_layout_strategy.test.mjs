@@ -31,7 +31,7 @@ test('GoF Strategy: Cada estrategia responde al rango de anchos correcto', () =>
   assert.equal(expanded.matches(2560), true);
 });
 
-test('GoF Strategy: apply() muta atributos y estilos en el elemento raíz', () => {
+test('GoF Strategy: apply() deja un solo contrato data-layout en el elemento raíz', () => {
   const mockElement = {
     attributes: {},
     classes: new Set(),
@@ -54,8 +54,24 @@ test('GoF Strategy: apply() muta atributos y estilos en el elemento raíz', () =
   assert.equal(mockElement.attributes['data-layout'], 'compact');
   assert.equal(mockElement.classes.has('layout-compact'), true);
   assert.equal(mockElement.classes.has('layout-expanded'), false);
-  assert.equal(mockElement.styles['--responsive-columns'], '1');
-  assert.equal(mockElement.styles['--responsive-rail-width'], '58px');
+  assert.deepEqual(mockElement.styles, {}, 'el CSS lee data-layout; no quedan variables en línea desconectadas');
+});
+
+test('iPhone de 390 pt elige CompactLayoutStrategy', () => {
+  const root = {
+    clientWidth: 390,
+    clientHeight: 844,
+    attributes: {},
+    setAttribute(k, v) { this.attributes[k] = v; },
+    classList: { toggle() {} },
+  };
+  const manager = new ResponsiveLayoutManager({ rootElement: root, win: { innerWidth: 390, innerHeight: 844 } });
+
+  const estado = manager.evaluate();
+
+  assert.equal(estado.name, 'compact');
+  assert.equal(estado.isCompact, true);
+  assert.equal(root.attributes['data-layout'], 'compact');
 });
 
 test('GoF Inversión de Control (IoC): El GoF es quien LLAMA a los componentes registrados', () => {

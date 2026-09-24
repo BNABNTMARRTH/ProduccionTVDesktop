@@ -6,9 +6,9 @@ import SwiftUI
  La app web se pinta de borde a borde —así el fondo llega debajo de la hora y
  del indicador de inicio, y no queda una franja de otro color— pero su CONTENIDO
  se queda dentro del área segura: de eso se encarga adaptacion-ipad.js, que le
- pone al <body> el margen exacto que reporta iPadOS (env(safe-area-inset-*)).
- Es la forma correcta en iPadOS: fondo completo, contenido respetado, y sirve
- igual en vertical, en horizontal, en Split View y en Stage Manager.
+ pone al <body> el margen exacto que reporta iOS (env(safe-area-inset-*)).
+ Es la misma regla para la isla o muesca del iPhone y para el iPad: fondo
+ completo, contenido respetado, en vertical, horizontal, Split View o Stage Manager.
 */
 struct VistaPrincipal: View {
 

@@ -203,10 +203,11 @@ document.querySelector('#app').innerHTML = `
          entero: al pulsarlo te quedabas sin etapas, sin pestañas y sin
          secciones —o sea, sin manera de cambiar de módulo— y la única salida
          era adivinar la tecla Esc. Ahora el interruptor es el propio logo:
-         nunca se va, viaja de la barra al encabezado y de vuelta, y los
-         botones de etapa se le meten dentro (y vuelven a salir) con la
-         animación de style.css. Cuelga del SHELL y no de <nav> justamente para
-         poder viajar entre los dos sitios sin que la barra lo recorte. -->
+         nunca se va: en un proyecto viaja de la barra al encabezado y de
+         vuelta; en Inicio, donde no hay encabezado, se queda en su sitio. Los
+         botones se le meten dentro (y vuelven a salir) con la animación de
+         style.css. Cuelga del SHELL y no de <nav> justamente para que la barra
+         no lo recorte. -->
     <button class="rail-logo" id="logo-btn" type="button" aria-controls="rail" aria-expanded="true">
       <img src="${appIcon}" alt="Producción TV">
       <span class="rail-logo-aro" aria-hidden="true"></span>
@@ -462,31 +463,6 @@ const panelLifecycle = new PanelLifecycleManager({
     },
 });
 
-/* ---- GESTOR RESPONSIVO GOF (MOBILE-FIRST / SPLIT VIEW / MONITORES) ---- */
-globalResponsiveManager.startWatching();
-globalResponsiveManager.subscribe((layoutState) => {
-    try {
-        const principalFrame = document.querySelector('#tool-frame');
-        principalFrame?.contentWindow?.postMessage({
-            type: 'producciontv:layout-changed',
-            layout: layoutState.name,
-            width: layoutState.width,
-            height: layoutState.height
-        }, '*');
-
-        if (typeof paneles !== 'undefined') {
-            Object.values(paneles).forEach((p) => {
-                p.el?.contentWindow?.postMessage({
-                    type: 'producciontv:layout-changed',
-                    layout: layoutState.name,
-                    width: layoutState.width,
-                    height: layoutState.height
-                }, '*');
-            });
-        }
-    } catch (_) {}
-});
-
 const railButtons = [...document.querySelectorAll('[data-etapa]')];
 const toast = document.querySelector('#export-toast');
 let toastTimer;
@@ -501,8 +477,9 @@ igual de bien con la barra ancha, con la angosta de las ventanas chicas o con
 media etapa escondida por el modo del proyecto.
 
 Regla de oro tras el error del botón ⤢: PLEGAR NO PUEDE DEJARTE SIN SALIDA.
-El logo se queda siempre a la vista —se muda al encabezado—, el encabezado con
-sus pestañas y secciones no se toca, y Esc también despliega. */
+El logo se queda siempre a la vista —en un proyecto se muda al encabezado y en
+Inicio permanece donde estaba—, el encabezado con sus pestañas y secciones no
+se toca, y Esc también despliega. */
 const logoBtn = document.querySelector('#logo-btn');
 const VUELO_MS = 240;   // lo que tarda un botón en entrar (o salir) del logo
 const PASO_MS = 20;     // el retraso entre un botón y el siguiente: la fila
@@ -610,14 +587,18 @@ function empezarManiobra(n) {
 function pintarLogo() {
     const plegado = railPlegado();
     logoBtn.setAttribute('aria-expanded', String(!plegado));
-    logoBtn.title = logoBtn.disabled ? 'Producción TV'
-        : plegado ? 'Mostrar las etapas del proyecto (también con Esc)'
+    if (header.hidden) {
+        logoBtn.title = plegado ? 'Mostrar la barra lateral (también con Esc)'
+            : 'Guardar la barra lateral en el logo';
+        return;
+    }
+    logoBtn.title = plegado ? 'Mostrar las etapas del proyecto (también con Esc)'
         : 'Guardar las etapas en el logo y dejarle toda la ventana a la herramienta';
 }
 
 function plegarRail() {
     // Ya plegada o plegándose: no hay nada que hacer.
-    if (railPlegado() || shell.classList.contains('plegando') || logoBtn.disabled) return;
+    if (railPlegado() || shell.classList.contains('plegando')) return;
     clearTimeout(railTimer); clearTimeout(railTragar);
     // Si los botones venían SALIENDO del logo, se corta la salida ANTES de
     // medir: a medio brotar están encogidos y desplazados, y medirlos así
@@ -668,16 +649,40 @@ function desplegarRail() {
     }, VUELO_MS + 80 + botonesRail().length * PASO_MS);
 }
 
-// Sin animación: para cuando la vista cambia sola (Inicio no tiene encabezado
-// donde parar el logo, así que ahí la barra siempre va abierta).
-function restablecerRail() {
+logoBtn.onclick = () => (railPlegado() ? desplegarRail() : plegarRail());
+
+/* En un ancho de iPhone la barra abierta se comería justo el espacio que hace
+   utilizables Inicio, Plantillas y la herramienta. Se pliega sin vuelo al
+   ENTRAR en compacto: evita un destello de 58 px durante el arranque, pero no
+   pelea con la persona; si toca el logo para abrirla, se queda abierta hasta
+   que el factor de forma vuelva a cambiar. */
+function plegarRailSinAnimacion() {
+    if (railPlegado()) return;
     clearTimeout(railTimer); clearTimeout(railTragar); clearTimeout(railDeshielo); clearTimeout(railManiobra);
     descongelarHerramienta();
-    shell.classList.remove('rail-plegado', 'plegando', 'desplegando', 'maniobra');
+    shell.classList.remove('plegando', 'desplegando', 'maniobra');
     logoBtn.classList.remove('traga', 'suelta');
+    shell.classList.add('rail-plegado');
+    pintarLogo();
 }
 
-logoBtn.onclick = () => (railPlegado() ? desplegarRail() : plegarRail());
+/* ---- GESTOR RESPONSIVO GOF (MOBILE-FIRST / SPLIT VIEW / MONITORES) ----
+   El único contrato visual es data-layout, escrito por el gestor y leído por
+   style.css. Ya no hay variables responsivas en línea que compitan con él. */
+globalResponsiveManager.subscribe((layoutState) => {
+    if (layoutState.isCompact) plegarRailSinAnimacion();
+    try {
+        const aviso = {
+            type: 'producciontv:layout-changed',
+            layout: layoutState.name,
+            width: layoutState.width,
+            height: layoutState.height
+        };
+        frame?.contentWindow?.postMessage(aviso, '*');
+        paneles.forEach((p) => p.el?.contentWindow?.postMessage(aviso, '*'));
+    } catch (_) {}
+});
+globalResponsiveManager.startWatching();
 
 /* ----------------------------- Utilidades ----------------------------- */
 
@@ -1504,12 +1509,12 @@ function pintarEspacio() {
     homeView.hidden = vista !== 'home';
     templatesView.hidden = vista !== 'plantillas';
     header.hidden = enInicio;
+    // Inicio no tiene encabezado donde recibir el logo. Esta señal solo cambia
+    // su destino visual: el mismo `rail-plegado` se conserva al entrar y salir
+    // para que la barra no se abra a espaldas de quien la guardó.
+    shell.classList.toggle('vista-inicio', enInicio);
     railHome.hidden = !enInicio;
     railTools.hidden = enInicio;
-    // En Inicio el logo es solo la marca: no hay encabezado donde pararse ni
-    // herramienta a la que dejarle sitio, así que la barra se queda abierta.
-    logoBtn.disabled = enInicio;
-    if (enInicio) restablecerRail();
     pintarLogo();
     railHome.querySelector('[data-accion="proyectos"]')?.classList.toggle('active', vista === 'home');
     railHome.querySelector('[data-accion="plantillas"]')?.classList.toggle('active', vista === 'plantillas');

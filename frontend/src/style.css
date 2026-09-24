@@ -379,7 +379,7 @@ iframe{display:block;width:100%;height:100%;border:0;background:transparent}
 .loading span{width:18px;height:18px;border:2px solid rgba(23,21,18,.16);border-top-color:var(--gel);border-radius:50%;animation:spin .7s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
 /* Inicio: Apple Human Interface Guidelines & Liquid Glass Design */
 .home-view, .tpl-view{height:100%;display:flex;flex-direction:column;box-sizing:border-box;background:transparent;overflow:hidden;padding:0}
-.home-top{flex:none;width:100%;box-sizing:border-box;padding:24px 32px 14px;background:transparent;border:none;box-shadow:none;z-index:15;position:relative;display:flex;justify-content:center}
+.home-top{flex:none;width:100%;box-sizing:border-box;padding:24px 32px 14px;background:transparent;border:none;box-shadow:none;z-index:15;position:relative;display:flex;justify-content:center;transition:padding-left .24s cubic-bezier(.3,.85,.25,1)}
 .home-top-inner{max-width:1500px;width:100%;margin:0 auto;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px}
 .home-scroll-body, .tpl-scroll-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:10px 32px 32px;box-sizing:border-box;display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent;-webkit-mask-image:linear-gradient(to bottom, transparent 0px, rgba(0,0,0,1) 20px, rgba(0,0,0,1) 100%);mask-image:linear-gradient(to bottom, transparent 0px, rgba(0,0,0,1) 20px, rgba(0,0,0,1) 100%)}
 .home-scroll-inner, .tpl-scroll-inner{max-width:1500px;width:100%;margin:0 auto;display:flex;flex-direction:column;flex:1}
@@ -1177,6 +1177,19 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
    trabajo era lo que se veía trabado. De vuelta no hace falta esperar: ahí el
    logo sale al mismo tiempo que los botones y no va solo. */
 .desktop-shell.rail-plegado .rail-logo{transform:translate3d(var(--viaje-x),var(--viaje-y),0) scale(.882);transition-delay:.05s}
+/* Inicio no tiene encabezado donde aterrizar. El logo se queda en su origen
+   para que siga siendo la salida visible, mientras el mismo rail-plegado
+   cierra la barra y deja intacto el estado al cambiar de vista.
+
+   Mover el contenido de .home-top no basta: su caja transparente sigue
+   cubriendo toda la franja con z-index:15 y se quedaría con el clic. Por eso
+   el interruptor sube un nivel y las dos vistas del lanzador —Proyectos y
+   Plantillas— reservan aire hasta después del borde derecho del logo. El
+   !important vence el padding compacto, que se declara más abajo con la misma
+   prioridad. El cuerpo y el pie empiezan debajo de esta franja, así que no
+   pueden cruzarse con el logo. */
+.desktop-shell.vista-inicio.rail-plegado .rail-logo{transform:translate3d(0,0,0);transition-delay:0s;z-index:16}
+.desktop-shell.vista-inicio.rail-plegado .home-top{padding-left:92px!important}
 /* Y NO REAPARECEN. Al quitar .plegando la animación deja de aplicarse y los
    botones volvían de golpe a tamaño y opacidad completos, visibles otra vez
    durante los .34s que tarda la barra en cerrarse: un parpadeo justo cuando
@@ -1214,7 +1227,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
 @keyframes aro-sale{0%{opacity:.9;transform:scale(.7)}100%{opacity:0;transform:scale(1.9)}}
 /* Quien pidió menos movimiento recibe el mismo resultado, sin el viaje. */
 @media(prefers-reduced-motion:reduce){
-  .rail,.rail-logo,.rail-logo img,.workspace-header{transition:none}
+  .rail,.rail-logo,.rail-logo img,.workspace-header,.home-top{transition:none}
   .desktop-shell.plegando .rail button,.desktop-shell.desplegando .rail button,
   #logo-btn.traga img,#logo-btn.traga .rail-logo-aro,#logo-btn.suelta .rail-logo-aro{animation:none}
 }
@@ -1657,7 +1670,6 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gel-t);outline-
    1.4:1, prácticamente invisible. Ahora el velo es el yeso del tema, así que
    se apaga con él y el texto vuelve a leerse. */
 .welcome-overlay{position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--yeso) 84%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);transition:opacity .18s ease}.welcome-overlay.closing{opacity:0;pointer-events:none}.welcome-card{position:relative;width:min(520px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;align-items:center;text-align:center;padding:38px;border-radius:22px;background:var(--vidrio-a);overflow:hidden;box-shadow:0 0 0 1px var(--linea),0 26px 70px -30px rgba(26,24,34,.55)}.welcome-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(110% 45% at 50% 0,rgba(240,78,152,.16),transparent 62%)}.welcome-card>*{position:relative;z-index:1}.welcome-card img{width:104px;height:104px;object-fit:cover;border-radius:24px;margin-bottom:22px;box-shadow:0 14px 34px -14px rgba(26,24,34,.4)}.welcome-card h1{margin:9px 0 10px;font-size:32px;color:var(--tinta);font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:700;letter-spacing:.02em;text-transform:uppercase}.welcome-card p{max-width:410px;margin:0;color:var(--tinta-media);font-size:15px;line-height:1.65}.welcome-card p strong{color:var(--tinta)}.welcome-card button{margin-top:26px;min-width:170px;border:1px solid var(--gel-t);border-radius:9px;padding:12px 22px;background:linear-gradient(165deg,var(--gel),var(--gel-f));color:#fff;font-weight:700;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 8px 18px -9px var(--gel)}.welcome-card button:hover{background:linear-gradient(165deg,var(--gel),var(--gel-f))}
-@media(max-width:1000px){.rail{width:60px}.rail-logo{left:27px;--viaje-x:-2px}.rail button em{display:none}.rail button .ic{width:36px;height:36px}}
 @media(max-width:1300px){.save-status{font-size:0;padding:2px}.save-status::before{width:7px;height:7px;margin:0}}
 @media(max-width:1150px){.header-inicio-btn span{display:none}.header-inicio-btn{padding:5px 9px}.save-status,.workspace-header .mode-chip{display:none}.continue-card{grid-template-columns:1fr}.production-layout{grid-template-columns:1fr}}
 /* Contenedor donde se montan los documentos multipágina antes de imprimir */
@@ -2432,20 +2444,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
    ARQUITECTURA FIRST RESPONSIVE GOF (MOBILE-FIRST / SPLIT VIEW / TABLET)
    ========================================================================== */
 
-/* Variables base responsivas */
-:root {
-  --responsive-rail-width: 92px;
-  --responsive-columns: 3;
-}
-
 /* --------------------------------------------------------------------------
    1. ESTRATEGIA COMPACTA: data-layout="compact" (< 768px: Mobile / Split View)
    -------------------------------------------------------------------------- */
-:root[data-layout="compact"] {
-  --responsive-rail-width: 58px;
-  --responsive-columns: 1;
-}
-
 :root[data-layout="compact"] .desktop-shell {
   display: flex !important;
   flex-direction: row !important;
@@ -2475,15 +2476,18 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 :root[data-layout="compact"] .rail-logo {
   display: flex !important;
-  width: 34px !important;
-  height: 34px !important;
-  top: 27px !important;
-  left: 26px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 44px !important;
+  height: 44px !important;
+  top: 22px !important;
+  left: 21px !important;
+  --viaje-x: -2px;
 }
 
 :root[data-layout="compact"] .rail-logo img {
-  width: 100% !important;
-  height: 100% !important;
+  width: 34px !important;
+  height: 34px !important;
 }
 
 :root[data-layout="compact"] .rail-grupo:not([hidden]),
@@ -2548,11 +2552,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 /* Cabecera del workspace en modo compacto: SIEMPRE UNA SOLA LÍNEA FLUIDA (Apple HIG) */
 :root[data-layout="compact"] .workspace-header {
   flex-wrap: nowrap !important;
-  height: 50px !important;
-  min-height: 50px !important;
-  margin: 10px 10px 0 10px !important;
-  padding: 0 10px !important;
-  gap: 6px !important;
+  height: 56px !important;
+  min-height: 56px !important;
+  margin: 8px 8px 0 !important;
+  padding: 0 6px !important;
+  gap: 4px !important;
   overflow: hidden !important;
 }
 
@@ -2561,21 +2565,17 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 }
 
 :root[data-layout="compact"] .header-inicio-btn {
-  padding: 6px 8px !important;
-  min-width: 32px !important;
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+  padding: 0 !important;
+  justify-content: center !important;
+  border-radius: 12px !important;
 }
 
-:root[data-layout="compact"] .offline-badge {
-  max-width: 90px !important;
-  font-size: 11.5px !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-  padding: 3px 8px !important;
-}
-
+:root[data-layout="compact"] .offline-badge,
 :root[data-layout="compact"] .header-crumb-sep {
-  opacity: 0.6;
+  display: none !important;
 }
 
 :root[data-layout="compact"] .save-status,
@@ -2600,15 +2600,25 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 :root[data-layout="compact"] .pestanas,
 :root[data-layout="compact"] .secciones {
   flex-shrink: 0 !important;
-  display: inline-flex !important;
   align-items: center !important;
   flex-wrap: nowrap !important;
 }
 
 :root[data-layout="compact"] .secciones button {
-  padding: 4px 8px !important;
+  min-height: 44px !important;
+  padding: 4px 10px !important;
   font-size: 11px !important;
   white-space: nowrap !important;
+}
+
+:root[data-layout="compact"] .pestana {
+  height: 44px !important;
+}
+
+:root[data-layout="compact"] .pestana-mas {
+  width: 44px !important;
+  height: 44px !important;
+  margin-left: 2px !important;
 }
 
 :root[data-layout="compact"] .header-actions {
@@ -2619,8 +2629,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 }
 
 :root[data-layout="compact"] .header-actions button {
-  width: 30px !important;
-  height: 30px !important;
+  width: 44px !important;
+  height: 44px !important;
   padding: 0 !important;
   display: flex !important;
   align-items: center !important;
@@ -2633,7 +2643,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* Inicio: barra de herramientas superior adaptable */
 :root[data-layout="compact"] .home-top {
-  padding: 14px 16px 8px !important;
+  padding: 14px 12px 8px !important;
 }
 
 :root[data-layout="compact"] .home-top-inner {
@@ -2650,30 +2660,89 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   width: 100% !important;
 }
 
+:root[data-layout="compact"] .home-scroll-body,
+:root[data-layout="compact"] .tpl-scroll-body {
+  padding: 8px 12px 20px !important;
+}
+
 :root[data-layout="compact"] .apple-segmented {
-  flex: 1 1 auto !important;
+  flex: 1 1 100% !important;
+  width: 100% !important;
+  height: 44px !important;
+  overflow-x: auto !important;
+  overscroll-behavior-x: contain !important;
+  scrollbar-width: none !important;
+}
+
+:root[data-layout="compact"] .apple-segmented::-webkit-scrollbar {
+  display: none !important;
+}
+
+:root[data-layout="compact"] .apple-segmented .seg-btn {
+  flex: 1 0 auto !important;
+  min-height: 38px !important;
+  padding: 0 8px !important;
 }
 
 :root[data-layout="compact"] .apple-search-wrap {
   flex: 1 1 100% !important;
   width: 100% !important;
+  height: 44px !important;
 }
 
 :root[data-layout="compact"] .apple-search-wrap .project-search {
   width: 100% !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
+  line-height: 42px !important;
 }
 
 :root[data-layout="compact"] .apple-search-wrap .project-search:focus {
   width: 100% !important;
 }
 
+:root[data-layout="compact"] .view-switcher,
+:root[data-layout="compact"] .apple-primary-btn,
+:root[data-layout="compact"] .apple-secondary-btn {
+  height: 44px !important;
+  min-height: 44px !important;
+}
+
+:root[data-layout="compact"] .view-switcher .view-btn {
+  width: 40px !important;
+}
+
 /* Inicio y Cuadrículas a 1 columna */
 :root[data-layout="compact"] .home-hero-wrap,
 :root[data-layout="compact"] .continue-card,
-:root[data-layout="compact"] .recent-grid,
-:root[data-layout="compact"] .templates-grid {
-  grid-template-columns: 1fr !important;
+:root[data-layout="compact"] .proj-grid,
+:root[data-layout="compact"] .tpl-grid {
+  grid-template-columns: minmax(0,1fr) !important;
   gap: 12px;
+}
+
+/* Las vistas de catálogo siguen siendo alcanzables en teléfono: la tabla se
+   desliza dentro de su propia caja en vez de ensanchar o recortar el shell. */
+:root[data-layout="compact"] .proj-list-wrap,
+:root[data-layout="compact"] .tpl-table-wrap {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overscroll-behavior-x: contain !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+:root[data-layout="compact"] .proj-list-table {
+  min-width: 680px;
+}
+
+:root[data-layout="compact"] .tpl-table {
+  min-width: 840px;
+}
+
+:root[data-layout="compact"] .tpl-foot {
+  flex-wrap: wrap;
 }
 
 :root[data-layout="compact"] .home-hero {
@@ -2703,11 +2772,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 /* --------------------------------------------------------------------------
    2. ESTRATEGIA TABLET: data-layout="tablet" (768px - 1099px: iPad / Split View)
    -------------------------------------------------------------------------- */
-:root[data-layout="tablet"] {
-  --responsive-rail-width: 60px;
-  --responsive-columns: 2;
-}
-
 :root[data-layout="tablet"] .desktop-shell {
   display: flex !important;
   flex-direction: row !important;
@@ -2740,6 +2804,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   height: 34px !important;
   top: 27px !important;
   left: 27px !important;
+  --viaje-x: -2px;
 }
 
 :root[data-layout="tablet"] .rail-logo img {
@@ -2834,7 +2899,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 :root[data-layout="tablet"] .pestanas,
 :root[data-layout="tablet"] .secciones {
   flex: 0 0 auto !important;
-  display: inline-flex !important;
   align-items: center !important;
   flex-wrap: nowrap !important;
 }
@@ -2862,10 +2926,53 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   grid-template-columns: 1fr !important;
 }
 
+/* Las estrategias compacta y tablet fijan el ancho del rail con !important.
+   Esta regla va después y garantiza que el estado rail-plegado siga ganando:
+   el logo queda como salida de 44 pt y el contenido recibe todo el ancho. */
+:root[data-layout="compact"] .desktop-shell.rail-plegado .rail,
+:root[data-layout="tablet"] .desktop-shell.rail-plegado .rail {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  border-width: 0 !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+:root[data-layout="compact"] .desktop-shell.rail-plegado .rail-footer,
+:root[data-layout="tablet"] .desktop-shell.rail-plegado .rail-footer {
+  display: none !important;
+}
+
+/* EL LOGO VA POR ENCIMA DE LA BARRA. Las dos estrategias suben la barra a la
+   capa 50 y el logo vivía en la 6 (16 en Inicio): con la barra ABIERTA, su
+   cristal quedaba encima del logo y se tragaba el toque. Resultado: abrirla
+   funcionaba una vez y ya no había manera de cerrarla. 51 lo deja por encima
+   de la barra y por debajo de los avisos y ventanas (80 en adelante). */
+:root[data-layout="compact"] .rail-logo,
+:root[data-layout="tablet"] .rail-logo {
+  z-index: 51 !important;
+}
+
+/* Y EL ENCABEZADO LE GUARDA SU LUGAR. Con la barra guardada el logo aterriza
+   en el encabezado, pero el relleno compacto (0 6px !important) le quitaba el
+   hueco de 54 px que le deja el escritorio, y el logo quedaba encima del botón
+   de Inicio. 62 = borde derecho del logo (21 + 44) − margen del encabezado (8)
+   + 5 de aire. */
+:root[data-layout="compact"] .desktop-shell.rail-plegado .workspace-header {
+  padding-left: 62px !important;
+}
+/* En iPad el logo guardado ocupa hasta los 57 px y el encabezado empieza en 14. */
+:root[data-layout="tablet"] .desktop-shell.rail-plegado .workspace-header {
+  padding-left: 50px !important;
+}
+
 /* --------------------------------------------------------------------------
    3. ESTRATEGIA EXPANDIDA: data-layout="expanded" (>= 1100px: Estudio Monitor)
    -------------------------------------------------------------------------- */
-:root[data-layout="expanded"] {
-  --responsive-rail-width: 92px;
-  --responsive-columns: 3;
-}
