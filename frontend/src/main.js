@@ -2008,11 +2008,46 @@ function selectView(view, forceReload = false) {
 
 // Captura un elemento del iframe como PNG de alta resolución, ignorando la UI
 // de edición (controles, toasts y todo lo marcado como no imprimible).
-function captureElementPNG(element, backgroundColor = '#fff') {
-    return html2canvas(element, {
-        scale: 2, useCORS: true, logging: false, backgroundColor,
-        ignoreElements: (el) => el.matches?.('.zoomctl,.legend,.inspector,.checks,.toast,.no-print'),
-    });
+async function captureElementPNG(element, backgroundColor = '#fff') {
+    const frame = element.closest?.('.export-page-frame');
+    const saved = [element, frame].filter(Boolean).map((node) => ({
+        node,
+        transform: node.style.getPropertyValue('transform'),
+        transformPriority: node.style.getPropertyPriority('transform'),
+        transition: node.style.getPropertyValue('transition'),
+        transitionPriority: node.style.getPropertyPriority('transition'),
+        width: node.style.getPropertyValue('width'),
+        height: node.style.getPropertyValue('height'),
+    }));
+
+    /* html2canvas captura la geometría pintada, incluida la escala de pantalla.
+       Para PNG necesitamos los 816 px editoriales, igual que al imprimir. La
+       neutralización dura sólo durante la captura y se restaura incluso si el
+       usuario cancela o el renderizador falla. */
+    element.style.setProperty('transform', 'none', 'important');
+    element.style.setProperty('transition', 'none', 'important');
+    if (frame) {
+        frame.style.setProperty('width', `${element.offsetWidth}px`);
+        frame.style.setProperty('height', `${element.offsetHeight}px`);
+        frame.style.setProperty('transition', 'none', 'important');
+    }
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    try {
+        return await html2canvas(element, {
+            width: element.offsetWidth,
+            height: element.offsetHeight,
+            scale: 2, useCORS: true, logging: false, backgroundColor,
+            ignoreElements: (el) => el.matches?.('.zoomctl,.legend,.inspector,.checks,.toast,.no-print'),
+        });
+    } finally {
+        saved.forEach(({ node, transform, transformPriority, transition, transitionPriority, width, height }) => {
+            transform ? node.style.setProperty('transform', transform, transformPriority) : node.style.removeProperty('transform');
+            transition ? node.style.setProperty('transition', transition, transitionPriority) : node.style.removeProperty('transition');
+            width ? node.style.setProperty('width', width) : node.style.removeProperty('width');
+            height ? node.style.setProperty('height', height) : node.style.removeProperty('height');
+        });
+    }
 }
 
 async function nativePrint() {

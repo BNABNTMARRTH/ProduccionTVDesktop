@@ -163,6 +163,7 @@ async function makePage(width, height, projectFile = null, safeOverride = null) 
       if(m.fn==='LoadProjectFile') return Promise.resolve(window.__proyectoActual||null);
       if(m.fn==='ListReferences') return Promise.resolve(window.__referencias||[]);
       if(m.fn==='LoadReferenceImage') return Promise.resolve(window.__referenciaImagen||'');
+      if(m.fn==='SaveBase64File') { window.__savedBase64=m.args||[]; return Promise.resolve(null); }
       if(m.fn==='ListProjects'||m.fn==='ListTemplates'||m.fn==='ListOpenProjects'||m.fn==='ListOpenTools') return Promise.resolve([]);
       if(m.fn==='ClaimProject') return Promise.resolve(true);
       return Promise.resolve(null);
@@ -516,6 +517,369 @@ async function mesaAudit() {
   return report;
 }
 
+/* WKWebView encoge la caja con `zoom`, pero puede dejar la tipografía a su
+   tamaño original. Chromium no reproduce ese fallo; esta medición proyecta
+   cada rango de texto sin el factor de zoom y lo cruza con su celda visual.
+   Con transform no hay corrección artificial: rango y caja comparten matriz. */
+async function exportTypographyAudit(frame, selector) {
+  return frame.evaluate((pageSelector) => {
+    const page = document.querySelector(pageSelector);
+    if (!page) return null;
+    const pageStyle = getComputedStyle(page);
+    const pageRect = page.getBoundingClientRect();
+    const zoom = Number.parseFloat(pageStyle.zoom) || 1;
+    const boxScale = page.offsetWidth ? pageRect.width / page.offsetWidth : 1;
+    const webkitProjection = zoom < 0.999 ? 1 / zoom : 1;
+    const logicalSelector = [
+      '.kv > span', '.kv > b', 'td', 'th', '.pg-foot > *',
+      '.pg-head h1', '.pg-head .sub', '.pg-head .org', '.person',
+      '.cat2', 'p', 'li', '.sheet-head > *', '.sheet-foot > *',
+    ].join(',');
+    const records = [];
+    const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const content = node.textContent.replace(/\s+/g, ' ').trim();
+      const owner = node.parentElement;
+      if (!content || !owner || owner.namespaceURI !== 'http://www.w3.org/1999/xhtml') continue;
+      const style = getComputedStyle(owner);
+      if (style.display === 'none' || style.visibility === 'hidden') continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const rects = [...range.getClientRects()].filter((rect) => rect.width > 0.2 && rect.height > 0.2);
+      if (!rects.length) continue;
+      const cell = owner.closest(logicalSelector) || owner;
+      const cellRect = cell.getBoundingClientRect();
+      const projected = rects.map((rect) => ({
+        left: rect.left,
+        top: rect.top,
+        right: rect.left + rect.width * webkitProjection,
+        bottom: rect.top + rect.height * webkitProjection,
+      }));
+      const bounds = projected.reduce((sum, rect) => ({
+        left: Math.min(sum.left, rect.left), top: Math.min(sum.top, rect.top),
+        right: Math.max(sum.right, rect.right), bottom: Math.max(sum.bottom, rect.bottom),
+      }), { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity });
+      const escapes = bounds.left < cellRect.left - 1 || bounds.top < cellRect.top - 1
+        || bounds.right > cellRect.right + 1 || bounds.bottom > cellRect.bottom + 1;
+      records.push({ content: content.slice(0, 90), cell, cellRect, bounds, escapes });
+    }
+
+    const byCell = new Map();
+    for (const record of records) {
+      const current = byCell.get(record.cell);
+      if (!current) byCell.set(record.cell, { ...record, texts: [record.content] });
+      else {
+        current.bounds.left = Math.min(current.bounds.left, record.bounds.left);
+        current.bounds.top = Math.min(current.bounds.top, record.bounds.top);
+        current.bounds.right = Math.max(current.bounds.right, record.bounds.right);
+        current.bounds.bottom = Math.max(current.bounds.bottom, record.bounds.bottom);
+        current.escapes ||= record.escapes;
+        current.texts.push(record.content);
+      }
+    }
+    const cells = [...byCell.values()];
+    const intersections = [];
+    for (let i = 0; i < cells.length; i += 1) {
+      for (let j = i + 1; j < cells.length; j += 1) {
+        const a = cells[i], b = cells[j];
+        if (a.cell.contains(b.cell) || b.cell.contains(a.cell)) continue;
+        const width = Math.min(a.bounds.right, b.bounds.right) - Math.max(a.bounds.left, b.bounds.left);
+        const height = Math.min(a.bounds.bottom, b.bounds.bottom) - Math.max(a.bounds.top, b.bounds.top);
+        if (width > 1 && height > 1) intersections.push([a.texts.join(' '), b.texts.join(' ')]);
+      }
+    }
+    const escaped = cells.filter((record) => record.escapes);
+    return {
+      selector: pageSelector,
+      scaleMechanism: zoom < 0.999 ? 'zoom' : (boxScale < 0.999 ? 'transform' : 'none'),
+      cssZoom: zoom,
+      boxScale: Number(boxScale.toFixed(3)),
+      pageRect: pageRect.toJSON(),
+      pageOffset: { width: page.offsetWidth, height: page.offsetHeight },
+      overflowingText: escaped.length,
+      overlaps: intersections.length,
+      overflowExamples: escaped.slice(0, 12).map((record) => record.texts.join(' ').slice(0, 120)),
+      overlapExamples: intersections.slice(0, 8),
+    };
+  }, selector);
+}
+
+async function showExportPage(frame, selector) {
+  await frame.evaluate((pageSelector) => {
+    const pages = [...document.querySelectorAll('.export-page')];
+    const wanted = document.querySelector(pageSelector);
+    const wantedIndex = pages.indexOf(wanted);
+    if (wantedIndex < 0) return;
+    document.querySelector('#view-mode-single')?.click();
+    let current = pages.findIndex((page) => page.classList.contains('current-page'));
+    if (current < 0) current = 0;
+    const button = wantedIndex > current ? '#pager-next' : '#pager-prev';
+    for (let i = 0; i < Math.abs(wantedIndex - current); i += 1) document.querySelector(button)?.click();
+    const scroll = document.querySelector('#preview-scroll-area');
+    if (scroll) { scroll.scrollTop = 0; scroll.scrollLeft = 0; }
+  }, selector);
+  await frame.waitForTimeout(280);
+}
+
+/* Sólo sirve para que la captura base haga visible la anomalía ya confirmada
+   en hardware: duplica la tinta tipográfica fuera del árbol con tamaño sin
+   zoom. Las métricas se calculan antes y no dependen de este overlay. */
+async function addWebkitZoomOverlay(frame, selector) {
+  return frame.evaluate((pageSelector) => {
+    document.querySelector('#webkit-zoom-simulation')?.remove();
+    const page = document.querySelector(pageSelector);
+    const zoom = Number.parseFloat(page ? getComputedStyle(page).zoom : '1') || 1;
+    if (!page || zoom >= 0.999) return false;
+    const overlay = document.createElement('div');
+    overlay.id = 'webkit-zoom-simulation';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;pointer-events:none;overflow:hidden';
+    const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const content = node.textContent.replace(/\s+/g, ' ').trim();
+      const owner = node.parentElement;
+      if (!content || !owner || owner.namespaceURI !== 'http://www.w3.org/1999/xhtml') continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const rect = range.getClientRects()[0];
+      if (!rect || rect.bottom < 0 || rect.top > innerHeight || rect.right < 0 || rect.left > innerWidth) continue;
+      const style = getComputedStyle(owner);
+      const copy = document.createElement('span');
+      copy.textContent = content;
+      copy.style.cssText = `position:absolute;left:${rect.left}px;top:${rect.top}px;white-space:nowrap;`
+        + `font-family:${style.fontFamily};font-size:${style.fontSize};font-weight:${style.fontWeight};`
+        + `font-style:${style.fontStyle};line-height:${style.lineHeight};letter-spacing:${style.letterSpacing};color:${style.color}`;
+      overlay.appendChild(copy);
+    }
+    document.body.appendChild(overlay);
+    return true;
+  }, selector);
+}
+
+async function exportInkAudit(page, frame, selector) {
+  await showExportPage(frame, selector);
+  await frame.evaluate(() => {
+    const bar = document.querySelector('#doc-markup-bar');
+    if (bar?.classList.contains('collapsed')) document.querySelector('#markup-toggle')?.click();
+    const draw = document.querySelector('#markup-draw-mode');
+    if (draw && !draw.classList.contains('active')) draw.click();
+  });
+  const dispatched = await frame.evaluate((pageSelector) => {
+    const svg = document.querySelector(`${pageSelector}.current-page .tinta`);
+    if (!svg) return false;
+    const rect = svg.getBoundingClientRect();
+    /* Un PointerEvent sintético no pertenece al registro nativo de captura;
+       anular sólo esa llamada deja probar la misma conversión CTM del motor. */
+    svg.setPointerCapture = () => {};
+    const send = (type, ratioX, ratioY, buttons) => svg.dispatchEvent(new PointerEvent(type, {
+      bubbles: true, cancelable: true, pointerId: 41, pointerType: 'mouse', buttons,
+      pressure: buttons ? 0.5 : 0,
+      clientX: rect.left + rect.width * ratioX,
+      clientY: rect.top + rect.height * ratioY,
+    }));
+    send('pointerdown', 0.34, 0.28, 1);
+    for (let i = 1; i <= 8; i += 1) send('pointermove', 0.34 + 0.17 * i / 8, 0.28 + 0.09 * i / 8, 1);
+    send('pointerup', 0.51, 0.37, 0);
+    return true;
+  }, selector);
+  if (!dispatched) return { available: false };
+  const atFit = await frame.evaluate((pageSelector) => {
+    const pageNode = document.querySelector(pageSelector);
+    const svgNode = pageNode?.querySelector('.tinta');
+    const trace = pageNode?._tinta?.trazos().at(-1);
+    const rect = svgNode?.getBoundingClientRect();
+    const view = svgNode?.viewBox?.baseVal;
+    return {
+      points: trace?.t || [],
+      rect: rect?.toJSON() || null,
+      viewBox: view ? { width: view.width, height: view.height } : null,
+    };
+  }, selector);
+  await frame.locator('#zoom-100').click();
+  await frame.waitForTimeout(280);
+  const at100 = await frame.evaluate((pageSelector) => {
+    const pageNode = document.querySelector(pageSelector);
+    const svgNode = pageNode?.querySelector('.tinta');
+    const trace = pageNode?._tinta?.trazos().at(-1);
+    return {
+      points: trace?.t || [],
+      pageRect: pageNode?.getBoundingClientRect().toJSON() || null,
+      pathBox: (() => {
+        const box = svgNode?.querySelector('path')?.getBBox?.();
+        return box ? { x: box.x, y: box.y, width: box.width, height: box.height } : null;
+      })(),
+    };
+  }, selector);
+  await frame.locator('#zoom-out').click();
+  await frame.waitForTimeout(280);
+  const afterMinus = await frame.evaluate((pageSelector) => {
+    const pageNode = document.querySelector(pageSelector);
+    const wrapper = pageNode?.closest('.export-page-frame');
+    return {
+      pageWidth: pageNode?.getBoundingClientRect().width || 0,
+      wrapperHeight: wrapper?.getBoundingClientRect().height || 0,
+    };
+  }, selector);
+  await frame.locator('#zoom-in').click();
+  await frame.waitForTimeout(280);
+  const afterPlus = await frame.evaluate((pageSelector) => {
+    const pageNode = document.querySelector(pageSelector);
+    return pageNode?.getBoundingClientRect().width || 0;
+  }, selector);
+  const first = atFit.points[0] || [];
+  const expected = [atFit.viewBox.width * 0.34, atFit.viewBox.height * 0.28];
+  const error = Math.hypot((first[0] || 0) - expected[0], (first[1] || 0) - expected[1]);
+  await frame.locator('#zoom-fit').click();
+  return {
+    available: true,
+    fitRect: atFit.rect,
+    viewBox: atFit.viewBox,
+    savedStart: first.slice(0, 2),
+    expectedStart: expected.map((value) => Number(value.toFixed(1))),
+    error: Number(error.toFixed(2)),
+    pointsStableAt100: JSON.stringify(atFit.points) === JSON.stringify(at100.points),
+    pageWidthAt100: at100.pageRect?.width || 0,
+    pageWidthAfterMinus: afterMinus.pageWidth,
+    wrapperHeightAfterMinus: afterMinus.wrapperHeight,
+    pageWidthAfterPlus: afterPlus,
+    pathBoxAt100: at100.pathBox,
+  };
+}
+
+async function exportAudit() {
+  const sizes = [
+    [402, 874, { top: 62, right: 0, bottom: 34, left: 0, legacyBodyPadding: false }],
+    [375, 667, { top: 20, right: 0, bottom: 21, left: 0, legacyBodyPadding: false }],
+    [874, 402, { top: 0, right: 62, bottom: 21, left: 62, legacyBodyPadding: false }],
+  ];
+  const report = { generatedAt: new Date().toISOString(), mode, webkitBinaryAvailable: false, screens: [] };
+  for (const [width, height, viewportSafeArea] of sizes) {
+    const page = await makePage(width, height, liveProject, viewportSafeArea);
+    await selectProjectView(page, 'salida', null);
+    const frame = page.frames().find((item) => item !== page.mainFrame() && item.url().includes('/exportar/'));
+    if (!frame) throw new Error(`No se encontró Documentos en ${width}x${height}`);
+    await frame.waitForSelector('[data-name$="-resumen"] .tinta', { timeout: 8000 });
+    await frame.waitForTimeout(350);
+    const initialLayout = await frame.evaluate(() => {
+      const rect = (selector) => document.querySelector(selector)?.getBoundingClientRect().toJSON() || null;
+      return {
+        folded: document.querySelector('.layout')?.classList.contains('plegado'),
+        rows: getComputedStyle(document.querySelector('.layout')).gridTemplateRows,
+        config: rect('.config'), header: rect('.doc-header'), preview: rect('.preview-scroll-area'),
+        markupCollapsed: document.querySelector('#doc-markup-bar')?.classList.contains('collapsed'),
+      };
+    });
+    await page.screenshot({ path: path.join(outDir, `${width}x${height}-documentos-interfaz.png`) });
+    await frame.evaluate(() => {
+      if (!document.querySelector('.layout')?.classList.contains('plegado')) document.querySelector('#plegar')?.click();
+    });
+    await frame.waitForTimeout(280);
+
+    const pages = [];
+    for (const [name, selector] of [
+      ['resumen', '[data-name$="-resumen"]'],
+      ['hoja-de-llamado', '[data-name$="-hoja-de-llamado"]'],
+    ]) {
+      await showExportPage(frame, selector);
+      const typography = await exportTypographyAudit(frame, selector);
+      const simulated = await addWebkitZoomOverlay(frame, selector);
+      await page.screenshot({ path: path.join(outDir, `${width}x${height}-${name}${simulated ? '-webkit-sim' : ''}.png`) });
+      await frame.evaluate(() => document.querySelector('#webkit-zoom-simulation')?.remove());
+      pages.push({ name, ...typography });
+    }
+    await frame.locator('#view-mode-grid').click();
+    await frame.waitForTimeout(280);
+    const layoutModes = await frame.evaluate(() => {
+      const frames = [...document.querySelectorAll('.export-page-frame')].filter((item) => item.offsetParent);
+      const rects = frames.map((item) => item.getBoundingClientRect());
+      const sized = frames.every((item) => {
+        const page = item.querySelector('.export-page');
+        const factor = page?.offsetWidth ? page.getBoundingClientRect().width / page.offsetWidth : 1;
+        return Math.abs(item.getBoundingClientRect().height - page.offsetHeight * factor) < 1;
+      });
+      const scroll = document.querySelector('#preview-scroll-area');
+      return {
+        gridPages: frames.length,
+        wrappersReserveScaledHeight: sized,
+        firstGap: rects.length > 1 ? Number((rects[1].top - rects[0].bottom).toFixed(2)) : null,
+        scrollHeight: scroll?.scrollHeight || 0,
+        clientHeight: scroll?.clientHeight || 0,
+      };
+    });
+    await frame.locator('#view-mode-single').click();
+    await frame.waitForTimeout(280);
+    const ink = await exportInkAudit(page, frame, '[data-name$="-resumen"]');
+    await frame.waitForTimeout(280);
+    await page.screenshot({ path: path.join(outDir, `${width}x${height}-tinta-escalada.png`) });
+    await page.emulateMedia({ media: 'print' });
+    const print = await frame.evaluate(() => {
+      const page = document.querySelector('.export-page');
+      const wrapper = page?.closest('.export-page-frame');
+      return {
+        transform: page ? getComputedStyle(page).transform : '',
+        wrapperDisplay: wrapper ? getComputedStyle(wrapper).display : '',
+        serializedPageHasTransform: page?.outerHTML.includes('transform') || false,
+      };
+    });
+    await page.emulateMedia({ media: 'screen' });
+    let pngCapture = null;
+    if (width === 402 && height === 874) {
+      await page.evaluate(() => { window.__savedBase64 = null; });
+      await frame.evaluate(() => {
+        document.querySelector('[data-type="png"]')?.click();
+        document.querySelector('#quick-export-btn')?.click();
+      });
+      await page.waitForFunction(() => Array.isArray(window.__savedBase64), null, { timeout: 12000 });
+      pngCapture = await page.evaluate(() => {
+        const [filename, dataUrl] = window.__savedBase64 || [];
+        const encoded = String(dataUrl || '').split(',')[1] || '';
+        const raw = encoded ? atob(encoded) : '';
+        const read32 = (offset) => ((raw.charCodeAt(offset) << 24) >>> 0)
+          + (raw.charCodeAt(offset + 1) << 16) + (raw.charCodeAt(offset + 2) << 8) + raw.charCodeAt(offset + 3);
+        return {
+          filename,
+          width: raw.length >= 24 ? read32(16) : 0,
+          height: raw.length >= 24 ? read32(20) : 0,
+          bytes: raw.length,
+        };
+      });
+    }
+    const totals = pages.reduce((sum, item) => ({
+      overflowingText: sum.overflowingText + item.overflowingText,
+      overlaps: sum.overlaps + item.overlaps,
+    }), { overflowingText: 0, overlaps: 0 });
+    report.screens.push({ label: `${width}x${height}-documentos`, totals, initialLayout, pages, layoutModes, ink, print, pngCapture });
+    await closeSurface(page);
+  }
+  return report;
+}
+
+async function exportVisualAudit() {
+  const report = { generatedAt: new Date().toISOString(), mode, screens: [] };
+  for (const [width, height] of [[1440, 900], [820, 1180], [1180, 820]]) {
+    const page = await makePage(width, height, liveProject);
+    await selectProjectView(page, 'salida', null);
+    const frame = page.frames().find((item) => item !== page.mainFrame() && item.url().includes('/exportar/'));
+    if (!frame) throw new Error(`No se encontró Documentos en ${width}x${height}`);
+    await frame.waitForSelector('[data-name$="-resumen"]', { timeout: 8000 });
+    await frame.waitForTimeout(350);
+    const geometry = await frame.evaluate(() => {
+      const page = document.querySelector('[data-name$="-resumen"]');
+      const rect = page?.getBoundingClientRect();
+      return {
+        layout: document.documentElement.dataset.layout,
+        page: rect?.toJSON() || null,
+        offset: page ? { width: page.offsetWidth, height: page.offsetHeight } : null,
+        zoom: page ? Number.parseFloat(getComputedStyle(page).zoom) || 1 : null,
+        transform: page ? getComputedStyle(page).transform : null,
+      };
+    });
+    await page.screenshot({ path: path.join(outDir, `${width}x${height}-exportar.png`) });
+    report.screens.push({ label: `${width}x${height}-exportar`, geometry });
+    await closeSurface(page);
+  }
+  return report;
+}
+
 async function visualAudit() {
   const sizes = [[1440, 900], [820, 1180], [1180, 820]];
   const report = { generatedAt: new Date().toISOString(), mode, screens: [] };
@@ -639,6 +1003,8 @@ async function focusedGuionAudit() {
 try {
   const report = mode === 'visual' ? await visualAudit()
     : mode === 'mesa' ? await mesaAudit()
+    : mode === 'export-webkit' ? await exportAudit()
+    : mode === 'export-visual' ? await exportVisualAudit()
     : mode === 'review' ? await reviewAudit()
     : mode === 'guion-focus' ? await focusedGuionAudit()
       : await compactAudit();

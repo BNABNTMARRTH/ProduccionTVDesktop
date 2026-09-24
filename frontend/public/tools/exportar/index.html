@@ -305,7 +305,7 @@
   .tinta-stamp:hover{filter:drop-shadow(0 4px 8px rgba(0,0,0,.25))}
 
   /* Área interna de Scroll del documento */
-  .preview-scroll-area{flex:1;min-height:0;height:auto;overflow-y:auto;overflow-x:hidden;
+  .preview-scroll-area{flex:1;min-height:0;height:auto;overflow-y:auto;overflow-x:auto;
     padding-top:16px;padding-bottom:60px;width:100%;display:flex;flex-direction:column;align-items:center;scrollbar-width:thin}
   .preview-scroll-area::-webkit-scrollbar{width:6px}
   .preview-scroll-area::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:999px}
@@ -313,11 +313,21 @@
   .preview{position:relative;z-index:1;width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,816px),1fr));
     justify-items:center;align-items:start;gap:30px;padding:10px 24px;overflow:visible}
   .preview.single-view{display:flex;flex-direction:column;align-items:center}
-  .preview.single-view .export-page{display:none!important}
-  .preview.single-view .export-page.current-page{display:flex!important}
+  .preview.single-view .export-page-frame{display:none}
+  .preview.single-view .export-page-frame.current-page-frame{display:block}
 
-  .export-page{zoom:var(--encaje-hoja,1);transition:transform .2s ease}
-  @media print{ .export-page{zoom:1!important;display:flex!important} }
+  /* `zoom` encoge la caja pero WKWebView deja la tipografía a tamaño completo.
+     El marco ocupa la medida visual real y la hoja se transforma entera: así
+     WebKit escala papel, texto y tinta con la misma matriz. */
+  .export-page-frame{position:relative;flex:0 0 auto;overflow:visible;
+    transition:width .2s ease,height .2s ease}
+  .export-page-frame>.export-page{position:absolute!important;inset:0 auto auto 0;
+    transform:scale(var(--encaje-hoja,1));transform-origin:top left;
+    transition:transform .2s ease}
+  @media print{
+    .export-page-frame{display:contents!important;width:auto!important;height:auto!important;transition:none!important}
+    .export-page{position:relative!important;transform:none!important;transition:none!important;display:flex!important}
+  }
   .empty{margin-top:80px;text-align:center;color:var(--tinta-media);font-size:14px;line-height:1.7}
 
   /* En iPhone configuración y documento forman una sola columna. Cada zona
@@ -365,15 +375,17 @@
   :root[data-layout="compact"] .preview-wrapper{height:auto;max-height:none;min-width:0;min-height:0}
   :root[data-layout="compact"] .doc-header{min-width:0}
   :root[data-layout="compact"] .doc-header-main{
-    height:auto;min-height:0;flex-direction:column;align-items:stretch;
-    padding:8px;gap:8px
+    height:60px;min-height:60px;flex-direction:row;align-items:center;
+    justify-content:flex-start;padding:8px;gap:8px;overflow-x:auto;overflow-y:hidden;
+    overscroll-behavior-x:contain;scrollbar-width:none
   }
   :root[data-layout="compact"] .doc-header-left,
   :root[data-layout="compact"] .doc-header-center,
   :root[data-layout="compact"] .doc-header-right{
-    width:100%;min-height:44px;overflow-x:auto;overflow-y:hidden;
-    justify-content:flex-start;overscroll-behavior-x:contain;scrollbar-width:none
+    width:max-content;min-width:max-content;min-height:44px;overflow:visible;
+    justify-content:flex-start;flex:0 0 auto
   }
+  :root[data-layout="compact"] .doc-header-main::-webkit-scrollbar,
   :root[data-layout="compact"] .doc-header-left::-webkit-scrollbar,
   :root[data-layout="compact"] .doc-header-center::-webkit-scrollbar,
   :root[data-layout="compact"] .doc-header-right::-webkit-scrollbar,
@@ -400,12 +412,27 @@
     min-width:44px;width:auto;min-height:44px;height:44px;padding:0 10px
   }
   :root[data-layout="compact"] .markup-color-dot{width:44px;padding:0}
-  :root[data-layout="compact"] .preview-scroll-area{padding:8px 0 32px;overflow-x:hidden}
-  /* flex:none es lo que deja bajar. El área de scroll es una columna flex y,
-     con overflow:hidden, la hoja se volvía encogible hasta el alto de la
-     ventana: el documento quedaba recortado a ~211 px y no había nada que
-     desplazar. Así conserva su alto real y el área de scroll sí se mueve. */
-  :root[data-layout="compact"] .preview{padding:4px 8px;gap:14px;max-width:100%;overflow:hidden;flex:none}
+  :root[data-layout="compact"] .preview-scroll-area{
+    padding:8px 0 max(32px,var(--ptv-safe-bottom,env(safe-area-inset-bottom)));
+    overflow-x:auto;align-items:flex-start
+  }
+  /* flex:none es lo que deja bajar. El marco conserva el alto transformado y
+     el scroll horizontal aparece sólo al pedir 100% o ampliar; Ajustar sigue
+     centrado sin recortar ninguno de los dos bordes del papel. */
+  :root[data-layout="compact"] .preview{padding:4px 8px;gap:14px;min-width:100%;overflow:visible;flex:none;justify-items:start}
+  :root[data-layout="compact"] .preview.single-view{align-items:flex-start}
+  :root[data-layout="compact"] .export-page-frame{margin-inline:auto}
+
+  @media (orientation:landscape) and (max-height:499px){
+    :root[data-layout="compact"] .doc-header-main{
+      padding-left:max(8px,var(--ptv-safe-left,env(safe-area-inset-left)));
+      padding-right:max(8px,var(--ptv-safe-right,env(safe-area-inset-right)))
+    }
+    :root[data-layout="compact"] .preview-scroll-area{
+      padding-left:var(--ptv-safe-left,env(safe-area-inset-left));
+      padding-right:var(--ptv-safe-right,env(safe-area-inset-right))
+    }
+  }
 
   @media print{
     body{background:#fff;height:auto!important;overflow:visible!important}
@@ -413,6 +440,8 @@
     .layout{display:block;height:auto!important;overflow:visible!important}
     .preview-wrapper,.preview-scroll-area{display:block;height:auto!important;overflow:visible!important;padding:0!important}
     .preview{padding:0;gap:0;display:block;overflow:visible}
+    .export-page-frame{display:contents!important;width:auto!important;height:auto!important;transition:none!important}
+    .export-page{position:relative!important;transform:none!important;transition:none!important}
     .page,.sheet{width:auto;min-height:auto;box-shadow:none!important;border-radius:0;padding:10mm 12mm;page-break-after:always}
     .export-page:last-child{page-break-after:auto}
   }
@@ -1360,6 +1389,13 @@
       if (quickBtn) quickBtn.onclick = () => document.querySelector('#go')?.click();
 
       if (markupToggle && markupBar) {
+        /* En teléfono el documento merece el alto inicial. Las herramientas
+           siguen a un toque en Anotar, pero no ocupan una segunda barra hasta
+           que el usuario realmente va a escribir. */
+        if (document.documentElement.dataset.layout === 'compact') {
+          markupBar.classList.add('collapsed');
+          markupToggle.classList.remove('active');
+        }
         markupToggle.onclick = () => {
           const isCollapsed = markupBar.classList.toggle('collapsed');
           markupToggle.classList.toggle('active', !isCollapsed);
@@ -1415,7 +1451,8 @@
       if (val === 'fit') {
         if (window.aplicarEncajeAutomatico) window.aplicarEncajeAutomatico();
       } else {
-        zona.style.setProperty('--encaje-hoja', val);
+        if (window.aplicarEscalaHojas) window.aplicarEscalaHojas(Number(val));
+        else zona.style.setProperty('--encaje-hoja', val);
       }
     },
 
@@ -1434,14 +1471,17 @@
       this.currentPage = Math.max(1, Math.min(this.totalPages, pageNum));
       const pages = document.querySelectorAll('.export-page');
       pages.forEach((p, i) => {
-        p.classList.toggle('current-page', i === (this.currentPage - 1));
+        const current = i === (this.currentPage - 1);
+        p.classList.toggle('current-page', current);
+        p.closest('.export-page-frame')?.classList.toggle('current-page-frame', current);
       });
       if (this.viewMode === 'grid') {
         const target = pages[this.currentPage - 1];
         if (target) {
           const scrollArea = document.querySelector('#preview-scroll-area');
           if (scrollArea) {
-            const topOffset = target.offsetTop - 16;
+            const visual = target.closest('.export-page-frame') || target;
+            const topOffset = visual.offsetTop - 16;
             scrollArea.scrollTo({ top: Math.max(0, topOffset), behavior: 'smooth' });
           } else {
             target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1528,9 +1568,12 @@
       layout.classList.toggle('plegado', plegado);
       try { localStorage.setItem(LLAVE, plegado ? '1' : ''); } catch (e) { /* da igual */ }
     };
-    let guardado = '';
-    try { guardado = localStorage.getItem(LLAVE) || ''; } catch (e) { /* da igual */ }
-    layout.classList.toggle('plegado', !!guardado);
+    let guardado = null;
+    try { guardado = localStorage.getItem(LLAVE); } catch (e) { /* da igual */ }
+    /* En compacto la configuración funciona como panel bajo demanda. Abrir el
+       módulo enseña primero el documento, no 46 dVH de opciones y tres barras. */
+    const compacto = document.documentElement.dataset.layout === 'compact';
+    layout.classList.toggle('plegado', guardado === '1' || (guardado === null && compacto));
     document.querySelector('#plegar').onclick = () => poner(true);
     document.querySelector('#abrir-panel').onclick = () => poner(false);
   })();
@@ -1624,6 +1667,10 @@
             ${p.html}${p.fillable ? S.foot(i + 1, pages.length) : pgFoot(i + 1, pages.length)}
           </section>`).join('')
       : '<div class="empty">Marca al menos una sección para incluir en el dossier.</div>';
+
+    /* Los marcos se crean después de cada render porque las páginas son DOM
+       nuevo. Reservan el alto ya transformado sin contaminar el HTML impreso. */
+    if (window.prepararEncajeHojas) window.prepararEncajeHojas();
     
     PreviewController.syncWithPages(pages.length);
 
@@ -1648,12 +1695,55 @@
     parent.postMessage({ type: 'producciontv:print-document', html, css: sheetsCss + pagesCss }, '*');
   }
 
-  /* Mide el hueco de la vista previa y calcula el factor de encaje automático. */
+  /* Mide el hueco de la vista previa y calcula el factor de encaje automático.
+     La hoja conserva sus 816 px editoriales; un marco hermano reserva exactamente
+     ancho×factor y alto real×factor para que scroll, Hoja y Mosaico no dependan
+     de la implementación incompleta de `zoom` en WKWebView. */
   (function encajarHojas() {
     const zona = document.querySelector('#preview');
     if (!zona) return;
     const ANCHO_HOJA = 816;
     let puesto = '';
+    const observadas = new WeakSet();
+    const factorActual = () => {
+      const n = parseFloat(getComputedStyle(zona).getPropertyValue('--encaje-hoja'));
+      return Number.isFinite(n) && n > 0 ? n : 1;
+    };
+    const medirMarco = (pagina) => {
+      const marco = pagina.closest('.export-page-frame');
+      if (!marco) return;
+      const factor = factorActual();
+      marco.style.width = `${pagina.offsetWidth * factor}px`;
+      marco.style.height = `${pagina.offsetHeight * factor}px`;
+    };
+    const observadorHojas = window.ResizeObserver
+      ? new ResizeObserver((entradas) => entradas.forEach((entrada) => medirMarco(entrada.target)))
+      : null;
+
+    window.aplicarEscalaHojas = (factor) => {
+      /* Ajustar puede bajar de 40% en un teléfono estrecho; el límite de 40%
+         pertenece sólo a los botones −/+, no al encaje automático. */
+      const limpio = Math.max(0.1, Math.min(2, Number(factor) || 1));
+      zona.style.setProperty('--encaje-hoja', limpio.toFixed(3));
+      requestAnimationFrame(() => document.querySelectorAll('.export-page').forEach(medirMarco));
+    };
+
+    window.prepararEncajeHojas = () => {
+      document.querySelectorAll('.export-page').forEach((pagina) => {
+        let marco = pagina.closest('.export-page-frame');
+        if (!marco) {
+          marco = document.createElement('div');
+          marco.className = 'export-page-frame';
+          pagina.before(marco);
+          marco.appendChild(pagina);
+        }
+        if (observadorHojas && !observadas.has(pagina)) {
+          observadas.add(pagina);
+          observadorHojas.observe(pagina);
+        }
+        medirMarco(pagina);
+      });
+    };
     window.aplicarEncajeAutomatico = () => {
       const scrollArea = document.querySelector('#preview-scroll-area') || zona;
       const estilo = getComputedStyle(scrollArea);
@@ -1661,9 +1751,12 @@
         - parseFloat(estilo.paddingLeft || 0) - parseFloat(estilo.paddingRight || 0) - 48;
       if (hueco <= 0) return;
       const factor = Math.min(1, hueco / ANCHO_HOJA).toFixed(3);
-      if (factor === puesto) return;
+      if (factor === puesto && Math.abs(factorActual() - Number(factor)) < 0.0005) {
+        document.querySelectorAll('.export-page').forEach(medirMarco);
+        return;
+      }
       puesto = factor;
-      zona.style.setProperty('--encaje-hoja', factor);
+      window.aplicarEscalaHojas(Number(factor));
     };
     window.aplicarEncajeAutomatico();
     if (window.ResizeObserver) {
