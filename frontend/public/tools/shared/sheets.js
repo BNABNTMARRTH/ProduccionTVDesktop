@@ -672,6 +672,7 @@
      número que ve el alumno mientras escribe, ahora también en papel.
      Los marcatextos se imprimen: si alguien marcó algo, es porque importa. */
   const CLASE_GUION = { accion: 'gl-acc', personaje: 'gl-per', parentesis: 'gl-par', dialogo: 'gl-dia', transicion: 'gl-tra' };
+  const NOMBRE_TIPO_GUION = { accion: 'ACCIÓN', personaje: 'PERSONAJE', parentesis: 'PARÉNTESIS', dialogo: 'DIÁLOGO', transicion: 'TRANSICIÓN' };
 
   // 55 renglones = 1 página = 1 minuto. Es la regla del oficio, y es la misma
   // cuenta que hace el editor: si cambia una, tiene que cambiar la otra.
@@ -721,6 +722,7 @@
       : Math.round((Number(cfg?.duracionObjetivoMin) || 0) * 60);
     const objetivo = objetivoSeg / 60;
     const desfase = objetivo ? m.minutos - objetivo : 0;
+    const mostrarTipos = cfg?.impresion?.mostrarTiposGuion !== false;
 
     if (!escenas.length) {
       return `
@@ -740,7 +742,12 @@
         const cls = CLASE_GUION[b.tipo] || 'gl-acc';
         const txt = pintadoGuion(b).replace(/\n/g, '<br>');
         const contenido = (b.tipo === 'personaje' || b.tipo === 'transicion') ? txt.toUpperCase() : txt;
-        return `<p class="${cls}">${b.tipo === 'parentesis' ? '(' + contenido + ')' : contenido}</p>`;
+        /* La etiqueta queda absoluta en el margen y por eso no consume un
+           renglón ni altera la equivalencia profesional página ≈ minuto. */
+        const tipo = mostrarTipos
+          ? `<span class="gl-tipo">${esc(NOMBRE_TIPO_GUION[b.tipo] || NOMBRE_TIPO_GUION.accion)}</span>`
+          : '';
+        return `<p class="${cls}">${tipo}${b.tipo === 'parentesis' ? '(' + contenido + ')' : contenido}</p>`;
       }).join('');
       return `<div class="gl-esc">${i + 1}. ${enc}</div>${bloques}`;
     }).join('');

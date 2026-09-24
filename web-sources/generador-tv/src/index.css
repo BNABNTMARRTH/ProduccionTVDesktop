@@ -842,7 +842,9 @@ que es la misma raya #C8D2DE que ya tenían las tablas). */
    queda blanca—: es mesa de trabajo, y se apaga con la app. */
 .vista-foco{
   --ui-tinta:var(--tinta);
-  --ui-tinta-media:var(--tinta-media);
+  /* Los metadatos son pequeños: sobre franjas translúcidas la tinta atenuada
+     caía por debajo de 4.5:1 aunque sobre la pared lisa sí alcanzaba. */
+  --ui-tinta-media:var(--tinta);
   --ui-fila:transparent;
   --ui-fila-alt:color-mix(in srgb, var(--tinta) 4%, transparent);
   --ui-franja:color-mix(in srgb, var(--tinta) 9%, transparent);
@@ -852,6 +854,32 @@ que es la misma raya #C8D2DE que ya tenían las tablas). */
   border-radius:14px;
   box-shadow:inset 0 1px 0 var(--vidrio-filo), 0 18px 40px -26px rgba(23,21,18,.28);
 }
+
+/* Guion técnico y storyboard son mesa de trabajo, no papel. Sus títulos y
+   acciones heredaban el azul de dato como tinta: en oscuro quedaban a 1.1:1.
+   Estos roles semánticos siguen la superficie y reservan la gelatina sólo para
+   indicar la etapa, nunca para escribir datos. */
+.escaleta-subtab{color:var(--ui-tinta);background:var(--yeso);border:1px solid var(--ui-linea)}
+.escaleta-subtab.active{
+  color:var(--ui-tinta);
+  background:var(--yeso);
+  border-color:var(--gel-t);
+  box-shadow:inset 0 0 0 1px var(--gel-t),0 1px 3px rgba(0,0,0,.15);
+}
+.gt-escena{border-color:var(--ui-linea)!important}
+.gt-escena-cab{background:var(--ui-fila-alt)}
+.gt-titulo,.story-caption{color:var(--ui-tinta)}
+.gt-meta,.gt-columnas{color:var(--ui-tinta-media)}
+.gt-indice{
+  color:var(--ui-tinta);
+  background:color-mix(in srgb,var(--gel-t) 18%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gel-t) 38%,transparent);
+}
+.gt-agregar{color:var(--ui-tinta);border-color:var(--ui-linea)!important}
+.gt-icon{color:var(--ui-tinta)}
+.gt-icon:hover{color:var(--e5-t)}
+.story-media{background:var(--ui-franja);color:var(--ui-tinta-media)}
+.story-media .text-slate-400{color:var(--ui-tinta-media)}
 
 /* ── PLEGABLES CON ASPECTO DE BOTÓN ──────────────────────────────────────────
    El <details> del navegador dibuja un triangulito diminuto y deja el resto al
@@ -1098,6 +1126,12 @@ details[open] > summary.ptv-plegable .ptv-caret{transform:rotate(90deg)}
 :root[data-layout="compact"] .guion-bloque-texto {
   min-height:44px!important;
 }
+:root[data-layout="compact"] .guion-pagina {
+  /* 52 pt dejan una guía táctil dentro del papel, no la columna de 84–118 pt
+     del escritorio. El cuerpo conserva así el ancho útil del teléfono. */
+  padding-left:52px!important;
+  padding-right:16px!important;
+}
 :root[data-layout="compact"] .guion-encabezado {
   min-width:0;
   min-height:44px!important;
@@ -1110,20 +1144,52 @@ details[open] > summary.ptv-plegable .ptv-caret{transform:rotate(90deg)}
   white-space:pre-wrap;
   overflow-wrap:anywhere;
 }
-:root[data-layout="compact"] .guion-tipo-etiqueta:not(.activa) {
-  display:none;
-}
-:root[data-layout="compact"] .guion-tipo-etiqueta.activa {
-  min-width:68px;
+:root[data-layout="compact"] .guion-tipo-etiqueta {
+  left:-48px;
+  top:0;
+  width:44px;
+  min-width:44px!important;
   min-height:44px;
   display:flex;
-  align-items:center;
-  padding:0 6px;
+  align-items:flex-start;
+  justify-content:center;
+  padding:3px 2px 0;
   border-radius:8px;
+  /* La caja táctil sigue en 44 pt. El texto condensado y abreviado evita tanto
+     una tipografía microscópica como recuperar la columna ancha del escritorio. */
+  font-family:'Barlow Condensed',var(--font-system)!important;
+  font-size:10px!important;
+  letter-spacing:.02em!important;
+  line-height:1.05;
+  text-align:center;
+  white-space:nowrap;
+  overflow-wrap:normal;
   pointer-events:auto;
   cursor:pointer;
   touch-action:manipulation;
 }
+:root[data-layout="compact"] .guion-tipo-largo{display:none}
+:root[data-layout="compact"] .guion-tipo-corto{display:inline}
+:root[data-layout="compact"] .guion-tipo-etiqueta.activa {
+  background:color-mix(in srgb,currentColor 10%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 35%,transparent);
+}
+:root[data-layout="compact"] .guion-opcion-impresion {
+  min-height:44px;
+  color:var(--tinta);
+}
+:root[data-layout="compact"] .guion-opcion-impresion input {
+  width:22px;
+  height:22px;
+  flex:none;
+}
+
+.guion-tipo-etiqueta {
+  position:absolute;
+  left:-74px;
+  top:8px;
+}
+.guion-tipo-corto{display:none}
 
 /* Input accessory al estilo de un editor de guion móvil. top viene de
    visualViewport, porque dentro del iframe el teclado no coincide con 100vh. */
@@ -1269,8 +1335,12 @@ details[open] > summary.ptv-plegable .ptv-caret{transform:rotate(90deg)}
 :root[data-layout="compact"] .escaleta-subtabs > button {
   width:100%;
   border:1px solid var(--vidrio-borde);
-  background:var(--vidrio-b);
+  background:var(--yeso);
+  color:var(--ui-tinta);
   border-radius:12px;
+}
+:root[data-layout="compact"] .escaleta-subtabs > button.active {
+  border-color:var(--gel-t);
 }
 :root[data-layout="compact"] .escaleta-subtabs > span {
   margin-left:0;

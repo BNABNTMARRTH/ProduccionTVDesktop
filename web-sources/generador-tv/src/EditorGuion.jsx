@@ -40,6 +40,9 @@ const PAPEL = { background: "var(--hoja)", color: "var(--hoja-tinta)", fontFamil
 const TINTA_PAPEL = "var(--hoja-tinta)";
 const TINTA_PAPEL_BAJA = "var(--hoja-tinta-baja)";
 const LINEA_PAPEL = "var(--hoja-linea)";
+const TIPO_CORTO = {
+  accion: "ACCIÓN", personaje: "PERS.", parentesis: "PARÉNT.", dialogo: "DIÁLOGO", transicion: "TRANS.",
+};
 
 // Los estilos que DEBEN ser idénticos en el área de escritura y en la capa del
 // marcatextos: si uno solo cambia, el resaltado se desalinea de las letras.
@@ -63,6 +66,7 @@ export function EditorGuion({ cfg, setCfg }) {
   const escenas = cfg.escaleta || [];
   const personajes = useMemo(() => personajesDe(cfg), [cfg]);
   const medidas = useMemo(() => medidasDe(escenas), [escenas]);
+  const mostrarTiposAlImprimir = cfg.impresion?.mostrarTiposGuion !== false;
 
   const nombreArchivo = (ext) =>
     `${(cfg.titulo || "guion").replace(/[^\w\sáéíóúñÁÉÍÓÚÑ-]/g, "").trim().slice(0, 60) || "guion"}.${ext}`;
@@ -148,16 +152,22 @@ export function EditorGuion({ cfg, setCfg }) {
   const upBloque = (escId, bId, parche) =>
     upGuion(escId, (g) => g.map((b) => (b.id === bId ? { ...b, ...parche } : b)));
 
-  const cambiarTipoEnfocado = (tipo) => {
-    if (!enfocado || !ORDEN_TIPOS.includes(tipo)) return;
-    const area = areas.current[enfocado.bloqueId];
+  const cambiarTipoBloque = (escenaId, bloqueId, tipo) => {
+    if (!escenaId || !bloqueId || !ORDEN_TIPOS.includes(tipo)) return;
+    const area = areas.current[bloqueId];
     const seleccion = area ? [area.selectionStart, area.selectionEnd] : null;
-    upBloque(enfocado.escenaId, enfocado.bloqueId, { tipo });
+    setEnfocado({ escenaId, bloqueId });
+    upBloque(escenaId, bloqueId, { tipo });
     requestAnimationFrame(() => {
-      const actual = areas.current[enfocado.bloqueId];
+      const actual = areas.current[bloqueId];
       actual?.focus({ preventScroll: true });
       if (actual && seleccion) actual.setSelectionRange(seleccion[0], seleccion[1]);
     });
+  };
+
+  const cambiarTipoEnfocado = (tipo) => {
+    if (!enfocado) return;
+    cambiarTipoBloque(enfocado.escenaId, enfocado.bloqueId, tipo);
   };
 
   const insertarTras = (escId, bId, tipo) => {
@@ -354,6 +364,17 @@ export function EditorGuion({ cfg, setCfg }) {
             onClick={descargarGuion} disabled={!medidas.renglones}>.txt</Btn>
         </div>
         {editable && (
+          <label className="guion-opcion-impresion flex items-center gap-2 text-xs font-semibold"
+            title="Añade una etiqueta discreta en el margen; el formato y la cuenta de una página por minuto no cambian.">
+            <input id="mostrar-tipos-impresion" type="checkbox" checked={mostrarTiposAlImprimir}
+              onChange={(e) => setCfg((c) => ({
+                ...c,
+                impresion: { ...(c.impresion || {}), mostrarTiposGuion: e.target.checked },
+              }))} />
+            <span>Mostrar tipo de bloque al imprimir</span>
+          </label>
+        )}
+        {editable && (
           <div className="flex items-center gap-1.5" title="Selecciona texto y elige un color. Sin selección, marca el bloque completo.">
             <span className="text-xs font-bold uppercase" style={{ color: "var(--tinta-baja)", letterSpacing: .6 }}>Marcar</span>
             {Object.entries(MARCADORES).map(([id, m]) => (
@@ -498,31 +519,35 @@ export function EditorGuion({ cfg, setCfg }) {
                     className="guion-bloque-texto w-full resize-none border-0 bg-transparent outline-none"
                     style={{ ...tipografia(b, t), position: "relative", background: "transparent", overflow: "hidden" }}
                   />
-                  {/* Etiqueta del tipo: cada uno con su color, porque en gris
-                      claro se perdían y no se distinguía acción de diálogo.
-                      En iPhone sólo aparece la activa y también rota el tipo. */}
+                  {/* La marca no depende del foco: en un teléfono hay que poder
+                      reconocer la estructura antes de abrir el teclado. En
+                      compacto vive dentro del margen de encuadernación, con
+                      una zona táctil de 44 pt que no abre huecos entre bloques. */}
                   <span
                     className={`guion-tipo-etiqueta no-print${enfocado?.bloqueId === b.id ? " activa" : ""}`}
-                    role={entradaTactil && enfocado?.bloqueId === b.id ? "button" : undefined}
-                    tabIndex={entradaTactil && enfocado?.bloqueId === b.id ? 0 : -1}
+                    role={entradaTactil ? "button" : undefined}
+                    tabIndex={entradaTactil ? 0 : -1}
                     aria-label={entradaTactil ? `Tipo ${t.nombre}. Toca para cambiar al siguiente.` : undefined}
                     onPointerDown={(e) => {
-                      if (!entradaTactil || enfocado?.bloqueId !== b.id) return;
+                      if (!entradaTactil) return;
                       e.preventDefault();
-                      cambiarTipoEnfocado(siguienteEnRotacion(b.tipo));
+                      cambiarTipoBloque(esc.id, b.id, siguienteEnRotacion(b.tipo));
                     }}
                     onMouseDown={(e) => { if (entradaTactil) e.preventDefault(); }}
                     onKeyDown={(e) => {
                       if (!entradaTactil || !["Enter", " "].includes(e.key)) return;
                       e.preventDefault();
-                      cambiarTipoEnfocado(siguienteEnRotacion(b.tipo));
+                      cambiarTipoBloque(esc.id, b.id, siguienteEnRotacion(b.tipo));
                     }}
                     style={{
-                    position: "absolute", left: -74, top: 8, fontSize: 9.5, fontWeight: 800,
+                    fontSize: 9.5, fontWeight: 800,
                     letterSpacing: 0.7, textTransform: "uppercase", color: `var(--tipo-${b.tipo}, ${t.color})`,
                     fontFamily: "system-ui, sans-serif",
-                    pointerEvents: entradaTactil && enfocado?.bloqueId === b.id ? "auto" : "none",
-                  }}>{t.nombre}</span>
+                    pointerEvents: entradaTactil ? "auto" : "none",
+                  }}>
+                    <span className="guion-tipo-largo">{t.nombre}</span>
+                    <span className="guion-tipo-corto" aria-hidden="true">{TIPO_CORTO[b.tipo] || t.nombre}</span>
+                  </span>
 
                   {sugiere?.bloqueId === b.id && (
                     <div className="no-print" style={{

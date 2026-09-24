@@ -605,7 +605,7 @@ async function exportTypographyAudit(frame, selector) {
 }
 
 async function showExportPage(frame, selector) {
-  await frame.evaluate((pageSelector) => {
+  await frame.evaluate(async (pageSelector) => {
     const pages = [...document.querySelectorAll('.export-page')];
     const wanted = document.querySelector(pageSelector);
     const wantedIndex = pages.indexOf(wanted);
@@ -745,6 +745,169 @@ async function exportInkAudit(page, frame, selector) {
   };
 }
 
+async function exportTouchZoomAudit(frame, selector) {
+  await showExportPage(frame, selector);
+  const initial = await frame.evaluate((pageSelector) => {
+    const page = document.querySelector(pageSelector);
+    return {
+      traces: page?._tinta?.trazos().length || 0,
+      markupCollapsed: document.querySelector('#doc-markup-bar')?.classList.contains('collapsed'),
+      toggleActive: document.querySelector('#markup-toggle')?.classList.contains('active'),
+      toggleLabel: document.querySelector('#markup-toggle span')?.textContent.trim() || '',
+      drawModeActive: document.querySelector('#markup-draw-mode')?.classList.contains('active'),
+      inkWritingClass: page?.querySelector('.tinta')?.classList.contains('escribiendo') || false,
+    };
+  }, selector);
+
+  const stroke = async (pointerType, ratioX, ratioY) => frame.evaluate(({ pageSelector, pointerType, ratioX, ratioY }) => {
+    const page = document.querySelector(pageSelector);
+    const svg = page?.querySelector('.tinta');
+    if (!svg) return null;
+    svg.setPointerCapture = () => {};
+    const rect = svg.getBoundingClientRect();
+    const fire = (type, x, y, buttons) => svg.dispatchEvent(new PointerEvent(type, {
+      bubbles: true, cancelable: true, pointerId: pointerType === 'pen' ? 71 : 72,
+      pointerType, buttons, pressure: buttons ? (pointerType === 'pen' ? .72 : .5) : 0,
+      clientX: rect.left + rect.width * x, clientY: rect.top + rect.height * y,
+    }));
+    fire('pointerdown', ratioX, ratioY, 1);
+    for (let i = 1; i <= 6; i += 1) fire('pointermove', ratioX + .08 * i / 6, ratioY + .05 * i / 6, 1);
+    fire('pointerup', ratioX + .08, ratioY + .05, 0);
+    const trace = page._tinta?.trazos().at(-1);
+    return { traces: page._tinta?.trazos().length || 0, points: trace?.t || [],
+      viewBox: { width: svg.viewBox.baseVal.width, height: svg.viewBox.baseVal.height } };
+  }, { pageSelector: selector, pointerType, ratioX, ratioY });
+
+  const fingerDefault = await stroke('touch', .19, .18);
+  await frame.locator('#markup-toggle').click();
+  const annotationOn = await frame.evaluate(() => ({
+    label: document.querySelector('#markup-toggle span')?.textContent.trim() || '',
+    active: document.querySelector('#markup-toggle')?.classList.contains('active'),
+    drawMode: document.querySelector('#markup-draw-mode')?.classList.contains('active'),
+  }));
+  const fingerExplicit = await stroke('touch', .24, .23);
+
+  const beforePinch = await frame.evaluate((pageSelector) => document.querySelector(pageSelector)?._tinta?.trazos().length || 0, selector);
+  await frame.evaluate(async (pageSelector) => {
+    const page = document.querySelector(pageSelector);
+    const svg = page?.querySelector('.tinta');
+    const scroll = document.querySelector('#preview-scroll-area');
+    if (!svg || !scroll) return;
+    svg.setPointerCapture = () => {};
+    const rect = svg.getBoundingClientRect();
+    const center = { x: rect.left + rect.width * .56, y: rect.top + Math.min(rect.height * .42, 220) };
+    svg.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, cancelable: true, pointerId: 81, pointerType: 'touch', buttons: 1, pressure: .5,
+      clientX: center.x - 22, clientY: center.y,
+    }));
+    window.__ptvGestureAudit = [];
+    const snap = (step) => window.__ptvGestureAudit.push({
+      step,
+      scale: document.querySelector('#preview')?.style.getPropertyValue('--encaje-hoja') || '',
+      active: !!window._ptvZoomGestureActive,
+      installed: scroll.dataset.zoomGestures || '',
+    });
+    const makeGesture = (type, scale) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperties(event, {
+        scale: { value: scale }, clientX: { value: center.x }, clientY: { value: center.y },
+      });
+      scroll.dispatchEvent(event);
+      snap(type);
+    };
+    const current = parseFloat(document.querySelector('#preview')?.style.getPropertyValue('--encaje-hoja')) || 1;
+    makeGesture('gesturestart', 1);
+    makeGesture('gesturechange', 2 / current);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    makeGesture('gestureend', 2 / current);
+    svg.dispatchEvent(new PointerEvent('pointercancel', {
+      bubbles: true, cancelable: true, pointerId: 81, pointerType: 'touch', buttons: 0,
+      clientX: center.x - 22, clientY: center.y,
+    }));
+  }, selector);
+  await frame.waitForTimeout(180);
+  const pinch = await frame.evaluate((pageSelector) => {
+    const page = document.querySelector(pageSelector);
+    const scroll = document.querySelector('#preview-scroll-area');
+    const scale = page?.offsetWidth ? page.getBoundingClientRect().width / page.offsetWidth : 0;
+    const before = { left: scroll.scrollLeft, top: scroll.scrollTop };
+    scroll.scrollTo({ left: 0, top: 0, behavior: 'instant' });
+    const topLeft = page?.getBoundingClientRect().toJSON() || null;
+    scroll.scrollTo({ left: scroll.scrollWidth, top: scroll.scrollHeight, behavior: 'instant' });
+    const bottomRight = page?.getBoundingClientRect().toJSON() || null;
+    const viewport = scroll.getBoundingClientRect();
+    return {
+      traces: page?._tinta?.trazos().length || 0,
+      scale: Number(scale.toFixed(3)),
+      zoomLabel: document.querySelector('#zoom-label')?.textContent.trim() || '',
+      gestureAudit: window.__ptvGestureAudit || [],
+      scrollSize: [scroll.scrollWidth, scroll.scrollHeight],
+      clientSize: [scroll.clientWidth, scroll.clientHeight],
+      scrollMax: [scroll.scrollLeft, scroll.scrollTop],
+      topLeft, bottomRight, viewport: viewport.toJSON(), before,
+      reachesTopLeft: !!topLeft && topLeft.left >= viewport.left - 1 && topLeft.top >= viewport.top - 1,
+      reachesBottomRight: !!bottomRight && bottomRight.right <= viewport.right + 1 && bottomRight.bottom <= viewport.bottom + 1,
+    };
+  }, selector);
+
+  const zoomLimit = await frame.evaluate(async (pageSelector) => {
+    const scroll = document.querySelector('#preview-scroll-area');
+    const page = document.querySelector(pageSelector);
+    if (!scroll || !page) return null;
+    const fire = (type, scale) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperties(event, {
+        scale: { value: scale }, clientX: { value: scroll.clientWidth / 2 }, clientY: { value: scroll.clientHeight / 2 },
+      });
+      scroll.dispatchEvent(event);
+    };
+    fire('gesturestart', 1);
+    fire('gesturechange', 10);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    fire('gestureend', 10);
+    const maximum = page.getBoundingClientRect().width / page.offsetWidth;
+    const maximumLabel = document.querySelector('#zoom-label')?.textContent.trim() || '';
+    fire('gesturestart', 1);
+    fire('gesturechange', 2 / maximum);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    fire('gestureend', 2 / maximum);
+    return {
+      maximum: Number(maximum.toFixed(3)), maximumLabel,
+      restoredForPen: Number((page.getBoundingClientRect().width / page.offsetWidth).toFixed(3)),
+    };
+  }, selector);
+
+  const penAt2x = await stroke('pen', .68, .61);
+  const penExpected = penAt2x ? [penAt2x.viewBox.width * .68, penAt2x.viewBox.height * .61] : [];
+  const penStart = penAt2x?.points?.[0] || [];
+  const penError = penAt2x
+    ? Math.hypot((penStart[0] || 0) - penExpected[0], (penStart[1] || 0) - penExpected[1])
+    : null;
+  await frame.locator('#markup-toggle').click();
+  const annotationOff = await frame.evaluate(() => ({
+    label: document.querySelector('#markup-toggle span')?.textContent.trim() || '',
+    active: document.querySelector('#markup-toggle')?.classList.contains('active'),
+    drawMode: document.querySelector('#markup-draw-mode')?.classList.contains('active'),
+  }));
+  await frame.locator('#zoom-fit').click();
+  await frame.waitForTimeout(100);
+  return {
+    initial,
+    fingerDefaultAdded: (fingerDefault?.traces || 0) - initial.traces,
+    annotationOn,
+    fingerExplicitAdded: (fingerExplicit?.traces || 0) - (fingerDefault?.traces || 0),
+    pinch: { ...pinch, tracesAdded: pinch.traces - beforePinch },
+    zoomLimit,
+    penAt2x: {
+      added: (penAt2x?.traces || 0) - pinch.traces,
+      savedStart: penStart.slice(0, 2),
+      expectedStart: penExpected.map((value) => Number(value.toFixed(1))),
+      error: penError == null ? null : Number(penError.toFixed(2)),
+    },
+    annotationOff,
+  };
+}
+
 async function exportAudit() {
   const sizes = [
     [402, 874, { top: 62, right: 0, bottom: 34, left: 0, legacyBodyPadding: false }],
@@ -807,6 +970,7 @@ async function exportAudit() {
     });
     await frame.locator('#view-mode-single').click();
     await frame.waitForTimeout(280);
+    const touchZoom = await exportTouchZoomAudit(frame, '[data-name$="-resumen"]');
     const ink = await exportInkAudit(page, frame, '[data-name$="-resumen"]');
     await frame.waitForTimeout(280);
     await page.screenshot({ path: path.join(outDir, `${width}x${height}-tinta-escalada.png`) });
@@ -847,7 +1011,7 @@ async function exportAudit() {
       overflowingText: sum.overflowingText + item.overflowingText,
       overlaps: sum.overlaps + item.overlaps,
     }), { overflowingText: 0, overlaps: 0 });
-    report.screens.push({ label: `${width}x${height}-documentos`, totals, initialLayout, pages, layoutModes, ink, print, pngCapture });
+    report.screens.push({ label: `${width}x${height}-documentos`, totals, initialLayout, pages, layoutModes, touchZoom, ink, print, pngCapture });
     await closeSurface(page);
   }
   return report;
@@ -1000,6 +1164,191 @@ async function focusedGuionAudit() {
   return report;
 }
 
+/* Contraste efectivo sobre superficies translúcidas. Se componen los fondos
+   de todos los ancestros: tomar sólo `backgroundColor` del texto falsea justo
+   las tarjetas de vidrio que necesitamos vigilar en oscuro. */
+async function contrastAudit(frame) {
+  return frame.evaluate(() => {
+    const rgba = (value) => {
+      const match = String(value || '').match(/rgba?\(([^)]+)\)/i);
+      const cssColor = String(value || '').match(/color\(srgb\s+([^)]+)\)/i);
+      if (!match && !cssColor) return [0, 0, 0, 0];
+      const parts = (match?.[1] || cssColor[1]).split(/[\s,\/]+/).filter(Boolean).map(Number);
+      if (cssColor) parts.splice(0, 3, ...parts.slice(0, 3).map((part) => part * 255));
+      return [parts[0] || 0, parts[1] || 0, parts[2] || 0, Number.isFinite(parts[3]) ? parts[3] : 1];
+    };
+    const over = (front, back) => {
+      const alpha = front[3] + back[3] * (1 - front[3]);
+      if (!alpha) return [0, 0, 0, 0];
+      return [0, 1, 2].map((i) => (front[i] * front[3] + back[i] * back[3] * (1 - front[3])) / alpha)
+        .concat(alpha);
+    };
+    const fondo = (element) => {
+      const chain = [];
+      for (let node = element; node instanceof Element; node = node.parentElement) chain.push(node);
+      let color = document.documentElement.dataset.tema === 'oscuro' ? [9, 20, 35, 1] : [242, 242, 247, 1];
+      chain.reverse().forEach((node) => {
+        const bg = rgba(getComputedStyle(node).backgroundColor);
+        if (bg[3]) color = over(bg, color);
+      });
+      return color;
+    };
+    const luminance = (color) => {
+      const linear = color.slice(0, 3).map((value) => {
+        const part = value / 255;
+        return part <= 0.04045 ? part / 12.92 : ((part + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+    };
+    const visible = (element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) !== 0
+        && rect.width > 1 && rect.height > 1 && !element.closest('[hidden]');
+    };
+    const seen = new Set();
+    const records = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const content = node.textContent.replace(/\s+/g, ' ').trim();
+      const owner = node.parentElement;
+      if (!content || !owner || !visible(owner) || owner.closest('svg')) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      if (![...range.getClientRects()].some((rect) => rect.width > 1 && rect.height > 1)) continue;
+      const style = getComputedStyle(owner);
+      const bg = fondo(owner);
+      const fg = over(rgba(style.color), bg);
+      const l1 = luminance(fg), l2 = luminance(bg);
+      const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+      const size = Number.parseFloat(style.fontSize) || 16;
+      const weight = Number.parseInt(style.fontWeight, 10) || (/bold/i.test(style.fontWeight) ? 700 : 400);
+      const large = size >= 24 || (size >= 18.66 && weight >= 700);
+      const required = large ? 3 : 4.5;
+      const key = `${owner.tagName}.${owner.className || ''}:${content}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      records.push({
+        element: `${owner.tagName.toLowerCase()}${owner.id ? `#${owner.id}` : ''}${owner.className ? `.${String(owner.className).trim().replace(/\s+/g, '.')}` : ''}`,
+        text: content.slice(0, 100), ratio: Number(ratio.toFixed(2)), required, size, weight,
+        backgroundCss: style.backgroundColor,
+        foreground: fg.slice(0, 3).map(Math.round), background: bg.slice(0, 3).map(Math.round),
+      });
+    }
+    /* Lucide y los demás pictogramas no tienen nodos de texto. Se toma el
+       trazo/relleno realmente calculado de cada figura y se aplica el umbral
+       WCAG de 3:1 para componentes gráficos. */
+    for (const svg of document.querySelectorAll('svg')) {
+      if (!visible(svg)) continue;
+      const bg = fondo(svg);
+      const shapes = [...svg.querySelectorAll('path,line,polyline,polygon,circle,ellipse,rect')];
+      const colors = [];
+      for (const shape of shapes.length ? shapes : [svg]) {
+        const shapeStyle = getComputedStyle(shape);
+        const painted = [shapeStyle.stroke, shapeStyle.fill]
+          .map(rgba).filter((color) => color[3]);
+        if (!painted.length) painted.push(rgba(shapeStyle.color));
+        for (const parsed of painted) {
+          if (parsed[3] && !colors.some((item) => item.slice(0, 3).every((part, i) => Math.abs(part - parsed[i]) < .5))) colors.push(parsed);
+        }
+      }
+      for (const color of colors) {
+        const fg = over(color, bg);
+        const l1 = luminance(fg), l2 = luminance(bg);
+        const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+        records.push({
+          element: `svg${svg.className?.baseVal ? `.${svg.className.baseVal.trim().replace(/\s+/g, '.')}` : ''}`,
+          text: svg.closest('button,label')?.getAttribute('title') || svg.getAttribute('aria-label') || 'icono',
+          ratio: Number(ratio.toFixed(2)), required: 3, size: svg.getBoundingClientRect().width, weight: 0,
+          backgroundCss: getComputedStyle(svg).backgroundColor,
+          foreground: fg.slice(0, 3).map(Math.round), background: bg.slice(0, 3).map(Math.round), kind: 'icon',
+        });
+      }
+    }
+    const failures = records.filter((item) => item.ratio + 0.005 < item.required);
+    return { textElements: records.length, failures: failures.length, examples: failures.slice(0, 30) };
+  });
+}
+
+async function guionRoundAudit() {
+  const sizes = [
+    [402, 874, { top: 62, right: 0, bottom: 34, left: 0, legacyBodyPadding: false }],
+    [375, 667, { top: 20, right: 0, bottom: 21, left: 0, legacyBodyPadding: false }],
+    [874, 402, { top: 0, right: 62, bottom: 21, left: 62, legacyBodyPadding: false }],
+  ];
+  const report = { generatedAt: new Date().toISOString(), mode, screens: [] };
+  const narrative = bundleInfo(narrativeProject).bundle.infographic;
+  for (const [width, height, viewportSafeArea] of sizes) {
+    const page = await makePage(width, height, narrativeProject, viewportSafeArea);
+    await selectProjectView(page, 'guion', 'guionLiterario');
+    const tool = page.frames().find((item) => item !== page.mainFrame() && item.url().includes('/infografias/'));
+    if (!tool) throw new Error(`No se encontró Guion literario en ${width}x${height}`);
+    await tool.waitForSelector('.guion-bloque-texto');
+    const literaryBeforeFocus = await tool.evaluate(() => ({
+      blocks: document.querySelectorAll('.guion-bloque').length,
+      visibleLabels: [...document.querySelectorAll('.guion-tipo-etiqueta')].filter((element) => {
+        const rect = element.getBoundingClientRect();
+        return getComputedStyle(element).display !== 'none' && rect.width > 1 && rect.height > 1;
+      }).length,
+      printOption: document.querySelector('#mostrar-tipos-impresion')?.checked ?? null,
+    }));
+    await tool.locator('.guion-bloque-texto').first().focus();
+    await tool.waitForTimeout(100);
+    const literaryFocused = await tool.evaluate(() => {
+      const bar = document.querySelector('.guion-tipos-barra');
+      const rect = bar?.getBoundingClientRect();
+      return {
+        visibleLabels: [...document.querySelectorAll('.guion-tipo-etiqueta')].filter((element) => {
+          const box = element.getBoundingClientRect();
+          return getComputedStyle(element).display !== 'none' && box.width > 1 && box.height > 1;
+        }).length,
+        typeBarVisible: !!bar && rect.width > 1 && rect.height > 1,
+      };
+    });
+    const printed = await tool.evaluate((cfg) => {
+      const html = window.PTVSheets?.guion?.(cfg, cfg.titulo || 'Guion') || '';
+      const hiddenHtml = window.PTVSheets?.guion?.({
+        ...cfg, impresion: { ...(cfg.impresion || {}), mostrarTiposGuion: false },
+      }, cfg.titulo || 'Guion') || '';
+      const host = document.createElement('div');
+      host.innerHTML = html;
+      const hiddenHost = document.createElement('div');
+      hiddenHost.innerHTML = hiddenHtml;
+      return {
+        labels: host.querySelectorAll('.gl-tipo').length,
+        text: [...host.querySelectorAll('.gl-tipo')].map((item) => item.textContent.trim()),
+        labelsWhenDisabled: hiddenHost.querySelectorAll('.gl-tipo').length,
+      };
+    }, narrative);
+    await page.screenshot({ path: path.join(outDir, `${width}x${height}-guion-literario.png`) });
+    report.screens.push({
+      label: `${width}x${height}-guion-literario`, totals: { lowContrast: 0 },
+      literary: { beforeFocus: literaryBeforeFocus, focused: literaryFocused, printed },
+    });
+
+    await selectProjectView(page, 'guion', 'escaleta');
+    for (const [view, buttonText] of [['tecnico', 'Guion técnico'], ['storyboard', 'Storyboard']]) {
+      const button = tool.getByRole('button', { name: new RegExp(buttonText, 'i') }).first();
+      if (await button.count()) await button.click();
+      await tool.waitForTimeout(120);
+      for (const theme of ['claro', 'oscuro']) {
+        await page.evaluate((value) => { document.documentElement.dataset.tema = value; }, theme);
+        await tool.evaluate((value) => { document.documentElement.dataset.tema = value; }, theme);
+        /* La interfaz interpola fondo y tinta durante 180 ms al cambiar tema.
+           Medir en mitad de esa transición produce combinaciones que nunca
+           quedan estáticas en pantalla y falsos positivos de contraste. */
+        await tool.waitForTimeout(240);
+        const contrast = await contrastAudit(tool);
+        const label = `${width}x${height}-${view}-${theme}`;
+        await page.screenshot({ path: path.join(outDir, `${label}.png`) });
+        report.screens.push({ label, totals: { lowContrast: contrast.failures }, contrast });
+      }
+    }
+    await closeSurface(page);
+  }
+  return report;
+}
+
 try {
   const report = mode === 'visual' ? await visualAudit()
     : mode === 'mesa' ? await mesaAudit()
@@ -1007,6 +1356,7 @@ try {
     : mode === 'export-visual' ? await exportVisualAudit()
     : mode === 'review' ? await reviewAudit()
     : mode === 'guion-focus' ? await focusedGuionAudit()
+    : mode === 'guion-round' ? await guionRoundAudit()
       : await compactAudit();
   const reportPath = path.join(outDir, 'report.json');
   fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);

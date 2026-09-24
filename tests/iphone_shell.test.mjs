@@ -11,6 +11,7 @@ const STYLE = leer('../frontend/src/style.css');
 const EDITOR_GUION = leer('../web-sources/generador-tv/src/EditorGuion.jsx');
 const MESA_LUZ = leer('../web-sources/generador-tv/src/MesaDeLuz.jsx');
 const GENERADOR_STYLE = leer('../web-sources/generador-tv/src/index.css');
+const SHEETS = leer('../frontend/public/tools/shared/sheets.js');
 
 test('el target nativo admite iPhone y iPad en Debug y Release', () => {
   assert.equal([...PBX.matchAll(/TARGETED_DEVICE_FAMILY = "1,2";/g)].length, 2);
@@ -92,6 +93,11 @@ test('Guion literario ofrece selector táctil de tipos sobre visualViewport', ()
   assert.match(EDITOR_GUION, /onPointerDown=\{\(e\) => \{ e\.preventDefault\(\); cambiarTipoEnfocado\(tipo\); \}\}/);
   assert.match(GENERADOR_STYLE, /\.guion-tipos-scroll button\s*\{[^}]*min-height:44px!important/s);
   assert.match(GENERADOR_STYLE, /\.guion-bloque-texto\s*\{\s*min-height:44px!important/s);
+  assert.doesNotMatch(GENERADOR_STYLE, /\.guion-tipo-etiqueta:not\(\.activa\)\s*\{\s*display:none/);
+  assert.match(GENERADOR_STYLE, /\.guion-tipo-etiqueta\s*\{[^}]*min-width:44px!important[^}]*min-height:44px/s);
+  assert.match(EDITOR_GUION, /id="mostrar-tipos-impresion"/);
+  assert.match(SHEETS, /cfg\?\.impresion\?\.mostrarTiposGuion !== false/);
+  assert.match(SHEETS, /class="gl-tipo"/);
 });
 
 test('el compacto horizontal pinta a los bordes y concentra el encabezado en una fila', () => {

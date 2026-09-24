@@ -108,6 +108,7 @@ test('un proyecto viejo NO pierde la mesa que ya tenía', () => {
   const viejo = normalizeCfg({ camaras: [], microfonos: [], escaleta: [],
     sets: [{ id: 's1', nombre: 'Set', locacion: 'int', setLayout: { pos: {}, rot: {} }, muebles: [] }], setActivo: 's1' });
   assert.equal(viejo.sets[0].mesaVisible, true, 'a un proyecto viejo no se le quita la mesa');
+  assert.equal(viejo.impresion.mostrarTiposGuion, true, 'los tipos impresos nacen encendidos en proyectos anteriores');
 });
 
 test('la mesa redonda del panel sienta a los cuatro en corro', () => {

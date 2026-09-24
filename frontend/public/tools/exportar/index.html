@@ -306,7 +306,8 @@
 
   /* Área interna de Scroll del documento */
   .preview-scroll-area{flex:1;min-height:0;height:auto;overflow-y:auto;overflow-x:auto;
-    padding-top:16px;padding-bottom:60px;width:100%;display:flex;flex-direction:column;align-items:center;scrollbar-width:thin}
+    padding-top:16px;padding-bottom:60px;width:100%;display:flex;flex-direction:column;align-items:center;scrollbar-width:thin;
+    -webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;overscroll-behavior:contain}
   .preview-scroll-area::-webkit-scrollbar{width:6px}
   .preview-scroll-area::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:999px}
 
@@ -324,6 +325,8 @@
   .export-page-frame>.export-page{position:absolute!important;inset:0 auto auto 0;
     transform:scale(var(--encaje-hoja,1));transform-origin:top left;
     transition:transform .2s ease}
+  .preview-scroll-area.zoom-gesturing .export-page-frame,
+  .preview-scroll-area.zoom-gesturing .export-page{transition:none!important}
   @media print{
     .export-page-frame{display:contents!important;width:auto!important;height:auto!important;transition:none!important}
     .export-page{position:relative!important;transform:none!important;transition:none!important;display:flex!important}
@@ -496,7 +499,7 @@
      Ahora los recibe todos y DECIDE en el código: si no es el lápiz y no está
      el modo, no hace preventDefault y `touch-action:pan-y` deja que el dedo
      desplace la hoja como si la capa no existiera. */
-  .tinta{position:absolute;inset:0;width:100%;height:100%;z-index:5;touch-action:pan-y}
+  .tinta{position:absolute;inset:0;width:100%;height:100%;z-index:5;touch-action:pan-x pan-y}
   .tinta.escribiendo{touch-action:none;cursor:crosshair}
   .tinta.borrando{touch-action:none;cursor:cell}
   .export-page{position:relative}
@@ -634,6 +637,7 @@
             </button>
             <button class="doc-seg-btn active" data-zoom="fit" id="zoom-fit">Ajustar</button>
             <button class="doc-seg-btn" data-zoom="1.0" id="zoom-100">100%</button>
+            <span class="doc-seg-label" id="zoom-label" aria-live="polite">100%</span>
             <button class="doc-icon-btn" id="zoom-in" title="Aumentar zoom">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>
@@ -641,7 +645,7 @@
         </div>
 
         <div class="doc-header-right">
-          <button class="doc-action-pill active" id="markup-toggle" title="Mostrar/Ocultar barra de marcado y Apple Pencil">
+          <button class="doc-action-pill active" id="markup-toggle" aria-pressed="true" title="Mostrar/Ocultar barra de marcado y Apple Pencil">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
             <span>Anotar</span>
           </button>
@@ -723,6 +727,12 @@
 
   let cfg = null, diagram = null, project = null, projectName = '';
   let tipo = 'pdf';
+  const entradaTactil = () => {
+    const layout = document.documentElement.dataset.layout;
+    return layout === 'compact'
+      || (layout === 'tablet' && navigator.maxTouchPoints > 0
+        && !!window.matchMedia?.('(any-pointer: coarse)')?.matches);
+  };
 
   // Secciones disponibles (id, etiqueta, páginas que produce)
   const SECCIONES = [
@@ -1392,13 +1402,21 @@
         /* En teléfono el documento merece el alto inicial. Las herramientas
            siguen a un toque en Anotar, pero no ocupan una segunda barra hasta
            que el usuario realmente va a escribir. */
-        if (document.documentElement.dataset.layout === 'compact') {
-          markupBar.classList.add('collapsed');
-          markupToggle.classList.remove('active');
-        }
+        const tactil = entradaTactil();
+        const ponerEstadoAnotar = (activo) => {
+          markupBar.classList.toggle('collapsed', !activo);
+          markupToggle.classList.toggle('active', activo);
+          markupToggle.setAttribute('aria-pressed', String(activo));
+          const texto = markupToggle.querySelector('span');
+          if (texto) texto.textContent = tactil && activo ? 'Listo' : 'Anotar';
+          markupToggle.title = tactil
+            ? (activo ? 'Terminar de anotar y volver a navegar' : 'Anotar con el dedo; Apple Pencil escribe siempre')
+            : 'Mostrar/Ocultar barra de marcado y Apple Pencil';
+          if (tactil) window.tintaModoDedo?.(activo);
+        };
+        ponerEstadoAnotar(!tactil);
         markupToggle.onclick = () => {
-          const isCollapsed = markupBar.classList.toggle('collapsed');
-          markupToggle.classList.toggle('active', !isCollapsed);
+          ponerEstadoAnotar(markupBar.classList.contains('collapsed'));
         };
       }
 
@@ -1409,8 +1427,10 @@
 
       if (zoomOutBtn) zoomOutBtn.onclick = () => this.stepZoom(-0.15);
       if (zoomInBtn) zoomInBtn.onclick = () => this.stepZoom(0.15);
-      if (zoomFitBtn) zoomFitBtn.onclick = () => { this.setZoom('fit'); this.updateZoomUI('fit'); };
-      if (zoom100Btn) zoom100Btn.onclick = () => { this.setZoom('1.0'); this.updateZoomUI('1.0'); };
+      if (zoomFitBtn) zoomFitBtn.onclick = () => this.setZoom('fit');
+      if (zoom100Btn) zoom100Btn.onclick = () => this.setZoom('1.0');
+
+      this.installZoomGestures();
 
       window.addEventListener('keydown', (e) => {
         if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
@@ -1432,28 +1452,131 @@
       const zona = document.querySelector('#preview');
       if (!zona) return;
       let cur = parseFloat(zona.style.getPropertyValue('--encaje-hoja')) || 1.0;
-      let next = Math.max(0.4, Math.min(2.0, +(cur + delta).toFixed(2)));
+      const minimo = window.obtenerEscalaAjustar?.() || 0.1;
+      let next = Math.max(minimo, Math.min(3.0, +(cur + delta).toFixed(2)));
       this.setZoom(String(next));
-      this.updateZoomUI(null);
     },
 
     updateZoomUI(val) {
+      const zona = document.querySelector('#preview');
+      const actual = typeof val === 'number'
+        ? val
+        : (parseFloat(zona?.style.getPropertyValue('--encaje-hoja')) || 1);
+      const ajuste = window.obtenerEscalaAjustar?.() || actual;
+      const esAjuste = val === 'fit' || Math.abs(actual - ajuste) < 0.005;
       const fitBtn = document.querySelector('#zoom-fit');
       const h100Btn = document.querySelector('#zoom-100');
-      if (fitBtn) fitBtn.classList.toggle('active', val === 'fit');
-      if (h100Btn) h100Btn.classList.toggle('active', val === '1.0');
+      const label = document.querySelector('#zoom-label');
+      if (fitBtn) fitBtn.classList.toggle('active', esAjuste);
+      if (h100Btn) h100Btn.classList.toggle('active', Math.abs(actual - 1) < 0.005);
+      if (label) label.textContent = `${Math.round(actual * 100)}%`;
     },
 
-    setZoom(val) {
+    setZoom(val, punto = null) {
       this.zoomLevel = val;
       const zona = document.querySelector('#preview');
       if (!zona) return;
       if (val === 'fit') {
-        if (window.aplicarEncajeAutomatico) window.aplicarEncajeAutomatico();
+        if (window.aplicarEncajeAutomatico) window.aplicarEncajeAutomatico(true);
       } else {
-        if (window.aplicarEscalaHojas) window.aplicarEscalaHojas(Number(val));
+        if (window.aplicarEscalaHojas) window.aplicarEscalaHojas(Number(val), punto);
         else zona.style.setProperty('--encaje-hoja', val);
+        this.updateZoomUI(Number(val));
       }
+    },
+
+    installZoomGestures() {
+      const scroll = document.querySelector('#preview-scroll-area');
+      if (!scroll || scroll.dataset.zoomGestures === '1') return;
+      scroll.dataset.zoomGestures = '1';
+      let gesto = null;
+      const zona = document.querySelector('#preview');
+      const escala = () => parseFloat(zona?.style.getPropertyValue('--encaje-hoja')) || 1;
+      const limitar = (s) => Math.max(window.obtenerEscalaAjustar?.() || .1, Math.min(3, s));
+      const puntoMedio = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
+      const distancia = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1;
+      /* EL PELLIZCO SE VE, PERO NO SE APLICA HASTA SOLTAR.
+         Antes cada gesturechange —decenas por segundo— cambiaba --encaje-hoja,
+         rehacía los marcos de todas las hojas y corregía el scroll dos cuadros
+         después. Esas correcciones se encimaban midiendo posiciones viejas, y
+         encima el scroll nativo seguía moviendo la hoja con los dos dedos: la
+         hoja «rebotaba» y se desplazaba mientras crecía. Ahora, durante el
+         gesto, sólo se transforma #preview como una imagen (sin reacomodar
+         nada) alrededor del punto donde empezó el pellizco; al soltar se
+         aplica la escala real UNA vez, anclada a ese mismo punto. Es lo que
+         hacen Fotos o Safari. */
+      const empezar = (kind, point, distance = 1) => {
+        if (gesto) return;   // iOS dispara touch y gesture: gana el primero
+        window._ptvZoomGestureActive = true;
+        document.querySelectorAll('.tinta').forEach((svg) =>
+          svg.dispatchEvent(new CustomEvent('ptv:cancelar-tinta-tactil')));
+        scroll.classList.add('zoom-gesturing');
+        const caja = zona.getBoundingClientRect();
+        zona.style.transformOrigin = `${point.x - caja.left}px ${point.y - caja.top}px`;
+        zona.style.willChange = 'transform';
+        gesto = { kind, point, distance, scale: escala(), ratio: 1 };
+      };
+      const mostrar = (escalaPedida) => {
+        if (!gesto) return;
+        gesto.ratio = limitar(escalaPedida) / gesto.scale;
+        zona.style.transform = `scale(${gesto.ratio})`;
+      };
+      const terminar = () => {
+        if (!gesto) return;
+        const { point, scale, ratio } = gesto;
+        gesto = null;
+        zona.style.transform = '';
+        zona.style.transformOrigin = '';
+        zona.style.willChange = '';
+        if (Math.abs(ratio - 1) > 0.005) this.setZoom(String(limitar(scale * ratio)), point);
+        // Un cuadro después, para que el marco ya medido no vuelva a animarse.
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          window._ptvZoomGestureActive = false;
+          scroll.classList.remove('zoom-gesturing');
+        }));
+      };
+
+      /* WKWebView expone estos eventos aun con user-scalable=no. El fallback de
+         dos toques cubre motores que sólo implementan Touch Events. */
+      const hayGestosWebKit = 'ongesturestart' in window;
+      scroll.addEventListener('gesturestart', (event) => {
+        event.preventDefault();
+        empezar('webkit', { x: event.clientX, y: event.clientY });
+      }, { passive: false });
+      scroll.addEventListener('gesturechange', (event) => {
+        if (!gesto) return;
+        event.preventDefault();
+        mostrar(gesto.scale * event.scale);
+      }, { passive: false });
+      scroll.addEventListener('gestureend', terminar, { passive: true });
+
+      scroll.addEventListener('touchstart', (event) => {
+        if (event.touches.length !== 2 || hayGestosWebKit) return;
+        const [a, b] = event.touches;
+        empezar('touch', puntoMedio(a, b), distancia(a, b));
+      }, { passive: true });
+      scroll.addEventListener('touchmove', (event) => {
+        if (event.touches.length < 2) return;
+        // Con dos dedos NUNCA hay scroll nativo: era la otra mitad del rebote.
+        event.preventDefault();
+        if (gesto?.kind !== 'touch') return;
+        const [a, b] = event.touches;
+        mostrar(gesto.scale * distancia(a, b) / gesto.distance);
+      }, { passive: false });
+      scroll.addEventListener('touchend', (event) => {
+        if (gesto?.kind === 'touch' && event.touches.length < 2) terminar();
+      }, { passive: true });
+      scroll.addEventListener('touchcancel', terminar, { passive: true });
+
+      /* Safari/Chromium convierten el pellizco del trackpad en rueda+Ctrl. La
+         rueda normal conserva el desplazamiento nativo. */
+      scroll.addEventListener('wheel', (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        const next = escala() * Math.exp(-event.deltaY * .002);
+        this.setZoom(String(Math.max(window.obtenerEscalaAjustar?.() || .1, Math.min(3, next))),
+          { x: event.clientX, y: event.clientY });
+      }, { passive: false });
     },
 
     setViewMode(mode) {
@@ -1534,7 +1657,7 @@
         <button data-down="${i}" ${i === orden.length - 1 ? 'disabled' : ''} title="Mover abajo">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
-      </div>${s.id === 'guias' && s.on ? subHojas() : ''}`).join('');
+      </div>${s.id === 'guion' && s.on ? opcionTiposGuion() : ''}${s.id === 'guias' && s.on ? subHojas() : ''}`).join('');
     list.querySelectorAll('[data-on]').forEach((c) => c.onchange = () => { orden[Number(c.dataset.on)].on = c.checked; render(); });
     list.querySelectorAll('[data-hoja]').forEach((c) => c.onchange = () => {
       const id = c.dataset.hoja;
@@ -1545,6 +1668,12 @@
     if (filas) filas.onchange = () => {
       filasExtra = Math.max(0, Math.min(12, Number(filas.value) || 0));
       render();
+    };
+    const tiposGuion = list.querySelector('#mostrar-tipos-guion-exportar');
+    if (tiposGuion) tiposGuion.onchange = () => {
+      cfg = { ...cfg, impresion: { ...(cfg.impresion || {}), mostrarTiposGuion: tiposGuion.checked } };
+      parent.postMessage({ type: 'producciontv:infografia-state', cfg }, '*');
+      renderPreview();
     };
     list.querySelectorAll('[data-up]').forEach((b) => b.onclick = () => { const i = Number(b.dataset.up); [orden[i - 1], orden[i]] = [orden[i], orden[i - 1]]; render(); });
     list.querySelectorAll('[data-down]').forEach((b) => b.onclick = () => { const i = Number(b.dataset.down); [orden[i + 1], orden[i]] = [orden[i], orden[i + 1]]; render(); });
@@ -1586,6 +1715,15 @@
           <label><input type="checkbox" data-hoja="${h.id}" ${hojasOn.includes(h.id) ? 'checked' : ''}>${h.label}</label>`).join('')}
         <label>Renglones en blanco <input id="filas-extra" type="number" min="0" max="12" value="${filasExtra}"></label>
         <span class="nota">Son las hojas que se llenan a mano en el set y después se capturan de regreso en la app. Los renglones en blanco son el espacio para escribir lo que salga en el rodaje.</span>
+      </div>`;
+  }
+
+  function opcionTiposGuion() {
+    const checked = cfg?.impresion?.mostrarTiposGuion !== false;
+    return `
+      <div class="sec-sub guion-print-option">
+        <label><input id="mostrar-tipos-guion-exportar" type="checkbox" ${checked ? 'checked' : ''}>Mostrar tipo de bloque al imprimir</label>
+        <span class="nota">La etiqueta va en el margen y no cambia las sangrías ni la cuenta de una página por minuto.</span>
       </div>`;
   }
 
@@ -1720,12 +1858,40 @@
       ? new ResizeObserver((entradas) => entradas.forEach((entrada) => medirMarco(entrada.target)))
       : null;
 
-    window.aplicarEscalaHojas = (factor) => {
+    window.aplicarEscalaHojas = (factor, punto = null) => {
       /* Ajustar puede bajar de 40% en un teléfono estrecho; el límite de 40%
-         pertenece sólo a los botones −/+, no al encaje automático. */
-      const limpio = Math.max(0.1, Math.min(2, Number(factor) || 1));
+         pertenece sólo a los botones −/+, no al encaje automático. El techo
+         de 300% deja inspeccionar firma y detalle sin crear números infinitos. */
+      const limpio = Math.max(0.1, Math.min(3, Number(factor) || 1));
+      const anterior = factorActual();
+      const scrollArea = document.querySelector('#preview-scroll-area');
+      // El ancla es la hoja que está BAJO LOS DEDOS; en Mosaico la «actual»
+      // puede ser otra, y anclar a ella corría el zoom a un lugar ajeno.
+      const bajoPunto = punto && document.elementFromPoint(punto.x, punto.y)?.closest?.('.export-page');
+      const paginaActiva = bajoPunto || document.querySelector('.export-page.current-page') || document.querySelector('.export-page');
+      let ancla = null;
+      if (punto && scrollArea && paginaActiva) {
+        const rect = paginaActiva.getBoundingClientRect();
+        ancla = {
+          pagina: paginaActiva,
+          x: (punto.x - rect.left) / anterior,
+          y: (punto.y - rect.top) / anterior,
+          clienteX: punto.x,
+          clienteY: punto.y,
+        };
+      }
       zona.style.setProperty('--encaje-hoja', limpio.toFixed(3));
-      requestAnimationFrame(() => document.querySelectorAll('.export-page').forEach(medirMarco));
+      requestAnimationFrame(() => {
+        document.querySelectorAll('.export-page').forEach(medirMarco);
+        requestAnimationFrame(() => {
+          if (ancla && scrollArea) {
+            const rect = ancla.pagina.getBoundingClientRect();
+            scrollArea.scrollLeft += rect.left + ancla.x * limpio - ancla.clienteX;
+            scrollArea.scrollTop += rect.top + ancla.y * limpio - ancla.clienteY;
+          }
+        });
+      });
+      PreviewController.updateZoomUI(limpio);
     };
 
     window.prepararEncajeHojas = () => {
@@ -1744,24 +1910,33 @@
         medirMarco(pagina);
       });
     };
-    window.aplicarEncajeAutomatico = () => {
+    window.obtenerEscalaAjustar = () => {
       const scrollArea = document.querySelector('#preview-scroll-area') || zona;
       const estilo = getComputedStyle(scrollArea);
       const hueco = scrollArea.clientWidth
         - parseFloat(estilo.paddingLeft || 0) - parseFloat(estilo.paddingRight || 0) - 48;
-      if (hueco <= 0) return;
-      const factor = Math.min(1, hueco / ANCHO_HOJA).toFixed(3);
+      return hueco > 0 ? Math.min(1, hueco / ANCHO_HOJA) : factorActual();
+    };
+    window.aplicarEncajeAutomatico = (forzar = false) => {
+      if (!forzar && PreviewController.zoomLevel !== 'fit') return;
+      const factor = window.obtenerEscalaAjustar().toFixed(3);
       if (factor === puesto && Math.abs(factorActual() - Number(factor)) < 0.0005) {
         document.querySelectorAll('.export-page').forEach(medirMarco);
+        PreviewController.updateZoomUI('fit');
         return;
       }
       puesto = factor;
       window.aplicarEscalaHojas(Number(factor));
+      PreviewController.zoomLevel = 'fit';
+      PreviewController.updateZoomUI('fit');
     };
-    window.aplicarEncajeAutomatico();
+    window.aplicarEncajeAutomatico(true);
     if (window.ResizeObserver) {
       const targetObs = document.querySelector('#preview-scroll-area') || zona;
-      new ResizeObserver(window.aplicarEncajeAutomatico).observe(targetObs);
+      /* ResizeObserver entrega `entries` como primer argumento. Pasar la
+         función directa convertía ese arreglo en `forzar=true` y devolvía a
+         Ajustar en mitad de cada pellizco. */
+      new ResizeObserver(() => window.aplicarEncajeAutomatico()).observe(targetObs);
     }
   })();
 
@@ -1770,12 +1945,10 @@
      que no se grabó. Es lo que se hace con las hojas de producción de verdad, y
      hasta ahora obligaba a imprimirlas primero.
 
-     LA REGLA QUE HACE QUE SE SIENTA BIEN EN UN iPAD: el Apple Pencil escribe
-     SIEMPRE, y el dedo nunca. No hay modo que encender ni botón que recordar —
-     tocas con el lápiz y escribes, tocas con el dedo y la hoja se desplaza,
-     igual que en un cuaderno. WebKit lo permite porque cada evento dice con qué
-     lo hiciste (`pointerType`), y además ya trae el rechazo de palma: con el
-     lápiz apoyado, el toque de la mano no llega.
+     LA REGLA TÁCTIL: el Apple Pencil escribe SIEMPRE. El dedo empieza navegando
+     y sólo escribe después de tocar Anotar; Listo lo devuelve a navegación en
+     un paso. WebKit permite separarlos porque cada evento trae `pointerType` y
+     además aporta el rechazo de palma.
 
      En el Mac no hay lápiz, así que ahí sí hace falta encender "Modo escritura"
      para dibujar con el ratón. Misma capa, misma tinta, mismo archivo.
@@ -1931,6 +2104,8 @@
       actualizarCursores();
 
       let actual = null;
+      let tipoPunteroActual = null;
+      let selloPendiente = null;
 
       // Transformación Matemática Nativa SVG W3C (0px de desfase)
       const punto = (e) => {
@@ -1992,11 +2167,62 @@
 
       let eliminadosEnArrastre = [];
 
+      const ponerSello = (p) => {
+        const colorSello = color === '#FFFFFF' ? '#1D6FD1' : color;
+        const sello = {
+          tipo: 'sello',
+          c: colorSello,
+          x: Math.round(p[0]),
+          y: Math.round(p[1]),
+          titulo: 'APROBADO PARA AIRE',
+          sub: 'VO.BO. PRODUCCIÓN TV',
+          fecha: new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase(),
+          hora: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+          proyecto: (trunc(projectName || cfg.titulo || 'PRODUCCIÓN TV', 24)).toUpperCase()
+        };
+        const cmd = {
+          nombre,
+          trazo: sello,
+          ejecutar() {
+            const list = anotaciones()[nombre] = anotaciones()[nombre] || [];
+            if (!list.includes(this.trazo)) list.push(this.trazo);
+            pagina._tinta && pagina._tinta.repintar();
+          },
+          deshacer() {
+            const list = anotaciones()[nombre] || [];
+            const idx = list.indexOf(this.trazo);
+            if (idx >= 0) list.splice(idx, 1);
+            pagina._tinta && pagina._tinta.repintar();
+          }
+        };
+        historial.ejecutar(cmd);
+      };
+
+      const cancelarTintaTactil = () => {
+        if (tipoPunteroActual !== 'touch') return;
+        if (actual) {
+          trazos = trazos.filter((trazo) => trazo !== actual);
+          anotaciones()[nombre] = trazos;
+          actual = null;
+        }
+        if (eliminadosEnArrastre.length) {
+          trazos.push(...eliminadosEnArrastre.filter((trazo) => !trazos.includes(trazo)));
+          anotaciones()[nombre] = trazos;
+          eliminadosEnArrastre = [];
+        }
+        selloPendiente = null;
+        tipoPunteroActual = null;
+        window._escribiendoAhora = false;
+        pintar(svg, trazos);
+      };
+      svg.addEventListener('ptv:cancelar-tinta-tactil', cancelarTintaTactil);
+
       svg.addEventListener('pointerdown', (e) => {
-        if (!puedeEscribir(e)) return;
+        if (window._ptvZoomGestureActive || !puedeEscribir(e)) return;
         e.preventDefault();
         svg.setPointerCapture(e.pointerId);
         window._escribiendoAhora = true;
+        tipoPunteroActual = e.pointerType;
 
         const p = punto(e);
         if (herramienta === 'eraser') {
@@ -2007,35 +2233,14 @@
         }
 
         if (herramienta === 'stamp') {
-          const colorSello = color === '#FFFFFF' ? '#1D6FD1' : color;
-          const sello = {
-            tipo: 'sello',
-            c: colorSello,
-            x: Math.round(p[0]),
-            y: Math.round(p[1]),
-            titulo: 'APROBADO PARA AIRE',
-            sub: 'VO.BO. PRODUCCIÓN TV',
-            fecha: new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase(),
-            hora: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-            proyecto: (trunc(projectName || cfg.titulo || 'PRODUCCIÓN TV', 24)).toUpperCase()
-          };
-          const cmd = {
-            nombre,
-            trazo: sello,
-            ejecutar() {
-              const list = anotaciones()[nombre] = anotaciones()[nombre] || [];
-              if (!list.includes(this.trazo)) list.push(this.trazo);
-              pagina._tinta && pagina._tinta.repintar();
-            },
-            deshacer() {
-              const list = anotaciones()[nombre] || [];
-              const idx = list.indexOf(this.trazo);
-              if (idx >= 0) list.splice(idx, 1);
-              pagina._tinta && pagina._tinta.repintar();
-            }
-          };
-          historial.ejecutar(cmd);
-          window._escribiendoAhora = false;
+          /* El sello táctil se confirma al levantar el dedo: si aparece un
+             segundo toque antes, era un pellizco y no deja tinta accidental. */
+          if (e.pointerType === 'touch') selloPendiente = p;
+          else {
+            ponerSello(p);
+            window._escribiendoAhora = false;
+            tipoPunteroActual = null;
+          }
           return;
         }
 
@@ -2048,7 +2253,7 @@
       });
 
       svg.addEventListener('pointermove', (e) => {
-        if (!window._escribiendoAhora) return;
+        if (window._ptvZoomGestureActive || !window._escribiendoAhora) return;
         e.preventDefault();
         const brutos = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
         for (const b of (brutos.length ? brutos : [e])) {
@@ -2068,7 +2273,11 @@
       const finalizarTrazo = () => {
         if (!window._escribiendoAhora) return;
         window._escribiendoAhora = false;
-        if (herramienta === 'eraser' && eliminadosEnArrastre.length) {
+        if (selloPendiente) {
+          const puntoSello = selloPendiente;
+          selloPendiente = null;
+          ponerSello(puntoSello);
+        } else if (herramienta === 'eraser' && eliminadosEnArrastre.length) {
           const borrados = [...eliminadosEnArrastre];
           eliminadosEnArrastre = [];
           const cmd = {
@@ -2112,6 +2321,7 @@
           historial.actualizarUI();
           guardar();
         }
+        tipoPunteroActual = null;
       };
 
       svg.addEventListener('pointerup', finalizarTrazo);
@@ -2183,12 +2393,22 @@
     let toolActual = 'pen';
     let colorActual = window.TINTA_COLORES[0];
     let grosorActual = 'medio';
-    let modoManual = true; // Habilitado por defecto en macOS para que dibujar con ratón/trackpad sea inmediato
-
-    // Activar modo manual inicialmente en desktop
-    window.tintaModo(modoManual);
+    /* En una superficie táctil el estado seguro es navegación. No se persiste:
+       cada visita vuelve a dedo=scroll; Apple Pencil ignora este interruptor.
+       En Mac se conserva el modo de escritura inmediato del diseño anterior. */
+    let modoManual = !entradaTactil();
     const drawModeBtn = document.querySelector('#markup-draw-mode');
-    if (drawModeBtn) drawModeBtn.classList.toggle('active', modoManual);
+    const ponerModoManual = (activo) => {
+      modoManual = !!activo;
+      window.tintaModo(modoManual);
+      if (drawModeBtn) {
+        drawModeBtn.classList.toggle('active', modoManual);
+        drawModeBtn.setAttribute('aria-pressed', String(modoManual));
+        drawModeBtn.title = modoManual ? 'El dedo escribe; toca para volver a navegar' : 'El dedo navega; toca para escribir';
+      }
+    };
+    window.tintaModoDedo = ponerModoManual;
+    ponerModoManual(modoManual);
 
     // Herramientas (Pluma, Resaltador, Borrador, Sello)
     bar.querySelectorAll('[data-tool]').forEach((btn) => {
@@ -2241,9 +2461,7 @@
     // Modo dibujo manual (ratón o dedo)
     if (drawModeBtn) {
       drawModeBtn.onclick = () => {
-        modoManual = !modoManual;
-        drawModeBtn.classList.toggle('active', modoManual);
-        window.tintaModo(modoManual);
+        ponerModoManual(!modoManual);
       };
     }
 

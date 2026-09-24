@@ -271,6 +271,10 @@ export const normalizeCfg = (cfg) => {
     perfil: normPerfil(cfg?.perfil, cfg?.narrativa),
     // Sin esto, un proyecto viejo sin `flujo` tumbaba la pantalla entera.
     flujo: { preview: true, playback: true, ...(cfg?.flujo || {}) },
+    /* La etiqueta impresa es una ayuda pedagógica opcional. Los proyectos
+       anteriores no tenían el campo: `true` conserva la petición explícita
+       del usuario sin alterar las sangrías ni el cálculo de páginas. */
+    impresion: { mostrarTiposGuion: true, ...(cfg?.impresion || {}) },
     /* La mesa de luz guarda AQUÍ solo los ids de las referencias elegidas,
        nunca las imágenes: esas viven en la fototeca del disco, fuera de todo
        proyecto. Es lo que mantiene el .ptv en texto y hace que la misma imagen

@@ -30,5 +30,22 @@ test('la tinta conserva coordenadas editoriales y compacto prioriza el documento
   assert.match(EXPORTAR, /matrixTransform\(ctm\.inverse\(\)\)/);
   assert.match(EXPORTAR, /guardado === null && compacto/);
   assert.match(EXPORTAR, /\.doc-header-main\{[\s\S]*?height:60px;min-height:60px;flex-direction:row/);
-  assert.match(EXPORTAR, /markupBar\.classList\.add\('collapsed'\)/);
+  assert.match(EXPORTAR, /ponerEstadoAnotar\(!tactil\)/);
+});
+
+test('Documentos abre táctil en navegación y separa dedo de Apple Pencil', () => {
+  assert.match(EXPORTAR, /let modoManual = !entradaTactil\(\)/);
+  assert.match(EXPORTAR, /const puedeEscribir = \(e\) => e\.pointerType === 'pen' \|\| modoEscritura/);
+  assert.match(EXPORTAR, /window\.tintaModoDedo = ponerModoManual/);
+  assert.match(EXPORTAR, /tactil && activo \? 'Listo' : 'Anotar'/);
+  assert.match(EXPORTAR, /ptv:cancelar-tinta-tactil/);
+});
+
+test('Documentos admite pellizco, trackpad y zoom hasta 300 por ciento sin perder el ancla', () => {
+  assert.match(EXPORTAR, /addEventListener\('gesturechange'/);
+  assert.match(EXPORTAR, /addEventListener\('touchmove'/);
+  assert.match(EXPORTAR, /event\.ctrlKey.*event\.metaKey/s);
+  assert.match(EXPORTAR, /Math\.min\(3,/);
+  assert.match(EXPORTAR, /scrollArea\.scrollLeft \+= rect\.left \+ ancla\.x \* limpio - ancla\.clienteX/);
+  assert.match(EXPORTAR, /new ResizeObserver\(\(\) => window\.aplicarEncajeAutomatico\(\)\)/);
 });
