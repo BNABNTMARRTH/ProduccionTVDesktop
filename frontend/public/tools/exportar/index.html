@@ -716,6 +716,7 @@
 </div>
 
 <script src="../shared/sheets.js"></script>
+<script src="../shared/equipment_glyphs.js"></script>
 <script src="../shared/export_visitors.js"></script>
 <script src="../shared/atajos.js"></script>
 <script src="../shared/ajustes.js"></script>
@@ -1018,6 +1019,8 @@
       plataforma: [{ id: 'in', side: 'in', signal: 'stream', label: 'RTMP' }],
       monitor: [{ id: 'in', side: 'in', signal: 'video', label: 'Video' }],
       fuente: [{ id: 'v', side: 'out', signal: 'video', label: 'Video' }],
+      grabador: [{ id: 'v', side: 'in', signal: 'video', label: 'Video PGM' }, { id: 'a', side: 'in', signal: 'audio', label: 'Audio' }],
+      graficos: [{ id: 'v', side: 'out', signal: 'video', label: 'Key / Fill' }],
     };
     return PUERTOS[n.type] || [];
   }
@@ -1030,6 +1033,7 @@
     if (n.type === 'microfono') return (n.props && n.props.conexion) || 'XLR';
     if (n.type === 'receptor') return 'XLR';
     if (n.type === 'fuente') return 'HDMI';
+    if (n.type === 'graficos') return 'Key / Fill';
     if (n.type === 'plataforma') return (n.props && n.props.plataforma) || 'RTMP';
     return '';
   }
@@ -1120,19 +1124,55 @@
     const nodes = (diagram && diagram.nodes) || [];
     const edges = (diagram && diagram.edges) || [];
     if (!nodes.length) return `${pgHead('Diagrama técnico', 'Ruta de señal')}<p style="font-size:12px">Este proyecto aún no tiene diagrama de señal.</p>`;
-    const SIGNAL = { camara: 'video', fuente: 'video', switcher: 'video', monitor: 'video', microfono: 'audio', receptor: 'audio', audio: 'audio', encoder: 'stream', plataforma: 'stream' };
     const COLOR = { video: '#1D6FD1', audio: '#1FA14E', stream: '#E0312F' };
-    const NW = 150, NH = 46;
-    const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
-    const minX = Math.min(...xs) - 30, minY = Math.min(...ys) - 30;
-    const w = Math.max(...xs) - minX + NW + 60, h = Math.max(...ys) - minY + NH + 60;
+    const G = window.PTVEquipmentGlyphs;
+    const NW = 112, NH = 84, PAPER_W = 720, MAX_H = 310, PAD = 24;
+    const minNodeX = Math.min(...nodes.map((n) => Number(n.x) || 0));
+    const minNodeY = Math.min(...nodes.map((n) => Number(n.y) || 0));
+    /* Las distancias del lienzo están pensadas para tarjetas de 204 px. En
+       papel se compactan antes de calcular el ajuste; sobre todo, la escala
+       nunca supera 1. Con un solo equipo queda centrado a tamaño de ficha, no
+       convertido en un cartel que ocupe media página. */
+    const pos = (n) => ({
+      x: ((Number(n.x) || 0) - minNodeX) * .72,
+      y: ((Number(n.y) || 0) - minNodeY) * .64,
+    });
+    const puestos = nodes.map((n) => ({ n, ...pos(n) }));
+    const rawW = Math.max(...puestos.map((p) => p.x + NW));
+    const rawH = Math.max(...puestos.map((p) => p.y + NH));
+    const escala = Math.min(1, (PAPER_W - PAD * 2) / rawW, (MAX_H - PAD * 2) / rawH);
+    const h = Math.max(150, Math.min(MAX_H, rawH * escala + PAD * 2));
+    const offsetX = (PAPER_W - rawW * escala) / 2;
+    const offsetY = (h - rawH * escala) / 2;
     const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
+    const punto = (n, lado) => {
+      const p = pos(n);
+      return { x: p.x + (lado === 'out' ? NW : 0), y: p.y + NH / 2 };
+    };
+    const senalDe = (n, port) => (puertosDe(n).find((p) => p.id === port) || {}).signal || 'video';
+    const lineasNombre = (valor) => {
+      const palabras = String(valor || '').trim().split(/\s+/).filter(Boolean);
+      const lineas = [];
+      palabras.forEach((palabra) => {
+        const ultima = lineas[lineas.length - 1] || '';
+        if (!ultima || (ultima + ' ' + palabra).length > 20) lineas.push(palabra);
+        else lineas[lineas.length - 1] = ultima + ' ' + palabra;
+      });
+      if (lineas.length > 2) lineas.splice(1, lineas.length - 1, lineas.slice(1).join(' '));
+      return lineas.slice(0, 2);
+    };
+    const TIPO_CORTO = {
+      camara: 'Cámara', microfono: 'Micrófono', receptor: 'Receptor RX',
+      switcher: 'Switcher video', audio: 'Mezcladora audio', encoder: 'Encoder / PC',
+      plataforma: 'Salida', monitor: 'Monitor / TV', fuente: 'Playback',
+      grabador: 'Grabador', graficos: 'Gráficos / CG',
+    };
     const edgesSvg = edges.map((e) => {
       const a = byId[e.from?.node], b = byId[e.to?.node];
       if (!a || !b) return '';
-      const x1 = a.x - minX + NW, y1 = a.y - minY + NH / 2;
-      const x2 = b.x - minX, y2 = b.y - minY + NH / 2;
-      const c = COLOR[SIGNAL[a.type]] || '#64748B';
+      const pa = punto(a, 'out'), pb = punto(b, 'in');
+      const x1 = pa.x, y1 = pa.y, x2 = pb.x, y2 = pb.y;
+      const c = COLOR[senalDe(a, e.from?.port)] || '#64748B';
       const mx = (x1 + x2) / 2;
       return `<path d="M${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}" fill="none" stroke="${c}" stroke-width="2.5" opacity="0.85"/>`;
     }).join('');
@@ -1144,20 +1184,28 @@
       if (!a || !b) return '';
       const p = (puertosDe(b).find((q) => q.id === e.to.port) || {});
       if (!p.n) return '';
-      const x2 = b.x - minX, y2 = b.y - minY + NH / 2;
+      const pb = punto(b, 'in'), x2 = pb.x, y2 = pb.y;
+      const c = COLOR[senalDe(a, e.from?.port)] || '#64748B';
       return `<g transform="translate(${x2 - 17} ${y2})">
-        <circle r="9" fill="#fff" stroke="${COLOR[SIGNAL[b.type]] || '#64748B'}" stroke-width="1.5"/>
+        <circle r="9" fill="#fff" stroke="${c}" stroke-width="1.5"/>
         <text y="3.5" text-anchor="middle" font-size="10" font-weight="800" fill="#15233D">${p.n}</text></g>`;
     }).join('');
     const nodesSvg = nodes.map((n) => {
-      const c = COLOR[SIGNAL[n.type]] || '#64748B';
+      const p = pos(n);
       const entradas = puertosDe(n).filter((q) => q.side === 'in').length;
-      const pie = (n.type === 'switcher' || n.type === 'audio')
-        ? `${entradas} entradas` : ((n.type || '').toUpperCase());
-      return `<g transform="translate(${n.x - minX} ${n.y - minY})">
-        <rect width="${NW}" height="${NH}" rx="9" fill="#fff" stroke="${c}" stroke-width="2.5"/>
-        <text x="${NW / 2}" y="20" text-anchor="middle" font-size="11.5" font-weight="800" fill="#15233D">${esc(trunc(n.label || n.type, 20))}</text>
-        <text x="${NW / 2}" y="35" text-anchor="middle" font-size="8.5" fill="#5b6b82" letter-spacing=".5">${esc(pie.toUpperCase())}</text>
+      let tipo = TIPO_CORTO[n.type] || G.label(n.type);
+      if (n.type === 'switcher' || n.type === 'audio') tipo += ` · ${entradas} IN`;
+      else if (n.type === 'microfono' && n.props?.micTipo) tipo += ` · ${n.props.micTipo}`;
+      else if (n.type === 'microfono' && n.props?.conexion) tipo += ` · ${n.props.conexion}`;
+      else if (n.type === 'plataforma' && n.props?.plataforma) tipo = `Salida · ${n.props.plataforma}`;
+      const nombre = lineasNombre(n.label || tipo);
+      const nombresSvg = nombre.map((linea, i) => `<tspan x="${NW / 2}" y="${nombre.length > 1 ? 51 + i * 11 : 57}"${linea.length > 20 ? ' textLength="96" lengthAdjust="spacingAndGlyphs"' : ''}>${esc(linea)}</tspan>`).join('');
+      const ajusteTipo = tipo.length > 22 ? ' textLength="100" lengthAdjust="spacingAndGlyphs"' : '';
+      return `<g class="diagrama-nodo-papel" data-equipment-type="${esc(n.type)}" transform="translate(${p.x} ${p.y})">
+        <rect width="${NW}" height="${NH}" rx="10" fill="#fff" stroke="#AEBBCD" stroke-width="1.5"/>
+        <g transform="translate(${NW / 2 - 14} 8) scale(1.17)" fill="none" stroke="#15233D" color="#15233D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${G.inner(n.type, n.props)}</g>
+        <text text-anchor="middle" font-size="10" font-weight="800" fill="#15233D">${nombresSvg}</text>
+        <text x="${NW / 2}" y="77" text-anchor="middle" font-size="7.2" font-weight="650" fill="#5B6B82" letter-spacing=".2"${ajusteTipo}>${esc(tipo.toUpperCase())}</text>
       </g>`;
     }).join('');
     const ley = Object.entries(COLOR).map(([sig, c], i) =>
@@ -1169,7 +1217,7 @@
     return `
       ${pgHead('Diagrama técnico', 'Ruta de señal y tabla de patcheo')}
       <svg viewBox="0 0 390 20" style="width:390px;margin-bottom:10px">${ley}</svg>
-      <svg viewBox="0 0 ${w} ${h}" style="width:100%;display:block;border:1px solid #C8D2DE;border-radius:8px;background:#FAFBFD">${edgesSvg}${numsSvg}${nodesSvg}</svg>
+      <svg class="diagrama-papel" data-diagram-scale="${escala.toFixed(4)}" viewBox="0 0 ${PAPER_W} ${h.toFixed(2)}" style="width:100%;display:block;border:1px solid #C8D2DE;border-radius:8px;background:#FAFBFD"><g transform="translate(${offsetX.toFixed(2)} ${offsetY.toFixed(2)}) scale(${escala.toFixed(4)})">${edgesSvg}${numsSvg}${nodesSvg}</g></svg>
       ${tablas}
       ${tablaEnlaces(nodes, byId, edges)}
       <div class="cat2">Notas del montaje</div>

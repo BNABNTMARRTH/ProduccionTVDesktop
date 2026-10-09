@@ -1044,6 +1044,268 @@ async function exportVisualAudit() {
   return report;
 }
 
+const diagramFixtures = {
+  one: {
+    nodes: [{ id: 'cam1', type: 'camara', x: 80, y: 70, label: 'Cámara / CAMARA', props: { connector: 'SDI' }, chan: {} }],
+    edges: [], zones: [], notes: [], seq: 2,
+  },
+  eight: {
+    nodes: [
+      { id: 'cam1', type: 'camara', x: 40, y: 40, label: 'Cámara 1', props: { connector: 'SDI' }, chan: {}, syncKey: 'cam:cam1' },
+      { id: 'cam2', type: 'camara', x: 40, y: 200, label: 'Cámara 2', props: { connector: 'SDI' }, chan: {}, syncKey: 'cam:cam2' },
+      { id: 'mic1', type: 'microfono', x: 40, y: 360, label: 'Micrófono solapa', props: { conexion: 'Inalámbrico', micTipo: 'solapa' }, chan: {}, syncKey: 'mic:mic1' },
+      { id: 'sw1', type: 'switcher', x: 350, y: 90, label: 'Switcher', props: { inputs: 4 }, chan: {} },
+      { id: 'mix1', type: 'audio', x: 350, y: 330, label: 'Mezcladora', props: { inputs: 4 }, chan: {} },
+      { id: 'enc1', type: 'encoder', x: 670, y: 190, label: 'Encoder principal', props: {}, chan: {} },
+      { id: 'mon1', type: 'monitor', x: 670, y: 20, label: 'Monitor programa', props: {}, chan: {} },
+      { id: 'yt1', type: 'plataforma', x: 970, y: 190, label: 'Destino', props: { plataforma: 'YouTube' }, chan: {} },
+    ],
+    edges: [
+      { id: 'e1', from: { node: 'cam1', port: 'v' }, to: { node: 'sw1', port: 'i1' } },
+      { id: 'e2', from: { node: 'cam2', port: 'v' }, to: { node: 'sw1', port: 'i2' } },
+      { id: 'e3', from: { node: 'mic1', port: 'a' }, to: { node: 'mix1', port: 'i1' } },
+      { id: 'e4', from: { node: 'sw1', port: 'pgm' }, to: { node: 'enc1', port: 'v' } },
+      { id: 'e5', from: { node: 'sw1', port: 'pgm' }, to: { node: 'mon1', port: 'in' } },
+      { id: 'e6', from: { node: 'mix1', port: 'mix' }, to: { node: 'enc1', port: 'a' } },
+      { id: 'e7', from: { node: 'enc1', port: 'out' }, to: { node: 'yt1', port: 'in' } },
+    ], zones: [], notes: [], seq: 20,
+  },
+};
+const diagramFixtureCfg = {
+  camaras: [{ id: 'cam1', nombre: 'Cámara 1' }, { id: 'cam2', nombre: 'Cámara 2' }],
+  microfonos: [{ id: 'mic1', nombre: 'Micrófono solapa', conexion: 'Inalámbrico', micTipo: 'solapa' }],
+  extras: [],
+};
+
+async function diagramPaperCase(page, frame, info, name, fixture, label) {
+  await frame.evaluate(({ cfg, project, projectName, diagram }) => {
+    window.postMessage({ type: 'producciontv:load-exportar', cfg, project, projectName, diagram }, '*');
+  }, { cfg: info.bundle.infographic, project: info.bundle.project, projectName: info.bundle.project?.name || '', diagram: fixture });
+  await frame.waitForSelector('[data-name$="-diagrama-tecnico"]', { state: 'attached' });
+  await showExportPage(frame, '[data-name$="-diagrama-tecnico"]');
+  const metrics = await frame.evaluate(() => {
+    const pageNode = document.querySelector('[data-name$="-diagrama-tecnico"]');
+    const svg = pageNode?.querySelector('.diagrama-papel')
+      || [...(pageNode?.querySelectorAll('svg') || [])].find((item) => item.style.background || item.getAttribute('style')?.includes('background'));
+    if (!svg) return { available: false };
+    let nodes = [...svg.querySelectorAll('.diagrama-nodo-papel')];
+    if (!nodes.length) nodes = [...svg.querySelectorAll('g')].filter((group) => {
+      const rect = group.querySelector(':scope > rect');
+      return rect && Number(rect.getAttribute('width')) >= 100 && group.querySelectorAll(':scope > text').length >= 2;
+    });
+    const sr = svg.getBoundingClientRect();
+    const rects = nodes.map((node) => node.getBoundingClientRect());
+    const left = Math.min(...rects.map((rect) => rect.left));
+    const right = Math.max(...rects.map((rect) => rect.right));
+    const unionCenter = rects.length ? (left + right) / 2 : 0;
+    return {
+      available: true,
+      nodes: nodes.length,
+      scale: Number(svg.dataset.diagramScale || 0) || null,
+      maxNodeWidthRatio: Number((Math.max(0, ...rects.map((rect) => rect.width)) / Math.max(1, sr.width)).toFixed(3)),
+      centeredErrorPx: Number(Math.abs(unionCenter - (sr.left + sr.width / 2)).toFixed(2)),
+      glyphNodes: nodes.filter((node) => node.querySelector('path,circle,line,polyline,polygon')).length,
+      diagramRect: sr.toJSON(),
+    };
+  });
+  await page.screenshot({ path: path.join(outDir, `${label}-papel-${name}.png`) });
+  return metrics;
+}
+
+async function dispatchTouchPointer(frame, selector, points, hold = 20) {
+  return frame.evaluate(async ({ selector: targetSelector, points: route, holdMs }) => {
+    const target = document.querySelector(targetSelector);if (!target) return false;
+    const rect = target.getBoundingClientRect();
+    const at = (point) => ({ clientX: rect.left + point[0], clientY: rect.top + point[1] });
+    const send = (owner, type, point, buttons) => owner.dispatchEvent(new PointerEvent(type, {
+      bubbles: true, cancelable: true, pointerId: 71, pointerType: 'touch', isPrimary: true, buttons,
+      ...at(point),
+    }));
+    send(target, 'pointerdown', route[0], 1);
+    await new Promise((resolve) => setTimeout(resolve, holdMs));
+    for (const point of route.slice(1, -1)) send(document, 'pointermove', point, 1);
+    send(document, 'pointerup', route.at(-1), 0);
+    return true;
+  }, { selector, points, holdMs: hold });
+}
+
+async function diagramGestureAudit(page, frame, fixture) {
+  const hydrate = async () => {
+    await frame.evaluate(({ state, cfg }) => window.postMessage({ type: 'producciontv:hydrate-diagram', state, cfg }, '*'), { state: fixture, cfg: diagramFixtureCfg });
+    await frame.waitForTimeout(120);
+  };
+  await hydrate();
+  const hasCheckChip = await frame.locator('#checkChip').count();
+  let checklistSheet;
+  if (hasCheckChip) {
+    await frame.locator('#checkChip').click();
+    checklistSheet = await frame.evaluate(() => {
+      const close = document.querySelector('.checks-close')?.getBoundingClientRect();
+      return { available: true, opened: document.querySelector('#checks')?.classList.contains('open') || false, closeTarget: close ? { width: close.width, height: close.height } : null };
+    });
+    await frame.locator('.checks-close').click();
+  } else {
+    checklistSheet = await frame.evaluate(() => ({ available: false, startsOpen: document.querySelector('#checks')?.classList.contains('open') || false }));
+    await frame.evaluate(() => { if (document.querySelector('#checks')?.classList.contains('open')) document.querySelector('#btnChecks')?.click(); });
+  }
+  await frame.evaluate(() => {
+    window.__diagramPointerTrace = [];
+    document.addEventListener('pointerdown', (event) => window.__diagramPointerTrace.push({ type: event.type, pointerType: event.pointerType, button: event.button, target: event.target.className }), { once: true, capture: true });
+  });
+  await dispatchTouchPointer(frame, '.node[data-id="sw1"]', [[40, 30], [40, 30]], 30);
+  const shortTap = await frame.evaluate(() => ({
+    inspectorOpened: document.querySelector('#inspector')?.classList.contains('open') || false,
+    trace: window.__diagramPointerTrace || [],
+  }));
+
+  await hydrate();
+  const beforeDrag = await frame.evaluate(() => ({ left: document.querySelector('.node[data-id="sw1"]')?.style.left, transform: document.querySelector('#world')?.style.transform }));
+  await dispatchTouchPointer(frame, '.node[data-id="sw1"]', [[40, 30], [140, 30], [140, 30]], 20);
+  const drag = await frame.evaluate((before) => ({
+    nodeStayed: document.querySelector('.node[data-id="sw1"]')?.style.left === before.left,
+    canvasMoved: document.querySelector('#world')?.style.transform !== before.transform,
+    inspectorOpened: document.querySelector('#inspector')?.classList.contains('open') || false,
+  }), beforeDrag);
+
+  await hydrate();
+  const beforeLong = await frame.evaluate(() => document.querySelector('.node[data-id="sw1"]')?.style.left);
+  await dispatchTouchPointer(frame, '.node[data-id="sw1"]', [[40, 30], [140, 30], [140, 30]], 390);
+  const longPress = await frame.evaluate((left) => ({
+    nodeMoved: document.querySelector('.node[data-id="sw1"]')?.style.left !== left,
+    left: document.querySelector('.node[data-id="sw1"]')?.style.left,
+  }), beforeLong);
+
+  await hydrate();
+  await dispatchTouchPointer(frame, '#mobileActions', [[20, 20], [120, 20], [120, 20]], 20);
+  await frame.evaluate(() => document.querySelector('#mobileActions')?.click());
+  const buttonDrag = await frame.evaluate(() => ({ opened: document.querySelector('#topActions')?.classList.contains('open') || false }));
+  await frame.evaluate(() => document.querySelector('#mobileActionsScrim')?.click());
+  await frame.waitForTimeout(920);
+  await dispatchTouchPointer(frame, '#mobileActions', [[20, 20], [20, 20]], 20);
+  await frame.evaluate(() => document.querySelector('#mobileActions')?.click());
+  const buttonTap = await frame.evaluate(() => ({ opened: document.querySelector('#topActions')?.classList.contains('open') || false }));
+  await frame.evaluate(() => document.querySelector('#mobileActionsScrim')?.click());
+
+  await hydrate();
+  const edgesBeforePort = await frame.evaluate(() => document.querySelectorAll('#wires path:not(.hit)').length);
+  await dispatchTouchPointer(frame, '.node[data-id="sw1"] .port[data-port="i3"]', [[22, 22], [22, 22]], 20);
+  await dispatchTouchPointer(frame, '.node[data-id="sw1"] .port[data-port="i3"]', [[22, 22], [122, 22], [122, 22]], 20);
+  const portThreshold = await frame.evaluate((before) => ({
+    edgesUnchanged: document.querySelectorAll('#wires path:not(.hit)').length === before,
+    temporaryWireGone: ![...document.querySelectorAll('#wires path')].some((path) => path.getAttribute('stroke-dasharray') === '4 5'),
+  }), edgesBeforePort);
+
+  await hydrate();
+  const pinch = await frame.evaluate(async () => {
+    const wrap = document.querySelector('#wrap'),node=document.querySelector('.node[data-id="sw1"]');
+    if (!wrap || typeof Touch !== 'function') return { available: false };
+    const r=wrap.getBoundingClientRect(),make=(id,x,y)=>new Touch({ identifier:id,target:wrap,clientX:x,clientY:y,pageX:x,pageY:y,screenX:x,screenY:y });
+    const fire=(type,touches,changed)=>wrap.dispatchEvent(new TouchEvent(type,{bubbles:true,cancelable:true,touches,targetTouches:touches,changedTouches:changed}));
+    const a=make(1,r.left+r.width*.42,r.top+r.height*.48),b=make(2,r.left+r.width*.58,r.top+r.height*.48);
+    fire('touchstart',[a,b],[a,b]);
+    const c=make(1,r.left+r.width*.28,r.top+r.height*.48),d=make(2,r.left+r.width*.72,r.top+r.height*.48);
+    fire('touchmove',[c,d],[c,d]);fire('touchend',[],[c,d]);
+    await new Promise((resolve)=>setTimeout(resolve,40));
+    return { available:true,zoom:document.querySelector('#zPct')?.textContent,inspectorOpened:document.querySelector('#inspector')?.classList.contains('open')||false,nodeLeft:node?.style.left,temporaryWireGone:![...document.querySelectorAll('#wires path')].some((path)=>path.getAttribute('stroke-dasharray')==='4 5') };
+  });
+  await hydrate();
+  let cdpPinch;
+  try {
+    const box = await frame.locator('#wrap').boundingBox();
+    const session = await page.context().newCDPSession(page);
+    const before = await frame.evaluate(() => ({ zoom: document.querySelector('#zPct')?.textContent, edges: document.querySelectorAll('#wires path.hit').length }));
+    await session.send('Input.synthesizePinchGesture', {
+      x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2),
+      scaleFactor: 1.45, relativeSpeed: 700, gestureSourceType: 'touch',
+    });
+    await frame.waitForTimeout(160);
+    cdpPinch = await frame.evaluate((initial) => ({
+      available: true, beforeZoom: initial.zoom, afterZoom: document.querySelector('#zPct')?.textContent,
+      edgesUnchanged: document.querySelectorAll('#wires path.hit').length === initial.edges,
+      inspectorOpened: document.querySelector('#inspector')?.classList.contains('open') || false,
+    }), before);
+    await session.detach();
+  } catch (error) {
+    cdpPinch = { available: false, error: String(error.message || error) };
+  }
+  return { checklistSheet, shortTap, drag, longPress, buttonDrag, buttonTap, portThreshold, pinch, cdpPinch };
+}
+
+async function diagramRoundAudit() {
+  const sizes = [
+    [402, 874, { top: 62, right: 0, bottom: 34, left: 0, legacyBodyPadding: false }],
+    [874, 402, { top: 0, right: 62, bottom: 21, left: 62, legacyBodyPadding: false }],
+  ];
+  const report = { generatedAt: new Date().toISOString(), mode, screens: [] };
+  const info = bundleInfo(liveProject);
+  for (const [width, height, viewportSafeArea] of sizes) {
+    const label = `${width}x${height}`;
+    const page = await makePage(width, height, liveProject, viewportSafeArea);
+    await selectProjectView(page, 'necesidades', 'diagrama');
+    const frame = page.frames().find((item) => item !== page.mainFrame() && item.url().includes('/diagrama/'));
+    if (!frame) throw new Error(`No se encontró Diagrama en ${label}`);
+    await frame.evaluate(({ state, cfg }) => window.postMessage({ type: 'producciontv:hydrate-diagram', state, cfg }, '*'), { state: diagramFixtures.eight, cfg: diagramFixtureCfg });
+    await frame.waitForTimeout(300);
+    const layout = await frame.evaluate(() => {
+      const wrap = document.querySelector('#wrap')?.getBoundingClientRect();
+      const nodes = [...document.querySelectorAll('.node')].map((node) => node.getBoundingClientRect());
+      const visible = (el) => el && el.getBoundingClientRect().width > .5 && getComputedStyle(el).display !== 'none';
+      const small = [...document.querySelectorAll('button,.port,.chip')].filter(visible).filter((el) => {
+        const r=el.getBoundingClientRect();return r.width < 44 || r.height < 44;
+      });
+      return {
+        layout: document.documentElement.dataset.layout,
+        checksOpen: document.querySelector('#checks')?.classList.contains('open') || false,
+        chip: document.querySelector('#checkChip')?.textContent.trim() || null,
+        cutNodes: nodes.filter((r) => r.left < wrap.left - .5 || r.top < wrap.top - .5 || r.right > wrap.right + .5 || r.bottom > wrap.bottom + .5).length,
+        touchTargetsBelow44: small.length,
+        smallTargets: small.slice(0, 24).map((el) => ({ tag: el.tagName, id: el.id, className: el.className, text: el.textContent.trim().slice(0, 30), rect: el.getBoundingClientRect().toJSON() })),
+        scale: document.querySelector('#zPct')?.textContent || '',
+      };
+    });
+    const gestures = await diagramGestureAudit(page, frame, diagramFixtures.eight);
+    await frame.evaluate(({ state, cfg }) => window.postMessage({ type: 'producciontv:hydrate-diagram', state, cfg }, '*'), { state: diagramFixtures.eight, cfg: diagramFixtureCfg });
+    await frame.waitForTimeout(180);
+    await page.screenshot({ path: path.join(outDir, `${label}-diagrama-interactivo.png`) });
+    report.screens.push({ label: `${label}-diagrama`, totals: { cutNodes: layout.cutNodes, touchTargetsBelow44: layout.touchTargetsBelow44 }, layout, gestures });
+    await closeSurface(page);
+
+    const exportPage = await makePage(width, height, liveProject, viewportSafeArea);
+    await selectProjectView(exportPage, 'salida', null);
+    const exportFrame = exportPage.frames().find((item) => item !== exportPage.mainFrame() && item.url().includes('/exportar/'));
+    if (!exportFrame) throw new Error(`No se encontró Documentos en ${label}`);
+    const one = await diagramPaperCase(exportPage, exportFrame, info, 'un-nodo', diagramFixtures.one, label);
+    const eight = await diagramPaperCase(exportPage, exportFrame, info, 'ocho-nodos', diagramFixtures.eight, label);
+    report.screens.push({ label: `${label}-diagrama-papel`, totals: { oversizedNodes: one.maxNodeWidthRatio > .3 ? 1 : 0, missingGlyphs: Math.max(0, one.nodes - one.glyphNodes) + Math.max(0, eight.nodes - eight.glyphNodes) }, one, eight });
+    await closeSurface(exportPage);
+  }
+  return report;
+}
+
+async function diagramVisualAudit() {
+  const report = { generatedAt: new Date().toISOString(), mode, screens: [] };
+  for (const [width, height] of [[1440, 900], [820, 1180], [1180, 820]]) {
+    const page = await makePage(width, height, liveProject);
+    await selectProjectView(page, 'necesidades', 'diagrama');
+    const frame = page.frames().find((item) => item !== page.mainFrame() && item.url().includes('/diagrama/'));
+    if (!frame) throw new Error(`No se encontró Diagrama en ${width}x${height}`);
+    const geometry = await frame.evaluate(() => {
+      const box = (selector) => document.querySelector(selector)?.getBoundingClientRect().toJSON() || null;
+      return {
+        layout: document.documentElement.dataset.layout,
+        top: box('.top'), palette: box('.palette'), canvas: box('#wrap'), checks: box('#checks'),
+        checksOpen: document.querySelector('#checks')?.classList.contains('open') || false,
+        chipVisible: !!document.querySelector('#checkChip')?.offsetParent,
+        nodeCount: document.querySelectorAll('.node').length,
+      };
+    });
+    await page.screenshot({ path: path.join(outDir, `${width}x${height}-diagrama.png`) });
+    report.screens.push({ label: `${width}x${height}-diagrama`, geometry });
+    await closeSurface(page);
+  }
+  return report;
+}
+
 async function visualAudit() {
   const sizes = [[1440, 900], [820, 1180], [1180, 820]];
   const report = { generatedAt: new Date().toISOString(), mode, screens: [] };
@@ -1357,6 +1619,8 @@ try {
     : mode === 'review' ? await reviewAudit()
     : mode === 'guion-focus' ? await focusedGuionAudit()
     : mode === 'guion-round' ? await guionRoundAudit()
+    : mode === 'diagram-round' ? await diagramRoundAudit()
+    : mode === 'diagram-visual' ? await diagramVisualAudit()
       : await compactAudit();
   const reportPath = path.join(outDir, 'report.json');
   fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
