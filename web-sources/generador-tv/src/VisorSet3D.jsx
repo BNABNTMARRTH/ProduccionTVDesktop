@@ -403,8 +403,21 @@ function decorarModeloDescargado(modelo, reemplazo) {
       opacity: esDifusor ? 0.72 : 1,
       side: THREE.DoubleSide,
     });
-    const bandera = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.58, 0.025), material);
-    bandera.position.set(0.22, 1.48, 0.42);
+    // Como en un set real: la bandera no va pegada al tubo, cuelga del extremo
+    // del brazo (grip arm) que sale de la cabeza del C-stand hacia un lado.
+    const metal = new THREE.MeshStandardMaterial({ color: "#B9BEC4", roughness: 0.3, metalness: 0.85 });
+    // El tubo de cstand.glb no está en el centro de su caja (la base de tres
+    // patas es asimétrica): medido desde arriba, queda en x −0.02, z −0.13 m.
+    const tubo = { x: -0.02, z: -0.13 };
+    const alturaBrazo = 1.78;
+    modelo.add(crearBarra(
+      new THREE.Vector3(tubo.x, alturaBrazo, tubo.z),
+      new THREE.Vector3(tubo.x + 0.95, alturaBrazo, tubo.z),
+      0.016,
+      metal
+    ));
+    const bandera = new THREE.Mesh(new THREE.BoxGeometry(0.61, 0.46, 0.02), material);
+    bandera.position.set(tubo.x + 0.95 + 0.305, alturaBrazo - 0.08, tubo.z);
     bandera.castShadow = !esDifusor;
     modelo.add(bandera);
   }
@@ -540,12 +553,26 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     objetosEncuadre.push(modelo);
   });
   const mesa = puntoPlanoAMetros(geometria.posDe("mesa"));
+  // En el plano 2D una luz es un icono chico; en 3D, a tamaño real, dos
+  // soportes casi en el mismo punto se atraviesan. Solo aquí se separan lo
+  // justo para que cada pie tenga su lugar (el plano guardado no cambia).
+  const piesOcupados = [];
+  const SEPARACION_PIES = 0.8;
   (set.iluminacion?.luces || []).forEach((luz) => {
     const key = `luz:${luz.id}`;
     const posicion = geometria.posDe(key);
     const punto = puntoPlanoAMetros(posicion);
+    piesOcupados.forEach((otro) => {
+      const dx = punto.x - otro.x, dz = punto.z - otro.z, d = Math.hypot(dx, dz);
+      if (d >= SEPARACION_PIES) return;
+      const ux = d > 0.001 ? dx / d : 1, uz = d > 0.001 ? dz / d : 0;
+      punto.x = otro.x + ux * SEPARACION_PIES;
+      punto.z = otro.z + uz * SEPARACION_PIES;
+    });
+    piesOcupados.push({ x: punto.x, z: punto.z });
     const rotacion = geometria.rotacionDe(key, "luz", luz.dir);
     const modelo = ubicarModelo(crearModeloLuz(luz), posicion, rotacion, true);
+    modelo.position.set(punto.x, 0, punto.z);
     escena.add(modelo);
     objetosEncuadre.push(modelo);
     const ajuste = ajusteParaLuz(luz);
