@@ -540,7 +540,7 @@ export function VistaSet({ cfg, setCfg }) {
       {visor3DOpen && (
         <React.Suspense
           fallback={(
-            <div className="absolute inset-0 z-[60] grid place-items-center bg-[#080d16] text-sm font-semibold text-white">
+            <div className="fixed inset-0 z-[60] grid place-items-center bg-[#ecedef] text-sm font-semibold text-slate-800">
               Preparando vista 3D…
             </div>
           )}

@@ -1,10 +1,10 @@
 .visor-set-3d {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 60;
   overflow: hidden;
   color: #f8fafc;
-  background: #080d16;
+  background: #ecedef;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   outline: none;
   isolation: isolate;
@@ -152,17 +152,17 @@
 .visor-set-3d__encuadre {
   position: absolute;
   z-index: 3;
-  inset: 72px 0 80px;
-  display: grid;
+  inset: 0;
   overflow: hidden;
-  place-items: center;
   pointer-events: none;
 }
 
 .visor-set-3d__marco {
-  position: relative;
-  width: min(calc(100% - 24px), calc((100vh - 172px) * 16 / 9));
-  max-height: calc(100% - 16px);
+  position: absolute;
+  top: var(--marco-y, 80px);
+  left: var(--marco-x, 12px);
+  width: var(--marco-ancho, calc(100% - 24px));
+  height: var(--marco-alto, auto);
   border: 2px solid rgba(255, 255, 255, .82);
   aspect-ratio: 16 / 9;
   box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .52), inset 0 0 0 1px rgba(0, 0, 0, .7);
@@ -194,18 +194,22 @@
 .visor-set-3d__datos-camara {
   position: absolute;
   top: 10px;
-  left: 50%;
+  left: 10px;
   display: flex;
-  min-width: min(84%, 430px);
-  justify-content: space-between;
+  max-width: calc(100% - 20px);
+  align-items: center;
   gap: 18px;
   padding: 7px 10px;
-  transform: translateX(-50%);
   color: #fff;
   border-radius: 8px;
   background: rgba(0, 0, 0, .62);
   font-size: 11px;
   white-space: nowrap;
+}
+
+.visor-set-3d__datos-camara span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .visor-set-3d__error {
@@ -267,16 +271,7 @@
     background: #080d16;
   }
 
-  .visor-set-3d__encuadre {
-    inset: 124px 0 134px;
-  }
-
-  .visor-set-3d__marco {
-    width: min(calc(100% - 14px), calc((100vh - 274px) * 16 / 9));
-  }
-
   .visor-set-3d__datos-camara {
-    min-width: calc(100% - 20px);
     gap: 8px;
     font-size: 9px;
   }
