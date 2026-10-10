@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
-import { Trash2 } from "lucide-react";
+import { ScanLine, Trash2 } from "lucide-react";
 import { MUEBLES_CATALOGO } from "./catalogos.js";
 import { computeFuentes } from "./escaleta.js";
 import { MuebleIcon } from "./glifos.jsx";
@@ -19,6 +19,13 @@ import {
 import { posMuebleDefault, setActivoDe, setNuevo, upSetPor } from "./sets.js";
 import { TarjetaAyuda } from "./ui.jsx";
 import { trunc, uid } from "./util.js";
+import {
+  describirEscaneoForo,
+  escanearForo,
+  intercambiarEscaneoForo,
+  normalizarEscaneoForo,
+  puedeEscanearForo,
+} from "./escaneoForo.js";
 
 // El visor y Three.js se descargan del paquete sólo cuando se abre la vista 3D.
 const VisorSet3D = React.lazy(() => import("./VisorSet3D.jsx"));
@@ -34,6 +41,10 @@ const paraCampo = (valor) => String(Math.round(valor * 10) / 10);
 
 function MedidasDelForo({ set, editable, onAplicar }) {
   const medidas = medidasForo(set);
+  const [escaneoDisponible, setEscaneoDisponible] = useState(false);
+  const [escaneando, setEscaneando] = useState(false);
+  const [escaneo, setEscaneo] = useState(null);
+  const [avisoEscaneo, setAvisoEscaneo] = useState("");
   const [borrador, setBorrador] = useState(() => ({
     ancho: paraCampo(medidas.ancho),
     fondo: paraCampo(medidas.fondo),
@@ -46,7 +57,17 @@ function MedidasDelForo({ set, editable, onAplicar }) {
       fondo: paraCampo(medidas.fondo),
       alto: paraCampo(medidas.alto),
     });
+    setEscaneo(null);
+    setAvisoEscaneo("");
   }, [set.id, medidas.ancho, medidas.fondo, medidas.alto]);
+
+  useEffect(() => {
+    let montado = true;
+    puedeEscanearForo().then((disponible) => {
+      if (montado) setEscaneoDisponible(disponible);
+    });
+    return () => { montado = false; };
+  }, []);
 
   const confirmar = (campo) => {
     const numero = Number(borrador[campo]);
@@ -67,6 +88,36 @@ function MedidasDelForo({ set, editable, onAplicar }) {
       alto: paraCampo(preset.alto),
     });
     onAplicar(preset);
+  };
+
+  const iniciarEscaneo = async () => {
+    setEscaneando(true);
+    setEscaneo(null);
+    setAvisoEscaneo("");
+    try {
+      const resultado = await escanearForo();
+      if (resultado?.cancelado) return;
+      if (resultado?.error) throw new Error(resultado.error);
+      const valido = normalizarEscaneoForo(resultado);
+      if (!valido) throw new Error("El escaneo no produjo medidas completas del foro.");
+      setEscaneo(valido);
+    } catch (error) {
+      setAvisoEscaneo(error?.message || "No se pudo medir el foro.");
+    } finally {
+      setEscaneando(false);
+    }
+  };
+
+  const usarEscaneo = () => {
+    if (!escaneo) return;
+    const siguientes = { ancho: escaneo.ancho, fondo: escaneo.fondo, alto: escaneo.alto };
+    setBorrador({
+      ancho: paraCampo(siguientes.ancho),
+      fondo: paraCampo(siguientes.fondo),
+      alto: paraCampo(siguientes.alto),
+    });
+    onAplicar(siguientes);
+    setEscaneo(null);
   };
 
   return (
@@ -117,6 +168,55 @@ function MedidasDelForo({ set, editable, onAplicar }) {
           </button>
         ))}
       </div>
+      {escaneoDisponible && editable && (
+        <button
+          type="button"
+          disabled={escaneando}
+          data-tactil="true"
+          onClick={iniciarEscaneo}
+          className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-blue-500 disabled:cursor-wait disabled:opacity-65"
+          aria-label="Escanear las medidas del foro con LiDAR"
+        >
+          <ScanLine size={18} aria-hidden="true" />
+          {escaneando ? "Abriendo escáner…" : "Escanear foro"}
+        </button>
+      )}
+      {escaneo && (
+        <div className="flex flex-col gap-2 rounded-xl border border-blue-400/30 bg-blue-400/10 p-2.5" role="status">
+          <p className="text-xs font-semibold leading-relaxed text-blue-50">
+            {describirEscaneoForo(escaneo)}
+          </p>
+          <div className="grid grid-cols-1 gap-1.5">
+            <button
+              type="button"
+              data-tactil="true"
+              onClick={usarEscaneo}
+              className="min-h-[44px] rounded-lg bg-blue-500 px-3 text-[11px] font-bold text-white hover:bg-blue-400"
+            >
+              Usar estas medidas
+            </button>
+            <button
+              type="button"
+              data-tactil="true"
+              onClick={() => setEscaneo((actual) => intercambiarEscaneoForo(actual))}
+              className="min-h-[44px] rounded-lg border border-white/15 bg-white/5 px-3 text-[11px] font-bold text-white/85 hover:bg-white/10"
+            >
+              Intercambiar ancho y fondo
+            </button>
+            <button
+              type="button"
+              data-tactil="true"
+              onClick={() => setEscaneo(null)}
+              className="min-h-[44px] rounded-lg px-3 text-[11px] font-bold text-white/65 hover:bg-white/5 hover:text-white"
+            >
+              Descartar
+            </button>
+          </div>
+        </div>
+      )}
+      {avisoEscaneo && (
+        <p className="text-[11px] leading-relaxed text-amber-200" role="alert">{avisoEscaneo}</p>
+      )}
     </section>
   );
 }

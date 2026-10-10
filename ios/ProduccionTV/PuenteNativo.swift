@@ -1,5 +1,6 @@
 import UIKit
 import WebKit
+import RoomPlan
 
 /*
  EL MISMO MOSTRADOR QUE TENÍA Go.
@@ -157,6 +158,29 @@ final class PuenteNativo: NSObject, WKScriptMessageHandlerWithReply {
                 DispatchQueue.main.async { responder(resultado, nil) }
             }
 
+        // ---- La cinta métrica del foro (solo iPhone/iPad con LiDAR) ---------------
+        /* Tampoco existen en app.go. La primera función deja que el iframe
+           esconda por completo el botón en el Mac y en dispositivos sin la
+           capacidad; la segunda contesta sólo cuando la pantalla de RoomPlan
+           ya se cerró, para que nunca queden dos interfaces superpuestas. */
+        case "PuedeEscanearForo":
+            responder(RoomCaptureSession.isSupported, nil)
+
+        case "EscanearForo":
+            DispatchQueue.main.async { [weak self] in
+                guard RoomCaptureSession.isSupported else {
+                    responder(["ok": false, "error": "Este dispositivo no admite el escaneo de habitaciones."], nil)
+                    return
+                }
+                guard let raiz = self?.webView?.window?.rootViewController else {
+                    responder(["ok": false, "error": "No se encontró una pantalla donde abrir el escáner."], nil)
+                    return
+                }
+                let superior = Self.controladorSuperior(desde: raiz)
+                let escaner = EscanerDeForo { resultado in responder(resultado, nil) }
+                superior.present(escaner, animated: true)
+            }
+
         // ---- El tema que se está viendo -------------------------------------------
         /* No existe en app.go: en el Mac la barra de la ventana es de la app y
            se pinta sola. Aquí la franja de la hora la pinta iPadOS, así que la
@@ -258,6 +282,24 @@ final class PuenteNativo: NSObject, WKScriptMessageHandlerWithReply {
             guard let vista = self?.webView else { return }
             vista.load(URLRequest(url: ServidorDeRecursos.urlDeInicio))
         }
+    }
+
+    /// Sigue la cadena de presentaciones desde la raíz de la ventana. Así el
+    /// escáner nace encima de cualquier hoja que estuviera visible, no detrás.
+    private static func controladorSuperior(desde raiz: UIViewController) -> UIViewController {
+        var actual = raiz
+        while let presentado = actual.presentedViewController, !presentado.isBeingDismissed {
+            actual = presentado
+        }
+        if let navegacion = actual as? UINavigationController,
+           let visible = navegacion.visibleViewController {
+            return controladorSuperior(desde: visible)
+        }
+        if let pestanas = actual as? UITabBarController,
+           let seleccionado = pestanas.selectedViewController {
+            return controladorSuperior(desde: seleccionado)
+        }
+        return actual
     }
 
     // MARK: - Un .ptv que llega desde Archivos

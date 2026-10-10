@@ -54,7 +54,7 @@
      Van en lista aparte a propósito, para que la de arriba siga siendo un
      espejo exacto de Go y se siga notando si alguna se queda sin puente.
      Quien las use tiene que envolverlas en un try: en el Mac no están. */
-  var SOLO_IPAD = ['AnalizarImagen'];
+  var SOLO_IPAD = ['AnalizarImagen', 'PuedeEscanearForo', 'EscanearForo'];
 
   var App = {};
   FUNCIONES.concat(SOLO_IPAD).forEach(function (nombre) {

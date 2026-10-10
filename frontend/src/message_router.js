@@ -134,6 +134,30 @@ export function createShellMessageRouter(bridge) {
         }
     });
 
+    // Medición física del foro con RoomPlan (capacidad exclusiva de iPhone/iPad).
+    // En el Mac las funciones no existen: "disponible" responde false y por eso
+    // la herramienta ni siquiera dibuja el botón.
+    router.register('producciontv:foro', async (data, panel, ctx, event) => {
+        const responder = (extra) => event.source?.postMessage(
+            { type: 'producciontv:foro-respuesta', folio: data.folio, ...extra }, '*');
+        try {
+            let datos = null;
+            if (data.op === 'disponible') {
+                const puede = globalThis.go?.main?.App?.PuedeEscanearForo;
+                datos = puede ? !!(await puede()) : false;
+            } else if (data.op === 'escanear') {
+                const escanear = globalThis.go?.main?.App?.EscanearForo;
+                if (!escanear) throw new Error('Este dispositivo no puede escanear el foro');
+                datos = await escanear();
+            } else {
+                throw new Error(`operación desconocida en el escáner del foro: ${data.op}`);
+            }
+            responder({ ok: true, datos });
+        } catch (error) {
+            responder({ ok: false, error: error?.message || 'No se pudo abrir el escáner del foro' });
+        }
+    });
+
     // Estado UI de la herramienta (Undo/Redo/Guía)
     router.register('producciontv:tool-ui', (data, panel, ctx) => {
         panel.ui = { canUndo: !!data.canUndo, canRedo: !!data.canRedo, guia: !!data.guia };

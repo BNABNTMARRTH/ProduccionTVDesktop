@@ -52,7 +52,7 @@
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Para tomar la foto de un cuadro del storyboard con la cámara del dispositivo.</string>
+	<string>Para tomar fotos del storyboard y medir las dimensiones del foro con la cámara y LiDAR del dispositivo.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Producción TV</string>
 	<key>NSMicrophoneUsageDescription</key>
