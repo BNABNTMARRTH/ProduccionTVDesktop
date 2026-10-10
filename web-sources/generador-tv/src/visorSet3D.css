@@ -1,4 +1,7 @@
 .visor-set-3d {
+  --vidrio: rgba(10, 16, 26, .76);
+  --vidrio-fuerte: rgba(8, 13, 22, .91);
+  --borde-vidrio: rgba(255, 255, 255, .17);
   position: fixed;
   inset: 0;
   z-index: 60;
@@ -20,78 +23,23 @@
   touch-action: none;
 }
 
-.visor-set-3d__cabecera,
-.visor-set-3d__pie {
-  position: absolute;
-  z-index: 4;
-  left: 0;
-  right: 0;
-  display: flex;
-  gap: 12px;
-  padding-right: max(14px, env(safe-area-inset-right));
-  padding-left: max(14px, env(safe-area-inset-left));
-  background: linear-gradient(180deg, rgba(5, 9, 16, .96), rgba(8, 13, 22, .78));
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-  backdrop-filter: blur(18px) saturate(150%);
-}
-
-.visor-set-3d__cabecera {
-  top: 0;
-  min-height: 70px;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: max(10px, env(safe-area-inset-top));
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, .12);
-}
-
-.visor-set-3d__titulo {
-  display: flex;
-  min-width: 145px;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.visor-set-3d__titulo span,
-.visor-set-3d__etiqueta {
-  color: #8fa3bc;
-  font-size: 10px;
-  font-weight: 750;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-}
-
-.visor-set-3d__titulo strong {
-  font-size: 15px;
-  line-height: 1.15;
-}
-
-.visor-set-3d__acciones,
-.visor-set-3d__camaras,
-.visor-set-3d__lentes {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 7px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.visor-set-3d__acciones::-webkit-scrollbar,
-.visor-set-3d__camaras::-webkit-scrollbar,
-.visor-set-3d__lentes::-webkit-scrollbar {
-  display: none;
+.visor-set-3d__vidrio {
+  border: 1px solid var(--borde-vidrio);
+  background: var(--vidrio);
+  box-shadow: 0 8px 30px rgba(3, 7, 18, .18);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
+  backdrop-filter: blur(18px) saturate(145%);
 }
 
 .visor-set-3d button {
   min-width: 44px;
-  min-height: 50px;
+  min-height: 44px;
   flex: 0 0 auto;
-  padding: 0 13px;
-  border: 1px solid rgba(255, 255, 255, .14);
-  border-radius: 12px;
-  color: rgba(255, 255, 255, .82);
-  background: rgba(255, 255, 255, .07);
+  padding: 0 12px;
+  border: 0;
+  border-radius: 11px;
+  color: rgba(255, 255, 255, .88);
+  background: transparent;
   font: inherit;
   font-size: 12px;
   font-weight: 720;
@@ -102,78 +50,198 @@
 .visor-set-3d button:hover,
 .visor-set-3d button:focus-visible {
   color: #fff;
-  border-color: rgba(143, 196, 247, .7);
-  background: rgba(143, 196, 247, .14);
-  outline: none;
+  background: rgba(255, 255, 255, .12);
+  outline: 2px solid rgba(143, 196, 247, .72);
+  outline-offset: -2px;
 }
 
 .visor-set-3d button.activo {
   color: #fff;
-  border-color: #0a84ff;
-  background: rgba(10, 132, 255, .28);
-  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, .28);
+  background: rgba(10, 132, 255, .32);
+  box-shadow: inset 0 0 0 1px rgba(72, 167, 255, .46);
+}
+
+.visor-set-3d__superior-izquierda,
+.visor-set-3d__superior-derecha {
+  position: absolute;
+  z-index: 6;
+  top: max(8px, env(safe-area-inset-top));
+}
+
+.visor-set-3d__superior-izquierda {
+  left: max(8px, env(safe-area-inset-left));
+  display: flex;
+  height: 46px;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 15px;
+}
+
+.visor-set-3d__superior-izquierda strong {
+  padding: 0 14px 0 12px;
+  border-left: 1px solid rgba(255, 255, 255, .12);
+  font-size: 13px;
+  letter-spacing: -.01em;
+  white-space: nowrap;
 }
 
 .visor-set-3d__cerrar {
-  border-color: rgba(255, 255, 255, .34) !important;
-  background: rgba(0, 0, 0, .35) !important;
+  width: 44px;
+  padding: 0 !important;
+  border-radius: 0 !important;
 }
 
-.visor-set-3d__selector-ciclorama {
+.visor-set-3d__cerrar span {
+  display: block;
+  transform: translateY(-1px);
+  font-size: 25px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.visor-set-3d__superior-derecha {
+  right: max(8px, env(safe-area-inset-right));
+}
+
+.visor-set-3d__vistas {
   display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 15px;
+}
+
+.visor-set-3d__capas {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  width: min(270px, calc(100vw - 16px));
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px;
+  overflow: hidden;
+  border-radius: 17px;
+  background: var(--vidrio-fuerte);
+}
+
+.visor-set-3d__capa {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.visor-set-3d__capa i {
+  position: relative;
+  width: 34px;
+  height: 20px;
   flex: 0 0 auto;
-  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .08);
+}
+
+.visor-set-3d__capa i::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #c6ced8;
+  content: "";
+  transition: transform .16s ease, background .16s ease;
+}
+
+.visor-set-3d__capa i.activo {
+  border-color: rgba(72, 167, 255, .74);
+  background: rgba(10, 132, 255, .65);
+}
+
+.visor-set-3d__capa i.activo::after {
+  transform: translateX(14px);
+  background: #fff;
+}
+
+.visor-set-3d__ciclorama {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 3px 3px 12px;
+  color: rgba(255, 255, 255, .88);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.visor-set-3d__ciclorama > div {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .07);
+}
+
+.visor-set-3d__ciclorama button {
+  min-height: 38px;
+  padding: 0 9px;
+  border-radius: 8px;
+}
+
+.visor-set-3d__ciclorama button.activo.verde {
+  background: rgba(46, 201, 58, .36);
+  box-shadow: inset 0 0 0 1px rgba(81, 237, 93, .48);
+}
+
+.visor-set-3d__ciclorama button.activo.blanco {
+  color: #111827;
+  background: #eceeec;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .78);
+}
+
+.visor-set-3d__abrir-creditos {
+  width: 100%;
+  border-top: 1px solid rgba(255, 255, 255, .1) !important;
+  border-radius: 0 0 10px 10px !important;
+  text-align: left;
+}
+
+.visor-set-3d__camaras-flotantes {
+  position: absolute;
+  z-index: 6;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - max(16px, env(safe-area-inset-left)) - max(16px, env(safe-area-inset-right)));
+  padding: 3px;
+  overflow: hidden;
+  transform: translateX(-50%);
+  border-radius: 15px;
+}
+
+.visor-set-3d__camaras {
+  display: flex;
+  max-width: 100%;
   align-items: center;
   gap: 3px;
-  padding: 3px 3px 3px 10px;
-  border: 1px solid rgba(255, 255, 255, .14);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, .05);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 
-.visor-set-3d__selector-ciclorama > span {
-  margin-right: 5px;
-  color: #9aaabd;
-  font-size: 10px;
-  font-weight: 750;
-  letter-spacing: .08em;
-  text-transform: uppercase;
+.visor-set-3d__camaras::-webkit-scrollbar {
+  display: none;
 }
 
-.visor-set-3d__selector-ciclorama button {
-  min-height: 44px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 9px;
+.visor-set-3d__camaras button {
+  white-space: nowrap;
 }
 
-.visor-set-3d__selector-ciclorama button:first-of-type.activo {
-  border-color: #2ec93a;
-  background: rgba(46, 201, 58, .3);
-  box-shadow: inset 0 0 0 1px rgba(80, 232, 91, .5);
-}
-
-.visor-set-3d__selector-ciclorama button:last-of-type.activo {
-  color: #101827;
-  background: #eceeec;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .72);
-}
-
-.visor-set-3d__enlace-creditos {
-  color: #b9c5d3 !important;
-  text-decoration: underline;
-  text-decoration-color: rgba(185, 197, 211, .36);
-  text-underline-offset: 3px;
-}
-
-.visor-set-3d__pie {
-  bottom: 0;
-  min-height: 78px;
-  flex-direction: column;
-  justify-content: center;
-  padding-top: 10px;
-  padding-bottom: max(10px, env(safe-area-inset-bottom));
-  border-top: 1px solid rgba(255, 255, 255, .12);
+.visor-set-3d__camaras button.activo {
+  background: rgba(10, 132, 255, .42);
 }
 
 .visor-set-3d__camaras i {
@@ -181,19 +249,71 @@
   width: 8px;
   height: 8px;
   margin-right: 6px;
-  border: 1px solid rgba(255, 255, 255, .7);
+  border: 1px solid rgba(255, 255, 255, .72);
   border-radius: 50%;
 }
 
-.visor-set-3d__lentes button {
-  min-width: 62px;
+.visor-set-3d__volver {
+  padding-inline: 11px !important;
+  box-shadow: inset -1px 0 rgba(255, 255, 255, .12);
+}
+
+.visor-set-3d__lente-flotante {
+  position: absolute;
+  z-index: 7;
+  right: max(8px, env(safe-area-inset-right));
+  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 58px);
+}
+
+.visor-set-3d__selector-lente {
+  min-width: 86px !important;
+  border-radius: 14px !important;
+}
+
+.visor-set-3d__selector-lente span {
+  margin-left: 5px;
+  color: #a9b6c6;
+}
+
+.visor-set-3d__lista-lentes {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 7px);
+  display: grid;
+  width: 252px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  padding: 4px;
+  border-radius: 15px;
+  background: var(--vidrio-fuerte);
+}
+
+.visor-set-3d__lista-lentes button {
+  min-width: 58px;
+  padding: 0 7px;
 }
 
 .visor-set-3d__ayuda {
-  margin: 0;
-  color: #9aaabd;
+  position: absolute;
+  z-index: 5;
+  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 60px);
+  left: 50%;
+  max-width: calc(100% - 24px);
+  padding: 9px 13px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, .9);
   font-size: 11px;
+  line-height: 1.25;
   text-align: center;
+  white-space: nowrap;
+  animation: visor-set-3d-ayuda 3s ease both;
+  pointer-events: none;
+}
+
+@keyframes visor-set-3d-ayuda {
+  0%, 72% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, 5px); }
 }
 
 .visor-set-3d__encuadre {
@@ -206,9 +326,9 @@
 
 .visor-set-3d__marco {
   position: absolute;
-  top: var(--marco-y, 80px);
-  left: var(--marco-x, 12px);
-  width: var(--marco-ancho, calc(100% - 24px));
+  top: var(--marco-y, 6px);
+  left: var(--marco-x, 6px);
+  width: var(--marco-ancho, calc(100% - 12px));
   height: var(--marco-alto, auto);
   border: 2px solid rgba(255, 255, 255, .82);
   aspect-ratio: 16 / 9;
@@ -245,12 +365,13 @@
   display: flex;
   max-width: calc(100% - 20px);
   align-items: center;
-  gap: 18px;
-  padding: 7px 10px;
-  color: #fff;
+  gap: 14px;
+  padding: 6px 9px;
+  overflow: hidden;
   border-radius: 8px;
-  background: rgba(0, 0, 0, .62);
-  font-size: 11px;
+  color: #fff;
+  background: rgba(0, 0, 0, .64);
+  font-size: 10px;
   white-space: nowrap;
 }
 
@@ -261,12 +382,12 @@
 
 .visor-set-3d__creditos {
   position: absolute;
-  z-index: 7;
-  top: 82px;
-  right: max(14px, env(safe-area-inset-right));
+  z-index: 9;
+  top: max(62px, calc(env(safe-area-inset-top) + 58px));
+  right: max(8px, env(safe-area-inset-right));
+  bottom: max(8px, env(safe-area-inset-bottom));
   display: flex;
-  width: min(430px, calc(100% - 28px));
-  max-height: calc(100% - 174px);
+  width: min(430px, calc(100% - 16px));
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, .18);
@@ -283,7 +404,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 14px;
+  padding: 10px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, .12);
 }
 
@@ -333,14 +454,16 @@
   text-underline-offset: 3px;
 }
 
-.visor-set-3d__creditos li span {
+.visor-set-3d__creditos li span,
+.visor-set-3d__creditos li span a {
   color: #91a0b2;
   font-size: 11px;
+  font-weight: 500;
 }
 
 .visor-set-3d__error {
   position: absolute;
-  z-index: 8;
+  z-index: 10;
   top: 50%;
   left: 50%;
   display: flex;
@@ -367,46 +490,29 @@
   line-height: 1.45;
 }
 
-@media (max-width: 760px) {
-  .visor-set-3d__cabecera {
-    min-height: 122px;
-    flex-direction: column;
-    align-items: stretch;
+.visor-set-3d--compacto .visor-set-3d__vistas button,
+.visor-set-3d--compacto .visor-set-3d__camaras button {
+  padding-inline: 10px;
+  font-size: 11px;
+}
+
+.visor-set-3d--compacto .visor-set-3d__creditos {
+  left: max(8px, env(safe-area-inset-left));
+  width: auto;
+}
+
+@media (max-width: 430px) {
+  .visor-set-3d__superior-izquierda strong {
+    display: none;
   }
 
-  .visor-set-3d__titulo {
-    flex-direction: row;
-    align-items: baseline;
-    justify-content: space-between;
+  .visor-set-3d__vistas button {
+    padding-inline: 8px;
+    font-size: 11px;
   }
 
-  .visor-set-3d__acciones {
-    margin-right: -14px;
-    padding-right: 14px;
-  }
-
-  .visor-set-3d__pie {
-    min-height: 132px;
-  }
-
-  .visor-set-3d__etiqueta {
-    position: sticky;
-    left: 0;
-    z-index: 1;
-    padding: 15px 8px 15px 0;
-    background: #080d16;
-  }
-
-  .visor-set-3d__datos-camara {
-    gap: 8px;
-    font-size: 9px;
-  }
-
-  .visor-set-3d__creditos {
-    top: 132px;
-    right: 8px;
-    width: calc(100% - 16px);
-    max-height: calc(100% - 278px);
+  .visor-set-3d__ayuda {
+    white-space: normal;
   }
 }
 
@@ -416,5 +522,9 @@
   .visor-set-3d *::after {
     scroll-behavior: auto !important;
     transition: none !important;
+  }
+
+  .visor-set-3d__ayuda {
+    animation: none;
   }
 }

@@ -40,6 +40,12 @@ import "./visorSet3D.css";
 
 const LENTES = [13, 18, 24, 35, 50, 85, 135];
 const colorCicloramaPorSet = new Map();
+let ayudaNavegacionMostrada = false;
+
+function esPantallaCompacta() {
+  if (typeof window === "undefined") return false;
+  return Math.min(window.innerWidth, window.innerHeight) < 500;
+}
 
 function recortar(texto, maximo = 25) {
   const valor = String(texto || "");
@@ -60,7 +66,7 @@ function dibujarRectanguloRedondeado(ctx, x, y, ancho, alto, radio) {
   ctx.closePath();
 }
 
-function crearEtiquetaFlotante(texto, color = "#0A84FF") {
+function crearEtiquetaFlotante(texto, color = "#0A84FF", prioridad = 1) {
   const lienzo = document.createElement("canvas");
   lienzo.width = 512;
   lienzo.height = 112;
@@ -87,6 +93,9 @@ function crearEtiquetaFlotante(texto, color = "#0A84FF") {
   }));
   etiqueta.scale.set(0.18, 0.039, 1);
   etiqueta.renderOrder = 10;
+  etiqueta.userData.prioridadEtiqueta = prioridad;
+  etiqueta.userData.anchoEtiqueta = Math.min(152, Math.max(72, String(texto || "").length * 6.5 + 24));
+  etiqueta.userData.altoEtiqueta = 26;
   return etiqueta;
 }
 
@@ -234,6 +243,7 @@ function crearSuperficie(escena, cfg, set, colorCiclorama) {
   const reticula = crearReticula(exterior);
   escena.add(reticula);
   let ciclorama = null;
+  let pantalla = null;
   if (exterior) {
     const piso = new THREE.Mesh(
       new THREE.PlaneGeometry(38, 32),
@@ -250,10 +260,11 @@ function crearSuperficie(escena, cfg, set, colorCiclorama) {
     ciclorama = crearCuartoCiclorama(colorCiclorama);
     escena.add(ciclorama);
     if (String(cfg.pantalla || "").trim()) {
-      escena.add(crearPantalla(cfg.pantalla, zDeParedPosterior(ciclorama)));
+      pantalla = crearPantalla(cfg.pantalla, zDeParedPosterior(ciclorama));
+      escena.add(pantalla);
     }
   }
-  return { reticula, ciclorama };
+  return { reticula, ciclorama, pantalla };
 }
 
 function posicionDeAsiento(posicionMueble, rotacion, asiento) {
@@ -338,9 +349,9 @@ function destinoDeHaz(luz, punto, altura, rotacion, mesa, esManual) {
   };
 }
 
-function agregarEtiqueta(grupo, texto, color, posicion, altura) {
+function agregarEtiqueta(grupo, texto, color, posicion, altura, prioridad = 1) {
   const p = puntoPlanoAMetros(posicion);
-  const etiqueta = crearEtiquetaFlotante(texto, color);
+  const etiqueta = crearEtiquetaFlotante(texto, color, prioridad);
   etiqueta.position.set(p.x, altura, p.z);
   grupo.add(etiqueta);
 }
@@ -445,13 +456,16 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
   const campos = new THREE.Group();
   const etiquetas = new THREE.Group();
   const objetosCamara = new Map();
+  const objetosEncuadre = [];
   const reemplazos = [];
   escena.add(conos, campos, etiquetas);
   const superficie = crearSuperficie(escena, cfg, set, colorCiclorama);
+  if (superficie.pantalla) objetosEncuadre.push(superficie.pantalla);
   if (set.mesaVisible !== false) {
     const mesaFija = ubicarModelo(crearModeloMueble("mesa"), geometria.posDe("mesa"), 0);
     mesaFija.scale.x = 1.48;
     escena.add(mesaFija);
+    objetosEncuadre.push(mesaFija);
   }
   muebles.forEach((mueble) => {
     const key = `mue:${mueble.id}`;
@@ -459,6 +473,7 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     const rotacion = geometria.rotacionDe(key, "mueble");
     const respaldo = ubicarModelo(crearModeloMueble(mueble.tipo), posicion, rotacion);
     escena.add(respaldo);
+    objetosEncuadre.push(respaldo);
     const ajuste = AJUSTES_MODELOS_3D[mueble.tipo];
     if (ajuste) reemplazos.push({ ajuste, respaldo, clase: "mueble" });
     const asientos = MUEBLE_ASIENTOS[mueble.tipo] || MUEBLE_ASIENTOS.sillon1;
@@ -474,6 +489,7 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
         rotacion
       );
       escena.add(persona);
+      objetosEncuadre.push(persona);
       agregarEtiqueta(etiquetas, talento.nombre, color, posicionTalento, persona.userData.alturaRotulo || 1.75);
     });
   });
@@ -482,6 +498,7 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     const color = talento.color || (talento.tipo === "invitado" ? "#30D158" : "#AF52DE");
     const persona = ubicarModelo(crearModeloPersona({ color, tieneMic: micsDeTal(talento.id).length > 0 }), posicion, 0);
     escena.add(persona);
+    objetosEncuadre.push(persona);
     agregarEtiqueta(etiquetas, talento.nombre, color, posicion, persona.userData.alturaRotulo || 2.0);
   });
   cams.forEach((camara) => {
@@ -496,6 +513,7 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     );
     objetosCamara.set(camara.id, modelo);
     escena.add(modelo);
+    objetosEncuadre.push(modelo);
     reemplazos.push({
       ajuste: AJUSTES_MODELOS_3D.camara,
       respaldo: modelo,
@@ -505,17 +523,22 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
       alReemplazar: (descargado) => objetosCamara.set(camara.id, descargado),
     });
     campos.add(crearCampoCamara(posicion, rotacion, camara.color || "#0A84FF"));
-    agregarEtiqueta(etiquetas, camara.nombre, camara.color || "#0A84FF", posicion, modelo.userData.alturaRotulo || 2.1);
+    agregarEtiqueta(etiquetas, camara.nombre, camara.color || "#0A84FF", posicion, modelo.userData.alturaRotulo || 2.1, 0);
   });
   booms.forEach((mic) => {
     const key = `mic:${mic.id}`;
     const posicion = geometria.posDe(key);
     const modelo = ubicarModelo(crearModeloBoom(), posicion, geometria.rotacionDe(key, "boom"), true);
     escena.add(modelo);
+    objetosEncuadre.push(modelo);
     reemplazos.push({ ajuste: AJUSTES_MODELOS_3D.boom, respaldo: modelo, clase: "boom" });
-    agregarEtiqueta(etiquetas, `${mic.nombre} · boom`, "#1FA14E", posicion, modelo.userData.alturaRotulo || 2.45);
+    agregarEtiqueta(etiquetas, `${mic.nombre} · boom`, "#1FA14E", posicion, modelo.userData.alturaRotulo || 2.45, 2);
   });
-  sueltos.forEach((mic) => escena.add(ubicarModelo(crearModeloMicSuelto(mic.micTipo), geometria.posDe(`mic:${mic.id}`), 0)));
+  sueltos.forEach((mic) => {
+    const modelo = ubicarModelo(crearModeloMicSuelto(mic.micTipo), geometria.posDe(`mic:${mic.id}`), 0);
+    escena.add(modelo);
+    objetosEncuadre.push(modelo);
+  });
   const mesa = puntoPlanoAMetros(geometria.posDe("mesa"));
   (set.iluminacion?.luces || []).forEach((luz) => {
     const key = `luz:${luz.id}`;
@@ -524,6 +547,7 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     const rotacion = geometria.rotacionDe(key, "luz", luz.dir);
     const modelo = ubicarModelo(crearModeloLuz(luz), posicion, rotacion, true);
     escena.add(modelo);
+    objetosEncuadre.push(modelo);
     const ajuste = ajusteParaLuz(luz);
     if (ajuste) reemplazos.push({ ajuste, respaldo: modelo, clase: ajuste.clase, luz });
     const altura = modelo.userData.alturaHaz || ALTURAS_3D.luz;
@@ -538,6 +562,7 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     claqueta.position.set(posicion.x + 0.72, 0, posicion.z + 0.52);
     claqueta.rotation.y = -0.35;
     escena.add(claqueta);
+    objetosEncuadre.push(claqueta);
     reemplazos.push({ ajuste: AJUSTES_MODELOS_3D.claqueta, respaldo: claqueta, clase: "claqueta" });
   }
   return {
@@ -548,6 +573,7 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     ciclorama: superficie.ciclorama,
     etiquetas,
     objetosCamara,
+    objetosEncuadre,
     reemplazos,
   };
 }
@@ -576,16 +602,154 @@ function nombreCortoCamara(camara, indice) {
   return encontrada ? encontrada[0].toUpperCase().replace("CAMARA", "CAM") : `CAM ${String.fromCharCode(65 + indice)}`;
 }
 
+function cajaDeEncuadreDelSet(objetos = []) {
+  const caja = new THREE.Box3();
+  objetos.forEach((objeto) => {
+    objeto.updateWorldMatrix(true, true);
+    caja.expandByObject(objeto);
+  });
+  if (caja.isEmpty()) {
+    const { ancho, alto, margen, unidadesPorMetro } = PLANO_SET;
+    caja.set(
+      new THREE.Vector3(
+        (margen - ancho / 2) / unidadesPorMetro,
+        0,
+        (margen - alto / 2) / unidadesPorMetro
+      ),
+      new THREE.Vector3(
+        (ancho - margen - ancho / 2) / unidadesPorMetro,
+        2.6,
+        (alto - margen - alto / 2) / unidadesPorMetro
+      )
+    );
+  }
+  const centro = caja.getCenter(new THREE.Vector3());
+  const tamano = caja.getSize(new THREE.Vector3());
+  const medioX = Math.max(3.2, tamano.x / 2 + 0.7);
+  const medioZ = Math.max(2.6, tamano.z / 2 + 0.7);
+  caja.min.set(centro.x - medioX, 0, centro.z - medioZ);
+  caja.max.set(centro.x + medioX, Math.max(2.6, caja.max.y + 0.18), centro.z + medioZ);
+  return caja;
+}
+
+function esquinasDeCaja(caja) {
+  const { min, max } = caja;
+  return [
+    new THREE.Vector3(min.x, min.y, min.z),
+    new THREE.Vector3(min.x, min.y, max.z),
+    new THREE.Vector3(min.x, max.y, min.z),
+    new THREE.Vector3(min.x, max.y, max.z),
+    new THREE.Vector3(max.x, min.y, min.z),
+    new THREE.Vector3(max.x, min.y, max.z),
+    new THREE.Vector3(max.x, max.y, min.z),
+    new THREE.Vector3(max.x, max.y, max.z),
+  ];
+}
+
+function encuadrarSet(motor, vista = "perspectiva", conservarDireccion = false) {
+  if (!motor || motor.modoCamara) return;
+  const { camara, controles, cajaEncuadre } = motor;
+  const centro = cajaEncuadre.getCenter(new THREE.Vector3());
+  let direccion;
+  if (conservarDireccion) {
+    direccion = camara.position.clone().sub(controles.target).normalize();
+    if (direccion.lengthSq() < 0.001) direccion = null;
+  }
+  if (!direccion) {
+    direccion = vista === "planta"
+      ? new THREE.Vector3(0, 1, 0.0001).normalize()
+      : new THREE.Vector3(1.08, 0.78, 1).normalize();
+  }
+  camara.up.set(0, vista === "planta" ? 0 : 1, vista === "planta" ? -1 : 0);
+  camara.position.copy(centro).add(direccion);
+  camara.lookAt(centro);
+  camara.updateMatrixWorld(true);
+
+  const derecha = new THREE.Vector3().setFromMatrixColumn(camara.matrixWorld, 0).normalize();
+  const arriba = new THREE.Vector3().setFromMatrixColumn(camara.matrixWorld, 1).normalize();
+  const adelante = direccion.clone().multiplyScalar(-1);
+  const tangenteVertical = Math.tan(THREE.MathUtils.degToRad(camara.fov) / 2);
+  const tangenteHorizontal = tangenteVertical * camara.aspect;
+  let distancia = 2;
+  esquinasDeCaja(cajaEncuadre).forEach((esquina) => {
+    const desplazamiento = esquina.sub(centro);
+    const profundidad = desplazamiento.dot(adelante);
+    distancia = Math.max(
+      distancia,
+      Math.abs(desplazamiento.dot(derecha)) / tangenteHorizontal - profundidad,
+      Math.abs(desplazamiento.dot(arriba)) / tangenteVertical - profundidad
+    );
+  });
+  distancia = distancia * 1.08 + 0.28;
+  camara.position.copy(centro).addScaledVector(direccion, distancia);
+  controles.target.copy(centro);
+  controles.maxDistance = Math.max(31, distancia * 2.5);
+  controles.update();
+  motor.vistaOrbita = vista;
+}
+
+function rectangulosSeCruzan(a, b) {
+  return a.izquierda < b.derecha
+    && a.derecha > b.izquierda
+    && a.arriba < b.abajo
+    && a.abajo > b.arriba;
+}
+
+function distribuirEtiquetas(etiquetas, camara, ancho, alto, mostrar) {
+  etiquetas.visible = mostrar;
+  if (!mostrar) return;
+  camara.updateMatrixWorld(true);
+  etiquetas.updateMatrixWorld(true);
+  const posicion = new THREE.Vector3();
+  const candidatos = etiquetas.children
+    .map((etiqueta) => {
+      etiqueta.getWorldPosition(posicion);
+      const pantalla = posicion.clone().project(camara);
+      const anchoEtiqueta = etiqueta.userData.anchoEtiqueta || 96;
+      const altoEtiqueta = etiqueta.userData.altoEtiqueta || 26;
+      const x = (pantalla.x * 0.5 + 0.5) * ancho;
+      const y = (-pantalla.y * 0.5 + 0.5) * alto;
+      return {
+        etiqueta,
+        profundidad: pantalla.z,
+        prioridad: etiqueta.userData.prioridadEtiqueta ?? 1,
+        rectangulo: {
+          izquierda: x - anchoEtiqueta / 2 - 3,
+          derecha: x + anchoEtiqueta / 2 + 3,
+          arriba: y - altoEtiqueta / 2 - 3,
+          abajo: y + altoEtiqueta / 2 + 3,
+        },
+      };
+    })
+    .sort((a, b) => a.prioridad - b.prioridad || a.profundidad - b.profundidad);
+  const ocupados = [];
+  candidatos.forEach((candidato) => {
+    const { rectangulo } = candidato;
+    const dentro = candidato.profundidad >= -1 && candidato.profundidad <= 1
+      && rectangulo.derecha > 0 && rectangulo.izquierda < ancho
+      && rectangulo.abajo > 0 && rectangulo.arriba < alto;
+    const libre = dentro && !ocupados.some((ocupado) => rectangulosSeCruzan(rectangulo, ocupado));
+    candidato.etiqueta.visible = libre;
+    if (libre) ocupados.push(rectangulo);
+  });
+}
+
 export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   const hostRef = useRef(null);
   const panelRef = useRef(null);
-  const cabeceraRef = useRef(null);
-  const pieRef = useRef(null);
+  const capasRef = useRef(null);
+  const camarasRef = useRef(null);
+  const lentesRef = useRef(null);
   const motorRef = useRef(null);
   const [error, setError] = useState("");
   const [mostrarConos, setMostrarConos] = useState(true);
   const [mostrarCampos, setMostrarCampos] = useState(true);
   const [mostrarReticula, setMostrarReticula] = useState(false);
+  const [mostrarNombres, setMostrarNombres] = useState(() => !esPantallaCompacta());
+  const [esCompacto, setEsCompacto] = useState(esPantallaCompacta);
+  const [capasAbiertas, setCapasAbiertas] = useState(false);
+  const [lentesAbiertos, setLentesAbiertos] = useState(false);
+  const [mostrarAyuda, setMostrarAyuda] = useState(() => !ayudaNavegacionMostrada);
   const [camaraActivaId, setCamaraActivaId] = useState(null);
   const [focal, setFocal] = useState(35);
   const [colorCiclorama, setColorCiclorama] = useState(
@@ -603,12 +767,49 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     const alTeclado = (evento) => {
       if (evento.key !== "Escape") return;
       if (creditosAbiertos) setCreditosAbiertos(false);
+      else if (lentesAbiertos) setLentesAbiertos(false);
+      else if (capasAbiertas) setCapasAbiertas(false);
       else onClose();
     };
     window.addEventListener("keydown", alTeclado);
     panelRef.current?.focus({ preventScroll: true });
     return () => window.removeEventListener("keydown", alTeclado);
-  }, [creditosAbiertos, onClose]);
+  }, [capasAbiertas, creditosAbiertos, lentesAbiertos, onClose]);
+
+  useEffect(() => {
+    const revisarTamano = () => setEsCompacto(esPantallaCompacta());
+    window.addEventListener("resize", revisarTamano);
+    window.visualViewport?.addEventListener("resize", revisarTamano);
+    return () => {
+      window.removeEventListener("resize", revisarTamano);
+      window.visualViewport?.removeEventListener("resize", revisarTamano);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mostrarAyuda) return undefined;
+    ayudaNavegacionMostrada = true;
+    const temporizador = window.setTimeout(() => setMostrarAyuda(false), 3000);
+    return () => window.clearTimeout(temporizador);
+  }, [mostrarAyuda]);
+
+  useEffect(() => {
+    if (!capasAbiertas) return undefined;
+    const cerrarFuera = (evento) => {
+      if (!capasRef.current?.contains(evento.target)) setCapasAbiertas(false);
+    };
+    document.addEventListener("pointerdown", cerrarFuera);
+    return () => document.removeEventListener("pointerdown", cerrarFuera);
+  }, [capasAbiertas]);
+
+  useEffect(() => {
+    if (!lentesAbiertos) return undefined;
+    const cerrarFuera = (evento) => {
+      if (!lentesRef.current?.contains(evento.target)) setLentesAbiertos(false);
+    };
+    document.addEventListener("pointerdown", cerrarFuera);
+    return () => document.removeEventListener("pointerdown", cerrarFuera);
+  }, [lentesAbiertos]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -678,14 +879,17 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     const calcularMarco = () => {
       const ancho = Math.max(1, host.clientWidth);
       const alto = Math.max(1, host.clientHeight);
-      const altoCabecera = cabeceraRef.current?.offsetHeight || 72;
-      const altoPie = pieRef.current?.offsetHeight || 82;
-      const margen = ancho < 760 ? 8 : 14;
-      const disponible = Math.max(1, alto - altoCabecera - altoPie - margen * 2);
+      const rectHost = host.getBoundingClientRect();
+      const rectCamaras = camarasRef.current?.getBoundingClientRect();
+      const limiteInferior = rectCamaras
+        ? Math.min(alto, Math.max(1, rectCamaras.top - rectHost.top))
+        : alto;
+      const margen = Math.min(ancho, alto) < 500 ? 6 : 12;
+      const disponible = Math.max(1, limiteInferior - margen * 2);
       const anchoMarco = Math.max(1, Math.min(ancho - margen * 2, disponible * (16 / 9)));
       const altoMarco = anchoMarco * (9 / 16);
       const x = (ancho - anchoMarco) / 2;
-      const y = altoCabecera + margen + (disponible - altoMarco) / 2;
+      const y = margen + (disponible - altoMarco) / 2;
       panelRef.current?.style.setProperty("--marco-x", `${x}px`);
       panelRef.current?.style.setProperty("--marco-y", `${y}px`);
       panelRef.current?.style.setProperty("--marco-ancho", `${anchoMarco}px`);
@@ -698,8 +902,10 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
         frame = null;
         const ancho = Math.max(1, host.clientWidth);
         const alto = Math.max(1, host.clientHeight);
-        actualizarCorteCiclorama(contenido.ciclorama, camara, motorRef.current?.modoCamara);
-        if (motorRef.current?.modoCamara) {
+        const motor = motorRef.current;
+        actualizarCorteCiclorama(contenido.ciclorama, camara, motor?.modoCamara);
+        distribuirEtiquetas(contenido.etiquetas, camara, ancho, alto, Boolean(motor?.mostrarNombres && !motor.modoCamara));
+        if (motor?.modoCamara) {
           const marco = calcularMarco();
           renderer.setScissorTest(false);
           renderer.setViewport(0, 0, ancho, alto);
@@ -717,7 +923,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
         }
       });
     };
-    const ajustar = () => {
+    const ajustar = (reencuadrar = false) => {
       if (destruido) return;
       const ancho = Math.max(1, host.clientWidth);
       const alto = Math.max(1, host.clientHeight);
@@ -725,8 +931,12 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
       calcularMarco();
       camara.aspect = motorRef.current?.modoCamara ? 16 / 9 : ancho / alto;
       camara.updateProjectionMatrix();
+      if (reencuadrar && motorRef.current && !motorRef.current.modoCamara) {
+        encuadrarSet(motorRef.current, motorRef.current.vistaOrbita, true);
+      }
       invalidar();
     };
+    const alRedimensionar = () => ajustar(true);
     const contextoPerdido = (evento) => {
       evento.preventDefault();
       setError("La vista 3D perdió el contexto gráfico. Cierra el visor y vuelve a abrirlo para continuar.");
@@ -734,17 +944,16 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     const contextoRestaurado = () => {
       setError("");
       renderer.shadowMap.needsUpdate = true;
-      ajustar();
+      ajustar(true);
     };
     renderer.domElement.addEventListener("webglcontextlost", contextoPerdido, false);
     renderer.domElement.addEventListener("webglcontextrestored", contextoRestaurado, false);
     controles.addEventListener("change", invalidar);
     if (typeof ResizeObserver === "function") {
-      observador = new ResizeObserver(ajustar);
+      observador = new ResizeObserver(alRedimensionar);
       observador.observe(host);
-      if (cabeceraRef.current) observador.observe(cabeceraRef.current);
-      if (pieRef.current) observador.observe(pieRef.current);
-    } else window.addEventListener("resize", ajustar);
+      if (camarasRef.current) observador.observe(camarasRef.current);
+    } else window.addEventListener("resize", alRedimensionar);
     const motor = {
       renderer,
       escena,
@@ -759,17 +968,22 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
       ciclorama: contenido.ciclorama,
       etiquetas: contenido.etiquetas,
       objetosCamara: contenido.objetosCamara,
+      cajaEncuadre: cajaDeEncuadreDelSet(contenido.objetosEncuadre),
       estadoOrbita: null,
       modoCamara: false,
+      mostrarNombres,
+      vistaOrbita: "perspectiva",
     };
     motorRef.current = motor;
     hidratarModelosDescargados(contenido.reemplazos, motor, () => destruido);
     ajustar();
+    encuadrarSet(motor, "perspectiva", false);
+    invalidar();
     return () => {
       destruido = true;
       if (frame !== null) cancelAnimationFrame(frame);
       observador?.disconnect();
-      window.removeEventListener("resize", ajustar);
+      window.removeEventListener("resize", alRedimensionar);
       controles.removeEventListener("change", invalidar);
       controles.dispose();
       renderer.domElement.removeEventListener("webglcontextlost", contextoPerdido);
@@ -802,8 +1016,9 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     motor.conos.visible = mostrarConos && !motor.modoCamara;
     motor.campos.visible = mostrarCampos && !motor.modoCamara;
     motor.reticula.visible = mostrarReticula && !motor.modoCamara;
+    motor.mostrarNombres = mostrarNombres;
     motor.invalidar();
-  }, [mostrarConos, mostrarCampos, mostrarReticula]);
+  }, [mostrarCampos, mostrarConos, mostrarNombres, mostrarReticula]);
 
   useEffect(() => {
     const motor = motorRef.current;
@@ -820,20 +1035,25 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     motor.modoCamara = false;
     motor.controles.enabled = true;
     motor.camara.fov = 45;
-    motor.etiquetas.visible = true;
+    motor.etiquetas.visible = mostrarNombres;
     motor.conos.visible = mostrarConos;
     motor.campos.visible = mostrarCampos;
     motor.reticula.visible = mostrarReticula;
     motor.objetosCamara.forEach((objeto) => { objeto.visible = true; });
     if (motor.estadoOrbita) {
       motor.camara.position.copy(motor.estadoOrbita.posicion);
+      motor.camara.up.copy(motor.estadoOrbita.arriba);
       motor.controles.target.copy(motor.estadoOrbita.blanco);
+      motor.vistaOrbita = motor.estadoOrbita.vista;
+      motor.controles.update();
     } else {
-      motor.camara.position.set(9.4, 7.1, 11.2);
-      motor.controles.target.set(0, 0.92, -0.4);
+      motor.camara.aspect = Math.max(1, motor.renderer.domElement.clientWidth)
+        / Math.max(1, motor.renderer.domElement.clientHeight);
+      motor.camara.updateProjectionMatrix();
+      encuadrarSet(motor, "perspectiva", false);
     }
-    motor.controles.update();
     motor.estadoOrbita = null;
+    setLentesAbiertos(false);
     setCamaraActivaId(null);
     motor.ajustar();
   };
@@ -841,25 +1061,28 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   const aplicarVista = (vista) => {
     const motor = motorRef.current;
     if (!motor) return;
+    setCapasAbiertas(false);
     if (motor.modoCamara) volverAOrbita();
     motor.controles.enabled = true;
     motor.camara.fov = 45;
-    if (vista === "planta") {
-      motor.camara.position.set(0, 19, 0.01);
-      motor.controles.target.set(0, 0, 0);
-    } else {
-      motor.camara.position.set(9.4, 7.1, 11.2);
-      motor.controles.target.set(0, 0.92, -0.4);
-    }
-    motor.controles.update();
-    motor.ajustar();
+    motor.camara.aspect = Math.max(1, motor.renderer.domElement.clientWidth)
+      / Math.max(1, motor.renderer.domElement.clientHeight);
+    motor.camara.updateProjectionMatrix();
+    encuadrarSet(motor, vista, false);
+    motor.invalidar();
   };
 
   const verDesdeCamara = (camaraSeleccionada) => {
     const motor = motorRef.current;
     if (!motor) return;
+    setCapasAbiertas(false);
     if (!motor.modoCamara) {
-      motor.estadoOrbita = { posicion: motor.camara.position.clone(), blanco: motor.controles.target.clone() };
+      motor.estadoOrbita = {
+        posicion: motor.camara.position.clone(),
+        arriba: motor.camara.up.clone(),
+        blanco: motor.controles.target.clone(),
+        vista: motor.vistaOrbita,
+      };
     }
     const key = `cam:${camaraSeleccionada.id}`;
     const punto = puntoPlanoAMetros(motor.geometria.posDe(key));
@@ -873,6 +1096,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     motor.campos.visible = false;
     motor.reticula.visible = false;
     motor.objetosCamara.forEach((objeto, id) => { objeto.visible = id !== camaraSeleccionada.id; });
+    motor.camara.up.set(0, 1, 0);
     motor.camara.position.set(punto.x, ALTURAS_3D.lenteCamara, punto.z);
     motor.camara.lookAt(
       punto.x + Math.cos(angulo) * 10,
@@ -883,6 +1107,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     motor.camara.fov = fovVerticalDesdeFocal(focalInicial);
     motor.camara.updateProjectionMatrix();
     setFocal(focalInicial);
+    setLentesAbiertos(false);
     setCamaraActivaId(camaraSeleccionada.id);
     motor.ajustar();
   };
@@ -893,6 +1118,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   };
 
   const abrirCreditos = async () => {
+    setCapasAbiertas(false);
     setCreditosAbiertos(true);
     if (creditos || errorCreditos) return;
     try {
@@ -903,30 +1129,70 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   };
 
   return (
-    <section ref={panelRef} className="visor-set-3d" aria-label="Vista 3D del plano del set" tabIndex={-1}>
+    <section
+      ref={panelRef}
+      className={`visor-set-3d${esCompacto ? " visor-set-3d--compacto" : ""}`}
+      aria-label="Vista 3D del plano del set"
+      tabIndex={-1}
+    >
       <div ref={hostRef} className="visor-set-3d__lienzo" aria-hidden="true" />
-      <header ref={cabeceraRef} className="visor-set-3d__cabecera">
-        <div className="visor-set-3d__titulo">
-          <span>PLANO DEL SET</span>
-          <strong>Vista 3D · sólo consulta</strong>
-        </div>
-        <div className="visor-set-3d__acciones">
+      <div className="visor-set-3d__superior-izquierda visor-set-3d__vidrio">
+        <button type="button" className="visor-set-3d__cerrar" onClick={onClose} aria-label="Cerrar vista 3D">
+          <span aria-hidden="true">×</span>
+        </button>
+        <strong>Vista 3D</strong>
+      </div>
+      <div ref={capasRef} className="visor-set-3d__superior-derecha">
+        <div className="visor-set-3d__vistas visor-set-3d__vidrio" role="toolbar" aria-label="Vistas y capas">
           <button type="button" onClick={() => aplicarVista("planta")}>Planta</button>
           <button type="button" onClick={() => aplicarVista("perspectiva")}>Perspectiva</button>
-          <button type="button" className={mostrarReticula ? "activo" : ""} aria-pressed={mostrarReticula} onClick={() => setMostrarReticula((valor) => !valor)}>Retícula</button>
-          <button type="button" className={mostrarConos ? "activo" : ""} aria-pressed={mostrarConos} onClick={() => setMostrarConos((valor) => !valor)}>Conos de luz</button>
-          <button type="button" className={mostrarCampos ? "activo" : ""} aria-pressed={mostrarCampos} onClick={() => setMostrarCampos((valor) => !valor)}>Campo de cámaras</button>
-          {set.locacion !== "ext" && (
-            <div className="visor-set-3d__selector-ciclorama" role="group" aria-label="Color del ciclorama">
-              <span>Ciclorama</span>
-              <button type="button" className={colorCiclorama === "verde" ? "activo" : ""} aria-pressed={colorCiclorama === "verde"} onClick={() => elegirColorCiclorama("verde")}>Verde</button>
-              <button type="button" className={colorCiclorama === "blanco" ? "activo" : ""} aria-pressed={colorCiclorama === "blanco"} onClick={() => elegirColorCiclorama("blanco")}>Blanco</button>
-            </div>
-          )}
-          <button type="button" className="visor-set-3d__enlace-creditos" onClick={abrirCreditos}>Créditos 3D</button>
-          <button type="button" className="visor-set-3d__cerrar" onClick={onClose}>Cerrar</button>
+          {/* Atajo directo: las etiquetas se prenden y apagan seguido, no van
+              escondidas en Capas (el interruptor de allá sigue en sincronía). */}
+          <button
+            type="button"
+            className={mostrarNombres ? "activo" : ""}
+            aria-pressed={mostrarNombres}
+            onClick={() => setMostrarNombres((valor) => !valor)}
+          >
+            Etiquetas
+          </button>
+          <button
+            type="button"
+            className={capasAbiertas ? "activo" : ""}
+            aria-expanded={capasAbiertas}
+            aria-controls="visor-set-3d-capas"
+            onClick={() => setCapasAbiertas((valor) => !valor)}
+          >
+            … Capas
+          </button>
         </div>
-      </header>
+        {capasAbiertas && (
+          <aside id="visor-set-3d-capas" className="visor-set-3d__capas visor-set-3d__vidrio" aria-label="Capas de la vista 3D">
+            <button type="button" className="visor-set-3d__capa" aria-pressed={mostrarReticula} onClick={() => setMostrarReticula((valor) => !valor)}>
+              <span>Retícula</span><i className={mostrarReticula ? "activo" : ""} aria-hidden="true" />
+            </button>
+            <button type="button" className="visor-set-3d__capa" aria-pressed={mostrarConos} onClick={() => setMostrarConos((valor) => !valor)}>
+              <span>Conos de luz</span><i className={mostrarConos ? "activo" : ""} aria-hidden="true" />
+            </button>
+            <button type="button" className="visor-set-3d__capa" aria-pressed={mostrarCampos} onClick={() => setMostrarCampos((valor) => !valor)}>
+              <span>Campo de cámaras</span><i className={mostrarCampos ? "activo" : ""} aria-hidden="true" />
+            </button>
+            <button type="button" className="visor-set-3d__capa" aria-pressed={mostrarNombres} onClick={() => setMostrarNombres((valor) => !valor)}>
+              <span>Nombres</span><i className={mostrarNombres ? "activo" : ""} aria-hidden="true" />
+            </button>
+            {set.locacion !== "ext" && (
+              <div className="visor-set-3d__ciclorama" role="group" aria-label="Color del ciclorama">
+                <span>Ciclorama</span>
+                <div>
+                  <button type="button" className={colorCiclorama === "verde" ? "activo verde" : ""} aria-pressed={colorCiclorama === "verde"} onClick={() => elegirColorCiclorama("verde")}>Verde</button>
+                  <button type="button" className={colorCiclorama === "blanco" ? "activo blanco" : ""} aria-pressed={colorCiclorama === "blanco"} onClick={() => elegirColorCiclorama("blanco")}>Blanco</button>
+                </div>
+              </div>
+            )}
+            <button type="button" className="visor-set-3d__abrir-creditos" onClick={abrirCreditos}>Créditos 3D</button>
+          </aside>
+        )}
+      </div>
       {creditosAbiertos && (
         <aside className="visor-set-3d__creditos" role="dialog" aria-modal="true" aria-label="Créditos de modelos 3D">
           <div className="visor-set-3d__creditos-cabecera">
@@ -974,37 +1240,60 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
         </div>
       )}
       {!error && (
-        <footer ref={pieRef} className="visor-set-3d__pie">
-          <div className="visor-set-3d__camaras" aria-label="Ver desde una cámara">
-            <span className="visor-set-3d__etiqueta">Ver desde la cámara</span>
-            {cams.map((camara, indice) => (
-              <button
-                key={camara.id}
-                type="button"
-                className={camaraActivaId === camara.id ? "activo" : ""}
-                aria-pressed={camaraActivaId === camara.id}
-                onClick={() => verDesdeCamara(camara)}
-                title={camara.nombre}
-              >
-                <i style={{ background: camara.color || "#0A84FF" }} />
-                {nombreCortoCamara(camara, indice)}
-              </button>
-            ))}
-            {camaraActiva && <button type="button" onClick={volverAOrbita}>Volver a órbita</button>}
-          </div>
-          {camaraActiva ? (
-            <div className="visor-set-3d__lentes" aria-label="Distancia focal temporal">
-              <span className="visor-set-3d__etiqueta">Lente temporal</span>
-              {LENTES.map((valor) => (
-                <button key={valor} type="button" className={focal === valor ? "activo" : ""} aria-pressed={focal === valor} onClick={() => setFocal(valor)}>
-                  {valor} mm
-                </button>
-              ))}
+        <>
+          {cams.length > 0 && (
+            <div ref={camarasRef} className="visor-set-3d__camaras-flotantes visor-set-3d__vidrio">
+              <div className="visor-set-3d__camaras" aria-label="Ver desde una cámara">
+                {camaraActiva && <button type="button" className="visor-set-3d__volver" onClick={volverAOrbita}>Órbita</button>}
+                {cams.map((camara, indice) => (
+                  <button
+                    key={camara.id}
+                    type="button"
+                    className={camaraActivaId === camara.id ? "activo" : ""}
+                    aria-pressed={camaraActivaId === camara.id}
+                    onClick={() => verDesdeCamara(camara)}
+                    title={camara.nombre}
+                  >
+                    <i style={{ background: camara.color || "#0A84FF" }} />
+                    {nombreCortoCamara(camara, indice)}
+                  </button>
+                ))}
+              </div>
             </div>
-          ) : (
-            <p className="visor-set-3d__ayuda">Arrastra para orbitar · pellizca o rueda para acercar · dos dedos para desplazar</p>
           )}
-        </footer>
+          {camaraActiva && (
+            <div ref={lentesRef} className="visor-set-3d__lente-flotante">
+              {lentesAbiertos && (
+                <div className="visor-set-3d__lista-lentes visor-set-3d__vidrio" aria-label="Distancia focal temporal">
+                  {LENTES.map((valor) => (
+                    <button
+                      key={valor}
+                      type="button"
+                      className={focal === valor ? "activo" : ""}
+                      aria-pressed={focal === valor}
+                      onClick={() => { setFocal(valor); setLentesAbiertos(false); }}
+                    >
+                      {valor} mm
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                className="visor-set-3d__selector-lente visor-set-3d__vidrio"
+                aria-expanded={lentesAbiertos}
+                onClick={() => setLentesAbiertos((valor) => !valor)}
+              >
+                {focal} mm <span aria-hidden="true">⌄</span>
+              </button>
+            </div>
+          )}
+          {mostrarAyuda && !camaraActiva && (
+            <div className="visor-set-3d__ayuda visor-set-3d__vidrio" role="status">
+              Arrastra para orbitar · pellizca para acercar · dos dedos para desplazar
+            </div>
+          )}
+        </>
       )}
     </section>
   );
