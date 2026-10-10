@@ -6,6 +6,11 @@
 // (nombre, abreviatura, color, forma del icono y regla de dirección), de modo
 // que los renderizadores vanilla (frontend/public/tools/shared/sheets.js:
 // guías, exportar y tally) pueden dibujarlas sin conocer este catálogo.
+import {
+  acotarPuntoArrastrable,
+  escalaDefaultsDelForo,
+  geometriaPlano,
+} from "./setGeometria.js";
 
 export const DIFICULTAD_ES = { easy: 'Fácil', medium: 'Media', high: 'Alta' };
 
@@ -30,8 +35,8 @@ const C = {
 //
 // dir: 'mesa' = auto-apunta a la mesa · 'muro' = apunta al fondo del set ·
 // null = marcador sin dirección. off = desplazamiento respecto a la mesa;
-// abs = posición fija en el lienzo (980×600). count = instancias que coloca
-// el setup (la segunda se refleja horizontalmente).
+// abs = posición histórica, trasladada desde el centro al foro actual.
+// count = instancias que coloca el setup (la segunda se refleja al centro).
 export const LUZ_CATALOGO = {
   // — Principales —
   key_light:            { es: 'Luz principal',       abrev: 'K',   forma: 'fresnel',   color: C.key,      dir: 'mesa', off: [-170, 150] },
@@ -489,29 +494,33 @@ export const RECOMENDADAS_POR_PLANTILLA = {
 let seq = 0;
 const uid = () => `luz-${Date.now().toString(36)}-${(seq++).toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 
-// El lienzo mide 980×600 y el arrastre acota a x∈[48,932], y∈[100,556].
-const clamp = (p) => ({ x: Math.round(Math.max(48, Math.min(932, p.x))), y: Math.round(Math.max(100, Math.min(556, p.y))) });
+const clamp = (p, set) => acotarPuntoArrastrable(p, set);
 
 // Posiciones iniciales de un elemento: offset respecto a la mesa o absolutas;
 // la segunda instancia (count 2) se refleja horizontalmente.
-function posicionesDe(tipo, mesaPos) {
+function posicionesDe(tipo, mesaPos, set) {
   const def = LUZ_CATALOGO[tipo];
+  const plano = geometriaPlano(set);
+  const centro = { x: plano.ancho / 2, y: plano.alto / 2 };
+  const escala = escalaDefaultsDelForo(set);
   const n = def.count || 1;
   return Array.from({ length: n }, (_, i) => {
     let p = def.abs
-      ? { x: def.abs[0], y: def.abs[1] }
-      : { x: mesaPos.x + def.off[0], y: mesaPos.y + def.off[1] };
-    if (i === 1) p = def.abs ? { x: 980 - p.x, y: p.y } : { x: mesaPos.x - def.off[0], y: p.y };
-    return clamp(p);
+      ? { x: centro.x + (def.abs[0] - 490) * escala, y: centro.y + (def.abs[1] - 300) * escala }
+      : { x: mesaPos.x + def.off[0] * escala, y: mesaPos.y + def.off[1] * escala };
+    if (i === 1) p = def.abs
+      ? { x: centro.x * 2 - p.x, y: p.y }
+      : { x: mesaPos.x - def.off[0] * escala, y: p.y };
+    return clamp(p, set);
   });
 }
 
 // Crea las instancias autocontenidas de un elemento + sus posiciones iniciales
 // (claves `luz:<id>` listas para mezclar en cfg.setLayout.pos).
-export function instanciarElemento(tipo, mesaPos, { opcional = false } = {}) {
+export function instanciarElemento(tipo, mesaPos, { opcional = false, set = null } = {}) {
   const def = LUZ_CATALOGO[tipo];
   if (!def) return { luces: [], pos: {} };
-  const puntos = posicionesDe(tipo, mesaPos);
+  const puntos = posicionesDe(tipo, mesaPos, set);
   const luces = puntos.map((_, i) => ({
     id: uid(),
     tipo,
@@ -528,11 +537,11 @@ export function instanciarElemento(tipo, mesaPos, { opcional = false } = {}) {
 }
 
 // Instancia todos los elementos requeridos de un setup.
-export function instanciarSetup(setup, mesaPos) {
+export function instanciarSetup(setup, mesaPos, set = null) {
   const luces = [];
   const pos = {};
   (setup.required_elements || []).forEach((tipo) => {
-    const r = instanciarElemento(tipo, mesaPos, { opcional: false });
+    const r = instanciarElemento(tipo, mesaPos, { opcional: false, set });
     luces.push(...r.luces);
     Object.assign(pos, r.pos);
   });
@@ -542,17 +551,26 @@ export function instanciarSetup(setup, mesaPos) {
 // Recoloca luces EXISTENTES en sus posiciones típicas de catálogo (lo usa
 // "Reacomodar automáticamente": sin esto caerían todas al centro del plano,
 // porque las luces no tienen posición por defecto en el lienzo).
-export function posicionesParaLuces(luces, mesaPos = { x: 490, y: 240 }) {
+export function posicionesParaLuces(luces, mesaPos = null, set = null) {
+  const plano = geometriaPlano(set);
+  const escala = escalaDefaultsDelForo(set);
+  const mesa = mesaPos || { x: plano.ancho / 2, y: plano.alto / 2 - 60 * escala };
   const pos = {};
   const idxPorTipo = {};
   (luces || []).forEach((l) => {
     const def = LUZ_CATALOGO[l.tipo];
-    if (!def) { pos[`luz:${l.id}`] = clamp({ x: 490, y: 320 }); return; }
-    const puntos = posicionesDe(l.tipo, mesaPos);
+    if (!def) {
+      pos[`luz:${l.id}`] = clamp({ x: plano.ancho / 2, y: plano.alto / 2 + 20 * escala }, set);
+      return;
+    }
+    const puntos = posicionesDe(l.tipo, mesa, set);
     const i = (idxPorTipo[l.tipo] = (idxPorTipo[l.tipo] ?? -1) + 1);
     const base = puntos[i % puntos.length];
     const extra = Math.floor(i / puntos.length); // repetidos del mismo tipo: escalonar
-    pos[`luz:${l.id}`] = clamp({ x: base.x + extra * 42, y: base.y + extra * 16 });
+    pos[`luz:${l.id}`] = clamp({
+      x: base.x + extra * 42 * escala,
+      y: base.y + extra * 16 * escala,
+    }, set);
   });
   return pos;
 }

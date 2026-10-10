@@ -7,7 +7,6 @@ import {
   actualizarCorteCiclorama,
   cambiarColorCiclorama,
   crearCuartoCiclorama,
-  zDeParedPosterior,
 } from "./ciclorama3d.js";
 import {
   crearModeloBoom,
@@ -33,8 +32,12 @@ import {
   crearGeometriaSet,
   distanciaFocalDeCamara,
   fovVerticalDesdeFocal,
-  PLANO_SET,
+  geometriaPlano,
+  medidasForo,
+  medidasPantallaDelForo,
+  posicionPantallaDelForo,
   puntoPlanoAMetros,
+  zObjetivoParedPosterior,
 } from "./setGeometria.js";
 import "./visorSet3D.css";
 
@@ -179,8 +182,8 @@ function crearTexturaPantalla(texto) {
   return textura;
 }
 
-function crearReticula(exterior) {
-  const { ancho, alto, margen, unidadesPorMetro } = PLANO_SET;
+function crearReticula(set, exterior) {
+  const { ancho, alto, margen, unidadesPorMetro } = geometriaPlano(set);
   const xMin = (margen - ancho / 2) / unidadesPorMetro;
   const xMax = (ancho - margen - ancho / 2) / unidadesPorMetro;
   const zMin = (margen - alto / 2) / unidadesPorMetro;
@@ -202,7 +205,7 @@ function crearReticula(exterior) {
     opacity: 0.18,
     depthWrite: false,
   }));
-  reticula.visible = false;
+  reticula.visible = true;
   return reticula;
 }
 
@@ -214,39 +217,44 @@ function crearBarra(inicio, fin, radio, material) {
   return objeto;
 }
 
-function crearPantalla(texto, zMuro) {
+function crearPantalla(texto, set) {
   const grupo = new THREE.Group();
   const materialMarco = new THREE.MeshStandardMaterial({ color: "#171A1F", roughness: 0.44, metalness: 0.32 });
   const borde = new THREE.Mesh(new THREE.BoxGeometry(4.95, 1.98, 0.12), materialMarco);
-  borde.position.set(0, 1.93, zMuro + 0.08);
+  borde.position.set(0, 1.93, 0.08);
   grupo.add(borde);
   const pantalla = new THREE.Mesh(
     new THREE.PlaneGeometry(4.75, 1.78),
     new THREE.MeshStandardMaterial({ map: crearTexturaPantalla(texto), roughness: 0.34, metalness: 0.05 })
   );
-  pantalla.position.set(0, 1.93, zMuro + 0.15);
+  pantalla.position.set(0, 1.93, 0.15);
   pantalla.renderOrder = 1;
   grupo.add(pantalla);
   [-1.65, 1.65].forEach((x) => {
     const pie = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 1.0, 10), materialMarco);
-    pie.position.set(x, 0.51, zMuro + 0.03);
+    pie.position.set(x, 0.51, 0.03);
     grupo.add(pie);
     const base = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.05, 0.38), materialMarco);
-    base.position.set(x, 0.03, zMuro + 0.12);
+    base.position.set(x, 0.03, 0.12);
     grupo.add(base);
   });
+  const { escala3d } = medidasPantallaDelForo(set);
+  const { zGrupo } = posicionPantallaDelForo(set);
+  grupo.scale.setScalar(escala3d);
+  grupo.position.z = zGrupo;
   return grupo;
 }
 
 function crearSuperficie(escena, cfg, set, colorCiclorama) {
   const exterior = set.locacion === "ext";
-  const reticula = crearReticula(exterior);
+  const reticula = crearReticula(set, exterior);
   escena.add(reticula);
   let ciclorama = null;
   let pantalla = null;
   if (exterior) {
+    const foro = medidasForo(set);
     const piso = new THREE.Mesh(
-      new THREE.PlaneGeometry(38, 32),
+      new THREE.PlaneGeometry(foro.ancho, foro.fondo),
       new THREE.MeshStandardMaterial({ color: "#DCE4D5", roughness: 0.94, metalness: 0 })
     );
     piso.rotation.x = -Math.PI / 2;
@@ -257,10 +265,10 @@ function crearSuperficie(escena, cfg, set, colorCiclorama) {
     sol.position.set(-10, 11, -18);
     escena.add(sol);
   } else {
-    ciclorama = crearCuartoCiclorama(colorCiclorama);
+    ciclorama = crearCuartoCiclorama(colorCiclorama, set);
     escena.add(ciclorama);
     if (String(cfg.pantalla || "").trim()) {
-      pantalla = crearPantalla(cfg.pantalla, zDeParedPosterior(ciclorama));
+      pantalla = crearPantalla(cfg.pantalla, set);
       escena.add(pantalla);
     }
   }
@@ -279,16 +287,16 @@ function orientarHaciaAngulo(objeto, rotacion) {
   objeto.rotation.y = Math.PI / 2 - THREE.MathUtils.degToRad(rotacion || 0);
 }
 
-function ubicarModelo(objeto, posicion, rotacion, orientaHacia = false) {
-  const p = puntoPlanoAMetros(posicion);
+function ubicarModelo(objeto, posicion, rotacion, orientaHacia = false, set = null) {
+  const p = puntoPlanoAMetros(posicion, set);
   objeto.position.set(p.x, 0, p.z);
   if (orientaHacia) orientarHaciaAngulo(objeto, rotacion);
   else objeto.rotation.y = -THREE.MathUtils.degToRad(rotacion || 0);
   return objeto;
 }
 
-function crearCampoCamara(posicion, rotacion, color) {
-  const p = puntoPlanoAMetros(posicion);
+function crearCampoCamara(posicion, rotacion, color, set) {
+  const p = puntoPlanoAMetros(posicion, set);
   const geometria = new THREE.BufferGeometry();
   geometria.setAttribute("position", new THREE.Float32BufferAttribute([
     0, 0.03, 0, 4.3, 0.03, -1.7,
@@ -335,22 +343,25 @@ function crearHaz(origen, destino) {
   }));
 }
 
-function destinoDeHaz(luz, punto, altura, rotacion, mesa, esManual) {
+function destinoDeHaz(luz, punto, altura, rotacion, mesa, esManual, set) {
   if (luz.forma === "top" || String(luz.tipo || "").includes("top") || rotacion === null) {
     return { x: punto.x, y: 0.05, z: punto.z };
   }
   if (luz.dir === "mesa" && !esManual) return { x: mesa.x, y: ALTURAS_3D.mesa, z: mesa.z };
+  if (luz.dir === "muro" && !esManual) {
+    return { x: punto.x, y: 1.35, z: zObjetivoParedPosterior(set) };
+  }
   const angulo = THREE.MathUtils.degToRad(rotacion || 0);
-  const largo = luz.dir === "muro" ? 5 : 4.2;
+  const largo = 4.2;
   return {
     x: punto.x + Math.cos(angulo) * largo,
-    y: luz.dir === "muro" ? 1.35 : Math.min(ALTURAS_3D.mesa, altura * 0.45),
+    y: Math.min(ALTURAS_3D.mesa, altura * 0.45),
     z: punto.z + Math.sin(angulo) * largo,
   };
 }
 
-function agregarEtiqueta(grupo, texto, color, posicion, altura, prioridad = 1) {
-  const p = puntoPlanoAMetros(posicion);
+function agregarEtiqueta(grupo, texto, color, posicion, altura, prioridad = 1, set = null) {
+  const p = puntoPlanoAMetros(posicion, set);
   const etiqueta = crearEtiquetaFlotante(texto, color, prioridad);
   etiqueta.position.set(p.x, altura, p.z);
   grupo.add(etiqueta);
@@ -475,7 +486,7 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
   const superficie = crearSuperficie(escena, cfg, set, colorCiclorama);
   if (superficie.pantalla) objetosEncuadre.push(superficie.pantalla);
   if (set.mesaVisible !== false) {
-    const mesaFija = ubicarModelo(crearModeloMueble("mesa"), geometria.posDe("mesa"), 0);
+    const mesaFija = ubicarModelo(crearModeloMueble("mesa"), geometria.posDe("mesa"), 0, false, set);
     mesaFija.scale.x = 1.48;
     escena.add(mesaFija);
     objetosEncuadre.push(mesaFija);
@@ -484,7 +495,7 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     const key = `mue:${mueble.id}`;
     const posicion = geometria.posDe(key);
     const rotacion = geometria.rotacionDe(key, "mueble");
-    const respaldo = ubicarModelo(crearModeloMueble(mueble.tipo), posicion, rotacion);
+    const respaldo = ubicarModelo(crearModeloMueble(mueble.tipo), posicion, rotacion, false, set);
     escena.add(respaldo);
     objetosEncuadre.push(respaldo);
     const ajuste = AJUSTES_MODELOS_3D[mueble.tipo];
@@ -499,20 +510,22 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
       const persona = ubicarModelo(
         crearModeloPersona({ sentada: true, alturaAsiento: medidas.asiento, color, tieneMic: micsDeTal(talento.id).length > 0 }),
         posicionTalento,
-        rotacion
+        rotacion,
+        false,
+        set
       );
       escena.add(persona);
       objetosEncuadre.push(persona);
-      agregarEtiqueta(etiquetas, talento.nombre, color, posicionTalento, persona.userData.alturaRotulo || 1.75);
+      agregarEtiqueta(etiquetas, talento.nombre, color, posicionTalento, persona.userData.alturaRotulo || 1.75, 1, set);
     });
   });
   talentos.filter((talento) => !sentados.has(talento.id)).forEach((talento) => {
     const posicion = geometria.posDe(`tal:${talento.id}`);
     const color = talento.color || (talento.tipo === "invitado" ? "#30D158" : "#AF52DE");
-    const persona = ubicarModelo(crearModeloPersona({ color, tieneMic: micsDeTal(talento.id).length > 0 }), posicion, 0);
+    const persona = ubicarModelo(crearModeloPersona({ color, tieneMic: micsDeTal(talento.id).length > 0 }), posicion, 0, false, set);
     escena.add(persona);
     objetosEncuadre.push(persona);
-    agregarEtiqueta(etiquetas, talento.nombre, color, posicion, persona.userData.alturaRotulo || 2.0);
+    agregarEtiqueta(etiquetas, talento.nombre, color, posicion, persona.userData.alturaRotulo || 2.0, 1, set);
   });
   cams.forEach((camara) => {
     const key = `cam:${camara.id}`;
@@ -522,7 +535,8 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
       crearModeloCamara({ color: camara.color, tieneShotgun: shotgunDe(camara.id).length > 0 }),
       posicion,
       rotacion,
-      true
+      true,
+      set
     );
     objetosCamara.set(camara.id, modelo);
     escena.add(modelo);
@@ -535,24 +549,24 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
       tieneShotgun: shotgunDe(camara.id).length > 0,
       alReemplazar: (descargado) => objetosCamara.set(camara.id, descargado),
     });
-    campos.add(crearCampoCamara(posicion, rotacion, camara.color || "#0A84FF"));
-    agregarEtiqueta(etiquetas, camara.nombre, camara.color || "#0A84FF", posicion, modelo.userData.alturaRotulo || 2.1, 0);
+    campos.add(crearCampoCamara(posicion, rotacion, camara.color || "#0A84FF", set));
+    agregarEtiqueta(etiquetas, camara.nombre, camara.color || "#0A84FF", posicion, modelo.userData.alturaRotulo || 2.1, 0, set);
   });
   booms.forEach((mic) => {
     const key = `mic:${mic.id}`;
     const posicion = geometria.posDe(key);
-    const modelo = ubicarModelo(crearModeloBoom(), posicion, geometria.rotacionDe(key, "boom"), true);
+    const modelo = ubicarModelo(crearModeloBoom(), posicion, geometria.rotacionDe(key, "boom"), true, set);
     escena.add(modelo);
     objetosEncuadre.push(modelo);
     reemplazos.push({ ajuste: AJUSTES_MODELOS_3D.boom, respaldo: modelo, clase: "boom" });
-    agregarEtiqueta(etiquetas, `${mic.nombre} · boom`, "#1FA14E", posicion, modelo.userData.alturaRotulo || 2.45, 2);
+    agregarEtiqueta(etiquetas, `${mic.nombre} · boom`, "#1FA14E", posicion, modelo.userData.alturaRotulo || 2.45, 2, set);
   });
   sueltos.forEach((mic) => {
-    const modelo = ubicarModelo(crearModeloMicSuelto(mic.micTipo), geometria.posDe(`mic:${mic.id}`), 0);
+    const modelo = ubicarModelo(crearModeloMicSuelto(mic.micTipo), geometria.posDe(`mic:${mic.id}`), 0, false, set);
     escena.add(modelo);
     objetosEncuadre.push(modelo);
   });
-  const mesa = puntoPlanoAMetros(geometria.posDe("mesa"));
+  const mesa = puntoPlanoAMetros(geometria.posDe("mesa"), set);
   // En el plano 2D una luz es un icono chico; en 3D, a tamaño real, dos
   // soportes casi en el mismo punto se atraviesan. Solo aquí se separan lo
   // justo para que cada pie tenga su lugar (el plano guardado no cambia).
@@ -561,7 +575,7 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
   (set.iluminacion?.luces || []).forEach((luz) => {
     const key = `luz:${luz.id}`;
     const posicion = geometria.posDe(key);
-    const punto = puntoPlanoAMetros(posicion);
+    const punto = puntoPlanoAMetros(posicion, set);
     piesOcupados.forEach((otro) => {
       const dx = punto.x - otro.x, dz = punto.z - otro.z, d = Math.hypot(dx, dz);
       if (d >= SEPARACION_PIES) return;
@@ -571,7 +585,7 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     });
     piesOcupados.push({ x: punto.x, z: punto.z });
     const rotacion = geometria.rotacionDe(key, "luz", luz.dir);
-    const modelo = ubicarModelo(crearModeloLuz(luz), posicion, rotacion, true);
+    const modelo = ubicarModelo(crearModeloLuz(luz), posicion, rotacion, true, set);
     modelo.position.set(punto.x, 0, punto.z);
     escena.add(modelo);
     objetosEncuadre.push(modelo);
@@ -580,11 +594,11 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     const altura = modelo.userData.alturaHaz || ALTURAS_3D.luz;
     conos.add(crearHaz(
       { x: punto.x, y: altura, z: punto.z },
-      destinoDeHaz(luz, punto, altura, rotacion, mesa, typeof geometria.giroManualDe(key) === "number")
+      destinoDeHaz(luz, punto, altura, rotacion, mesa, typeof geometria.giroManualDe(key) === "number", set)
     ));
   });
   if (cams.length) {
-    const posicion = puntoPlanoAMetros(geometria.posDe(`cam:${cams[0].id}`));
+    const posicion = puntoPlanoAMetros(geometria.posDe(`cam:${cams[0].id}`), set);
     const claqueta = crearModeloClaqueta();
     claqueta.position.set(posicion.x + 0.72, 0, posicion.z + 0.52);
     claqueta.rotation.y = -0.35;
@@ -629,27 +643,17 @@ function nombreCortoCamara(camara, indice) {
   return encontrada ? encontrada[0].toUpperCase().replace("CAMARA", "CAM") : `CAM ${String.fromCharCode(65 + indice)}`;
 }
 
-function cajaDeEncuadreDelSet(objetos = []) {
+function cajaDeEncuadreDelSet(objetos = [], set = null) {
+  const foro = medidasForo(set);
   const caja = new THREE.Box3();
+  caja.set(
+    new THREE.Vector3(-foro.ancho / 2, 0, -foro.fondo / 2),
+    new THREE.Vector3(foro.ancho / 2, foro.alto, foro.fondo / 2)
+  );
   objetos.forEach((objeto) => {
     objeto.updateWorldMatrix(true, true);
     caja.expandByObject(objeto);
   });
-  if (caja.isEmpty()) {
-    const { ancho, alto, margen, unidadesPorMetro } = PLANO_SET;
-    caja.set(
-      new THREE.Vector3(
-        (margen - ancho / 2) / unidadesPorMetro,
-        0,
-        (margen - alto / 2) / unidadesPorMetro
-      ),
-      new THREE.Vector3(
-        (ancho - margen - ancho / 2) / unidadesPorMetro,
-        2.6,
-        (alto - margen - alto / 2) / unidadesPorMetro
-      )
-    );
-  }
   const centro = caja.getCenter(new THREE.Vector3());
   const tamano = caja.getSize(new THREE.Vector3());
   const medioX = Math.max(3.2, tamano.x / 2 + 0.7);
@@ -771,7 +775,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   const [error, setError] = useState("");
   const [mostrarConos, setMostrarConos] = useState(true);
   const [mostrarCampos, setMostrarCampos] = useState(true);
-  const [mostrarReticula, setMostrarReticula] = useState(false);
+  const [mostrarReticula, setMostrarReticula] = useState(true);
   const [mostrarNombres, setMostrarNombres] = useState(() => !esPantallaCompacta());
   const [esCompacto, setEsCompacto] = useState(esPantallaCompacta);
   const [capasAbiertas, setCapasAbiertas] = useState(false);
@@ -995,7 +999,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
       ciclorama: contenido.ciclorama,
       etiquetas: contenido.etiquetas,
       objetosCamara: contenido.objetosCamara,
-      cajaEncuadre: cajaDeEncuadreDelSet(contenido.objetosEncuadre),
+      cajaEncuadre: cajaDeEncuadreDelSet(contenido.objetosEncuadre, set),
       estadoOrbita: null,
       modoCamara: false,
       mostrarNombres,
@@ -1112,7 +1116,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
       };
     }
     const key = `cam:${camaraSeleccionada.id}`;
-    const punto = puntoPlanoAMetros(motor.geometria.posDe(key));
+    const punto = puntoPlanoAMetros(motor.geometria.posDe(key), set);
     const rotacion = motor.geometria.rotacionDe(key, "camara");
     const angulo = THREE.MathUtils.degToRad(rotacion || 0);
     const focalInicial = distanciaFocalDeCamara(camaraSeleccionada);

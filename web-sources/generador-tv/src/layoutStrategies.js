@@ -3,7 +3,12 @@
  * Estrategias profesionales de distribución física y técnica del set de televisión.
  */
 
-import { reacomodoDe } from "./sets.js";
+import { geometriaPlano } from "./setGeometria.js";
+
+function centroDelForo(set) {
+  const plano = geometriaPlano(set);
+  return { x: plano.ancho / 2, y: plano.alto / 2 };
+}
 
 /**
  * Interfaz de Estrategia de Distribución
@@ -34,8 +39,8 @@ export class BroadcastNewsStrategy extends SetLayoutStrategy {
   }
 
   calculateLayout(cfg, set) {
-    const W = 980;
-    const pos = { mesa: { x: W / 2, y: 240 } };
+    const centro = centroDelForo(set);
+    const pos = { mesa: { x: centro.x, y: centro.y - 60 } };
     const rot = {};
 
     const cams = (cfg.camaras || []).filter(Boolean);
@@ -44,8 +49,8 @@ export class BroadcastNewsStrategy extends SetLayoutStrategy {
       const t = N === 1 ? 0 : -1 + (2 * i) / (N - 1);
       const a = (t * 70 * Math.PI) / 180;
       pos[`cam:${c.id}`] = {
-        x: Math.round(W / 2 + Math.sin(a) * 330),
-        y: Math.round(250 + Math.cos(a) * 240),
+        x: Math.round(centro.x + Math.sin(a) * 330),
+        y: Math.round(centro.y - 50 + Math.cos(a) * 240),
       };
       // rotación automática hacia la mesa
     });
@@ -54,21 +59,21 @@ export class BroadcastNewsStrategy extends SetLayoutStrategy {
     talentos.forEach((t, i) => {
       const k = talentos.length === 1 ? 0 : -1 + (2 * i) / (talentos.length - 1);
       pos[`tal:${t.id}`] = {
-        x: Math.round(W / 2 + k * Math.min(170, 50 + talentos.length * 26)),
-        y: 168,
+        x: Math.round(centro.x + k * Math.min(170, 50 + talentos.length * 26)),
+        y: Math.round(centro.y - 132),
       };
     });
 
     const luces = set.iluminacion?.luces || [];
     luces.forEach((l) => {
       if (l.abrev === "KEY" || l.abrev === "KS") {
-        pos[`luz:${l.id}`] = { x: W / 2 - 200, y: 360 };
+        pos[`luz:${l.id}`] = { x: centro.x - 200, y: centro.y + 60 };
       } else if (l.abrev === "FILL" || l.abrev === "F") {
-        pos[`luz:${l.id}`] = { x: W / 2 + 200, y: 350 };
+        pos[`luz:${l.id}`] = { x: centro.x + 200, y: centro.y + 50 };
       } else if (l.abrev === "BACK" || l.abrev === "BL") {
-        pos[`luz:${l.id}`] = { x: W / 2 + 160, y: 110 };
+        pos[`luz:${l.id}`] = { x: centro.x + 160, y: centro.y - 190 };
       } else if (l.abrev === "BG" || l.abrev === "WALL") {
-        pos[`luz:${l.id}`] = { x: W / 2 - 150, y: 85 };
+        pos[`luz:${l.id}`] = { x: centro.x - 150, y: centro.y - 215 };
       }
     });
 
@@ -90,18 +95,18 @@ export class InterviewTalkShowStrategy extends SetLayoutStrategy {
   }
 
   calculateLayout(cfg, set) {
-    const W = 980;
-    const pos = { mesa: { x: W / 2, y: 230 } };
+    const centro = centroDelForo(set);
+    const pos = { mesa: { x: centro.x, y: centro.y - 70 } };
     const rot = {};
 
     const cams = (cfg.camaras || []).filter(Boolean);
-    if (cams[0]) pos[`cam:${cams[0].id}`] = { x: W / 2 - 240, y: 440 }; // Cruzada a invitado
-    if (cams[1]) pos[`cam:${cams[1].id}`] = { x: W / 2, y: 480 };       // Master general
-    if (cams[2]) pos[`cam:${cams[2].id}`] = { x: W / 2 + 240, y: 440 }; // Cruzada a conductor
+    if (cams[0]) pos[`cam:${cams[0].id}`] = { x: centro.x - 240, y: centro.y + 140 }; // Cruzada a invitado
+    if (cams[1]) pos[`cam:${cams[1].id}`] = { x: centro.x, y: centro.y + 180 };       // Master general
+    if (cams[2]) pos[`cam:${cams[2].id}`] = { x: centro.x + 240, y: centro.y + 140 }; // Cruzada a conductor
 
     const talentos = cfg.talentos || [];
-    if (talentos[0]) pos[`tal:${talentos[0].id}`] = { x: W / 2 - 120, y: 220 };
-    if (talentos[1]) pos[`tal:${talentos[1].id}`] = { x: W / 2 + 120, y: 220 };
+    if (talentos[0]) pos[`tal:${talentos[0].id}`] = { x: centro.x - 120, y: centro.y - 80 };
+    if (talentos[1]) pos[`tal:${talentos[1].id}`] = { x: centro.x + 120, y: centro.y - 80 };
 
     return { pos, rot };
   }
@@ -121,8 +126,8 @@ export class RoundTableDebateStrategy extends SetLayoutStrategy {
   }
 
   calculateLayout(cfg, set) {
-    const W = 980;
-    const pos = { mesa: { x: W / 2, y: 260 } };
+    const centro = centroDelForo(set);
+    const pos = { mesa: { x: centro.x, y: centro.y - 40 } };
     const rot = {};
 
     const talentos = cfg.talentos || [];
@@ -130,8 +135,8 @@ export class RoundTableDebateStrategy extends SetLayoutStrategy {
     talentos.forEach((t, i) => {
       const ang = (i * 2 * Math.PI) / tCount;
       pos[`tal:${t.id}`] = {
-        x: Math.round(W / 2 + Math.cos(ang) * 95),
-        y: Math.round(260 + Math.sin(ang) * 95),
+        x: Math.round(centro.x + Math.cos(ang) * 95),
+        y: Math.round(centro.y - 40 + Math.sin(ang) * 95),
       };
     });
 
@@ -140,8 +145,8 @@ export class RoundTableDebateStrategy extends SetLayoutStrategy {
     cams.forEach((c, i) => {
       const ang = (i * 2 * Math.PI) / cCount + Math.PI / 4;
       pos[`cam:${c.id}`] = {
-        x: Math.round(W / 2 + Math.cos(ang) * 290),
-        y: Math.round(260 + Math.sin(ang) * 220),
+        x: Math.round(centro.x + Math.cos(ang) * 290),
+        y: Math.round(centro.y - 40 + Math.sin(ang) * 220),
       };
     });
 
@@ -163,21 +168,21 @@ export class SoloStreamingStrategy extends SetLayoutStrategy {
   }
 
   calculateLayout(cfg, set) {
-    const W = 980;
-    const pos = { mesa: { x: W / 2, y: 250 } };
+    const centro = centroDelForo(set);
+    const pos = { mesa: { x: centro.x, y: centro.y - 50 } };
     const rot = {};
 
     const talentos = cfg.talentos || [];
-    if (talentos[0]) pos[`tal:${talentos[0].id}`] = { x: W / 2, y: 220 };
+    if (talentos[0]) pos[`tal:${talentos[0].id}`] = { x: centro.x, y: centro.y - 80 };
 
     const cams = (cfg.camaras || []).filter(Boolean);
-    if (cams[0]) pos[`cam:${cams[0].id}`] = { x: W / 2, y: 460 };
-    if (cams[1]) pos[`cam:${cams[1].id}`] = { x: W / 2 + 180, y: 420 };
+    if (cams[0]) pos[`cam:${cams[0].id}`] = { x: centro.x, y: centro.y + 160 };
+    if (cams[1]) pos[`cam:${cams[1].id}`] = { x: centro.x + 180, y: centro.y + 120 };
 
     const luces = set.iluminacion?.luces || [];
-    if (luces[0]) pos[`luz:${luces[0].id}`] = { x: W / 2 - 120, y: 360 };
-    if (luces[1]) pos[`luz:${luces[1].id}`] = { x: W / 2 + 120, y: 360 };
-    if (luces[2]) pos[`luz:${luces[2].id}`] = { x: W / 2, y: 130 };
+    if (luces[0]) pos[`luz:${luces[0].id}`] = { x: centro.x - 120, y: centro.y + 60 };
+    if (luces[1]) pos[`luz:${luces[1].id}`] = { x: centro.x + 120, y: centro.y + 60 };
+    if (luces[2]) pos[`luz:${luces[2].id}`] = { x: centro.x, y: centro.y - 170 };
 
     return { pos, rot };
   }

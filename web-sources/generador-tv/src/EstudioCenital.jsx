@@ -1,7 +1,18 @@
 import React, { useMemo, useRef, useState } from "react";
 import { SetEntityFactory } from "./setEntities.jsx";
 import { MoveEntityCommand, RotateEntityCommand } from "./setCommands.js";
-import { clasificarMicrofonos, crearGeometriaSet, PLANO_SET } from "./setGeometria.js";
+import {
+  acotarPuntoAlForo,
+  acotarPuntoArrastrable,
+  bandaPantallaDelForo,
+  clavesActivasDelSet,
+  clasificarMicrofonos,
+  crearGeometriaSet,
+  escalaAnotacionesPlano,
+  geometriaPlano,
+  posicionesFueraDelForo,
+  resguardoElementoPlano,
+} from "./setGeometria.js";
 import { upSetPor } from "./sets.js";
 import { trunc } from "./util.js";
 
@@ -24,8 +35,11 @@ export function EstudioCenital({
   onSelectEntity = null,
   commandManager = null,
 }) {
-  const W = PLANO_SET.ancho;
-  const H = PLANO_SET.alto;
+  const plano = geometriaPlano(set);
+  const W = plano.ancho;
+  const H = plano.alto;
+  const M = plano.margen;
+  const U = plano.unidadesPorMetro;
 
   const svgRef = useRef(null);
   const liveRef = useRef(null);
@@ -107,12 +121,13 @@ export function EstudioCenital({
 
     const move = (ev) => {
       const p = toSvg(ev);
+      const siguiente = acotarPuntoArrastrable({
+        x: initialPos.x + p.x - origin.x,
+        y: initialPos.y + p.y - origin.y,
+      }, set, resguardoElementoPlano(key, set) || {});
       setLiveBoth({
         ...(liveRef.current || {}),
-        [key]: {
-          x: Math.round(Math.max(48, Math.min(W - 48, initialPos.x + p.x - origin.x))),
-          y: Math.round(Math.max(100, Math.min(H - 44, initialPos.y + p.y - origin.y))),
-        },
+        [key]: siguiente,
       });
     };
 
@@ -229,6 +244,9 @@ export function EstudioCenital({
 
   const grab = editable ? { cursor: "grab" } : undefined;
   const ext = set.locacion === "ext";
+  const fuera = posicionesFueraDelForo(set, clavesActivasDelSet(cfg, set, cams));
+  const escalaAnotaciones = escalaAnotacionesPlano(set);
+  const pantalla = bandaPantallaDelForo(set);
 
   // Colores de estudio estilo Apple Pro
   const piso = ext
@@ -280,9 +298,9 @@ export function EstudioCenital({
         }}
       >
         <defs>
-          <pattern id="studioGridPattern" width="52" height="52" patternUnits="userSpaceOnUse">
-            <path d="M 52 0 L 0 0 0 52" fill="none" stroke={piso.grid} strokeWidth="1" />
-            <circle cx="52" cy="52" r="1.5" fill={piso.dot} />
+          <pattern id="studioGridPattern" width={U} height={U} patternUnits="userSpaceOnUse">
+            <path d={`M ${U} 0 L 0 0 0 ${U}`} fill="none" stroke={piso.grid} strokeWidth="1" />
+            <circle cx={U} cy={U} r="1.5" fill={piso.dot} />
           </pattern>
           <radialGradient id="stageSpotGradient" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.08" />
@@ -291,30 +309,32 @@ export function EstudioCenital({
         </defs>
 
         {/* Fondo del estudio con retícula CAD */}
-        <rect x="20" y="20" width={W - 40} height={H - 40} rx="16" fill={piso.fill} stroke={piso.stroke} strokeWidth="2" />
-        <rect x="20" y="20" width={W - 40} height={H - 40} rx="16" fill="url(#studioGridPattern)" />
-        <circle cx={W / 2} cy={H / 2} r="280" fill="url(#stageSpotGradient)" pointerEvents="none" />
+        <rect x={M} y={M} width={W - M * 2} height={H - M * 2} rx="16" fill={piso.fill} stroke={piso.stroke} strokeWidth="2" />
+        <rect x={M} y={M} width={W - M * 2} height={H - M * 2} rx="16" fill="url(#studioGridPattern)" />
+        <circle cx={W / 2} cy={H / 2} r={Math.min(280, (W - M * 2) * 0.35, (H - M * 2) * 0.45)} fill="url(#stageSpotGradient)" pointerEvents="none" />
 
         {/* Interior: Pantalla/Muro de fondo. Exterior: Locación exterior */}
         {!ext ? (
           <g>
-            <rect x="20" y="20" width={W - 40} height="32" rx="14" fill="#182333" stroke="#25354e" strokeWidth="1.5" />
-            <rect x="240" y="38" width="500" height="16" rx="5" fill="#0c121c" stroke="#0A84FF" strokeWidth="1.8" filter="drop-shadow(0 2px 6px rgba(10,132,255,0.25))" />
-            <text x={W / 2} y="74" textAnchor="middle" fontSize="12" fontWeight="800" fill="#E5EDF7" style={{ letterSpacing: 1.5 }}>
-              PANTALLA · {trunc(cfg.pantalla || "NOTICIERO", 42)}
-            </text>
+            <rect x={M} y={M} width={W - M * 2} height="32" rx="14" fill="#182333" stroke="#25354e" strokeWidth="1.5" />
+            <rect x={pantalla.x} y={pantalla.y} width={pantalla.ancho} height={pantalla.alto} rx="5" fill="#0c121c" stroke="#0A84FF" strokeWidth="1.8" filter="drop-shadow(0 2px 6px rgba(10,132,255,0.25))" />
+            <g transform={`translate(${W / 2} ${pantalla.y + pantalla.alto + 20 * escalaAnotaciones}) scale(${escalaAnotaciones})`}>
+              <text textAnchor="middle" fontSize="12" fontWeight="800" fill="#E5EDF7" style={{ letterSpacing: 1.5 }}>
+                PANTALLA · {trunc(cfg.pantalla || "NOTICIERO", 42)}
+              </text>
+            </g>
           </g>
         ) : (
           <g>
-            <g transform={`translate(${W - 75} 68)`}>
+            <g transform={`translate(${W - M - 55 * escalaAnotaciones} ${M + 48 * escalaAnotaciones}) scale(${escalaAnotaciones})`}>
               <circle r="15" fill="#FBBF24" stroke="#D97706" strokeWidth="2.5" filter="drop-shadow(0 0 8px rgba(251,191,36,0.4))" />
               {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
                 <line key={a} transform={`rotate(${a})`} x1="0" y1="-21" x2="0" y2="-27" stroke="#D97706" strokeWidth="2.5" strokeLinecap="round" />
               ))}
             </g>
-            <text x="40" y="74" fontSize="12" fontWeight="800" fill="#34D399" style={{ letterSpacing: 1.5 }}>
-              LOCACIÓN EXTERIOR
-            </text>
+            <g transform={`translate(${M + 20 * escalaAnotaciones} ${M + 54 * escalaAnotaciones}) scale(${escalaAnotaciones})`}>
+              <text fontSize="12" fontWeight="800" fill="#34D399" style={{ letterSpacing: 1.5 }}>LOCACIÓN EXTERIOR</text>
+            </g>
           </g>
         )}
 
@@ -338,6 +358,7 @@ export function EstudioCenital({
             grab,
             editable,
             labProps,
+            escalaAnotaciones,
           });
         })}
 
@@ -354,6 +375,7 @@ export function EstudioCenital({
             onSelect: onSelectEntity,
             startDrag,
             grab,
+            escalaAnotaciones,
           });
         })()}
 
@@ -380,6 +402,7 @@ export function EstudioCenital({
             editable,
             labProps,
             micsDeTal,
+            escalaAnotaciones,
           });
         })}
 
@@ -398,6 +421,7 @@ export function EstudioCenital({
               startDrag,
               grab,
               labProps,
+              escalaAnotaciones,
             });
           })}
 
@@ -420,6 +444,7 @@ export function EstudioCenital({
             grab,
             editable,
             labProps,
+            escalaAnotaciones,
           });
         })}
 
@@ -437,6 +462,7 @@ export function EstudioCenital({
             startDrag,
             grab,
             labProps,
+            escalaAnotaciones,
           });
         })}
 
@@ -460,13 +486,29 @@ export function EstudioCenital({
             grab,
             editable,
             labProps,
+            escalaAnotaciones,
           });
         })}
 
+        {/* Las coordenadas originales no cambian al reducir el foro. Si una
+            queda fuera, esta marca se pega al borde para que siga siendo
+            localizable hasta que la persona decida traerla adentro. */}
+        {fuera.map(([key, punto]) => {
+          const marca = acotarPuntoAlForo(punto, set, { x: 14 * escalaAnotaciones, y: 14 * escalaAnotaciones });
+          return (
+            <g key={`fuera:${key}`} transform={`translate(${marca.x} ${marca.y}) scale(${escalaAnotaciones})`} pointerEvents="none">
+              <circle r="16" fill="rgba(127,29,29,.26)" stroke="#F87171" strokeWidth="3" strokeDasharray="5 3" />
+              <text y="3.5" textAnchor="middle" fontSize="8" fontWeight="900" fill="#FCA5A5">FUERA</text>
+            </g>
+          );
+        })}
+
         {/* Leyenda de escala métrica en esquina inferior */}
-        <text x="40" y={H - 32} fontSize="10" fill="#64748b" style={{ letterSpacing: 1.2, fontWeight: 600 }}>
-          ESTUDIO CAD 2D · {ext ? "EXTERIOR" : "INTERIOR"} · RETÍCULA = 1 METRO
-        </text>
+        <g transform={`translate(${M + 20 * escalaAnotaciones} ${H - M - 12 * escalaAnotaciones}) scale(${escalaAnotaciones})`}>
+          <text fontSize="10" fill="#64748b" style={{ letterSpacing: 1.2, fontWeight: 600 }}>
+            ESTUDIO CAD 2D · {ext ? "EXTERIOR" : "INTERIOR"} · RETÍCULA = 1 METRO
+          </text>
+        </g>
       </svg>
     </div>
   );

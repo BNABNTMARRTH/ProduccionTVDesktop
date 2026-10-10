@@ -1,12 +1,30 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  acotarPuntoAlForo,
+  acotarPuntoArrastrable,
+  aplicarMedidasForo,
+  clavesActivasDelSet,
   crearGeometriaSet,
   distanciaFocalDeCamara,
+  escalaAnotacionesPlano,
+  FORO_COMO_ESTABA,
   fovVerticalDesdeFocal,
+  geometriaPlano,
+  medidasPantallaDelForo,
+  posicionPantallaDelForo,
   posicionesDefaultDelSet,
+  posicionesFueraDelForo,
+  puntoFueraDelForo,
   puntoPlanoAMetros,
+  resguardoElementoPlano,
+  traerElementosAdentro,
+  zObjetivoParedPosterior,
 } from "../web-sources/generador-tv/src/setGeometria.js";
+import {
+  instanciarSetup,
+  LUZ_CATALOGO,
+} from "../web-sources/generador-tv/src/iluminacion.js";
 
 const casiIgual = (actual, esperado, tolerancia = 1e-9) => {
   assert.ok(Math.abs(actual - esperado) <= tolerancia, `${actual} no coincide con ${esperado}`);
@@ -36,6 +54,229 @@ function muestra() {
   const cams = [{ id: "c1" }, { id: "c2" }, { id: "c3" }];
   return { cfg, set, cams };
 }
+
+test("un proyecto sin medidas conserva exactamente el lienzo legado", () => {
+  const plano = geometriaPlano({ setLayout: { pos: {}, rot: {} } });
+  assert.equal(plano.ancho, 980);
+  assert.equal(plano.alto, 600);
+  assert.equal(plano.margen, 20);
+  assert.equal(plano.unidadesPorMetro, 52);
+  assert.deepEqual(plano.metros, FORO_COMO_ESTABA);
+  assert.deepEqual(acotarPuntoArrastrable({ x: -10, y: 900 }), { x: 48, y: 556 });
+});
+
+test("las medidas reales determinan el tamaño del lienzo a 52 unidades por metro", () => {
+  const set = aplicarMedidasForo(
+    { id: "foro", setLayout: { pos: {}, rot: {} } },
+    { ancho: 8, fondo: 6, alto: 3 }
+  );
+  assert.deepEqual(set.setLayout.foro, { ancho: 8, fondo: 6, alto: 3 });
+  assert.deepEqual(geometriaPlano(set), {
+    ancho: 456,
+    alto: 352,
+    margen: 20,
+    unidadesPorMetro: 52,
+    metros: { ancho: 8, fondo: 6, alto: 3 },
+  });
+  assert.deepEqual(puntoPlanoAMetros({ x: 280, y: 228 }, set), { x: 1, z: 1 });
+});
+
+test("las anotaciones conservan su tamaño de pantalla y el foro legado usa factor uno", () => {
+  const legado = { setLayout: { pos: {}, rot: {} } };
+  const aula = { setLayout: { foro: { ancho: 8, fondo: 6, alto: 3 } } };
+  assert.equal(escalaAnotacionesPlano(legado), 1);
+  casiIgual(escalaAnotacionesPlano(aula), 456 / 980);
+
+  // Doce unidades de tipografía terminan con los mismos píxeles aparentes:
+  // factor de anotación por ampliación del viewBox reducido.
+  casiIgual(12 * escalaAnotacionesPlano(aula) * (980 / 456), 12);
+});
+
+test("la pantalla respeta el ancho y la altura del foro sin cambiar el legado", () => {
+  assert.deepEqual(medidasPantallaDelForo({ setLayout: {} }), {
+    anchoPlano: 500,
+    ancho3d: 4.95,
+    escala3d: 1,
+    margenLateral: 0.3,
+  });
+
+  const aula = { setLayout: { foro: { ancho: 8, fondo: 6, alto: 3 } } };
+  const pantallaAula = medidasPantallaDelForo(aula);
+  casiIgual(pantallaAula.anchoPlano, 7.4 * 52);
+  casiIgual(pantallaAula.escala3d, 2.85 / 2.94);
+  assert.ok(pantallaAula.ancho3d <= 8 - pantallaAula.margenLateral * 2);
+
+  const estrecho = { setLayout: { foro: { ancho: 4, fondo: 6, alto: 4 } } };
+  const pantallaEstrecha = medidasPantallaDelForo(estrecho);
+  casiIgual(pantallaEstrecha.anchoPlano, 3.4 * 52);
+  casiIgual(pantallaEstrecha.ancho3d, 3.4);
+});
+
+test("la pantalla queda dentro del cuarto y alineada con la banda del plano", () => {
+  const casos = [
+    ["Aula", { ancho: 8, fondo: 6, alto: 3 }],
+    ["Foro chico", { ancho: 10, fondo: 8, alto: 4 }],
+    ["Mínimo", { ancho: 2, fondo: 2, alto: 2.2 }],
+    ["Como estaba", FORO_COMO_ESTABA],
+  ];
+
+  casos.forEach(([nombre, foro]) => {
+    const set = { setLayout: { foro } };
+    const posicion = posicionPantallaDelForo(set);
+    const plano = geometriaPlano(set);
+    const frenteBanda = puntoPlanoAMetros({
+      x: plano.ancho / 2,
+      y: plano.margen + 34,
+    }, set).z;
+
+    assert.ok(posicion.zMin >= -foro.fondo / 2, `${nombre}: pantalla detrás del muro`);
+    assert.ok(posicion.zMax <= foro.fondo / 2, `${nombre}: pantalla fuera del cuarto`);
+    assert.ok(posicion.yMin >= 0, `${nombre}: pantalla bajo el piso`);
+    assert.ok(posicion.yMax <= foro.alto, `${nombre}: pantalla sobre el techo`);
+    assert.ok(Math.abs(posicion.zFrente - frenteBanda) <= 0.02, `${nombre}: no coincide con la banda 2D`);
+    assert.ok(zObjetivoParedPosterior(set) >= -foro.fondo / 2, `${nombre}: luz apunta detrás del muro`);
+    assert.ok(zObjetivoParedPosterior(set) <= foro.fondo / 2, `${nombre}: luz apunta fuera del cuarto`);
+  });
+});
+
+test("mesa y mobiliario usan su huella completa para no atravesar los muros", () => {
+  const set = {
+    mesaVisible: true,
+    muebles: [{ id: "sofa", tipo: "sillon3" }],
+    setLayout: {
+      foro: { ancho: 8, fondo: 6, alto: 3 },
+      pos: { mesa: { x: 100, y: 200 }, "mue:sofa": { x: 40, y: 180 } },
+      rot: { "mue:sofa": 90 },
+    },
+  };
+  assert.deepEqual(resguardoElementoPlano("mesa", set), {
+    izquierda: 110, derecha: 110, arriba: 34, abajo: 34,
+  });
+  const guardaSofa = resguardoElementoPlano("mue:sofa", set);
+  casiIgual(guardaSofa.izquierda, 16);
+  casiIgual(guardaSofa.arriba, 52);
+  assert.deepEqual(posicionesFueraDelForo(set).map(([clave]) => clave), ["mesa"]);
+
+  const corregido = traerElementosAdentro(set);
+  assert.deepEqual(corregido.setLayout.pos.mesa, { x: 130, y: 200 });
+  assert.deepEqual(corregido.setLayout.pos["mue:sofa"], { x: 40, y: 180 });
+});
+
+test("detectar y acotar elementos fuera del foro no altera los que ya caben", () => {
+  const dentro = { x: 120, y: 90 };
+  const set = {
+    setLayout: {
+      foro: { ancho: 8, fondo: 6, alto: 3 },
+      pos: { dentro, derecha: { x: 900, y: 120 }, arriba: { x: 80, y: -5 } },
+      rot: { derecha: 17 },
+    },
+  };
+  assert.deepEqual(posicionesFueraDelForo(set).map(([clave]) => clave), ["derecha", "arriba"]);
+  assert.deepEqual(acotarPuntoAlForo({ x: 900, y: -5 }, set), { x: 436, y: 20 });
+
+  const corregido = traerElementosAdentro(set);
+  assert.equal(corregido.setLayout.pos.dentro, dentro);
+  assert.deepEqual(corregido.setLayout.pos.derecha, { x: 408, y: 120 });
+  assert.deepEqual(corregido.setLayout.pos.arriba, { x: 80, y: 100 });
+  assert.deepEqual(corregido.setLayout.rot, { derecha: 17 });
+});
+
+test("los defaults y un catálogo completo de luces caben aun en foros pequeños", () => {
+  const cfg = {
+    talentos: Array.from({ length: 4 }, (_, i) => ({ id: `t${i + 1}` })),
+    microfonos: [
+      ...Array.from({ length: 4 }, (_, i) => ({ id: `boom${i + 1}`, micTipo: "boom" })),
+      ...Array.from({ length: 4 }, (_, i) => ({ id: `suelto${i + 1}`, micTipo: "mano", asignadoA: "" })),
+    ],
+  };
+  const cams = Array.from({ length: 4 }, (_, i) => ({ id: `c${i + 1}` }));
+  const muebles = Array.from({ length: 6 }, (_, i) => ({ id: `m${i + 1}`, tipo: "silla" }));
+  const casos = [
+    { ancho: 8, fondo: 6, alto: 3 },
+    { ancho: 10, fondo: 8, alto: 4 },
+    { ancho: 2, fondo: 2, alto: 2.2 },
+  ];
+
+  casos.forEach((foro) => {
+    const set = { muebles, setLayout: { foro, pos: {}, rot: {} } };
+    const defaults = posicionesDefaultDelSet(cfg, set, cams);
+    Object.entries(defaults).forEach(([clave, punto]) => {
+      assert.equal(puntoFueraDelForo(punto, set), false, `${clave} quedó fuera en ${foro.ancho} x ${foro.fondo}`);
+    });
+
+    const setupCompleto = { required_elements: Object.keys(LUZ_CATALOGO) };
+    const iluminacion = instanciarSetup(setupCompleto, defaults.mesa, set);
+    Object.entries(iluminacion.pos).forEach(([clave, punto]) => {
+      assert.equal(puntoFueraDelForo(punto, set), false, `${clave} quedó fuera en ${foro.ancho} x ${foro.fondo}`);
+    });
+  });
+});
+
+test("la detección y Traer adentro ignoran claves de elementos eliminados", () => {
+  const cfg = {
+    talentos: [{ id: "t1" }],
+    camaras: [{ id: "c1" }],
+    microfonos: [{ id: "mic1", micTipo: "boom" }],
+  };
+  const fuera = { x: 900, y: -5 };
+  const set = {
+    mesaVisible: false,
+    muebles: [{ id: "m1", tipo: "silla" }],
+    iluminacion: { luces: [{ id: "l1", tipo: "key_light" }] },
+    setLayout: {
+      foro: { ancho: 8, fondo: 6, alto: 3 },
+      pos: {
+        "tal:t1": fuera,
+        "cam:c1": fuera,
+        "mic:mic1": fuera,
+        "mue:m1": fuera,
+        "luz:l1": fuera,
+        "tal:eliminado": fuera,
+        "cam:eliminada": fuera,
+        "mic:eliminado": fuera,
+        mesa: fuera,
+      },
+      rot: { "cam:c1": 31 },
+    },
+  };
+  const activas = clavesActivasDelSet(cfg, set);
+  assert.deepEqual(
+    posicionesFueraDelForo(set, activas).map(([clave]) => clave),
+    ["tal:t1", "cam:c1", "mic:mic1", "mue:m1", "luz:l1"]
+  );
+
+  const corregido = traerElementosAdentro(set, activas);
+  ["tal:t1", "cam:c1", "mic:mic1", "mue:m1", "luz:l1"].forEach((clave) => {
+    assert.deepEqual(corregido.setLayout.pos[clave], { x: 408, y: 100 });
+  });
+  assert.equal(corregido.setLayout.pos["tal:eliminado"], fuera);
+  assert.equal(corregido.setLayout.pos["cam:eliminada"], fuera);
+  assert.equal(corregido.setLayout.pos["mic:eliminado"], fuera);
+  assert.equal(corregido.setLayout.pos.mesa, fuera);
+  assert.deepEqual(corregido.setLayout.rot, { "cam:c1": 31 });
+});
+
+test("cambiar el tamaño conserva el layout centrado y el viaje de vuelta es exacto", () => {
+  const pos = {
+    mesa: { x: 490, y: 240 },
+    "cam:c1": { x: 179.9014232862428, y: 332.08483439816047 },
+    "tal:eliminado": { x: 60, y: 70 },
+  };
+  const rot = { "cam:c1": 27 };
+  const original = { setLayout: { pos, rot } };
+  const chico = aplicarMedidasForo(original, { ancho: 10, fondo: 8, alto: 4 });
+
+  assert.deepEqual(chico.setLayout.pos, {
+    mesa: { x: 280, y: 168 },
+    "cam:c1": { x: pos["cam:c1"].x - 210, y: pos["cam:c1"].y - 72 },
+    "tal:eliminado": { x: -150, y: -2 },
+  });
+  assert.equal(chico.setLayout.rot, rot);
+
+  const restaurado = aplicarMedidasForo(chico, FORO_COMO_ESTABA);
+  assert.deepEqual(restaurado.setLayout.pos, pos);
+  assert.equal(restaurado.setLayout.rot, rot);
+});
 
 test("la geometría compartida conserva los defaults históricos del plano 2D", () => {
   const { cfg, set, cams } = muestra();

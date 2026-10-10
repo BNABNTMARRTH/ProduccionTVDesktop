@@ -8,12 +8,118 @@ import { PanelIluminacion } from "./PanelIluminacion.jsx";
 import { PersonalGrid } from "./PersonalGrid.jsx";
 import { SetCommandManager, AddFurnitureCommand, RemoveFurnitureCommand, ToggleTalentSeatCommand } from "./setCommands.js";
 import { SET_LAYOUT_STRATEGIES, applyLayoutStrategy } from "./layoutStrategies.js";
+import {
+  aplicarMedidasForo,
+  clavesActivasDelSet,
+  FORO_COMO_ESTABA,
+  medidasForo,
+  posicionesFueraDelForo,
+  traerElementosAdentro,
+} from "./setGeometria.js";
 import { posMuebleDefault, setActivoDe, setNuevo, upSetPor } from "./sets.js";
 import { TarjetaAyuda } from "./ui.jsx";
 import { trunc, uid } from "./util.js";
 
 // El visor y Three.js se descargan del paquete sólo cuando se abre la vista 3D.
 const VisorSet3D = React.lazy(() => import("./VisorSet3D.jsx"));
+
+const PRESETS_FORO = [
+  { nombre: "Aula", medidas: { ancho: 8, fondo: 6, alto: 3 } },
+  { nombre: "Foro chico", medidas: { ancho: 10, fondo: 8, alto: 4 } },
+  { nombre: "Foro grande", medidas: { ancho: 18, fondo: 11, alto: 6 } },
+  { nombre: "Como estaba", medidas: FORO_COMO_ESTABA },
+];
+
+const paraCampo = (valor) => String(Math.round(valor * 10) / 10);
+
+function MedidasDelForo({ set, editable, onAplicar }) {
+  const medidas = medidasForo(set);
+  const [borrador, setBorrador] = useState(() => ({
+    ancho: paraCampo(medidas.ancho),
+    fondo: paraCampo(medidas.fondo),
+    alto: paraCampo(medidas.alto),
+  }));
+
+  useEffect(() => {
+    setBorrador({
+      ancho: paraCampo(medidas.ancho),
+      fondo: paraCampo(medidas.fondo),
+      alto: paraCampo(medidas.alto),
+    });
+  }, [set.id, medidas.ancho, medidas.fondo, medidas.alto]);
+
+  const confirmar = (campo) => {
+    const numero = Number(borrador[campo]);
+    const sinCambioVisual = borrador[campo] === paraCampo(medidas[campo]);
+    const siguientes = {
+      ...medidas,
+      [campo]: sinCambioVisual || !Number.isFinite(numero) ? medidas[campo] : numero,
+    };
+    const normalizadas = medidasForo(aplicarMedidasForo(set, siguientes));
+    setBorrador((actual) => ({ ...actual, [campo]: paraCampo(normalizadas[campo]) }));
+    onAplicar(normalizadas);
+  };
+
+  const aplicarPreset = (preset) => {
+    setBorrador({
+      ancho: paraCampo(preset.ancho),
+      fondo: paraCampo(preset.fondo),
+      alto: paraCampo(preset.alto),
+    });
+    onAplicar(preset);
+  };
+
+  return (
+    <section className="medidas-foro flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.035] p-2.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-white/60">Medidas del foro</span>
+        <strong className="text-[11px] tabular-nums text-blue-200">
+          {(medidas.ancho * medidas.fondo).toFixed(1)} m²
+        </strong>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {[
+          { id: "ancho", etiqueta: "Ancho", min: 2, max: 40 },
+          { id: "fondo", etiqueta: "Fondo", min: 2, max: 40 },
+          { id: "alto", etiqueta: "Alto", min: 2.2, max: 12 },
+        ].map((campo) => (
+          <label key={campo.id} className="flex min-w-0 flex-col gap-1 text-[10px] font-semibold text-white/60">
+            <span>{campo.etiqueta} (m)</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min={campo.min}
+              max={campo.max}
+              value={borrador[campo.id]}
+              disabled={!editable}
+              data-tactil="true"
+              onChange={(e) => setBorrador((actual) => ({ ...actual, [campo.id]: e.target.value }))}
+              onBlur={() => confirmar(campo.id)}
+              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+              className="min-w-0 w-full rounded-lg border border-white/10 bg-black/20 px-2 py-1.5 text-xs font-bold tabular-nums text-white focus:border-blue-500 focus:outline-none"
+              aria-label={`${campo.etiqueta} del foro en metros`}
+            />
+          </label>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        {PRESETS_FORO.map((preset) => (
+          <button
+            key={preset.nombre}
+            type="button"
+            disabled={!editable}
+            data-tactil="true"
+            onClick={() => aplicarPreset(preset.medidas)}
+            className="min-h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-[10.5px] font-bold text-white/75 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40"
+          >
+            {preset.nombre}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 /**
  * VistaSet:
@@ -69,7 +175,7 @@ export function VistaSet({ cfg, setCfg }) {
     const id = uid();
     const n = (activo.muebles || []).length;
     const item = { id, tipo, ocupantes: [] };
-    const pos = posMuebleDefault(n);
+    const pos = posMuebleDefault(n, activo);
 
     if (cmdMgr) {
       cmdMgr.execute(new AddFurnitureCommand(activo.id, item, pos));
@@ -156,6 +262,20 @@ export function VistaSet({ cfg, setCfg }) {
       sets: (c.sets || []).map((s) => s.id === activo.id ? applyLayoutStrategy(stratId, c, s) : s),
     }), { commit: true });
   };
+
+  const clavesActivas = clavesActivasDelSet(cfg, activo, cams);
+  const posicionesFuera = posicionesFueraDelForo(activo, clavesActivas);
+  const guardarMedidasForo = (medidas) => setCfg((c) => upSetPor(
+    c,
+    activo.id,
+    (s) => aplicarMedidasForo(s, medidas)
+  ), { commit: true });
+
+  const traerAdentro = () => setCfg((c) => upSetPor(
+    c,
+    activo.id,
+    (s) => traerElementosAdentro(s, clavesActivasDelSet(c, s, cams))
+  ), { commit: true });
 
   return (
     <div className="vista-set relative flex h-[calc(100vh-50px)] w-full flex-col overflow-hidden bg-[#0a0f18] text-white select-none">
@@ -315,6 +435,25 @@ export function VistaSet({ cfg, setCfg }) {
         {/* Canvas Central */}
         <div className="set-canvas flex flex-1 flex-col items-center justify-center p-4 overflow-hidden bg-[#0d121c]">
           <div className="w-full max-w-5xl">
+            {posicionesFuera.length > 0 && (
+              <div className="no-print mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-red-400/35 bg-red-500/10 px-3 py-2 text-xs text-red-100" role="status">
+                <span className="flex-1">
+                  {posicionesFuera.length === 1
+                    ? "Hay 1 elemento fuera de las nuevas medidas."
+                    : `Hay ${posicionesFuera.length} elementos fuera de las nuevas medidas.`}
+                </span>
+                {editable && (
+                  <button
+                    type="button"
+                    data-tactil="true"
+                    onClick={traerAdentro}
+                    className="min-h-8 rounded-lg border border-red-300/40 bg-red-400/15 px-3 font-bold text-red-50 hover:bg-red-400/25"
+                  >
+                    Traer adentro
+                  </button>
+                )}
+              </div>
+            )}
             <EstudioCenital
               key={activo.id}
               cfg={cfg}
@@ -395,6 +534,12 @@ export function VistaSet({ cfg, setCfg }) {
                       </button>
                     </div>
                   </div>
+
+                  <MedidasDelForo
+                    set={activo}
+                    editable={editable}
+                    onAplicar={guardarMedidasForo}
+                  />
 
                   {editable && (
                     <div className="flex flex-col gap-1.5">

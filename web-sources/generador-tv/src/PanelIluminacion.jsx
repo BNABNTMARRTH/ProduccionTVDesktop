@@ -4,6 +4,7 @@ import {
   getSetup, instanciarElemento, instanciarSetup,
 } from "./iluminacion.js";
 import { LuzIcon } from "./glifos.jsx";
+import { posicionesDefaultDelSet } from "./setGeometria.js";
 import { upSetPor } from "./sets.js";
 import { textOn } from "./util.js";
 
@@ -24,7 +25,8 @@ export function PanelIluminacion({ cfg, set, setCfg }) {
   const [confirma, setConfirma] = useState(null); // 'aplicar' | 'quitar'
   const setup = getSetup(selId) || SETUPS_ILUMINACION[0];
   const setupAplicado = getSetup(aplicada);
-  const mesaPos = set.setLayout?.pos?.mesa || { x: 490, y: 240 };
+  const mesaPos = set.setLayout?.pos?.mesa
+    || posicionesDefaultDelSet({ talentos: [], microfonos: [] }, set).mesa;
 
   const chipStyle = (borde) => ({
     borderColor: borde || "rgba(255, 255, 255, 0.12)",
@@ -47,7 +49,7 @@ export function PanelIluminacion({ cfg, set, setCfg }) {
 
   const aplicar = () => {
     setConfirma(null);
-    const { luces: nuevas, pos } = instanciarSetup(setup, mesaPos);
+    const { luces: nuevas, pos } = instanciarSetup(setup, mesaPos, set);
     setCfg((c) => upSetPor(c, set.id, (s) => {
       const p = { ...(s.setLayout?.pos || {}) };
       const r = { ...(s.setLayout?.rot || {}) };
@@ -80,7 +82,7 @@ export function PanelIluminacion({ cfg, set, setCfg }) {
   }), { commit: true });
 
   const agregarTipo = (tipo, opcional = true) => {
-    const { luces: nuevas, pos } = instanciarElemento(tipo, mesaPos, { opcional });
+    const { luces: nuevas, pos } = instanciarElemento(tipo, mesaPos, { opcional, set });
     setCfg((c) => upSetPor(c, set.id, (s) => ({
       ...s,
       iluminacion: { ...(s.iluminacion || { setup: null }), luces: [...(s.iluminacion?.luces || []), ...nuevas] },

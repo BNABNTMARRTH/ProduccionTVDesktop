@@ -325,7 +325,7 @@ export const normalizeCfg = (cfg) => {
   if (c.iluminacionSugerida && s0 && !s0.iluminacion) {
     const setup = getSetup(c.iluminacionSugerida);
     if (setup) {
-      const { luces, pos } = instanciarSetup(setup, { x: 490, y: 240 });
+      const { luces, pos } = instanciarSetup(setup, { x: 490, y: 240 }, s0);
       s0.iluminacion = { setup: setup.id, luces };
       s0.setLayout = { ...s0.setLayout, pos: { ...(s0.setLayout.pos || {}), ...pos } };
     }
@@ -334,7 +334,7 @@ export const normalizeCfg = (cfg) => {
     const pos = { ...(s0.setLayout.pos || {}) };
     s0.muebles = c.mueblesSugeridos.filter((tipo) => MUEBLES_CATALOGO[tipo]).map((tipo, i) => {
       const id = uid();
-      pos[`mue:${id}`] = posMuebleDefault(i);
+      pos[`mue:${id}`] = posMuebleDefault(i, s0);
       // Un talento sentado por mueble, en orden (conductor primero).
       return { id, tipo, ocupantes: c.talentos[i] ? [c.talentos[i].id] : [] };
     });

@@ -39,9 +39,9 @@ const invitado = (nombre) => ({ name: nombre, tipo: 'invitado' });
      mesa ....... true solo para proyectos heredados; las plantillas nuevas
                   ponen la mesa como MUEBLE, que se mueve y se gira
      locacion ... 'int' (estudio) o 'ext' (exterior)
-     plano ...... dónde va cada cosa en el lienzo de 980×600: mesa, muebles,
-                  talentos de pie, micrófonos sin dueño y el ajuste fino de
-                  alguna luz suelta (ver abajo)
+     plano ...... dónde va cada cosa en el foro legado de referencia: mesa,
+                  muebles, talentos de pie, micrófonos sin dueño y el ajuste
+                  fino de alguna luz suelta (ver abajo)
 
    EL ACOMODO (`plano`) NO ES UN LUJO. Sin él todo cae en su posición por
    omisión —los muebles en fila abajo a la izquierda, uno encima del otro con
@@ -50,8 +50,8 @@ const invitado = (nombre) => ({ name: nombre, tipo: 'invitado' });
    dónde queda cada mueble. Las cámaras NO se tocan: el lienzo las reparte
    solas en arco alrededor del foco, que es exactamente lo que uno haría.
 
-   El lienzo mide 980 de ancho × 600 de alto. Arriba (y≈30) está el muro con
-   la pantalla del set; abajo y a los lados, las cámaras. O sea: lo que mira
+   Estas plantillas nacen con la medida histórica del foro. Arriba está el
+   muro con la pantalla; abajo y a los lados, las cámaras. O sea: lo que mira
    a cámara se pone ARRIBA del centro, y el público estaría abajo.            */
 export const PLANTILLAS_SET = [
     {
@@ -215,7 +215,7 @@ export function cfgDePlantilla(plantilla, nombre = '') {
 
     const setup = getSetup(plantilla.setup);
     if (setup) {
-        const { luces, pos: posLuces } = instanciarSetup(setup, mesa);
+        const { luces, pos: posLuces } = instanciarSetup(setup, mesa, set);
         set.iluminacion = { setup: setup.id, luces };
         Object.assign(pos, posLuces);
         // Ajuste fino de una luz concreta, por tipo. El catálogo la coloca en
@@ -240,7 +240,7 @@ export function cfgDePlantilla(plantilla, nombre = '') {
     };
     set.muebles = (plantilla.muebles || []).map((tipo, i) => {
         const id = uid('mue');
-        pos[`mue:${id}`] = plano.muebles?.[i] || posMuebleDefault(i);
+        pos[`mue:${id}`] = plano.muebles?.[i] || posMuebleDefault(i, set);
         return { id, tipo, ocupantes: quienes(i) };
     });
 

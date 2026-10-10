@@ -35,7 +35,7 @@ export class CameraEntity extends SetEntity {
     this.shotgunMics = shotgunMics;
   }
 
-  renderSVG({ isSelected, showGuides, showLabels, isManualRot, onSelect, startDrag, startRotate, resetRotate, grab, editable, labProps }) {
+  renderSVG({ isSelected, showGuides, showLabels, isManualRot, onSelect, startDrag, startRotate, resetRotate, grab, editable, labProps, escalaAnotaciones = 1 }) {
     const { camera, pos, rot, key, shotgunMics } = this;
     const color = camera.color || "#0A84FF";
 
@@ -84,12 +84,13 @@ export class CameraEntity extends SetEntity {
               className="no-print set-rotate-handle"
               onPointerDown={startRotate(key)}
               onDoubleClick={resetRotate(key)}
+              transform={`translate(20 0) scale(${escalaAnotaciones})`}
               style={{ cursor: "crosshair" }}
             >
               <title>Arrastra para girar · doble clic: apuntar al foco</title>
-              <line x1="20" y1="0" x2="88" y2="0" stroke={color} strokeWidth="1.5" strokeDasharray="3 3" opacity="0.65" />
+              <line x1="0" y1="0" x2="68" y2="0" stroke={color} strokeWidth="1.5" strokeDasharray="3 3" opacity="0.65" />
               <circle
-                cx="98"
+                cx="78"
                 cy="0"
                 r="9.5"
                 fill={isManualRot ? color : "var(--plano-objeto, #161f2d)"}
@@ -98,7 +99,7 @@ export class CameraEntity extends SetEntity {
                 filter="drop-shadow(0 2px 4px rgba(0,0,0,0.35))"
               />
               <text
-                x="98"
+                x="78"
                 y="3.5"
                 textAnchor="middle"
                 fontSize="10"
@@ -113,14 +114,16 @@ export class CameraEntity extends SetEntity {
         </g>
 
         {/* Tally badge numérico con contraste exacto */}
-        <circle cx="0" cy="-27" r="10.5" fill={color} stroke="#fff" strokeWidth="2" filter="drop-shadow(0 1px 3px rgba(0,0,0,0.4))" />
-        <text x="0" y="-23" textAnchor="middle" fontSize="11" fontWeight="800" fill={textOn(color)} style={{ pointerEvents: "none" }}>
-          {camera.num}
-        </text>
+        <g transform={`translate(0 -27) scale(${escalaAnotaciones})`}>
+          <circle r="10.5" fill={color} stroke="#fff" strokeWidth="2" filter="drop-shadow(0 1px 3px rgba(0,0,0,0.4))" />
+          <text y="4" textAnchor="middle" fontSize="11" fontWeight="800" fill={textOn(color)} style={{ pointerEvents: "none" }}>
+            {camera.num}
+          </text>
+        </g>
 
         {/* Etiqueta identificadora */}
         {showLabels && (
-          <g transform="translate(0 22)" {...(labProps ? labProps(key) : {})}>
+          <g transform={`translate(0 22) scale(${escalaAnotaciones})`} {...(labProps ? labProps(key) : {})}>
             <rect x="-56" y="0" width="112" height="30" rx="6" fill="var(--plano-objeto, #161f2d)" stroke={color} strokeWidth="1.5" />
             <text x="0" y="13" textAnchor="middle" fontSize="11" fontWeight="800" fill={color}>{trunc(camera.nombre, 14)}</text>
             <text x="0" y="25" textAnchor="middle" fontSize="9" fill="var(--plano-tinta, #d5deea)">{trunc(camera.plano, 20)}</text>
@@ -140,7 +143,7 @@ export class LightEntity extends SetEntity {
     this.light = light;
   }
 
-  renderSVG({ isSelected, showGuides, showLabels, isManualRot, onSelect, startDrag, startRotate, resetRotate, grab, editable, labProps }) {
+  renderSVG({ isSelected, showGuides, showLabels, isManualRot, onSelect, startDrag, startRotate, resetRotate, grab, editable, labProps, escalaAnotaciones = 1 }) {
     const { light, pos, rot, key } = this;
     const color = light.color || "#FF9F0A";
 
@@ -177,12 +180,13 @@ export class LightEntity extends SetEntity {
                 className="no-print set-rotate-handle"
                 onPointerDown={startRotate(key)}
                 onDoubleClick={resetRotate(key)}
+                transform={`translate(16 0) scale(${escalaAnotaciones})`}
                 style={{ cursor: "crosshair" }}
               >
                 <title>Arrastra para girar la luz · doble clic: volver a automático</title>
-                <line x1="16" y1="0" x2="68" y2="0" stroke={color} strokeWidth="1.2" strokeDasharray="2 3" opacity="0.65" />
+                <line x1="0" y1="0" x2="52" y2="0" stroke={color} strokeWidth="1.2" strokeDasharray="2 3" opacity="0.65" />
                 <circle
-                  cx="76"
+                  cx="60"
                   cy="0"
                   r="7.5"
                   fill={isManualRot ? color : "var(--plano-objeto, #161f2d)"}
@@ -197,14 +201,14 @@ export class LightEntity extends SetEntity {
 
         {/* Indicador de luz opcional / kicker */}
         {light.opcional && (
-          <circle r="14" fill="none" stroke={color} strokeWidth="1.2" strokeDasharray="3 3" opacity="0.85" />
+          <circle transform={`scale(${escalaAnotaciones})`} r="14" fill="none" stroke={color} strokeWidth="1.2" strokeDasharray="3 3" opacity="0.85" />
         )}
 
         {/* Glifo vectorial de la luminaria */}
         <GlyphLuz forma={light.forma} color={color} />
 
         {/* Badge abreviatura de función (Key, Fill, Back, etc.) */}
-        <g transform="translate(0 -18)">
+        <g transform={`translate(0 -18) scale(${escalaAnotaciones})`}>
           <rect x="-14" y="-11" width="28" height="12" rx="6" fill={color} filter="drop-shadow(0 1px 2px rgba(0,0,0,0.3))" />
           <text y="-2" textAnchor="middle" fontSize="8" fontWeight="800" fill={textOn(color)}>
             {light.abrev}
@@ -213,16 +217,18 @@ export class LightEntity extends SetEntity {
 
         {/* Etiqueta identificadora */}
         {showLabels && (
-          <text
-            {...(labProps ? labProps(key) : {})}
-            y="27"
-            textAnchor="middle"
-            fontSize="9"
-            fontWeight="700"
-            fill="var(--plano-tinta, #d5deea)"
-          >
-            {trunc(light.nombre, 20)}
-          </text>
+          <g transform={`translate(0 13) scale(${escalaAnotaciones})`}>
+            <text
+              {...(labProps ? labProps(key) : {})}
+              y="14"
+              textAnchor="middle"
+              fontSize="9"
+              fontWeight="700"
+              fill="var(--plano-tinta, #d5deea)"
+            >
+              {trunc(light.nombre, 20)}
+            </text>
+          </g>
         )}
       </g>
     );
@@ -239,7 +245,7 @@ export class FurnitureEntity extends SetEntity {
     this.occupants = occupants;
   }
 
-  renderSVG({ isSelected, showLabels, isManualRot, onSelect, startDrag, startRotate, resetRotate, grab, editable, labProps, micsDeTal }) {
+  renderSVG({ isSelected, showLabels, isManualRot, onSelect, startDrag, startRotate, resetRotate, grab, editable, labProps, micsDeTal, escalaAnotaciones = 1 }) {
     const { furniture, pos, rot, key, occupants } = this;
     const def = MUEBLES_CATALOGO[furniture.tipo] || MUEBLES_CATALOGO.sillon1;
     const asientos = MUEBLE_ASIENTOS[furniture.tipo] || MUEBLE_ASIENTOS.sillon1;
@@ -279,12 +285,13 @@ export class FurnitureEntity extends SetEntity {
               className="no-print set-rotate-handle"
               onPointerDown={startRotate(key)}
               onDoubleClick={resetRotate(key)}
+              transform={`translate(${def.mitad + 2} 0) scale(${escalaAnotaciones})`}
               style={{ cursor: "crosshair" }}
             >
               <title>Arrastra para girar el mueble · doble clic: orientación original</title>
-              <line x1={def.mitad + 2} y1="0" x2={def.mitad + 12} y2="0" stroke="var(--plano-linea, #7d8ea3)" strokeWidth="1.2" strokeDasharray="2 3" opacity="0.7" />
+              <line x1="0" y1="0" x2="10" y2="0" stroke="var(--plano-linea, #7d8ea3)" strokeWidth="1.2" strokeDasharray="2 3" opacity="0.7" />
               <circle
-                cx={def.mitad + 18}
+                cx="16"
                 cy="0"
                 r="6.5"
                 fill={isManualRot ? "var(--plano-linea, #7d8ea3)" : "var(--plano-objeto, #161f2d)"}
@@ -297,9 +304,11 @@ export class FurnitureEntity extends SetEntity {
 
         {/* Rótulo de tipo de mueble */}
         {showLabels && (
-          <text {...(labProps ? labProps(key) : {})} y={36} textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--plano-linea, #7d8ea3)">
-            {def.es.toUpperCase()}
-          </text>
+          <g transform={`translate(0 24) scale(${escalaAnotaciones})`}>
+            <text {...(labProps ? labProps(key) : {})} y="12" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--plano-linea, #7d8ea3)">
+              {def.es.toUpperCase()}
+            </text>
+          </g>
         )}
 
         {/* Nombres de talentos sentados */}
@@ -308,18 +317,19 @@ export class FurnitureEntity extends SetEntity {
           const micsT = micsDeTal ? micsDeTal(t.id) : [];
           const micTxt = micsT.length ? ` · ${micsT.map((x) => MIC_TIPO_CORTO[x.micTipo] || "mic").join(" + ")}` : "";
           return (
-            <text
-              key={t.id}
-              {...(labProps ? labProps(`tal:${t.id}`) : {})}
-              x="0"
-              y={48 + i * 11}
-              textAnchor="middle"
-              fontSize="9"
-              fontWeight="700"
-              fill={col}
-            >
-              {trunc(`${t.nombre}${micTxt}`, 26)}
-            </text>
+            <g key={t.id} transform={`translate(0 24) scale(${escalaAnotaciones})`}>
+              <text
+                {...(labProps ? labProps(`tal:${t.id}`) : {})}
+                x="0"
+                y={24 + i * 11}
+                textAnchor="middle"
+                fontSize="9"
+                fontWeight="700"
+                fill={col}
+              >
+                {trunc(`${t.nombre}${micTxt}`, 26)}
+              </text>
+            </g>
           );
         })}
       </g>
@@ -337,7 +347,7 @@ export class TalentEntity extends SetEntity {
     this.mics = mics;
   }
 
-  renderSVG({ isSelected, showLabels, onSelect, startDrag, grab, labProps }) {
+  renderSVG({ isSelected, showLabels, onSelect, startDrag, grab, labProps, escalaAnotaciones = 1 }) {
     const { talent, pos, key, mics } = this;
     const col = talent.tipo === "invitado" ? "#30D158" : "#AF52DE";
 
@@ -358,14 +368,16 @@ export class TalentEntity extends SetEntity {
         <path d="M-8 4 q8 9 16 0 l2 9 h-20 z" fill={col} />
 
         {/* Badge C (Conductor) o I (Invitado) */}
-        <circle cx="13" cy="-13" r="7" fill={col} stroke="#fff" strokeWidth="1.5" />
-        <text x="13" y="-10" textAnchor="middle" fontSize="8" fontWeight="800" fill="#fff">
-          {talent.tipo === "invitado" ? "I" : "C"}
-        </text>
+        <g transform={`translate(13 -13) scale(${escalaAnotaciones})`}>
+          <circle r="7" fill={col} stroke="#fff" strokeWidth="1.5" />
+          <text y="3" textAnchor="middle" fontSize="8" fontWeight="800" fill="#fff">
+            {talent.tipo === "invitado" ? "I" : "C"}
+          </text>
+        </g>
 
         {/* Indicador de micrófono asignado */}
         {mics.length > 0 && (
-          <g transform="translate(-14 9)">
+          <g transform={`translate(-14 9) scale(${escalaAnotaciones})`}>
             <circle r="6.5" fill="#30D158" stroke="#fff" strokeWidth="1.5" />
             <rect x="-1.6" y="-4" width="3.2" height="5" rx="1.6" fill="#fff" />
             <path d="M-3.2 -0.5 a3.2 3.2 0 0 0 6.4 0 M0 2.7 V4.4" stroke="#fff" strokeWidth="1" fill="none" />
@@ -373,16 +385,16 @@ export class TalentEntity extends SetEntity {
         )}
 
         {showLabels && (
-          <>
-            <text {...(labProps ? labProps(key) : {})} y="32" textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--plano-tinta, #d5deea)">
+          <g transform={`translate(0 17) scale(${escalaAnotaciones})`}>
+            <text {...(labProps ? labProps(key) : {})} y="15" textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--plano-tinta, #d5deea)">
               {trunc(talent.nombre, 20)}
             </text>
             {mics.length > 0 && (
-              <text y="43" textAnchor="middle" fontSize="8.5" fontWeight="600" fill="#30D158">
+              <text y="26" textAnchor="middle" fontSize="8.5" fontWeight="600" fill="#30D158">
                 {trunc(mics.map((m) => MIC_TIPO_CORTO[m.micTipo] || m.micTipo).join(" + "), 26)}
               </text>
             )}
-          </>
+          </g>
         )}
       </g>
     );
@@ -399,7 +411,7 @@ export class MicrophoneEntity extends SetEntity {
     this.isBoom = mic.micTipo === "boom";
   }
 
-  renderSVG({ isSelected, showGuides, showLabels, isManualRot, onSelect, startDrag, startRotate, resetRotate, grab, editable, labProps }) {
+  renderSVG({ isSelected, showGuides, showLabels, isManualRot, onSelect, startDrag, startRotate, resetRotate, grab, editable, labProps, escalaAnotaciones = 1 }) {
     const { mic, pos, rot, key, isBoom } = this;
     const col = "#30D158";
 
@@ -426,11 +438,12 @@ export class MicrophoneEntity extends SetEntity {
                 className="no-print set-rotate-handle"
                 onPointerDown={startRotate(key)}
                 onDoubleClick={resetRotate(key)}
+                transform={`translate(42 0) scale(${escalaAnotaciones})`}
                 style={{ cursor: "crosshair" }}
               >
                 <title>Arrastra para girar el boom · doble clic: apuntar a la mesa</title>
                 <circle
-                  cx="56"
+                  cx="14"
                   cy="0"
                   r="6.5"
                   fill={isManualRot ? col : "var(--plano-objeto, #161f2d)"}
@@ -442,9 +455,11 @@ export class MicrophoneEntity extends SetEntity {
           </g>
           <circle cx="-14" cy="0" r="6" fill="var(--plano-cuerpo, #607289)" />
           {showLabels && (
-            <text {...(labProps ? labProps(key) : {})} y="26" textAnchor="middle" fontSize="9" fontWeight="700" fill={col}>
-              {trunc(mic.nombre, 18)} · boom
-            </text>
+            <g transform={`translate(0 14) scale(${escalaAnotaciones})`}>
+              <text {...(labProps ? labProps(key) : {})} y="12" textAnchor="middle" fontSize="9" fontWeight="700" fill={col}>
+                {trunc(mic.nombre, 18)} · boom
+              </text>
+            </g>
           )}
         </g>
       );
@@ -467,9 +482,11 @@ export class MicrophoneEntity extends SetEntity {
         <rect x="-2.5" y="-6" width="5" height="8" rx="2.5" fill={col} />
         <path d="M-5 -1 a5 5 0 0 0 10 0 M0 4 V7" stroke={col} strokeWidth="1.4" fill="none" />
         {showLabels && (
-          <text {...(labProps ? labProps(key) : {})} y="24" textAnchor="middle" fontSize="9" fontWeight="700" fill={col}>
-            {trunc(mic.nombre, 16)} · {MIC_TIPO_CORTO[mic.micTipo] || "mic"}
-          </text>
+          <g transform={`translate(0 12) scale(${escalaAnotaciones})`}>
+            <text {...(labProps ? labProps(key) : {})} y="12" textAnchor="middle" fontSize="9" fontWeight="700" fill={col}>
+              {trunc(mic.nombre, 16)} · {MIC_TIPO_CORTO[mic.micTipo] || "mic"}
+            </text>
+          </g>
         )}
       </g>
     );
@@ -487,7 +504,7 @@ export class FocusTargetEntity extends SetEntity {
     this.isCovered = isCovered;
   }
 
-  renderSVG({ isSelected, onSelect, startDrag, grab }) {
+  renderSVG({ isSelected, onSelect, startDrag, grab, escalaAnotaciones = 1 }) {
     const { pos, hasMesa, mesaText, isCovered, key } = this;
 
     if (hasMesa) {
@@ -514,9 +531,11 @@ export class FocusTargetEntity extends SetEntity {
             filter="drop-shadow(0 4px 10px rgba(0,0,0,0.35))"
           />
           <rect x="-88" y="-12" width="176" height="24" rx="5" fill="var(--plano-barra, #1e2c3f)" />
-          <text x="0" y="4" textAnchor="middle" fontSize="11" fontWeight="800" fill="#fff" style={{ letterSpacing: 1 }}>
-            {trunc(mesaText, 24)}
-          </text>
+          <g transform={`scale(${escalaAnotaciones})`}>
+            <text x="0" y="4" textAnchor="middle" fontSize="11" fontWeight="800" fill="#fff" style={{ letterSpacing: 1 }}>
+              {trunc(mesaText, 24)}
+            </text>
+          </g>
         </g>
       );
     }
@@ -532,15 +551,17 @@ export class FocusTargetEntity extends SetEntity {
         style={grab}
         className="set-entity set-entity-focus"
       >
-        <title>Punto de foco: cámaras y luces apuntan aquí</title>
-        <circle r="16" fill="none" stroke="var(--plano-tinta-baja, #8192a8)" strokeWidth="1.6" strokeDasharray="4 3" />
-        <path d="M-23 0 H23 M0 -23 V23" stroke="var(--plano-tinta-baja, #8192a8)" strokeWidth="1.4" />
-        <circle r="3.5" fill={isSelected ? "#0A84FF" : "var(--plano-tinta-baja, #8192a8)"} />
-        {!isCovered && (
-          <text y="36" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--plano-tinta-baja, #8192a8)" style={{ letterSpacing: 1 }}>
-            PUNTO DE FOCO
-          </text>
-        )}
+        <g transform={`scale(${escalaAnotaciones})`}>
+          <title>Punto de foco: cámaras y luces apuntan aquí</title>
+          <circle r="16" fill="none" stroke="var(--plano-tinta-baja, #8192a8)" strokeWidth="1.6" strokeDasharray="4 3" />
+          <path d="M-23 0 H23 M0 -23 V23" stroke="var(--plano-tinta-baja, #8192a8)" strokeWidth="1.4" />
+          <circle r="3.5" fill={isSelected ? "#0A84FF" : "var(--plano-tinta-baja, #8192a8)"} />
+          {!isCovered && (
+            <text y="36" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--plano-tinta-baja, #8192a8)" style={{ letterSpacing: 1 }}>
+              PUNTO DE FOCO
+            </text>
+          )}
+        </g>
       </g>
     );
   }

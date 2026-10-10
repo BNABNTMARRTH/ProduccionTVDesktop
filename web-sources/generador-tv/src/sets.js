@@ -4,6 +4,7 @@
 // crear un set, saber cuál está seleccionado, parcharlo y reacomodarlo.
 import { uid } from "./util.js";
 import { posicionesParaLuces } from "./iluminacion.js";
+import { FORO_COMO_ESTABA, posicionMuebleDefault, posicionesDefaultDelSet } from "./setGeometria.js";
 
 // Un set NACE VACÍO: piso, muro y el punto de foco, nada más. La mesa fija que
 // venía de serie salía en todos los proyectos la necesitaran o no, y no se
@@ -13,7 +14,7 @@ import { posicionesParaLuces } from "./iluminacion.js";
 export const setNuevo = (n = 1) => ({
   id: `set-${uid()}`, nombre: n === 1 ? "Set principal" : `Set ${n}`,
   locacion: "int", mesaVisible: false,
-  setLayout: { pos: {}, rot: {} }, iluminacion: null, muebles: [],
+  setLayout: { pos: {}, rot: {}, foro: { ...FORO_COMO_ESTABA } }, iluminacion: null, muebles: [],
 });
 
 // Set actualmente seleccionado (siempre existe tras normalizeCfg).
@@ -23,13 +24,14 @@ export const setActivoDe = (cfg) => (cfg.sets || []).find((s) => s.id === cfg.se
 export const upSetPor = (c, setId, fn) => ({ ...c, sets: (c.sets || []).map((s) => (s.id === setId ? fn(s) : s)) });
 
 // Posición inicial (y de reacomodo) del mueble n en el lienzo.
-export const posMuebleDefault = (n) => ({ x: 335 + (n % 4) * 85, y: 330 + Math.floor(n / 4) * 75 });
+export const posMuebleDefault = (n, set) => posicionMuebleDefault(n, set);
 
 // "Reacomodar automáticamente": regresa mesa/talentos/cámaras a sus posiciones
 // derivadas y recoloca luces y muebles en sus posiciones típicas (las luces y
 // muebles no tienen default en el lienzo: sin esto caerían al centro).
 export const reacomodoDe = (s) => {
-  const pos = posicionesParaLuces(s.iluminacion?.luces);
-  (s.muebles || []).forEach((m, i) => { pos[`mue:${m.id}`] = posMuebleDefault(i); });
-  return { ...s, setLayout: { pos, rot: {} } };
+  const mesa = posicionesDefaultDelSet({ talentos: [], microfonos: [] }, s).mesa;
+  const pos = posicionesParaLuces(s.iluminacion?.luces, mesa, s);
+  (s.muebles || []).forEach((m, i) => { pos[`mue:${m.id}`] = posMuebleDefault(i, s); });
+  return { ...s, setLayout: { ...(s.setLayout || {}), pos, rot: {} } };
 };

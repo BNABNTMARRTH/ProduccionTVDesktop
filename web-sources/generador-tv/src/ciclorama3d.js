@@ -1,19 +1,18 @@
 import * as THREE from "three";
-import { PLANO_SET } from "./setGeometria.js";
+import { medidasForo, RADIO_CICLORAMA_METROS } from "./setGeometria.js";
 
 export const COLORES_CICLORAMA = Object.freeze({
   verde: "#159E2B",
   blanco: "#E9E9E6",
 });
 
-function limitesDelCuarto() {
-  const { ancho, alto, margen, unidadesPorMetro } = PLANO_SET;
-  const extra = 1.2;
+export function limitesDelCuarto(set) {
+  const { ancho, fondo } = medidasForo(set);
   return {
-    xMin: (margen - ancho / 2) / unidadesPorMetro - extra,
-    xMax: (ancho - margen - ancho / 2) / unidadesPorMetro + extra,
-    zMin: (margen - alto / 2) / unidadesPorMetro - extra,
-    zMax: (alto - margen - alto / 2) / unidadesPorMetro + extra,
+    xMin: -ancho / 2,
+    xMax: ancho / 2,
+    zMin: -fondo / 2,
+    zMax: fondo / 2,
   };
 }
 
@@ -99,12 +98,14 @@ function barraEntre(inicio, fin, radio, material) {
 function crearParrilla(limites, alto) {
   const grupo = new THREE.Group();
   const material = new THREE.MeshStandardMaterial({ color: "#555B62", roughness: 0.3, metalness: 0.78 });
-  const margen = 0.72;
-  const y = alto - 0.18;
   const ancho = limites.xMax - limites.xMin;
   const fondo = limites.zMax - limites.zMin;
-  for (let i = 0; i <= 5; i += 1) {
-    const z = limites.zMin + margen + (i / 5) * (fondo - margen * 2);
+  const margen = Math.min(0.72, ancho / 4, fondo / 4);
+  const y = alto - 0.18;
+  const divisionesFondo = Math.max(1, Math.round((fondo - margen * 2) / 2));
+  const divisionesAncho = Math.max(1, Math.round((ancho - margen * 2) / 2));
+  for (let i = 0; i <= divisionesFondo; i += 1) {
+    const z = limites.zMin + margen + (i / divisionesFondo) * (fondo - margen * 2);
     grupo.add(barraEntre(
       new THREE.Vector3(limites.xMin + margen, y, z),
       new THREE.Vector3(limites.xMax - margen, y, z),
@@ -112,8 +113,8 @@ function crearParrilla(limites, alto) {
       material
     ));
   }
-  for (let i = 0; i <= 7; i += 1) {
-    const x = limites.xMin + margen + (i / 7) * (ancho - margen * 2);
+  for (let i = 0; i <= divisionesAncho; i += 1) {
+    const x = limites.xMin + margen + (i / divisionesAncho) * (ancho - margen * 2);
     grupo.add(barraEntre(
       new THREE.Vector3(x, y, limites.zMin + margen),
       new THREE.Vector3(x, y, limites.zMax - margen),
@@ -124,10 +125,10 @@ function crearParrilla(limites, alto) {
   return grupo;
 }
 
-export function crearCuartoCiclorama(color = "verde") {
-  const limites = limitesDelCuarto();
-  const alto = 4;
-  const radio = 0.6;
+export function crearCuartoCiclorama(color = "verde", set = null) {
+  const limites = limitesDelCuarto(set);
+  const { alto } = medidasForo(set);
+  const radio = RADIO_CICLORAMA_METROS;
   const material = crearMaterialCiclorama(color);
   const grupo = new THREE.Group();
   const ancho = limites.xMax - limites.xMin;
@@ -162,7 +163,7 @@ export function crearCuartoCiclorama(color = "verde") {
   };
   grupo.add(...Object.values(esquinas));
   grupo.add(crearParrilla(limites, alto));
-  grupo.userData = { material, paredes, esquinas, limites, color };
+  grupo.userData = { material, paredes, esquinas, limites, color, alto };
   return grupo;
 }
 
