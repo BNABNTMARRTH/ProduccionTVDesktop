@@ -1,7 +1,8 @@
 import React, { useMemo, useRef, useState } from "react";
 import { SetEntityFactory } from "./setEntities.jsx";
 import { MoveEntityCommand, RotateEntityCommand } from "./setCommands.js";
-import { posMuebleDefault, upSetPor } from "./sets.js";
+import { clasificarMicrofonos, crearGeometriaSet, PLANO_SET } from "./setGeometria.js";
+import { upSetPor } from "./sets.js";
 import { trunc } from "./util.js";
 
 /**
@@ -23,8 +24,8 @@ export function EstudioCenital({
   onSelectEntity = null,
   commandManager = null,
 }) {
-  const W = 980;
-  const H = 600;
+  const W = PLANO_SET.ancho;
+  const H = PLANO_SET.alto;
 
   const svgRef = useRef(null);
   const liveRef = useRef(null);
@@ -37,7 +38,6 @@ export function EstudioCenital({
   const [pan, setPan] = useState({ x: 0, y: 0 });
 
   const talentos = cfg.talentos || [];
-  const mics = cfg.microfonos || [];
   const muebles = set.muebles || [];
 
   const labelsOff = set.setLayout?.labelsOff || {};
@@ -63,47 +63,19 @@ export function EstudioCenital({
   });
 
   const sentados = new Set(muebles.flatMap((m) => m.ocupantes || []));
-  const N = cams.length;
 
-  const talIds = new Set(talentos.map((t) => t.id));
-  const camIds = new Set(cams.map((c) => c.id));
-  const micsDeTal = (tid) => mics.filter((m) => m.micTipo !== "boom" && m.asignadoA === `tal:${tid}`);
-  const shotgunDe = (cid) => mics.filter((m) => m.micTipo === "shotgun" && m.asignadoA === `cam:${cid}`);
-  const booms = mics.filter((m) => m.micTipo === "boom");
-  const sueltos = mics.filter((m) => {
-    if (m.micTipo === "boom") return false;
-    const a = m.asignadoA || "";
-    if (m.micTipo === "shotgun") return !(a.startsWith("cam:") && camIds.has(a.slice(4)));
-    return !(a.startsWith("tal:") && talIds.has(a.slice(4)));
-  });
-
-  // Posiciones por defecto del set
-  const defaults = useMemo(() => {
-    const d = { mesa: { x: W / 2, y: 240 } };
-    talentos.forEach((t, i) => {
-      const k = talentos.length === 1 ? 0 : -1 + (2 * i) / (talentos.length - 1);
-      d[`tal:${t.id}`] = { x: W / 2 + k * Math.min(170, 50 + talentos.length * 26), y: 168 };
-    });
-    booms.forEach((m, i) => {
-      d[`mic:${m.id}`] = { x: 645 + i * 58, y: 205 };
-    });
-    sueltos.forEach((m, i) => {
-      d[`mic:${m.id}`] = { x: 215 + i * 54, y: 305 };
-    });
-    muebles.forEach((m, i) => {
-      d[`mue:${m.id}`] = posMuebleDefault(i);
-    });
-    cams.forEach((c, i) => {
-      const t = N === 1 ? 0 : -1 + (2 * i) / (N - 1);
-      const a = (t * 70 * Math.PI) / 180;
-      d[`cam:${c.id}`] = { x: W / 2 + Math.sin(a) * 330, y: 250 + Math.cos(a) * 240 };
-    });
-    return d;
-  }, [cams, talentos, mics, muebles, N]);
+  const { micsDeTal, shotgunDe, booms, sueltos } = useMemo(
+    () => clasificarMicrofonos(cfg, cams),
+    [cfg, cams]
+  );
 
   const saved = set.setLayout?.pos || {};
   const savedRot = set.setLayout?.rot || {};
-  const posDe = (key) => live?.[key] || saved[key] || defaults[key] || { x: W / 2, y: 320 };
+  const geometria = useMemo(
+    () => crearGeometriaSet({ cfg, set, cams, live, liveRot }),
+    [cfg, set, cams, live, liveRot]
+  );
+  const { posDe, giroManualDe, rotacionDe } = geometria;
   const setLiveBoth = (v) => {
     liveRef.current = v;
     setLive(v);
@@ -350,11 +322,8 @@ export function EstudioCenital({
         {(set.iluminacion?.luces || []).map((l) => {
           const key = `luz:${l.id}`;
           const p = posDe(key);
-          const manual = liveRot?.[key] ?? savedRot[key];
-          const auto = l.dir === "mesa"
-            ? (Math.atan2(mesa.y - p.y, mesa.x - p.x) * 180) / Math.PI
-            : l.dir === "muro" ? -90 : null;
-          const rot = typeof manual === "number" ? manual : auto;
+          const manual = giroManualDe(key);
+          const rot = rotacionDe(key, "luz", l.dir);
 
           const lightEntity = SetEntityFactory.createLight(l, p, rot);
           return lightEntity.renderSVG({
@@ -392,8 +361,8 @@ export function EstudioCenital({
         {muebles.map((m) => {
           const key = `mue:${m.id}`;
           const p = posDe(key);
-          const manual = liveRot?.[key] ?? savedRot[key];
-          const rot = typeof manual === "number" ? manual : 0;
+          const manual = giroManualDe(key);
+          const rot = rotacionDe(key, "mueble");
           const occupants = (m.ocupantes || [])
             .map((id) => talentos.find((t) => t.id === id))
             .filter(Boolean);
@@ -436,8 +405,8 @@ export function EstudioCenital({
         {booms.map((m) => {
           const key = `mic:${m.id}`;
           const p = posDe(key);
-          const manual = liveRot?.[key] ?? savedRot[key];
-          const rot = typeof manual === "number" ? manual : (Math.atan2(mesa.y - p.y, mesa.x - p.x) * 180) / Math.PI;
+          const manual = giroManualDe(key);
+          const rot = rotacionDe(key, "boom");
           const boomEntity = SetEntityFactory.createMicrophone(m, p, rot);
           return boomEntity.renderSVG({
             isSelected: selectedKey === key,
@@ -475,8 +444,8 @@ export function EstudioCenital({
         {cams.map((c) => {
           const key = `cam:${c.id}`;
           const p = posDe(key);
-          const manual = liveRot?.[key] ?? savedRot[key];
-          const rot = typeof manual === "number" ? manual : (Math.atan2(mesa.y - p.y, mesa.x - p.x) * 180) / Math.PI;
+          const manual = giroManualDe(key);
+          const rot = rotacionDe(key, "camara");
           const shots = shotgunDe(c.id);
           const camEntity = SetEntityFactory.createCamera(c, p, rot, shots);
           return camEntity.renderSVG({

@@ -12,6 +12,9 @@ import { posMuebleDefault, setActivoDe, setNuevo, upSetPor } from "./sets.js";
 import { TarjetaAyuda } from "./ui.jsx";
 import { trunc, uid } from "./util.js";
 
+// El visor y Three.js se descargan del paquete sólo cuando se abre la vista 3D.
+const VisorSet3D = React.lazy(() => import("./VisorSet3D.jsx"));
+
 /**
  * VistaSet:
  * Estación de trabajo profesional CAD/Estudio para televisión (macOS Studio Layout).
@@ -20,7 +23,7 @@ import { trunc, uid } from "./util.js";
  */
 export function VistaSet({ cfg, setCfg }) {
   const fuentes = useMemo(() => computeFuentes(cfg), [cfg]);
-  const cams = fuentes.filter((f) => f.tipo === "cam");
+  const cams = useMemo(() => fuentes.filter((f) => f.tipo === "cam"), [fuentes]);
   const editable = typeof setCfg === "function";
   const sets = cfg.sets || [];
   const activo = setActivoDe(cfg);
@@ -35,6 +38,7 @@ export function VistaSet({ cfg, setCfg }) {
   const [showGuides, setShowGuides] = useState(true);
   const [confirmaDel, setConfirmaDel] = useState(false);
   const [strategyMenuOpen, setStrategyMenuOpen] = useState(false);
+  const [visor3DOpen, setVisor3DOpen] = useState(false);
 
   // Gestor de Comandos GoF con soporte Undo/Redo
   const commandManagerRef = useRef(null);
@@ -154,7 +158,7 @@ export function VistaSet({ cfg, setCfg }) {
   };
 
   return (
-    <div className="vista-set flex h-[calc(100vh-50px)] w-full flex-col overflow-hidden bg-[#0a0f18] text-white select-none">
+    <div className="vista-set relative flex h-[calc(100vh-50px)] w-full flex-col overflow-hidden bg-[#0a0f18] text-white select-none">
       {/* 1. BARRA SUPERIOR UNIFICADA DE ESTUDIO (macOS Studio Toolbar) */}
       <div className="set-toolbar no-print z-20 flex h-12 w-full flex-shrink-0 items-center justify-between border-b border-white/10 bg-black/40 px-4 backdrop-blur-xl">
         {/* Lado Izquierdo: Selector de Sets estilo Segmented Control */}
@@ -189,6 +193,15 @@ export function VistaSet({ cfg, setCfg }) {
               </button>
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => setVisor3DOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-blue-400/50 bg-blue-500/15 px-3 py-1.5 text-xs font-bold text-blue-200 shadow-sm transition-colors hover:bg-blue-500/25 hover:text-white"
+            title="Abrir una vista tridimensional de consulta"
+          >
+            Ver en 3D
+          </button>
         </div>
 
         {/* Centro: Herramientas del Canvas y Reacomodo Inteligente */}
@@ -523,6 +536,18 @@ export function VistaSet({ cfg, setCfg }) {
           </aside>
         )}
       </div>
+
+      {visor3DOpen && (
+        <React.Suspense
+          fallback={(
+            <div className="absolute inset-0 z-[60] grid place-items-center bg-[#080d16] text-sm font-semibold text-white">
+              Preparando vista 3D…
+            </div>
+          )}
+        >
+          <VisorSet3D cfg={cfg} set={activo} cams={cams} onClose={() => setVisor3DOpen(false)} />
+        </React.Suspense>
+      )}
     </div>
   );
 }
