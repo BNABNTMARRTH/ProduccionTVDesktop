@@ -123,6 +123,7 @@ final class ServidorDeRecursos: NSObject, WKURLSchemeHandler {
         case "jpg", "jpeg":       return "image/jpeg"
         case "gif":               return "image/gif"
         case "webp":              return "image/webp"
+        case "glb":               return "model/gltf-binary"
         case "ico":               return "image/vnd.microsoft.icon"
         case "woff2":             return "font/woff2"
         case "woff":              return "font/woff"

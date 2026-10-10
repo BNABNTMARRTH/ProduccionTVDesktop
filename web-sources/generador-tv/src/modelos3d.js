@@ -12,7 +12,7 @@ export const MUEBLES_3D = Object.freeze({
   sillon2: { ancho: 1.58, fondo: 0.82, alto: 0.78, asiento: ALTURAS_3D.asientoBajo },
   sillon3: { ancho: 2.2, fondo: 0.82, alto: 0.78, asiento: ALTURAS_3D.asientoBajo },
   silla: { ancho: 0.62, fondo: 0.58, alto: 0.94, asiento: ALTURAS_3D.asientoBajo },
-  banco: { ancho: 0.46, fondo: 0.46, alto: 0.76, asiento: ALTURAS_3D.asientoAlto },
+  banco: { ancho: 0.46, fondo: 0.46, alto: 0.45, asiento: 0.43 },
 });
 
 const materiales = new Map();
@@ -59,6 +59,10 @@ function geoCono(radio, alto, segmentos = 12, abierto = false) {
   return geometria(`cono:${radio}:${alto}:${segmentos}:${abierto}`, () => new THREE.ConeGeometry(radio, alto, segmentos, 1, abierto));
 }
 
+function geoCapsula(radio, tramo) {
+  return geometria(`capsula:${radio}:${tramo}`, () => new THREE.CapsuleGeometry(radio, tramo, 5, 12));
+}
+
 function malla(geo, mat, { sombra = false, recibe = true } = {}) {
   const objeto = new THREE.Mesh(geo, mat);
   objeto.castShadow = sombra;
@@ -87,6 +91,17 @@ function barraEntre(inicio, fin, radio, mat, sombra = false) {
   barra.position.copy(a).add(b).multiplyScalar(0.5);
   barra.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vector.normalize());
   return barra;
+}
+
+function capsulaEntre(inicio, fin, radio, mat) {
+  const a = new THREE.Vector3(...inicio);
+  const b = new THREE.Vector3(...fin);
+  const vector = b.clone().sub(a);
+  const largo = vector.length();
+  const capsula = malla(geoCapsula(radio, Math.max(0.01, largo - radio * 2)), mat);
+  capsula.position.copy(a).add(b).multiplyScalar(0.5);
+  capsula.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vector.normalize());
+  return capsula;
 }
 
 function materialesBase() {
@@ -240,10 +255,10 @@ export function crearModeloPersona({ sentada = false, alturaAsiento = 0, color =
   const hombros = cadera + 0.52;
   const cabezaY = hombros + 0.27;
 
-  const torso = cilindro(0.2, 0.28, 0.55, ropa, 9, { sombra: true });
+  const torso = cilindro(0.2, 0.28, 0.55, ropa, 14, { sombra: true });
   torso.position.y = cadera + 0.3;
   grupo.add(torso);
-  const cabeza = esfera(0.16, piel, 12, { sombra: true });
+  const cabeza = esfera(0.16, piel, 18, { sombra: true });
   cabeza.position.y = cabezaY;
   grupo.add(cabeza);
   const cuello = cilindro(0.07, 0.075, 0.12, piel, 9);
@@ -261,21 +276,21 @@ export function crearModeloPersona({ sentada = false, alturaAsiento = 0, color =
   const hombroIzq = [-0.22, hombros - 0.04, 0];
   const hombroDer = [0.22, hombros - 0.04, 0];
   if (sentada) {
-    grupo.add(barraEntre(hombroIzq, [-0.35, cadera + 0.06, 0.2], 0.065, ropa));
-    grupo.add(barraEntre(hombroDer, [0.35, cadera + 0.06, 0.2], 0.065, ropa));
+    grupo.add(capsulaEntre(hombroIzq, [-0.35, cadera + 0.06, 0.2], 0.065, ropa));
+    grupo.add(capsulaEntre(hombroDer, [0.35, cadera + 0.06, 0.2], 0.065, ropa));
     [-1, 1].forEach((lado) => {
       const x = lado * 0.13;
-      grupo.add(barraEntre([x, cadera, 0], [lado * 0.16, alturaAsiento - 0.02, 0.34], 0.075, ropa));
-      grupo.add(barraEntre([lado * 0.16, alturaAsiento - 0.02, 0.34], [lado * 0.16, 0.08, 0.42], 0.065, ropa));
+      grupo.add(capsulaEntre([x, cadera, 0], [lado * 0.16, alturaAsiento - 0.02, 0.34], 0.075, ropa));
+      grupo.add(capsulaEntre([lado * 0.16, alturaAsiento - 0.02, 0.34], [lado * 0.16, 0.08, 0.42], 0.065, ropa));
       const pie = caja(0.14, 0.08, 0.27, negro);
       pie.position.set(lado * 0.16, 0.06, 0.5);
       grupo.add(pie);
     });
   } else {
-    grupo.add(barraEntre(hombroIzq, [-0.3, cadera - 0.2, 0.03], 0.065, ropa));
-    grupo.add(barraEntre(hombroDer, [0.3, cadera - 0.2, 0.03], 0.065, ropa));
+    grupo.add(capsulaEntre(hombroIzq, [-0.3, cadera - 0.2, 0.03], 0.065, ropa));
+    grupo.add(capsulaEntre(hombroDer, [0.3, cadera - 0.2, 0.03], 0.065, ropa));
     [-1, 1].forEach((lado) => {
-      grupo.add(barraEntre([lado * 0.13, cadera, 0], [lado * 0.15, 0.09, 0], 0.075, ropa));
+      grupo.add(capsulaEntre([lado * 0.13, cadera, 0], [lado * 0.15, 0.09, 0], 0.075, ropa));
       const pie = caja(0.15, 0.08, 0.28, negro);
       pie.position.set(lado * 0.15, 0.055, 0.08);
       grupo.add(pie);

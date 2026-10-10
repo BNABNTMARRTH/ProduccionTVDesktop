@@ -4,6 +4,12 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { MUEBLE_ASIENTOS } from "./catalogos.js";
 import {
+  actualizarCorteCiclorama,
+  cambiarColorCiclorama,
+  crearCuartoCiclorama,
+  zDeParedPosterior,
+} from "./ciclorama3d.js";
+import {
   crearModeloBoom,
   crearModeloCamara,
   crearModeloClaqueta,
@@ -14,6 +20,13 @@ import {
   MUEBLES_3D,
   reiniciarCacheModelos3D,
 } from "./modelos3d.js";
+import {
+  AJUSTES_MODELOS_3D,
+  cargarCreditosModelos3D,
+  crearModeloDescargado,
+  precargarModelosDescargados,
+  reiniciarCacheModelosDescargados,
+} from "./modelosDescargados3d.js";
 import {
   ALTURAS_3D,
   clasificarMicrofonos,
@@ -26,6 +39,7 @@ import {
 import "./visorSet3D.css";
 
 const LENTES = [13, 18, 24, 35, 50, 85, 135];
+const colorCicloramaPorSet = new Map();
 
 function recortar(texto, maximo = 25) {
   const valor = String(texto || "");
@@ -191,48 +205,7 @@ function crearBarra(inicio, fin, radio, material) {
   return objeto;
 }
 
-function crearCiclorama(color) {
-  const zMuro = (PLANO_SET.margen - PLANO_SET.alto / 2) / PLANO_SET.unidadesPorMetro;
-  const medioAncho = (PLANO_SET.ancho - PLANO_SET.margen * 2) / PLANO_SET.unidadesPorMetro / 2;
-  const radio = 0.6;
-  const perfil = [{ y: 3.45, z: zMuro }, { y: radio, z: zMuro }];
-  for (let i = 1; i <= 9; i += 1) {
-    const angulo = Math.PI + (i / 9) * (Math.PI / 2);
-    perfil.push({ y: radio + Math.sin(angulo) * radio, z: zMuro + radio + Math.cos(angulo) * radio });
-  }
-  perfil.push({ y: 0, z: zMuro + 4.5 });
-  const vertices = [];
-  perfil.forEach(({ y, z }) => vertices.push(-medioAncho, y, z, medioAncho, y, z));
-  const indices = [];
-  for (let i = 0; i < perfil.length - 1; i += 1) {
-    const a = i * 2;
-    indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
-  }
-  const geometria = new THREE.BufferGeometry();
-  geometria.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
-  geometria.setIndex(indices);
-  geometria.computeVertexNormals();
-  const ciclorama = new THREE.Mesh(
-    geometria,
-    new THREE.MeshStandardMaterial({ color, roughness: 0.82, metalness: 0, side: THREE.DoubleSide })
-  );
-  ciclorama.receiveShadow = true;
-  const conjunto = new THREE.Group();
-  conjunto.add(ciclorama);
-  const marco = new THREE.MeshStandardMaterial({ color: "#AEB4BA", roughness: 0.28, metalness: 0.8 });
-  const zMarco = zMuro - 0.1;
-  conjunto.add(crearBarra(new THREE.Vector3(-medioAncho, 0, zMarco), new THREE.Vector3(-medioAncho, 3.7, zMarco), 0.028, marco));
-  conjunto.add(crearBarra(new THREE.Vector3(medioAncho, 0, zMarco), new THREE.Vector3(medioAncho, 3.7, zMarco), 0.028, marco));
-  conjunto.add(crearBarra(new THREE.Vector3(-medioAncho, 3.62, zMarco), new THREE.Vector3(medioAncho, 3.62, zMarco), 0.035, marco));
-  [-medioAncho, medioAncho].forEach((x) => {
-    conjunto.add(crearBarra(new THREE.Vector3(x, 0.04, zMarco), new THREE.Vector3(x - 0.46, 0.04, zMarco + 0.42), 0.028, marco));
-    conjunto.add(crearBarra(new THREE.Vector3(x, 0.04, zMarco), new THREE.Vector3(x + 0.46, 0.04, zMarco + 0.42), 0.028, marco));
-  });
-  return conjunto;
-}
-
-function crearPantalla(texto) {
-  const zMuro = (PLANO_SET.margen - PLANO_SET.alto / 2) / PLANO_SET.unidadesPorMetro;
+function crearPantalla(texto, zMuro) {
   const grupo = new THREE.Group();
   const materialMarco = new THREE.MeshStandardMaterial({ color: "#171A1F", roughness: 0.44, metalness: 0.32 });
   const borde = new THREE.Mesh(new THREE.BoxGeometry(4.95, 1.98, 0.12), materialMarco);
@@ -256,27 +229,31 @@ function crearPantalla(texto) {
   return grupo;
 }
 
-function crearSuperficie(escena, cfg, set) {
+function crearSuperficie(escena, cfg, set, colorCiclorama) {
   const exterior = set.locacion === "ext";
-  const piso = new THREE.Mesh(
-    new THREE.PlaneGeometry(38, 32),
-    new THREE.MeshStandardMaterial({ color: exterior ? "#DCE4D5" : "#F2F2F0", roughness: 0.94, metalness: 0 })
-  );
-  piso.rotation.x = -Math.PI / 2;
-  piso.position.y = -0.012;
-  piso.receiveShadow = true;
-  escena.add(piso);
   const reticula = crearReticula(exterior);
   escena.add(reticula);
+  let ciclorama = null;
   if (exterior) {
+    const piso = new THREE.Mesh(
+      new THREE.PlaneGeometry(38, 32),
+      new THREE.MeshStandardMaterial({ color: "#DCE4D5", roughness: 0.94, metalness: 0 })
+    );
+    piso.rotation.x = -Math.PI / 2;
+    piso.position.y = -0.012;
+    piso.receiveShadow = true;
+    escena.add(piso);
     const sol = new THREE.Mesh(new THREE.SphereGeometry(0.48, 16, 8), new THREE.MeshBasicMaterial({ color: "#FFF0B8", fog: false }));
     sol.position.set(-10, 11, -18);
     escena.add(sol);
   } else {
-    escena.add(crearCiclorama(set.colorCiclorama || set.chromaColor || "#3FD13F"));
-    if (String(cfg.pantalla || "").trim()) escena.add(crearPantalla(cfg.pantalla));
+    ciclorama = crearCuartoCiclorama(colorCiclorama);
+    escena.add(ciclorama);
+    if (String(cfg.pantalla || "").trim()) {
+      escena.add(crearPantalla(cfg.pantalla, zDeParedPosterior(ciclorama)));
+    }
   }
-  return reticula;
+  return { reticula, ciclorama };
 }
 
 function posicionDeAsiento(posicionMueble, rotacion, asiento) {
@@ -368,7 +345,97 @@ function agregarEtiqueta(grupo, texto, color, posicion, altura) {
   grupo.add(etiqueta);
 }
 
-function poblarEscena(escena, cfg, set, cams) {
+function crearSoporteLigero(alto) {
+  const grupo = new THREE.Group();
+  const metal = new THREE.MeshStandardMaterial({ color: "#3F454C", roughness: 0.32, metalness: 0.72 });
+  grupo.add(crearBarra(new THREE.Vector3(0, 0.04, 0), new THREE.Vector3(0, alto, 0), 0.023, metal));
+  [[-0.42, 0.28], [0.42, 0.28], [0, -0.48]].forEach(([x, z]) => {
+    grupo.add(crearBarra(new THREE.Vector3(0, 0.17, 0), new THREE.Vector3(x, 0.025, z), 0.018, metal));
+  });
+  return grupo;
+}
+
+function decorarModeloDescargado(modelo, reemplazo) {
+  if (reemplazo.clase === "camara") {
+    const color = reemplazo.color || "#0A84FF";
+    const material = new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 0.32,
+      roughness: 0.4,
+      metalness: 0.08,
+    });
+    const franja = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.035, 0.025), material);
+    franja.position.set(0, 1.53, 0.43);
+    modelo.add(franja);
+    const tally = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.055, 0.025), material);
+    tally.position.set(0.18, 1.67, 0.36);
+    modelo.add(tally);
+    if (reemplazo.tieneShotgun) {
+      const mic = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.035, 0.36, 4, 10),
+        new THREE.MeshStandardMaterial({ color: "#171A1F", roughness: 0.88, metalness: 0.04 })
+      );
+      mic.rotation.x = Math.PI / 2;
+      mic.position.set(0.12, 1.72, 0.18);
+      modelo.add(mic);
+    }
+  } else if (reemplazo.clase === "fresnel") {
+    modelo.add(crearSoporteLigero(1.82));
+  } else if (reemplazo.clase === "cstand") {
+    const esDifusor = reemplazo.luz.forma === "difusor";
+    const material = new THREE.MeshStandardMaterial({
+      color: esDifusor ? "#F3F2ED" : "#111317",
+      roughness: esDifusor ? 0.98 : 0.9,
+      metalness: 0,
+      transparent: esDifusor,
+      opacity: esDifusor ? 0.72 : 1,
+      side: THREE.DoubleSide,
+    });
+    const bandera = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.58, 0.025), material);
+    bandera.position.set(0.22, 1.48, 0.42);
+    bandera.castShadow = !esDifusor;
+    modelo.add(bandera);
+  }
+}
+
+function ajusteParaLuz(luz) {
+  if (luz.forma === "fresnel") return { ...AJUSTES_MODELOS_3D.fresnel, clase: "fresnel", luz };
+  if (luz.forma === "panel") return { ...AJUSTES_MODELOS_3D.panel, clase: "panel", luz };
+  if (luz.forma === "softbox") {
+    const usaSombrilla = luz.tipo === "soft_key_light" || luz.tipo === "key_light";
+    return { ...(usaSombrilla ? AJUSTES_MODELOS_3D.sombrilla : AJUSTES_MODELOS_3D.softbox), clase: "softbox", luz };
+  }
+  if (["flag", "control", "difusor"].includes(luz.forma)) {
+    return { ...AJUSTES_MODELOS_3D.cstand, clase: "cstand", luz };
+  }
+  return null;
+}
+
+function hidratarModelosDescargados(reemplazos, motor, destruido) {
+  const ajustes = reemplazos.map((reemplazo) => reemplazo.ajuste);
+  Promise.allSettled(precargarModelosDescargados(ajustes));
+  reemplazos.forEach(async (reemplazo) => {
+    try {
+      const modelo = await crearModeloDescargado(reemplazo.ajuste);
+      if (destruido()) return;
+      decorarModeloDescargado(modelo, reemplazo);
+      const eraVisible = reemplazo.respaldo.visible;
+      modelo.position.copy(reemplazo.respaldo.position);
+      modelo.quaternion.copy(reemplazo.respaldo.quaternion);
+      modelo.visible = eraVisible;
+      reemplazo.respaldo.parent?.add(modelo);
+      reemplazo.respaldo.visible = false;
+      reemplazo.alReemplazar?.(modelo);
+      motor.renderer.shadowMap.needsUpdate = true;
+      motor.invalidar();
+    } catch (fallo) {
+      // El modelo procedural visible es el respaldo deliberado de cada descarga.
+    }
+  });
+}
+
+function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
   const geometria = crearGeometriaSet({ cfg, set, cams });
   const { micsDeTal, shotgunDe, booms, sueltos } = clasificarMicrofonos(cfg, cams);
   const muebles = set.muebles || [];
@@ -378,8 +445,9 @@ function poblarEscena(escena, cfg, set, cams) {
   const campos = new THREE.Group();
   const etiquetas = new THREE.Group();
   const objetosCamara = new Map();
+  const reemplazos = [];
   escena.add(conos, campos, etiquetas);
-  const reticula = crearSuperficie(escena, cfg, set);
+  const superficie = crearSuperficie(escena, cfg, set, colorCiclorama);
   if (set.mesaVisible !== false) {
     const mesaFija = ubicarModelo(crearModeloMueble("mesa"), geometria.posDe("mesa"), 0);
     mesaFija.scale.x = 1.48;
@@ -389,7 +457,10 @@ function poblarEscena(escena, cfg, set, cams) {
     const key = `mue:${mueble.id}`;
     const posicion = geometria.posDe(key);
     const rotacion = geometria.rotacionDe(key, "mueble");
-    escena.add(ubicarModelo(crearModeloMueble(mueble.tipo), posicion, rotacion));
+    const respaldo = ubicarModelo(crearModeloMueble(mueble.tipo), posicion, rotacion);
+    escena.add(respaldo);
+    const ajuste = AJUSTES_MODELOS_3D[mueble.tipo];
+    if (ajuste) reemplazos.push({ ajuste, respaldo, clase: "mueble" });
     const asientos = MUEBLE_ASIENTOS[mueble.tipo] || MUEBLE_ASIENTOS.sillon1;
     const medidas = MUEBLES_3D[mueble.tipo] || MUEBLES_3D.sillon1;
     (mueble.ocupantes || []).forEach((talentoId, indice) => {
@@ -425,6 +496,14 @@ function poblarEscena(escena, cfg, set, cams) {
     );
     objetosCamara.set(camara.id, modelo);
     escena.add(modelo);
+    reemplazos.push({
+      ajuste: AJUSTES_MODELOS_3D.camara,
+      respaldo: modelo,
+      clase: "camara",
+      color: camara.color,
+      tieneShotgun: shotgunDe(camara.id).length > 0,
+      alReemplazar: (descargado) => objetosCamara.set(camara.id, descargado),
+    });
     campos.add(crearCampoCamara(posicion, rotacion, camara.color || "#0A84FF"));
     agregarEtiqueta(etiquetas, camara.nombre, camara.color || "#0A84FF", posicion, modelo.userData.alturaRotulo || 2.1);
   });
@@ -433,6 +512,7 @@ function poblarEscena(escena, cfg, set, cams) {
     const posicion = geometria.posDe(key);
     const modelo = ubicarModelo(crearModeloBoom(), posicion, geometria.rotacionDe(key, "boom"), true);
     escena.add(modelo);
+    reemplazos.push({ ajuste: AJUSTES_MODELOS_3D.boom, respaldo: modelo, clase: "boom" });
     agregarEtiqueta(etiquetas, `${mic.nombre} · boom`, "#1FA14E", posicion, modelo.userData.alturaRotulo || 2.45);
   });
   sueltos.forEach((mic) => escena.add(ubicarModelo(crearModeloMicSuelto(mic.micTipo), geometria.posDe(`mic:${mic.id}`), 0)));
@@ -444,6 +524,8 @@ function poblarEscena(escena, cfg, set, cams) {
     const rotacion = geometria.rotacionDe(key, "luz", luz.dir);
     const modelo = ubicarModelo(crearModeloLuz(luz), posicion, rotacion, true);
     escena.add(modelo);
+    const ajuste = ajusteParaLuz(luz);
+    if (ajuste) reemplazos.push({ ajuste, respaldo: modelo, clase: ajuste.clase, luz });
     const altura = modelo.userData.alturaHaz || ALTURAS_3D.luz;
     conos.add(crearHaz(
       { x: punto.x, y: altura, z: punto.z },
@@ -456,8 +538,18 @@ function poblarEscena(escena, cfg, set, cams) {
     claqueta.position.set(posicion.x + 0.72, 0, posicion.z + 0.52);
     claqueta.rotation.y = -0.35;
     escena.add(claqueta);
+    reemplazos.push({ ajuste: AJUSTES_MODELOS_3D.claqueta, respaldo: claqueta, clase: "claqueta" });
   }
-  return { geometria, conos, campos, reticula, etiquetas, objetosCamara };
+  return {
+    geometria,
+    conos,
+    campos,
+    reticula: superficie.reticula,
+    ciclorama: superficie.ciclorama,
+    etiquetas,
+    objetosCamara,
+    reemplazos,
+  };
 }
 
 function liberarEscena(escena) {
@@ -469,8 +561,8 @@ function liberarEscena(escena) {
     const lista = Array.isArray(objeto.material) ? objeto.material : [objeto.material];
     lista.filter(Boolean).forEach((material) => {
       materiales.add(material);
-      ["map", "normalMap", "roughnessMap", "metalnessMap", "emissiveMap"].forEach((clave) => {
-        if (material[clave]) texturas.add(material[clave]);
+      Object.values(material).forEach((valor) => {
+        if (valor?.isTexture) texturas.add(valor);
       });
     });
   });
@@ -496,6 +588,12 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   const [mostrarReticula, setMostrarReticula] = useState(false);
   const [camaraActivaId, setCamaraActivaId] = useState(null);
   const [focal, setFocal] = useState(35);
+  const [colorCiclorama, setColorCiclorama] = useState(
+    () => colorCicloramaPorSet.get(set.id) || "verde"
+  );
+  const [creditosAbiertos, setCreditosAbiertos] = useState(false);
+  const [creditos, setCreditos] = useState(null);
+  const [errorCreditos, setErrorCreditos] = useState("");
   const camaraActiva = useMemo(
     () => cams.find((camara) => camara.id === camaraActivaId) || null,
     [cams, camaraActivaId]
@@ -503,12 +601,14 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
 
   useEffect(() => {
     const alTeclado = (evento) => {
-      if (evento.key === "Escape") onClose();
+      if (evento.key !== "Escape") return;
+      if (creditosAbiertos) setCreditosAbiertos(false);
+      else onClose();
     };
     window.addEventListener("keydown", alTeclado);
     panelRef.current?.focus({ preventScroll: true });
     return () => window.removeEventListener("keydown", alTeclado);
-  }, [onClose]);
+  }, [creditosAbiertos, onClose]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -572,7 +672,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     luzClave.shadow.normalBias = 0.018;
     luzClave.target.position.set(0, 0, -0.6);
     escena.add(luzClave, luzClave.target);
-    const contenido = poblarEscena(escena, cfg, set, cams);
+    const contenido = poblarEscena(escena, cfg, set, cams, colorCiclorama);
     renderer.shadowMap.needsUpdate = true;
 
     const calcularMarco = () => {
@@ -598,6 +698,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
         frame = null;
         const ancho = Math.max(1, host.clientWidth);
         const alto = Math.max(1, host.clientHeight);
+        actualizarCorteCiclorama(contenido.ciclorama, camara, motorRef.current?.modoCamara);
         if (motorRef.current?.modoCamara) {
           const marco = calcularMarco();
           renderer.setScissorTest(false);
@@ -644,7 +745,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
       if (cabeceraRef.current) observador.observe(cabeceraRef.current);
       if (pieRef.current) observador.observe(pieRef.current);
     } else window.addEventListener("resize", ajustar);
-    motorRef.current = {
+    const motor = {
       renderer,
       escena,
       camara,
@@ -655,11 +756,14 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
       conos: contenido.conos,
       campos: contenido.campos,
       reticula: contenido.reticula,
+      ciclorama: contenido.ciclorama,
       etiquetas: contenido.etiquetas,
       objetosCamara: contenido.objetosCamara,
       estadoOrbita: null,
       modoCamara: false,
     };
+    motorRef.current = motor;
+    hidratarModelosDescargados(contenido.reemplazos, motor, () => destruido);
     ajustar();
     return () => {
       destruido = true;
@@ -676,12 +780,21 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
       entorno?.dispose();
       liberarEscena(escena);
       reiniciarCacheModelos3D();
+      reiniciarCacheModelosDescargados();
       renderer.dispose();
       renderer.forceContextLoss();
       renderer.domElement.remove();
       motorRef.current = null;
     };
   }, [cfg, set, cams]);
+
+  useEffect(() => {
+    const motor = motorRef.current;
+    if (!motor?.ciclorama) return;
+    cambiarColorCiclorama(motor.ciclorama, colorCiclorama);
+    motor.renderer.shadowMap.needsUpdate = true;
+    motor.invalidar();
+  }, [colorCiclorama]);
 
   useEffect(() => {
     const motor = motorRef.current;
@@ -774,6 +887,21 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     motor.ajustar();
   };
 
+  const elegirColorCiclorama = (color) => {
+    colorCicloramaPorSet.set(set.id, color);
+    setColorCiclorama(color);
+  };
+
+  const abrirCreditos = async () => {
+    setCreditosAbiertos(true);
+    if (creditos || errorCreditos) return;
+    try {
+      setCreditos(await cargarCreditosModelos3D());
+    } catch (fallo) {
+      setErrorCreditos("No se pudo leer la lista de créditos incluida con los modelos.");
+    }
+  };
+
   return (
     <section ref={panelRef} className="visor-set-3d" aria-label="Vista 3D del plano del set" tabIndex={-1}>
       <div ref={hostRef} className="visor-set-3d__lienzo" aria-hidden="true" />
@@ -788,9 +916,46 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
           <button type="button" className={mostrarReticula ? "activo" : ""} aria-pressed={mostrarReticula} onClick={() => setMostrarReticula((valor) => !valor)}>Retícula</button>
           <button type="button" className={mostrarConos ? "activo" : ""} aria-pressed={mostrarConos} onClick={() => setMostrarConos((valor) => !valor)}>Conos de luz</button>
           <button type="button" className={mostrarCampos ? "activo" : ""} aria-pressed={mostrarCampos} onClick={() => setMostrarCampos((valor) => !valor)}>Campo de cámaras</button>
+          {set.locacion !== "ext" && (
+            <div className="visor-set-3d__selector-ciclorama" role="group" aria-label="Color del ciclorama">
+              <span>Ciclorama</span>
+              <button type="button" className={colorCiclorama === "verde" ? "activo" : ""} aria-pressed={colorCiclorama === "verde"} onClick={() => elegirColorCiclorama("verde")}>Verde</button>
+              <button type="button" className={colorCiclorama === "blanco" ? "activo" : ""} aria-pressed={colorCiclorama === "blanco"} onClick={() => elegirColorCiclorama("blanco")}>Blanco</button>
+            </div>
+          )}
+          <button type="button" className="visor-set-3d__enlace-creditos" onClick={abrirCreditos}>Créditos 3D</button>
           <button type="button" className="visor-set-3d__cerrar" onClick={onClose}>Cerrar</button>
         </div>
       </header>
+      {creditosAbiertos && (
+        <aside className="visor-set-3d__creditos" role="dialog" aria-modal="true" aria-label="Créditos de modelos 3D">
+          <div className="visor-set-3d__creditos-cabecera">
+            <div>
+              <span>MODELOS DESCARGADOS</span>
+              <strong>Créditos 3D</strong>
+            </div>
+            <button type="button" onClick={() => setCreditosAbiertos(false)} aria-label="Cerrar créditos">Cerrar</button>
+          </div>
+          {errorCreditos && <p>{errorCreditos}</p>}
+          {!creditos && !errorCreditos && <p>Cargando créditos…</p>}
+          {creditos && (
+            <ul>
+              {creditos.map((credito) => (
+                <li key={credito.archivo}>
+                  <a href={credito.url} target="_blank" rel="noreferrer">{credito.titulo}</a>
+                  <span>
+                    {credito.autor} ·{" "}
+                    {credito.licencia_url
+                      ? <a href={credito.licencia_url} target="_blank" rel="noreferrer">{credito.licencia}</a>
+                      : credito.licencia}
+                  </span>
+                  {credito.cambios && <span>{credito.cambios}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </aside>
+      )}
       {camaraActiva && (
         <div className="visor-set-3d__encuadre" aria-hidden="true">
           <div className="visor-set-3d__marco">
