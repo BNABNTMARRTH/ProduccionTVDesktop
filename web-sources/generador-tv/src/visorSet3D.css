@@ -206,13 +206,6 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .78);
 }
 
-.visor-set-3d__abrir-creditos {
-  width: 100%;
-  border-top: 1px solid rgba(255, 255, 255, .1) !important;
-  border-radius: 0 0 10px 10px !important;
-  text-align: left;
-}
-
 .visor-set-3d__camaras-flotantes {
   position: absolute;
   z-index: 6;
@@ -385,87 +378,6 @@
   text-overflow: ellipsis;
 }
 
-.visor-set-3d__creditos {
-  position: absolute;
-  z-index: 9;
-  top: max(62px, calc(env(safe-area-inset-top) + 58px));
-  right: max(8px, env(safe-area-inset-right));
-  bottom: max(8px, env(safe-area-inset-bottom));
-  display: flex;
-  width: min(430px, calc(100% - 16px));
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, .18);
-  border-radius: 18px;
-  color: #f8fafc;
-  background: rgba(9, 14, 23, .96);
-  box-shadow: 0 24px 80px rgba(15, 23, 42, .34);
-  -webkit-backdrop-filter: blur(18px) saturate(145%);
-  backdrop-filter: blur(18px) saturate(145%);
-}
-
-.visor-set-3d__creditos-cabecera {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, .12);
-}
-
-.visor-set-3d__creditos-cabecera > div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.visor-set-3d__creditos-cabecera span {
-  color: #8fa3bc;
-  font-size: 9px;
-  font-weight: 760;
-  letter-spacing: .14em;
-}
-
-.visor-set-3d__creditos-cabecera strong {
-  font-size: 16px;
-}
-
-.visor-set-3d__creditos > p {
-  margin: 0;
-  padding: 18px;
-  color: #b7c3d3;
-  font-size: 13px;
-}
-
-.visor-set-3d__creditos ul {
-  margin: 0;
-  padding: 6px 14px 14px;
-  overflow-y: auto;
-  list-style: none;
-}
-
-.visor-set-3d__creditos li {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 10px 2px;
-  border-bottom: 1px solid rgba(255, 255, 255, .08);
-}
-
-.visor-set-3d__creditos a {
-  color: #dcecff;
-  font-size: 13px;
-  font-weight: 720;
-  text-underline-offset: 3px;
-}
-
-.visor-set-3d__creditos li span,
-.visor-set-3d__creditos li span a {
-  color: #91a0b2;
-  font-size: 11px;
-  font-weight: 500;
-}
-
 .visor-set-3d__error {
   position: absolute;
   z-index: 10;
@@ -499,11 +411,6 @@
 .visor-set-3d--compacto .visor-set-3d__camaras button {
   padding-inline: 10px;
   font-size: 11px;
-}
-
-.visor-set-3d--compacto .visor-set-3d__creditos {
-  left: max(8px, env(safe-area-inset-left));
-  width: auto;
 }
 
 @media (max-width: 430px) {

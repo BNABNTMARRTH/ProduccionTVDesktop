@@ -23,7 +23,6 @@ import {
 } from "./modelos3d.js";
 import {
   AJUSTES_MODELOS_3D,
-  cargarCreditosModelos3D,
   crearModeloDescargado,
   precargarModelosDescargados,
   reiniciarCacheModelosDescargados,
@@ -369,16 +368,6 @@ function agregarEtiqueta(grupo, texto, color, posicion, altura, prioridad = 1, s
   grupo.add(etiqueta);
 }
 
-function crearSoporteLigero(alto) {
-  const grupo = new THREE.Group();
-  const metal = new THREE.MeshStandardMaterial({ color: "#3F454C", roughness: 0.32, metalness: 0.72 });
-  grupo.add(crearBarra(new THREE.Vector3(0, 0.04, 0), new THREE.Vector3(0, alto, 0), 0.023, metal));
-  [[-0.42, 0.28], [0.42, 0.28], [0, -0.48]].forEach(([x, z]) => {
-    grupo.add(crearBarra(new THREE.Vector3(0, 0.17, 0), new THREE.Vector3(x, 0.025, z), 0.018, metal));
-  });
-  return grupo;
-}
-
 function decorarModeloDescargado(modelo, reemplazo) {
   if (reemplazo.clase === "camara") {
     const color = reemplazo.color || "#0A84FF";
@@ -404,8 +393,6 @@ function decorarModeloDescargado(modelo, reemplazo) {
       mic.position.set(0.12, 1.72, 0.18);
       modelo.add(mic);
     }
-  } else if (reemplazo.clase === "fresnel") {
-    modelo.add(crearSoporteLigero(1.82));
   } else if (reemplazo.clase === "cstand") {
     const esDifusor = reemplazo.luz.forma === "difusor";
     const material = new THREE.MeshStandardMaterial({
@@ -492,6 +479,7 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     mesaFija.scale.x = 1.48;
     escena.add(mesaFija);
     objetosEncuadre.push(mesaFija);
+    reemplazos.push({ ajuste: AJUSTES_MODELOS_3D.mesa, respaldo: mesaFija, clase: "mueble" });
   }
   muebles.forEach((mueble) => {
     const key = `mue:${mueble.id}`;
@@ -593,7 +581,9 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     objetosEncuadre.push(modelo);
     const ajuste = ajusteParaLuz(luz);
     if (ajuste) reemplazos.push({ ajuste, respaldo: modelo, clase: ajuste.clase, luz });
-    const altura = modelo.userData.alturaHaz || ALTURAS_3D.luz;
+    // El cono nace a la altura de trabajo declarada por el modelo propio. El
+    // equipo completo solo gira en Y hacia el objetivo; no se inclina el pie.
+    const altura = ajuste?.alto_trabajo || modelo.userData.alturaHaz || ALTURAS_3D.luz;
     conos.add(crearHaz(
       { x: punto.x, y: altura, z: punto.z },
       destinoDeHaz(luz, punto, altura, rotacion, mesa, typeof geometria.giroManualDe(key) === "number", set)
@@ -788,9 +778,6 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   const [colorCiclorama, setColorCiclorama] = useState(
     () => normalizarColorCiclorama(colorCicloramaPorSet.get(set.id))
   );
-  const [creditosAbiertos, setCreditosAbiertos] = useState(false);
-  const [creditos, setCreditos] = useState(null);
-  const [errorCreditos, setErrorCreditos] = useState("");
   const camaraActiva = useMemo(
     () => cams.find((camara) => camara.id === camaraActivaId) || null,
     [cams, camaraActivaId]
@@ -799,15 +786,14 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   useEffect(() => {
     const alTeclado = (evento) => {
       if (evento.key !== "Escape") return;
-      if (creditosAbiertos) setCreditosAbiertos(false);
-      else if (lentesAbiertos) setLentesAbiertos(false);
+      if (lentesAbiertos) setLentesAbiertos(false);
       else if (capasAbiertas) setCapasAbiertas(false);
       else onClose();
     };
     window.addEventListener("keydown", alTeclado);
     panelRef.current?.focus({ preventScroll: true });
     return () => window.removeEventListener("keydown", alTeclado);
-  }, [capasAbiertas, creditosAbiertos, lentesAbiertos, onClose]);
+  }, [capasAbiertas, lentesAbiertos, onClose]);
 
   useEffect(() => {
     const revisarTamano = () => setEsCompacto(esPantallaCompacta());
@@ -1150,17 +1136,6 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     setColorCiclorama(color);
   };
 
-  const abrirCreditos = async () => {
-    setCapasAbiertas(false);
-    setCreditosAbiertos(true);
-    if (creditos || errorCreditos) return;
-    try {
-      setCreditos(await cargarCreditosModelos3D());
-    } catch (fallo) {
-      setErrorCreditos("No se pudo leer la lista de créditos incluida con los modelos.");
-    }
-  };
-
   return (
     <section
       ref={panelRef}
@@ -1234,39 +1209,9 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
                 </div>
               </div>
             )}
-            <button type="button" className="visor-set-3d__abrir-creditos" onClick={abrirCreditos}>Créditos 3D</button>
           </aside>
         )}
       </div>
-      {creditosAbiertos && (
-        <aside className="visor-set-3d__creditos" role="dialog" aria-modal="true" aria-label="Créditos de modelos 3D">
-          <div className="visor-set-3d__creditos-cabecera">
-            <div>
-              <span>MODELOS DESCARGADOS</span>
-              <strong>Créditos 3D</strong>
-            </div>
-            <button type="button" onClick={() => setCreditosAbiertos(false)} aria-label="Cerrar créditos">Cerrar</button>
-          </div>
-          {errorCreditos && <p>{errorCreditos}</p>}
-          {!creditos && !errorCreditos && <p>Cargando créditos…</p>}
-          {creditos && (
-            <ul>
-              {creditos.map((credito) => (
-                <li key={credito.archivo}>
-                  <a href={credito.url} target="_blank" rel="noreferrer">{credito.titulo}</a>
-                  <span>
-                    {credito.autor} ·{" "}
-                    {credito.licencia_url
-                      ? <a href={credito.licencia_url} target="_blank" rel="noreferrer">{credito.licencia}</a>
-                      : credito.licencia}
-                  </span>
-                  {credito.cambios && <span>{credito.cambios}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </aside>
-      )}
       {camaraActiva && (
         <div className="visor-set-3d__encuadre" aria-hidden="true">
           <div className="visor-set-3d__marco">

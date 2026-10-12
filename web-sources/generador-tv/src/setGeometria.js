@@ -296,7 +296,8 @@ export const SENSOR_FULL_FRAME = Object.freeze({ ancho: 36, alto: 24 });
 
 // Todas las alturas están expresadas en metros.
 export const ALTURAS_3D = Object.freeze({
-  lenteCamara: 1.5,
+  // Centro óptico del modelo Sony FX6 propio (el conjunto completo mide 1.547 m).
+  lenteCamara: 1.38,
   mesa: 0.75,
   personaDePie: 1.7,
   personaSentada: 1.25,

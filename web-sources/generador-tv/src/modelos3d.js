@@ -243,7 +243,7 @@ export function crearModeloCamara({ color = "#0A84FF", tieneShotgun = false } = 
     espuma.position.set(0.11, 1.81, 0.31);
     grupo.add(espuma);
   }
-  grupo.userData.alturaRotulo = 2.12;
+  grupo.userData.alturaRotulo = 1.85;
   return grupo;
 }
 

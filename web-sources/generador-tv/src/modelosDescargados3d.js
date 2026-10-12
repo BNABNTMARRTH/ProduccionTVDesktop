@@ -1,31 +1,12 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
+import manifiestoModelos3D from "virtual:modelos3d-manifiesto";
+import { crearAjustesModelos3D } from "./ajustesModelos3d.js";
 
 // Ajustes de importación: todos los modelos terminan centrados en X/Z, apoyados
 // en Y=0 y mirando hacia +Z, igual que la fábrica procedural.
-export const AJUSTES_MODELOS_3D = Object.freeze({
-  camara: { archivo: "camara_tripie.glb", alto: 1.75, giroY: 90 },
-  silla: { archivo: "silla_director.glb", alto: 0.9, giroY: 0 },
-  sillon1: { archivo: "ArmChair_01.glb", alto: 0.85, giroY: 0 },
-  sillon2: { archivo: "Sofa_01.glb", alto: 0.8, giroY: 0, escalaX: 1 },
-  sillon3: { archivo: "Sofa_01.glb", alto: 0.8, giroY: 0, escalaX: 1.4 },
-  banco: { archivo: "folding_wooden_stool.glb", alto: 0.45, giroY: 0 },
-  mesaRedonda: {
-    archivo: "coffee_table_round_01.glb",
-    alto: 0.75,
-    giroY: 0,
-    escalaX: 0.86,
-    escalaZ: 0.86,
-  },
-  fresnel: { archivo: "fresnel.glb", alto: 0.5, giroY: 0, desplazamientoY: 1.75 },
-  panel: { archivo: "luz_estudio_b.glb", alto: 1.9, giroY: 0 },
-  softbox: { archivo: "softbox.glb", alto: 2, giroY: 0 },
-  sombrilla: { archivo: "sombrilla.glb", alto: 2, giroY: 0 },
-  cstand: { archivo: "cstand.glb", alto: 1.9, giroY: 0 },
-  boom: { archivo: "boom.glb", alto: 2.1, giroY: 90 },
-  claqueta: { archivo: "claqueta.glb", ancho: 0.25, giroY: 0, giroX: -90 },
-});
+export const AJUSTES_MODELOS_3D = crearAjustesModelos3D(manifiestoModelos3D);
 
 const cargador = new GLTFLoader();
 cargador.setMeshoptDecoder(MeshoptDecoder);
@@ -44,17 +25,19 @@ function cargarPlantilla(archivo) {
 }
 
 function normalizarModelo(modelo, ajuste) {
-  modelo.updateMatrixWorld(true);
-  const cajaInicial = new THREE.Box3().setFromObject(modelo);
-  const tamano = cajaInicial.getSize(new THREE.Vector3());
-  const escala = ajuste.ancho
-    ? ajuste.ancho / Math.max(0.0001, tamano.x)
-    : ajuste.alto / Math.max(0.0001, tamano.y);
-  modelo.scale.set(
-    escala * (ajuste.escalaX || 1),
-    escala,
-    escala * (ajuste.escalaZ || 1)
-  );
+  if (ajuste.modoEscala !== "real") {
+    modelo.updateMatrixWorld(true);
+    const cajaInicial = new THREE.Box3().setFromObject(modelo);
+    const tamano = cajaInicial.getSize(new THREE.Vector3());
+    const escala = ajuste.ancho
+      ? ajuste.ancho / Math.max(0.0001, tamano.x)
+      : ajuste.alto / Math.max(0.0001, tamano.y);
+    modelo.scale.set(
+      escala * (ajuste.escalaX || 1),
+      escala,
+      escala * (ajuste.escalaZ || 1)
+    );
+  }
   modelo.rotation.set(
     THREE.MathUtils.degToRad(ajuste.giroX || 0),
     THREE.MathUtils.degToRad(ajuste.giroY || 0),
@@ -85,17 +68,13 @@ export async function crearModeloDescargado(ajuste) {
   const grupo = new THREE.Group();
   grupo.add(modelo);
   grupo.userData.archivoModelo = ajuste.archivo;
+  grupo.userData.alturaRotulo = ajuste.alto + 0.3;
+  grupo.userData.alturaHaz = ajuste.alto_trabajo;
   return grupo;
 }
 
 export function precargarModelosDescargados(ajustes) {
   return [...new Set(ajustes.map((ajuste) => ajuste.archivo))].map((archivo) => cargarPlantilla(archivo));
-}
-
-export async function cargarCreditosModelos3D() {
-  const respuesta = await fetch(rutaPublica("CREDITOS.json"));
-  if (!respuesta.ok) throw new Error("No se pudieron abrir los créditos 3D.");
-  return respuesta.json();
 }
 
 function liberarObjeto(objeto, recursos) {
