@@ -8,6 +8,11 @@ const ID_RESUELTO_MANIFIESTO_MODELOS_3D = `\0${ID_MANIFIESTO_MODELOS_3D}`;
 const RUTA_MANIFIESTO_MODELOS_3D = fileURLToPath(
   new URL("./public/modelos3d/modelos.json", import.meta.url)
 );
+const ID_CATALOGO_CAMARAS = "virtual:catalogo-camaras";
+const ID_RESUELTO_CATALOGO_CAMARAS = `\0${ID_CATALOGO_CAMARAS}`;
+const RUTA_CATALOGO_CAMARAS = fileURLToPath(
+  new URL("./public/modelos3d/catalogo_camaras.json", import.meta.url)
+);
 
 function manifiestoModelos3D() {
   return {
@@ -24,7 +29,22 @@ function manifiestoModelos3D() {
   };
 }
 
+function catalogoCamaras() {
+  return {
+    name: "catalogo-camaras",
+    resolveId(id) {
+      return id === ID_CATALOGO_CAMARAS ? ID_RESUELTO_CATALOGO_CAMARAS : null;
+    },
+    load(id) {
+      if (id !== ID_RESUELTO_CATALOGO_CAMARAS) return null;
+      this.addWatchFile(RUTA_CATALOGO_CAMARAS);
+      const catalogo = JSON.parse(readFileSync(RUTA_CATALOGO_CAMARAS, "utf8"));
+      return `export default ${JSON.stringify(catalogo)};`;
+    },
+  };
+}
+
 export default defineConfig({
   base: "./",
-  plugins: [manifiestoModelos3D(), react()],
+  plugins: [manifiestoModelos3D(), catalogoCamaras(), react()],
 });

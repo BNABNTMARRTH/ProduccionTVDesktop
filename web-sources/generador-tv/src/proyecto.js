@@ -5,6 +5,7 @@
 //     modelo actual (talentos, sets, mobiliario, iluminación) sin perder datos.
 // Son funciones puras: reciben y devuelven datos, no dibujan nada.
 import { MUEBLES_CATALOGO, SECCIONES_IDS, SECCIONES_INFO, seccionesDefault } from "./catalogos.js";
+import { normalizarEquipo } from "./equipoCamara.js";
 import { getSetup, instanciarSetup } from "./iluminacion.js";
 import { posMuebleDefault, setNuevo } from "./sets.js";
 import { NAVY, PALETTE } from "./theme.js";
@@ -262,7 +263,7 @@ export const BLANCO = () => ({
 // - cfg.sets/setActivo: antes había un solo layout en cfg.setLayout/iluminacion;
 //   ahora cada set tiene nombre, locación (int/ext), mesa opcional y su propio
 //   setLayout + iluminación. Lo legado se convierte en el primer set.
-export const normalizeCfg = (cfg) => {
+export const normalizeCfg = (cfg, catalogoCamaras = null) => {
   const c = {
     ...cfg,
     microfonos: Array.isArray(cfg?.microfonos) ? cfg.microfonos : [],
@@ -297,6 +298,17 @@ export const normalizeCfg = (cfg) => {
     asignadoA: migroTalentos && c.talentos[i] ? `tal:${c.talentos[i].id}` : "",
     ...m,
   }));
+  // Una cámara sin `equipo` sigue siendo la cámara genérica histórica. Solo
+  // las fichas nuevas se validan contra el catálogo inyectado por la app.
+  if (Array.isArray(c.camaras) && catalogoCamaras) {
+    c.camaras = c.camaras.map((camara) => {
+      if (!Object.prototype.hasOwnProperty.call(camara, "equipo")) return camara;
+      const equipo = normalizarEquipo(catalogoCamaras, camara.equipo);
+      if (equipo) return { ...camara, equipo };
+      const { equipo: descartado, ...generica } = camara;
+      return generica;
+    });
+  }
   if (!Array.isArray(c.sets) || !c.sets.length) {
     c.sets = [{
       ...setNuevo(1),

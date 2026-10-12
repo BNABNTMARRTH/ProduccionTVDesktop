@@ -70,6 +70,7 @@ export async function crearModeloDescargado(ajuste) {
   grupo.userData.archivoModelo = ajuste.archivo;
   grupo.userData.alturaRotulo = ajuste.alto + 0.3;
   grupo.userData.alturaHaz = ajuste.alto_trabajo;
+  grupo.userData.altoLente = ajuste.alto_lente;
   return grupo;
 }
 

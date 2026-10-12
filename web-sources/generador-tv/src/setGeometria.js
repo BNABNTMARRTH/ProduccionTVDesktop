@@ -425,6 +425,9 @@ export function puntoPlanoAMetros(punto, set) {
 }
 
 export function distanciaFocalDeCamara(camara) {
+  const focalEquipo = Number(camara?.equipo?.focal);
+  if (Number.isFinite(focalEquipo) && focalEquipo > 0) return focalEquipo;
+
   const encontrada = String(camara?.nombre || "").match(/(\d+(?:[.,]\d+)?)\s*mm/i);
   if (encontrada) return Number(encontrada[1].replace(",", "."));
 
@@ -435,7 +438,19 @@ export function distanciaFocalDeCamara(camara) {
   return 35;
 }
 
-export function fovVerticalDesdeFocal(distanciaFocal) {
+export function fovVerticalDesdeFocal(distanciaFocal, sensorMm = null) {
   const focal = Math.max(1, Number(distanciaFocal) || 35);
+  const anchoSensor = Number(
+    Array.isArray(sensorMm)
+      ? sensorMm[0]
+      : (sensorMm?.sensor_mm?.[0] ?? sensorMm?.ancho ?? sensorMm)
+  );
+  if (Number.isFinite(anchoSensor) && anchoSensor > 0) {
+    // El catálogo guarda el ancho activo. Primero se obtiene el FOV horizontal
+    // y luego el vertical del cuadro 16:9; la cámara genérica no entra aquí.
+    const horizontal = 2 * Math.atan(anchoSensor / (2 * focal));
+    return (2 * Math.atan(Math.tan(horizontal / 2) / (16 / 9)) * 180) / Math.PI;
+  }
+  // Compatibilidad exacta: los proyectos sin ficha conservan el cálculo viejo.
   return (2 * Math.atan(SENSOR_FULL_FRAME.alto / (2 * focal)) * 180) / Math.PI;
 }

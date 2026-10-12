@@ -3,6 +3,7 @@ import {
   Check, Clapperboard, Compass, Eye, Link2, Monitor, Pencil, Redo2, Share2, Undo2,
 } from "lucide-react";
 import LZString from "lz-string";
+import catalogoCamaras from "virtual:catalogo-camaras";
 import { uid, slug } from "./util.js";
 import { INK, NAVY } from "./theme.js";
 import { EMBEDDED } from "./puente.js";
@@ -106,14 +107,14 @@ export default function GeneradorInfografiaTV() {
   const compartido = useMemo(() => leerProyectoCompartido(), []);
   const readonly = !!compartido;
   const initialCfg = useMemo(() => {
-    if (compartido) return normalizeCfg(compartido);
+    if (compartido) return normalizeCfg(compartido, catalogoCamaras);
     if (typeof window !== "undefined" && window.localStorage) {
       try {
         const auto = window.localStorage.getItem("tvprod:autosave");
-        if (auto) return normalizeCfg(JSON.parse(auto));
+        if (auto) return normalizeCfg(JSON.parse(auto), catalogoCamaras);
       } catch {}
     }
-    return normalizeCfg(DEMO());
+    return normalizeCfg(DEMO(), catalogoCamaras);
   }, [compartido]);
   const { cfg, setCfg, undo, redo, reset, canUndo, canRedo } = useHistory(initialCfg);
   const modoInicial = useMemo(() => {
@@ -163,7 +164,7 @@ export default function GeneradorInfografiaTV() {
   useEffect(() => {
     (async () => {
       if (st && !readonly) {
-        try { const r = await st.get(S_AUTO); if (r?.value) { const c = JSON.parse(r.value); if (c && c.camaras) reset(normalizeCfg(c)); } } catch {}
+        try { const r = await st.get(S_AUTO); if (r?.value) { const c = JSON.parse(r.value); if (c && c.camaras) reset(normalizeCfg(c, catalogoCamaras)); } } catch {}
         try { const p = await st.get(S_PROJ); if (p?.value) setProyectos(JSON.parse(p.value)); } catch {}
       }
       setCargado(true);
@@ -207,7 +208,7 @@ export default function GeneradorInfografiaTV() {
         }, "*");
       }
       if (event.data?.type === "producciontv:load-infografia" && event.data.cfg) {
-        reset(normalizeCfg(event.data.cfg));
+        reset(normalizeCfg(event.data.cfg, catalogoCamaras));
         setModo(event.data.mode || "editar");
         setCargado(true);
       }
@@ -255,7 +256,7 @@ export default function GeneradorInfografiaTV() {
   };
   const guardar = (nombre) =>
     persistProyectos([...proyectos.filter((p) => p.nombre !== nombre), { id: uid(), nombre, fecha: new Date().toISOString(), cfg }]);
-  const cargar = (p) => { reset(normalizeCfg(p.cfg)); setModo("vista"); };
+  const cargar = (p) => { reset(normalizeCfg(p.cfg, catalogoCamaras)); setModo("vista"); };
   const eliminar = (p) => persistProyectos(proyectos.filter((x) => x.id !== p.id));
 
   const compartir = async () => {

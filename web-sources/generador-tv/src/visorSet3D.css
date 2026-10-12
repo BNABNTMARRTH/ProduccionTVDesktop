@@ -273,6 +273,31 @@
   color: #a9b6c6;
 }
 
+.visor-set-3d__rango-lente {
+  display: grid;
+  width: min(290px, calc(100vw - 16px));
+  min-height: 46px;
+  grid-template-columns: auto minmax(110px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 0 13px;
+  border-radius: 14px;
+  color: rgba(255, 255, 255, .78);
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.visor-set-3d__rango-lente input {
+  width: 100%;
+  accent-color: #0a84ff;
+}
+
+.visor-set-3d__rango-lente strong {
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .visor-set-3d__lista-lentes {
   position: absolute;
   right: 0;

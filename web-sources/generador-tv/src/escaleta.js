@@ -11,6 +11,9 @@ export function computeFuentes(cfg) {
   const cams = cfg.camaras.map((c, i) => ({
     id: c.id, tipo: "cam", num: i + 1,
     nombre: c.nombre || `CAM ${i + 1}`, plano: c.plano || "", color: c.color, esCorte: false,
+    // La ficha (cámara, lente, focal, soporte) viaja con la fuente: el visor 3D
+    // y la focal del plano la leen de aquí.
+    ...(c.equipo ? { equipo: c.equipo } : {}),
   }));
   const extras = cfg.extras.map((x) => ({
     id: x.id, tipo: "extra", nombre: x.nombre || "FUENTE", color: x.color, esCorte: !!x.esCorte,

@@ -1,0 +1,1564 @@
+{
+  "version": 1,
+  "tipos": [
+    {
+      "clave": "cine",
+      "nombre": "Cine"
+    },
+    {
+      "clave": "video_tv",
+      "nombre": "Video y TV"
+    },
+    {
+      "clave": "foto_video",
+      "nombre": "Foto y video"
+    },
+    {
+      "clave": "foto_reflex",
+      "nombre": "Foto réflex"
+    },
+    {
+      "clave": "movil",
+      "nombre": "Móvil"
+    }
+  ],
+  "soportes": {
+    "tripie_video": {
+      "nombre": "Tripié de video"
+    },
+    "tripie_foto": {
+      "nombre": "Tripié de foto"
+    },
+    "pedestal_estudio": {
+      "nombre": "Pedestal de estudio"
+    },
+    "gimbal_celular": {
+      "nombre": "Gimbal celular"
+    }
+  },
+  "camaras": {
+    "blackmagic_pocket_6k": {
+      "nombre": "Blackmagic Pocket 6K Pro",
+      "marca": "Blackmagic Design",
+      "tipo": "cine",
+      "gama": "profesional",
+      "montura": "EF",
+      "sensor": "S35",
+      "sensor_mm": [
+        23.1,
+        12.99
+      ],
+      "recomendado": "sigma_18_35",
+      "lentes": [
+        {
+          "clave": "sigma_18_35",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_24_105",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_70_200_iii",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "zeiss_supreme_prime",
+          "via": "Adaptador PL-EF",
+          "recorte": false
+        },
+        {
+          "clave": "cooke_s4i",
+          "via": "Adaptador PL-EF",
+          "recorte": false
+        },
+        {
+          "clave": "fujinon_premista_28_100",
+          "via": "Adaptador PL-EF",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_video",
+      "soportes_alt": [],
+      "modelos": {
+        "tripie_video": "cam_blackmagic_pocket_6k_tripie_video"
+      }
+    },
+    "sony_fx6": {
+      "nombre": "Sony FX6",
+      "marca": "Sony",
+      "tipo": "cine",
+      "gama": "profesional",
+      "montura": "E",
+      "sensor": "FF",
+      "sensor_mm": [
+        35.7,
+        18.8
+      ],
+      "recomendado": "sony_pz_28_135",
+      "lentes": [
+        {
+          "clave": "sony_24_70_gm2",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sony_16_35_gm2",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sony_70_200_gm2",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sony_pz_28_135",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sony_pz_18_105",
+          "via": "nativo",
+          "recorte": true
+        },
+        {
+          "clave": "sony_pz_16_50",
+          "via": "nativo",
+          "recorte": true
+        },
+        {
+          "clave": "sigma_24_70_dgdn_l",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sigma_18_35",
+          "via": "Sigma MC-11",
+          "recorte": true
+        },
+        {
+          "clave": "canon_ef_24_105",
+          "via": "Sigma MC-11",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_70_200_iii",
+          "via": "Sigma MC-11",
+          "recorte": false
+        },
+        {
+          "clave": "canon_efs_18_135",
+          "via": "Sigma MC-11",
+          "recorte": true
+        },
+        {
+          "clave": "canon_efs_10_18",
+          "via": "Sigma MC-11",
+          "recorte": true
+        },
+        {
+          "clave": "zeiss_supreme_prime",
+          "via": "Adaptador PL-E",
+          "recorte": false
+        },
+        {
+          "clave": "cooke_s4i",
+          "via": "Adaptador PL-E",
+          "recorte": true
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "Adaptador PL-E",
+          "recorte": false
+        },
+        {
+          "clave": "fujinon_premista_28_100",
+          "via": "Adaptador PL-E",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_video",
+      "soportes_alt": [],
+      "modelos": {
+        "tripie_video": "cam_sony_fx6_tripie_video"
+      }
+    },
+    "sony_fx30": {
+      "nombre": "Sony FX30",
+      "marca": "Sony",
+      "tipo": "cine",
+      "gama": "intermedio",
+      "montura": "E",
+      "sensor": "S35",
+      "sensor_mm": [
+        23.3,
+        13.1
+      ],
+      "recomendado": "sony_pz_18_105",
+      "lentes": [
+        {
+          "clave": "sony_24_70_gm2",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sony_16_35_gm2",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sony_70_200_gm2",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sony_pz_28_135",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sony_pz_18_105",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sony_pz_16_50",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sigma_24_70_dgdn_l",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sigma_18_35",
+          "via": "Sigma MC-11",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_24_105",
+          "via": "Sigma MC-11",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_70_200_iii",
+          "via": "Sigma MC-11",
+          "recorte": false
+        },
+        {
+          "clave": "canon_efs_18_135",
+          "via": "Sigma MC-11",
+          "recorte": false
+        },
+        {
+          "clave": "canon_efs_10_18",
+          "via": "Sigma MC-11",
+          "recorte": false
+        },
+        {
+          "clave": "zeiss_supreme_prime",
+          "via": "Adaptador PL-E",
+          "recorte": false
+        },
+        {
+          "clave": "cooke_s4i",
+          "via": "Adaptador PL-E",
+          "recorte": false
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "Adaptador PL-E",
+          "recorte": false
+        },
+        {
+          "clave": "fujinon_premista_28_100",
+          "via": "Adaptador PL-E",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_video",
+      "soportes_alt": [
+        "tripie_foto"
+      ],
+      "modelos": {
+        "tripie_video": "cam_sony_fx30_tripie_video",
+        "tripie_foto": "cam_sony_fx30_tripie_foto"
+      }
+    },
+    "sony_zv_e10": {
+      "nombre": "Sony ZV-E10 II",
+      "marca": "Sony",
+      "tipo": "foto_video",
+      "gama": "aficionado",
+      "montura": "E",
+      "sensor": "S35",
+      "sensor_mm": [
+        23.3,
+        13.1
+      ],
+      "recomendado": "sony_pz_16_50",
+      "lentes": [
+        {
+          "clave": "sony_24_70_gm2",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sony_16_35_gm2",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sony_70_200_gm2",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sony_pz_28_135",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sony_pz_18_105",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sony_pz_16_50",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sigma_24_70_dgdn_l",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sigma_18_35",
+          "via": "Sigma MC-11",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_24_105",
+          "via": "Sigma MC-11",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_70_200_iii",
+          "via": "Sigma MC-11",
+          "recorte": false
+        },
+        {
+          "clave": "canon_efs_18_135",
+          "via": "Sigma MC-11",
+          "recorte": false
+        },
+        {
+          "clave": "canon_efs_10_18",
+          "via": "Sigma MC-11",
+          "recorte": false
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "Sigma MC-11",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_foto",
+      "soportes_alt": [
+        "tripie_video"
+      ],
+      "sensor_aprox": true,
+      "modelos": {
+        "tripie_foto": "cam_sony_zv_e10_tripie_foto",
+        "tripie_video": "cam_sony_zv_e10_tripie_video"
+      }
+    },
+    "canon_c70": {
+      "nombre": "Canon EOS C70",
+      "marca": "Canon",
+      "tipo": "cine",
+      "gama": "profesional",
+      "montura": "RF",
+      "sensor": "S35",
+      "sensor_mm": [
+        26.2,
+        13.8
+      ],
+      "recomendado": "canon_rf_24_105_f4",
+      "lentes": [
+        {
+          "clave": "canon_rf_24_105_f4",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "canon_rf_70_200",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "fujinon_mkr_18_55",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sigma_18_35",
+          "via": "Canon EF-EOS R",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_24_105",
+          "via": "Canon EF-EOS R",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_70_200_iii",
+          "via": "Canon EF-EOS R",
+          "recorte": false
+        },
+        {
+          "clave": "canon_efs_18_135",
+          "via": "Canon EF-EOS R",
+          "recorte": false
+        },
+        {
+          "clave": "canon_efs_10_18",
+          "via": "Canon EF-EOS R",
+          "recorte": false
+        },
+        {
+          "clave": "zeiss_supreme_prime",
+          "via": "Canon PL-RF",
+          "recorte": false
+        },
+        {
+          "clave": "cooke_s4i",
+          "via": "Canon PL-RF",
+          "recorte": false
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "Canon PL-RF",
+          "recorte": false
+        },
+        {
+          "clave": "fujinon_premista_28_100",
+          "via": "Canon PL-RF",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_video",
+      "soportes_alt": [],
+      "modelos": {
+        "tripie_video": "cam_canon_c70_tripie_video"
+      }
+    },
+    "canon_c50": {
+      "nombre": "Canon EOS C50",
+      "marca": "Canon",
+      "tipo": "cine",
+      "gama": "intermedio",
+      "montura": "RF",
+      "sensor": "FF",
+      "sensor_mm": [
+        35.9,
+        18.9
+      ],
+      "recomendado": "canon_rf_24_105_f4",
+      "lentes": [
+        {
+          "clave": "canon_rf_24_105_f4",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "canon_rf_70_200",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "fujinon_mkr_18_55",
+          "via": "nativo",
+          "recorte": true
+        },
+        {
+          "clave": "sigma_18_35",
+          "via": "Canon EF-EOS R",
+          "recorte": true
+        },
+        {
+          "clave": "canon_ef_24_105",
+          "via": "Canon EF-EOS R",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_70_200_iii",
+          "via": "Canon EF-EOS R",
+          "recorte": false
+        },
+        {
+          "clave": "canon_efs_18_135",
+          "via": "Canon EF-EOS R",
+          "recorte": true
+        },
+        {
+          "clave": "canon_efs_10_18",
+          "via": "Canon EF-EOS R",
+          "recorte": true
+        },
+        {
+          "clave": "zeiss_supreme_prime",
+          "via": "Canon PL-RF",
+          "recorte": false
+        },
+        {
+          "clave": "cooke_s4i",
+          "via": "Canon PL-RF",
+          "recorte": true
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "Canon PL-RF",
+          "recorte": false
+        },
+        {
+          "clave": "fujinon_premista_28_100",
+          "via": "Canon PL-RF",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_video",
+      "soportes_alt": [
+        "tripie_foto"
+      ],
+      "modelos": {
+        "tripie_video": "cam_canon_c50_tripie_video",
+        "tripie_foto": "cam_canon_c50_tripie_foto"
+      }
+    },
+    "red_komodo": {
+      "nombre": "RED Komodo 6K",
+      "marca": "RED",
+      "tipo": "cine",
+      "gama": "profesional",
+      "montura": "RF",
+      "sensor": "S35",
+      "sensor_mm": [
+        27.03,
+        14.26
+      ],
+      "recomendado": "dzofilm_vespid",
+      "lentes": [
+        {
+          "clave": "canon_rf_24_105_f4",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "canon_rf_70_200",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "fujinon_mkr_18_55",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sigma_18_35",
+          "via": "Canon EF-EOS R",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_24_105",
+          "via": "Canon EF-EOS R",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_70_200_iii",
+          "via": "Canon EF-EOS R",
+          "recorte": false
+        },
+        {
+          "clave": "canon_efs_18_135",
+          "via": "Canon EF-EOS R",
+          "recorte": false
+        },
+        {
+          "clave": "canon_efs_10_18",
+          "via": "Canon EF-EOS R",
+          "recorte": false
+        },
+        {
+          "clave": "zeiss_supreme_prime",
+          "via": "Canon PL-RF",
+          "recorte": false
+        },
+        {
+          "clave": "cooke_s4i",
+          "via": "Canon PL-RF",
+          "recorte": false
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "Canon PL-RF",
+          "recorte": false
+        },
+        {
+          "clave": "fujinon_premista_28_100",
+          "via": "Canon PL-RF",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_video",
+      "soportes_alt": [],
+      "modelos": {
+        "tripie_video": "cam_red_komodo_tripie_video"
+      }
+    },
+    "nikon_zr": {
+      "nombre": "Nikon ZR",
+      "marca": "Nikon",
+      "tipo": "cine",
+      "gama": "intermedio",
+      "montura": "Z",
+      "sensor": "FF",
+      "sensor_mm": [
+        35.9,
+        20.2
+      ],
+      "recomendado": "nikkor_24_70_f4",
+      "lentes": [
+        {
+          "clave": "nikkor_24_70_f4",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "nikkor_pz_28_135",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sigma_18_35",
+          "via": "Megadap EF-Z",
+          "recorte": true
+        },
+        {
+          "clave": "canon_ef_24_105",
+          "via": "Megadap EF-Z",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_70_200_iii",
+          "via": "Megadap EF-Z",
+          "recorte": false
+        },
+        {
+          "clave": "nikkor_f_24_70",
+          "via": "Nikon FTZ II",
+          "recorte": false
+        },
+        {
+          "clave": "nikkor_f_70_200",
+          "via": "Nikon FTZ II",
+          "recorte": false
+        },
+        {
+          "clave": "zeiss_supreme_prime",
+          "via": "Adaptador PL-Z",
+          "recorte": false
+        },
+        {
+          "clave": "cooke_s4i",
+          "via": "Adaptador PL-Z",
+          "recorte": true
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "Adaptador PL-Z",
+          "recorte": false
+        },
+        {
+          "clave": "fujinon_premista_28_100",
+          "via": "Adaptador PL-Z",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_video",
+      "soportes_alt": [
+        "tripie_foto"
+      ],
+      "sensor_aprox": true,
+      "modelos": {
+        "tripie_video": "cam_nikon_zr_tripie_video",
+        "tripie_foto": "cam_nikon_zr_tripie_foto"
+      }
+    },
+    "arri_alexa_mini_lf": {
+      "nombre": "ARRI ALEXA Mini LF",
+      "marca": "ARRI",
+      "tipo": "cine",
+      "gama": "profesional",
+      "montura": "LPL",
+      "sensor": "FF",
+      "sensor_mm": [
+        36.7,
+        20.6
+      ],
+      "recomendado": "arri_signature_prime",
+      "lentes": [
+        {
+          "clave": "arri_signature_prime",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "zeiss_supreme_prime",
+          "via": "ARRI PL-LPL",
+          "recorte": false
+        },
+        {
+          "clave": "cooke_s4i",
+          "via": "ARRI PL-LPL",
+          "recorte": true
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "ARRI PL-LPL",
+          "recorte": false
+        },
+        {
+          "clave": "fujinon_premista_28_100",
+          "via": "ARRI PL-LPL",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_video",
+      "soportes_alt": [],
+      "sensor_aprox": true,
+      "modelos": {
+        "tripie_video": "cam_arri_alexa_mini_lf_tripie_video"
+      }
+    },
+    "sony_z750": {
+      "nombre": "Sony PXW-Z750 (hombro)",
+      "marca": "Sony",
+      "tipo": "video_tv",
+      "gama": "profesional",
+      "montura": "B4",
+      "sensor": "B4",
+      "sensor_mm": [
+        9.59,
+        5.39
+      ],
+      "recomendado": "fujinon_ua24",
+      "lentes": [
+        {
+          "clave": "fujinon_ua24",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "canon_digisuper_86",
+          "via": "nativo",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_video",
+      "soportes_alt": [],
+      "sensor_aprox": true,
+      "modelos": {
+        "tripie_video": "cam_sony_z750_tripie_video"
+      }
+    },
+    "sony_hdc_estudio": {
+      "nombre": "Sony HDC de estudio",
+      "marca": "Sony",
+      "tipo": "video_tv",
+      "gama": "profesional",
+      "montura": "B4",
+      "sensor": "B4",
+      "sensor_mm": [
+        9.59,
+        5.39
+      ],
+      "recomendado": "canon_digisuper_86",
+      "lentes": [
+        {
+          "clave": "fujinon_ua24",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "canon_digisuper_86",
+          "via": "nativo",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "pedestal_estudio",
+      "soportes_alt": [],
+      "sensor_aprox": true,
+      "modelos": {
+        "pedestal_estudio": "cam_sony_hdc_estudio_pedestal_estudio"
+      }
+    },
+    "iphone_17_pro": {
+      "nombre": "iPhone 17 Pro",
+      "marca": "Apple",
+      "tipo": "movil",
+      "gama": "aficionado",
+      "montura": null,
+      "sensor": "fijo",
+      "sensor_mm": [
+        36,
+        24
+      ],
+      "recomendado": null,
+      "lentes": [],
+      "focales_fijas": [
+        13,
+        24,
+        28,
+        35,
+        48,
+        100
+      ],
+      "soporte": "gimbal_celular",
+      "soportes_alt": [],
+      "modelos": {
+        "gimbal_celular": "cam_iphone_17_pro_gimbal_celular"
+      }
+    },
+    "dji_osmo_pocket_3": {
+      "nombre": "DJI Osmo Pocket 3",
+      "marca": "DJI",
+      "tipo": "movil",
+      "gama": "aficionado",
+      "montura": null,
+      "sensor": "fijo",
+      "sensor_mm": [
+        36,
+        24
+      ],
+      "recomendado": null,
+      "lentes": [],
+      "focales_fijas": [
+        20
+      ],
+      "soporte": null,
+      "soportes_alt": [],
+      "modelos": {
+        "": "cam_dji_osmo_pocket_3"
+      }
+    },
+    "fujifilm_xh2s": {
+      "nombre": "Fujifilm X-H2S",
+      "marca": "Fujifilm",
+      "tipo": "foto_video",
+      "gama": "intermedio",
+      "montura": "X",
+      "sensor": "S35",
+      "sensor_mm": [
+        23.5,
+        13.2
+      ],
+      "recomendado": "fujinon_xf_16_55",
+      "lentes": [
+        {
+          "clave": "fujinon_xf_16_55",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "fujinon_xf_56",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sigma_18_35",
+          "via": "Fringer EF-FX Pro II",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_24_105",
+          "via": "Fringer EF-FX Pro II",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_70_200_iii",
+          "via": "Fringer EF-FX Pro II",
+          "recorte": false
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "Fringer EF-FX Pro II",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_foto",
+      "soportes_alt": [
+        "tripie_video"
+      ],
+      "sensor_aprox": true,
+      "modelos": {
+        "tripie_foto": "cam_fujifilm_xh2s_tripie_foto",
+        "tripie_video": "cam_fujifilm_xh2s_tripie_video"
+      }
+    },
+    "panasonic_s5ii": {
+      "nombre": "Panasonic Lumix S5II",
+      "marca": "Panasonic",
+      "tipo": "foto_video",
+      "gama": "intermedio",
+      "montura": "L",
+      "sensor": "FF",
+      "sensor_mm": [
+        35.6,
+        20.0
+      ],
+      "recomendado": "lumix_s_20_60",
+      "lentes": [
+        {
+          "clave": "lumix_s_20_60",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sigma_24_70_dgdn_l",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sigma_18_35",
+          "via": "Sigma MC-21",
+          "recorte": true
+        },
+        {
+          "clave": "canon_ef_24_105",
+          "via": "Sigma MC-21",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_70_200_iii",
+          "via": "Sigma MC-21",
+          "recorte": false
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "Sigma MC-21",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_foto",
+      "soportes_alt": [
+        "tripie_video"
+      ],
+      "sensor_aprox": true,
+      "modelos": {
+        "tripie_foto": "cam_panasonic_s5ii_tripie_foto",
+        "tripie_video": "cam_panasonic_s5ii_tripie_video"
+      }
+    },
+    "panasonic_gh7": {
+      "nombre": "Panasonic Lumix GH7",
+      "marca": "Panasonic",
+      "tipo": "foto_video",
+      "gama": "intermedio",
+      "montura": "MFT",
+      "sensor": "MFT",
+      "sensor_mm": [
+        17.3,
+        9.7
+      ],
+      "recomendado": "lumix_12_60_leica",
+      "lentes": [
+        {
+          "clave": "lumix_12_60_leica",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "lumix_12_35",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sigma_18_35",
+          "via": "Metabones Speed Booster EF-MFT",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_24_105",
+          "via": "Metabones Speed Booster EF-MFT",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_70_200_iii",
+          "via": "Metabones Speed Booster EF-MFT",
+          "recorte": false
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "Metabones Speed Booster EF-MFT",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_foto",
+      "soportes_alt": [
+        "tripie_video"
+      ],
+      "sensor_aprox": true,
+      "modelos": {
+        "tripie_foto": "cam_panasonic_gh7_tripie_foto",
+        "tripie_video": "cam_panasonic_gh7_tripie_video"
+      }
+    },
+    "blackmagic_pocket_4k": {
+      "nombre": "Blackmagic Pocket Cinema Camera 4K",
+      "marca": "Blackmagic Design",
+      "tipo": "cine",
+      "gama": "intermedio",
+      "montura": "MFT",
+      "sensor": "MFT",
+      "sensor_mm": [
+        18.96,
+        10.0
+      ],
+      "recomendado": "lumix_12_35",
+      "lentes": [
+        {
+          "clave": "lumix_12_60_leica",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "lumix_12_35",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "sigma_18_35",
+          "via": "Metabones Speed Booster EF-MFT",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_24_105",
+          "via": "Metabones Speed Booster EF-MFT",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_70_200_iii",
+          "via": "Metabones Speed Booster EF-MFT",
+          "recorte": false
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "Metabones Speed Booster EF-MFT",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_video",
+      "soportes_alt": [],
+      "modelos": {
+        "tripie_video": "cam_blackmagic_pocket_4k_tripie_video"
+      }
+    },
+    "canon_5d_mk4": {
+      "nombre": "Canon EOS 5D Mark IV",
+      "marca": "Canon",
+      "tipo": "foto_reflex",
+      "gama": "intermedio",
+      "montura": "EF",
+      "sensor": "FF",
+      "sensor_mm": [
+        36.0,
+        20.25
+      ],
+      "recomendado": "canon_ef_24_105",
+      "lentes": [
+        {
+          "clave": "sigma_18_35",
+          "via": "nativo",
+          "recorte": true
+        },
+        {
+          "clave": "canon_ef_24_105",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_70_200_iii",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "nativo",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_foto",
+      "soportes_alt": [],
+      "sensor_aprox": true,
+      "modelos": {
+        "tripie_foto": "cam_canon_5d_mk4_tripie_foto"
+      }
+    },
+    "canon_90d": {
+      "nombre": "Canon EOS 90D",
+      "marca": "Canon",
+      "tipo": "foto_reflex",
+      "gama": "aficionado",
+      "montura": "EF-S",
+      "sensor": "S35",
+      "sensor_mm": [
+        22.3,
+        12.5
+      ],
+      "recomendado": "canon_efs_18_135",
+      "lentes": [
+        {
+          "clave": "sigma_18_35",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_24_105",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "canon_ef_70_200_iii",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "canon_efs_18_135",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "canon_efs_10_18",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "dzofilm_vespid",
+          "via": "nativo",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_foto",
+      "soportes_alt": [],
+      "sensor_aprox": true,
+      "modelos": {
+        "tripie_foto": "cam_canon_90d_tripie_foto"
+      }
+    },
+    "nikon_d850": {
+      "nombre": "Nikon D850",
+      "marca": "Nikon",
+      "tipo": "foto_reflex",
+      "gama": "intermedio",
+      "montura": "F",
+      "sensor": "FF",
+      "sensor_mm": [
+        35.9,
+        20.2
+      ],
+      "recomendado": "nikkor_f_24_70",
+      "lentes": [
+        {
+          "clave": "nikkor_f_24_70",
+          "via": "nativo",
+          "recorte": false
+        },
+        {
+          "clave": "nikkor_f_70_200",
+          "via": "nativo",
+          "recorte": false
+        }
+      ],
+      "focales_fijas": null,
+      "soporte": "tripie_foto",
+      "soportes_alt": [],
+      "sensor_aprox": true,
+      "modelos": {
+        "tripie_foto": "cam_nikon_d850_tripie_foto"
+      }
+    }
+  },
+  "lentes": {
+    "sony_24_70_gm2": {
+      "nombre": "Sony FE 24-70mm f/2.8 GM II",
+      "tipo": "zoom",
+      "cobertura": "FF",
+      "focal_min": 24,
+      "focal_max": 70,
+      "focales": null,
+      "aprox": false
+    },
+    "sony_16_35_gm2": {
+      "nombre": "Sony FE 16-35mm f/2.8 GM II",
+      "tipo": "zoom",
+      "cobertura": "FF",
+      "focal_min": 16,
+      "focal_max": 35,
+      "focales": null,
+      "aprox": false
+    },
+    "sony_70_200_gm2": {
+      "nombre": "Sony FE 70-200mm f/2.8 GM OSS II",
+      "tipo": "zoom",
+      "cobertura": "FF",
+      "focal_min": 70,
+      "focal_max": 200,
+      "focales": null,
+      "aprox": false
+    },
+    "sony_pz_28_135": {
+      "nombre": "Sony FE PZ 28-135mm f/4 G",
+      "tipo": "zoom",
+      "cobertura": "FF",
+      "focal_min": 28,
+      "focal_max": 135,
+      "focales": null,
+      "aprox": false
+    },
+    "sony_pz_18_105": {
+      "nombre": "Sony E PZ 18-105mm f/4 G",
+      "tipo": "zoom",
+      "cobertura": "S35",
+      "focal_min": 18,
+      "focal_max": 105,
+      "focales": null,
+      "aprox": false
+    },
+    "sony_pz_16_50": {
+      "nombre": "Sony E PZ 16-50mm (kit)",
+      "tipo": "zoom",
+      "cobertura": "S35",
+      "focal_min": 16,
+      "focal_max": 50,
+      "focales": null,
+      "aprox": false
+    },
+    "canon_rf_24_105_f4": {
+      "nombre": "Canon RF 24-105mm f/4 L IS",
+      "tipo": "zoom",
+      "cobertura": "FF",
+      "focal_min": 24,
+      "focal_max": 105,
+      "focales": null,
+      "aprox": false
+    },
+    "canon_rf_70_200": {
+      "nombre": "Canon RF 70-200mm f/2.8 L IS",
+      "tipo": "zoom",
+      "cobertura": "FF",
+      "focal_min": 70,
+      "focal_max": 200,
+      "focales": null,
+      "aprox": false
+    },
+    "fujinon_mkr_18_55": {
+      "nombre": "Fujinon MK-R 18-55mm T2.9",
+      "tipo": "cine_zoom",
+      "cobertura": "S35",
+      "focal_min": 18,
+      "focal_max": 55,
+      "focales": null,
+      "aprox": true
+    },
+    "nikkor_24_70_f4": {
+      "nombre": "Nikkor Z 24-70mm f/4 S",
+      "tipo": "zoom",
+      "cobertura": "FF",
+      "focal_min": 24,
+      "focal_max": 70,
+      "focales": null,
+      "aprox": false
+    },
+    "nikkor_pz_28_135": {
+      "nombre": "Nikkor Z 28-135mm f/4 PZ",
+      "tipo": "zoom",
+      "cobertura": "FF",
+      "focal_min": 28,
+      "focal_max": 135,
+      "focales": null,
+      "aprox": true
+    },
+    "sigma_18_35": {
+      "nombre": "Sigma 18-35mm f/1.8 DC HSM Art",
+      "tipo": "zoom",
+      "cobertura": "S35",
+      "focal_min": 18,
+      "focal_max": 35,
+      "focales": null,
+      "aprox": false
+    },
+    "canon_ef_24_105": {
+      "nombre": "Canon EF 24-105mm f/4L IS II",
+      "tipo": "zoom",
+      "cobertura": "FF",
+      "focal_min": 24,
+      "focal_max": 105,
+      "focales": null,
+      "aprox": false
+    },
+    "canon_ef_70_200_iii": {
+      "nombre": "Canon EF 70-200mm f/2.8L IS III",
+      "tipo": "zoom",
+      "cobertura": "FF",
+      "focal_min": 70,
+      "focal_max": 200,
+      "focales": null,
+      "aprox": false
+    },
+    "fujinon_xf_16_55": {
+      "nombre": "Fujinon XF 16-55mm f/2.8 R LM WR",
+      "tipo": "zoom",
+      "cobertura": "S35",
+      "focal_min": 16,
+      "focal_max": 55,
+      "focales": null,
+      "aprox": false
+    },
+    "fujinon_xf_56": {
+      "nombre": "Fujinon XF 56mm f/1.2 R WR",
+      "tipo": "fijo",
+      "cobertura": "S35",
+      "focal_min": 56,
+      "focal_max": 56,
+      "focales": null,
+      "aprox": false
+    },
+    "lumix_s_20_60": {
+      "nombre": "Lumix S 20-60mm f/3.5-5.6",
+      "tipo": "zoom",
+      "cobertura": "FF",
+      "focal_min": 20,
+      "focal_max": 60,
+      "focales": null,
+      "aprox": false
+    },
+    "sigma_24_70_dgdn_l": {
+      "nombre": "Sigma 24-70mm f/2.8 DG DN Art",
+      "tipo": "zoom",
+      "cobertura": "FF",
+      "focal_min": 24,
+      "focal_max": 70,
+      "focales": null,
+      "aprox": false
+    },
+    "lumix_12_60_leica": {
+      "nombre": "Leica DG 12-60mm f/2.8-4",
+      "tipo": "zoom",
+      "cobertura": "MFT",
+      "focal_min": 12,
+      "focal_max": 60,
+      "focales": null,
+      "aprox": false
+    },
+    "lumix_12_35": {
+      "nombre": "Lumix 12-35mm f/2.8 II",
+      "tipo": "zoom",
+      "cobertura": "MFT",
+      "focal_min": 12,
+      "focal_max": 35,
+      "focales": null,
+      "aprox": false
+    },
+    "canon_efs_18_135": {
+      "nombre": "Canon EF-S 18-135mm IS USM",
+      "tipo": "zoom",
+      "cobertura": "S35",
+      "focal_min": 18,
+      "focal_max": 135,
+      "focales": null,
+      "aprox": false
+    },
+    "canon_efs_10_18": {
+      "nombre": "Canon EF-S 10-18mm IS STM",
+      "tipo": "zoom",
+      "cobertura": "S35",
+      "focal_min": 10,
+      "focal_max": 18,
+      "focales": null,
+      "aprox": false
+    },
+    "nikkor_f_24_70": {
+      "nombre": "Nikkor AF-S 24-70mm f/2.8E ED VR",
+      "tipo": "zoom",
+      "cobertura": "FF",
+      "focal_min": 24,
+      "focal_max": 70,
+      "focales": null,
+      "aprox": false
+    },
+    "nikkor_f_70_200": {
+      "nombre": "Nikkor AF-S 70-200mm f/2.8E FL",
+      "tipo": "zoom",
+      "cobertura": "FF",
+      "focal_min": 70,
+      "focal_max": 200,
+      "focales": null,
+      "aprox": false
+    },
+    "arri_signature_prime": {
+      "nombre": "ARRI Signature Prime (12–280 mm)",
+      "tipo": "cine",
+      "cobertura": "FF",
+      "focal_min": 12,
+      "focal_max": 280,
+      "focales": [
+        12,
+        15,
+        18,
+        21,
+        25,
+        29,
+        35,
+        40,
+        47,
+        58,
+        75,
+        95,
+        125,
+        150,
+        200,
+        280
+      ],
+      "aprox": false
+    },
+    "zeiss_supreme_prime": {
+      "nombre": "Zeiss Supreme Prime",
+      "tipo": "cine",
+      "cobertura": "FF",
+      "focal_min": 15,
+      "focal_max": 200,
+      "focales": [
+        15,
+        18,
+        21,
+        25,
+        29,
+        35,
+        40,
+        50,
+        65,
+        85,
+        100,
+        135,
+        150,
+        200
+      ],
+      "aprox": true
+    },
+    "cooke_s4i": {
+      "nombre": "Cooke S4/i",
+      "tipo": "cine",
+      "cobertura": "S35",
+      "focal_min": 12,
+      "focal_max": 300,
+      "focales": [
+        12,
+        14,
+        16,
+        18,
+        21,
+        25,
+        27,
+        32,
+        35,
+        40,
+        50,
+        65,
+        75,
+        100,
+        135,
+        150,
+        180,
+        300
+      ],
+      "aprox": true
+    },
+    "dzofilm_vespid": {
+      "nombre": "DZOFilm Vespid (económico)",
+      "tipo": "cine",
+      "cobertura": "FF",
+      "focal_min": 12,
+      "focal_max": 125,
+      "focales": [
+        12,
+        16,
+        21,
+        25,
+        35,
+        40,
+        50,
+        75,
+        90,
+        100,
+        125
+      ],
+      "aprox": true
+    },
+    "fujinon_premista_28_100": {
+      "nombre": "Fujinon Premista 28-100mm T2.9",
+      "tipo": "cine_zoom",
+      "cobertura": "FF",
+      "focal_min": 28,
+      "focal_max": 100,
+      "focales": null,
+      "aprox": true
+    },
+    "fujinon_ua24": {
+      "nombre": "Fujinon UA24x7.8 (ENG 4K)",
+      "tipo": "eng",
+      "cobertura": "B4",
+      "focal_min": 7.8,
+      "focal_max": 187,
+      "focales": null,
+      "aprox": true
+    },
+    "canon_digisuper_86": {
+      "nombre": "Canon UHD-DIGISUPER 86 (caja)",
+      "tipo": "caja",
+      "cobertura": "B4",
+      "focal_min": 9.3,
+      "focal_max": 800,
+      "focales": null,
+      "aprox": true
+    }
+  }
+}

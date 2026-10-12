@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import catalogoCamaras from "virtual:catalogo-camaras";
 import {
   ChevronDown, ChevronUp, Download, FilePlus, FolderOpen, GripVertical,
   Mic, Plus, Save, Trash2, Upload, User, X,
@@ -6,6 +7,16 @@ import {
 import { AnalisisTiempos } from "./AnalisisTiempos.jsx";
 import { CATALOGO_FUENTES, CATALOGO_ROLES, MIC_TIPOS, MIC_TIPO_CORTO, PLANOS } from "./catalogos.js";
 import { computeFuentes, computeRows, generarCSV, generarEDL } from "./escaleta.js";
+import {
+  cambiarCamara,
+  cambiarFocal,
+  cambiarLente,
+  camarasPorTipo,
+  focalEquivalente35,
+  lentesCompatibles,
+  rangoFocal,
+  soportesDe,
+} from "./equipoCamara.js";
 import { useReorder } from "./hooks.js";
 import { ICONS } from "./iconos.jsx";
 import { IMPACTOS, TIPOS_PROYECTO } from "./narrativa.js";
@@ -16,6 +27,137 @@ import { AIR_COLOR, NAVY, PALETTE } from "./theme.js";
 import { Aviso, Btn, btn, Campo, Campos, Card, Chips, ColorPickerField, Formatos, inp, inpStyle,
          Lectura, Seccion, Swatches, Tabulador } from "./ui.jsx";
 import { fmt, parseDur, reorder, slug, textOn, trunc, uid } from "./util.js";
+
+const estiloSelectorEquipo = { ...inpStyle, minHeight: 34, paddingTop: 5, paddingBottom: 5 };
+
+function etiquetaLente(lente) {
+  const partes = [`${lente.recomendado ? "★ " : ""}${lente.nombre}`];
+  if (lente.via && lente.via !== "nativo") partes.push(`con ${lente.via}`);
+  if (lente.recorte) partes.push("⚠ recorta");
+  return partes.join(" · ");
+}
+
+function ControlEquipoCamara({ fuente, tipoFiltro, onTipoFiltro, onEquipo }) {
+  const equipo = fuente.equipo;
+  const camara = equipo ? catalogoCamaras.camaras?.[equipo.camara] : null;
+  const camaras = camarasPorTipo(catalogoCamaras, tipoFiltro);
+  const compatibles = camara ? lentesCompatibles(catalogoCamaras, { clave: equipo.camara }) : [];
+  const rango = camara ? rangoFocal(catalogoCamaras, { clave: equipo.camara }, equipo.lente) : null;
+  const soportes = camara ? soportesDe(catalogoCamaras, { clave: equipo.camara }) : [];
+  const equivalente = camara?.sensor !== "FF"
+    ? focalEquivalente35(catalogoCamaras, equipo)
+    : null;
+  const camaraVisible = !equipo || camaras.some((item) => item.clave === equipo.camara);
+
+  const elegirCamara = (clave) => {
+    if (!clave) {
+      onEquipo(null);
+      onTipoFiltro("");
+      return;
+    }
+    const siguiente = cambiarCamara(catalogoCamaras, equipo, clave);
+    onEquipo(siguiente);
+    onTipoFiltro(catalogoCamaras.camaras?.[clave]?.tipo || "");
+  };
+
+  return (
+    <div className="flex flex-wrap items-end gap-2 rounded-md px-2 py-2"
+      style={{ background: "var(--vidrio-a)", border: "1px solid var(--vidrio-borde)" }}>
+      <label className="flex flex-col gap-1" style={{ flex: "0 1 130px", minWidth: 112 }}>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Tipo</span>
+        <select className={inp} style={estiloSelectorEquipo} value={tipoFiltro}
+          aria-label={`Tipo de cámara de ${fuente.nombre}`}
+          onChange={(evento) => onTipoFiltro(evento.target.value)}>
+          <option value="">Todos</option>
+          {(catalogoCamaras.tipos || []).map((tipo) => (
+            <option key={tipo.clave} value={tipo.clave}>{tipo.nombre}</option>
+          ))}
+        </select>
+      </label>
+
+      <label className="flex flex-col gap-1" style={{ flex: "1 1 180px", minWidth: 150 }}>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Cámara</span>
+        <select className={inp} style={estiloSelectorEquipo} value={equipo?.camara || ""}
+          aria-label={`Cámara de ${fuente.nombre}`}
+          onChange={(evento) => elegirCamara(evento.target.value)}>
+          <option value="">Genérica</option>
+          {equipo && !camaraVisible && (
+            <option value={equipo.camara} hidden>{camara?.nombre || equipo.camara}</option>
+          )}
+          {tipoFiltro
+            ? camaras.map((item) => <option key={item.clave} value={item.clave}>{item.nombre}</option>)
+            : (catalogoCamaras.tipos || []).map((tipo) => {
+                const opciones = camaras.filter((item) => item.tipo === tipo.clave);
+                return opciones.length ? (
+                  <optgroup key={tipo.clave} label={tipo.nombre}>
+                    {opciones.map((item) => <option key={item.clave} value={item.clave}>{item.nombre}</option>)}
+                  </optgroup>
+                ) : null;
+              })}
+        </select>
+      </label>
+
+      {camara?.montura && (
+        <label className="flex flex-col gap-1" style={{ flex: "1 1 230px", minWidth: 180 }}>
+          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Lente</span>
+          <select className={inp} style={estiloSelectorEquipo} value={equipo.lente || ""}
+            aria-label={`Lente de ${fuente.nombre}`}
+            onChange={(evento) => onEquipo(cambiarLente(catalogoCamaras, equipo, evento.target.value))}>
+            {!equipo.lente && <option value="">Selecciona un lente</option>}
+            {compatibles.map((lente) => (
+              <option key={lente.clave} value={lente.clave}>{etiquetaLente(lente)}</option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {equipo && rango && (
+        <label className="flex flex-col gap-1" style={{ flex: "1 1 190px", minWidth: 165 }}>
+          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Focal</span>
+          {rango.pasos ? (
+            <select className={inp} style={estiloSelectorEquipo} value={equipo.focal}
+              aria-label={`Distancia focal de ${fuente.nombre}`}
+              onChange={(evento) => onEquipo(cambiarFocal(catalogoCamaras, equipo, evento.target.value))}>
+              {rango.pasos.map((valor) => <option key={valor} value={valor}>{valor} mm</option>)}
+            </select>
+          ) : (
+            <div className="flex items-center gap-2 rounded-md border px-2"
+              style={{ ...inpStyle, minHeight: 34, paddingTop: 0, paddingBottom: 0 }}>
+              <input type="range" min={rango.min} max={rango.max} step="1" value={equipo.focal}
+                aria-label={`Distancia focal de ${fuente.nombre}`}
+                className="min-w-0 flex-1"
+                onChange={(evento) => onEquipo(cambiarFocal(catalogoCamaras, equipo, evento.target.value))} />
+              <strong className="shrink-0 text-xs" style={{ color: "var(--tinta)" }}>{equipo.focal} mm</strong>
+            </div>
+          )}
+          {equivalente !== null && (
+            <span className="text-[10px] font-semibold text-slate-500">≈ {Math.round(equivalente)} mm equiv.</span>
+          )}
+        </label>
+      )}
+
+      {equipo && (
+        soportes.length ? (
+          <label className="flex flex-col gap-1" style={{ flex: "0 1 170px", minWidth: 145 }}>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Soporte</span>
+            <select className={inp} style={estiloSelectorEquipo} value={equipo.soporte}
+              aria-label={`Soporte de ${fuente.nombre}`}
+              onChange={(evento) => onEquipo({ ...equipo, soporte: evento.target.value })}>
+              {!equipo.soporte && <option value="">Selecciona un soporte</option>}
+              {soportes.map((soporte) => (
+                <option key={soporte.clave} value={soporte.clave}>
+                  {soporte.sugerido ? "★ " : ""}{soporte.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <div className="flex min-h-[34px] items-center text-xs font-semibold text-slate-500">Sin soporte</div>
+        )
+      )}
+    </div>
+  );
+}
 
 // Panel de EDICIÓN del proyecto (columna izquierda): identidad y marca, fuentes
 // (cámaras y extras), talentos y micrófonos, equipo humano, escaleta y
@@ -35,6 +177,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
   const upNarr = (parche) => setCfg((c) => ({ ...c, narrativa: { ...(c.narrativa || {}), ...parche } }));
   const [nombreProy, setNombreProy] = useState("");
   const [rolCustom, setRolCustom] = useState("");
+  const [tiposCamara, setTiposCamara] = useState({});
   const fuentes = computeFuentes(cfg);
   const rows = computeRows(cfg);
   const colsResumen = "28px minmax(140px,1.6fr) minmax(110px,1fr) 54px 54px 54px";
@@ -50,6 +193,15 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
 
   const up = (patch) => setCfg((c) => ({ ...c, ...patch }));
   const upCam = (id, patch) => setCfg((c) => ({ ...c, camaras: c.camaras.map((k) => (k.id === id ? { ...k, ...patch } : k)) }));
+  const upEquipoCam = (id, equipo) => setCfg((c) => ({
+    ...c,
+    camaras: c.camaras.map((camara) => {
+      if (camara.id !== id) return camara;
+      if (equipo) return { ...camara, equipo };
+      const { equipo: descartado, ...generica } = camara;
+      return generica;
+    }),
+  }));
   const upMic = (id, patch) => setCfg((c) => ({ ...c, microfonos: (c.microfonos || []).map((m) => (m.id === id ? { ...m, ...patch } : m)) }));
   const upExtra = (id, patch) => setCfg((c) => ({ ...c, extras: c.extras.map((k) => (k.id === id ? { ...k, ...patch } : k)) }));
 
@@ -111,8 +263,8 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
       {ver('perfil') && !EMBEDDED && (
       <Card title="Proyectos" open={false}>
         <div className="flex flex-wrap gap-2">
-          <Btn rango={2} onClick={() => setCfg(normalizeCfg(BLANCO()))}><FilePlus size={15} /> Nuevo (en blanco)</Btn>
-          <Btn rango={2} onClick={() => setCfg(normalizeCfg(DEMO()))}><FolderOpen size={15} /> Cargar ejemplo UASLP</Btn>
+          <Btn rango={2} onClick={() => setCfg(normalizeCfg(BLANCO(), catalogoCamaras))}><FilePlus size={15} /> Nuevo (en blanco)</Btn>
+          <Btn rango={2} onClick={() => setCfg(normalizeCfg(DEMO(), catalogoCamaras))}><FolderOpen size={15} /> Cargar ejemplo UASLP</Btn>
         </div>
         <div className="flex gap-2">
           <input className={inp} style={inpStyle} placeholder="Nombre del proyecto…" value={nombreProy} onChange={(e) => setNombreProy(e.target.value)} />
@@ -310,6 +462,14 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
                   <button className="b-min b-min-x" onClick={() => delCam(c.id)} disabled={cfg.camaras.length <= 1} aria-label="Eliminar cámara"><Trash2 size={16} /></button>
                 </span>
               </div>
+              <ControlEquipoCamara
+                fuente={c}
+                tipoFiltro={Object.prototype.hasOwnProperty.call(tiposCamara, c.id)
+                  ? tiposCamara[c.id]
+                  : (catalogoCamaras.camaras?.[c.equipo?.camara]?.tipo || "")}
+                onTipoFiltro={(tipo) => setTiposCamara((actuales) => ({ ...actuales, [c.id]: tipo }))}
+                onEquipo={(equipo) => upEquipoCam(c.id, equipo)}
+              />
               <Swatches value={c.color} onChange={(col) => upCam(c.id, { color: col })} />
             </div>
           ))}

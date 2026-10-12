@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import catalogoCamaras from "virtual:catalogo-camaras";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { MUEBLE_ASIENTOS } from "./catalogos.js";
@@ -27,6 +28,7 @@ import {
   precargarModelosDescargados,
   reiniciarCacheModelosDescargados,
 } from "./modelosDescargados3d.js";
+import { modeloDe, rangoFocalDeEquipo, sensorMmDeEquipo } from "./equipoCamara.js";
 import {
   ALTURAS_3D,
   clasificarMicrofonos,
@@ -45,6 +47,16 @@ import "./visorSet3D.css";
 const LENTES = [13, 18, 24, 35, 50, 85, 135];
 const colorCicloramaPorSet = new Map();
 let ayudaNavegacionMostrada = false;
+
+function ajusteDeCamara(camara) {
+  const clave = modeloDe(catalogoCamaras, camara?.equipo);
+  return AJUSTES_MODELOS_3D[clave] || AJUSTES_MODELOS_3D.camara;
+}
+
+function fovDeCamara(camara, focal) {
+  const sensor = camara?.equipo ? sensorMmDeEquipo(catalogoCamaras, camara.equipo) : null;
+  return fovVerticalDesdeFocal(focal, sensor);
+}
 
 function esPantallaCompacta() {
   if (typeof window === "undefined") return false;
@@ -378,19 +390,61 @@ function decorarModeloDescargado(modelo, reemplazo) {
       roughness: 0.4,
       metalness: 0.08,
     });
-    const franja = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.035, 0.025), material);
-    franja.position.set(0, 1.53, 0.43);
+    modelo.updateMatrixWorld(true);
+    const cajaTotal = new THREE.Box3().setFromObject(modelo);
+    const altoLenteGuardado = Number(reemplazo.ajuste?.alto_lente);
+    const altoLente = Number.isFinite(altoLenteGuardado) && altoLenteGuardado > 0
+      ? altoLenteGuardado
+      : cajaTotal.min.y + (cajaTotal.max.y - cajaTotal.min.y) * 0.84;
+    // Las marcas van sobre el CUERPO de la cámara, no sobre la caja de todo el
+    // equipo: las patas del tripié abren casi un metro y alejarían la franja.
+    // El cuerpo = las piezas cuyo centro queda cerca o arriba del lente.
+    const cuerpo = new THREE.Box3();
+    const cajaPieza = new THREE.Box3();
+    const centroPieza = new THREE.Vector3();
+    modelo.traverse((objeto) => {
+      if (!objeto.isMesh) return;
+      cajaPieza.setFromObject(objeto);
+      if (cajaPieza.getCenter(centroPieza).y >= altoLente - 0.06) cuerpo.union(cajaPieza);
+    });
+    if (cuerpo.isEmpty()) cuerpo.copy(cajaTotal);
+    const tamano = cuerpo.getSize(new THREE.Vector3());
+    const centro = cuerpo.getCenter(new THREE.Vector3());
+    const anchoFranja = THREE.MathUtils.clamp(tamano.x * 0.8, 0.03, 0.22);
+    const altoFranja = THREE.MathUtils.clamp(tamano.y * 0.12, 0.006, 0.025);
+    const fondoFranja = THREE.MathUtils.clamp(tamano.z * 0.3, 0.01, 0.12);
+    const franja = new THREE.Mesh(
+      new THREE.BoxGeometry(anchoFranja, altoFranja, fondoFranja),
+      material
+    );
+    // Franja de color encima del cuerpo, como la cinta de identificación.
+    franja.position.set(centro.x, cuerpo.max.y + altoFranja / 2, centro.z);
     modelo.add(franja);
-    const tally = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.055, 0.025), material);
-    tally.position.set(0.18, 1.67, 0.36);
+    const ladoTally = THREE.MathUtils.clamp(tamano.x * 0.25, 0.012, 0.05);
+    const tally = new THREE.Mesh(
+      new THREE.BoxGeometry(ladoTally, ladoTally * 0.7, ladoTally),
+      material
+    );
+    // Tally adelante y arriba, visible desde el set.
+    tally.position.set(
+      centro.x,
+      cuerpo.max.y + altoFranja + ladoTally * 0.35,
+      centro.z + fondoFranja / 2 - ladoTally / 2
+    );
     modelo.add(tally);
     if (reemplazo.tieneShotgun) {
+      const largoMic = THREE.MathUtils.clamp(tamano.z * 0.6, 0.12, 0.3);
+      const radioMic = THREE.MathUtils.clamp(tamano.x * 0.06, 0.009, 0.02);
       const mic = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.035, 0.36, 4, 10),
+        new THREE.CapsuleGeometry(radioMic, largoMic, 4, 10),
         new THREE.MeshStandardMaterial({ color: "#171A1F", roughness: 0.88, metalness: 0.04 })
       );
       mic.rotation.x = Math.PI / 2;
-      mic.position.set(0.12, 1.72, 0.18);
+      mic.position.set(
+        centro.x + tamano.x / 2 + radioMic,
+        cuerpo.max.y + radioMic,
+        centro.z + tamano.z * 0.15
+      );
       modelo.add(mic);
     }
   } else if (reemplazo.clase === "cstand") {
@@ -528,11 +582,13 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
       true,
       set
     );
+    const ajusteCamara = ajusteDeCamara(camara);
+    if (ajusteCamara?.alto) modelo.userData.alturaRotulo = ajusteCamara.alto + 0.3;
     objetosCamara.set(camara.id, modelo);
     escena.add(modelo);
     objetosEncuadre.push(modelo);
     reemplazos.push({
-      ajuste: AJUSTES_MODELOS_3D.camara,
+      ajuste: ajusteCamara,
       respaldo: modelo,
       clase: "camara",
       color: camara.color,
@@ -782,6 +838,11 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     () => cams.find((camara) => camara.id === camaraActivaId) || null,
     [cams, camaraActivaId]
   );
+  const rangoFocalActivo = useMemo(
+    () => rangoFocalDeEquipo(catalogoCamaras, camaraActiva?.equipo),
+    [camaraActiva]
+  );
+  const focalesDisponibles = rangoFocalActivo?.pasos || LENTES;
 
   useEffect(() => {
     const alTeclado = (evento) => {
@@ -1042,7 +1103,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   useEffect(() => {
     const motor = motorRef.current;
     if (!motor || !camaraActiva) return;
-    motor.camara.fov = fovVerticalDesdeFocal(focal);
+    motor.camara.fov = fovDeCamara(camaraActiva, focal);
     motor.camara.aspect = 16 / 9;
     motor.camara.updateProjectionMatrix();
     motor.ajustar();
@@ -1108,6 +1169,10 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     const rotacion = motor.geometria.rotacionDe(key, "camara");
     const angulo = THREE.MathUtils.degToRad(rotacion || 0);
     const focalInicial = distanciaFocalDeCamara(camaraSeleccionada);
+    const ajusteCamara = ajusteDeCamara(camaraSeleccionada);
+    const altoLente = Number(ajusteCamara?.alto_lente) > 0
+      ? Number(ajusteCamara.alto_lente)
+      : ALTURAS_3D.lenteCamara;
     motor.modoCamara = true;
     motor.controles.enabled = false;
     motor.etiquetas.visible = false;
@@ -1116,14 +1181,14 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     motor.reticula.visible = false;
     motor.objetosCamara.forEach((objeto, id) => { objeto.visible = id !== camaraSeleccionada.id; });
     motor.camara.up.set(0, 1, 0);
-    motor.camara.position.set(punto.x, ALTURAS_3D.lenteCamara, punto.z);
+    motor.camara.position.set(punto.x, altoLente, punto.z);
     motor.camara.lookAt(
       punto.x + Math.cos(angulo) * 10,
-      ALTURAS_3D.lenteCamara,
+      altoLente,
       punto.z + Math.sin(angulo) * 10
     );
     motor.camara.aspect = 16 / 9;
-    motor.camara.fov = fovVerticalDesdeFocal(focalInicial);
+    motor.camara.fov = fovDeCamara(camaraSeleccionada, focalInicial);
     motor.camara.updateProjectionMatrix();
     setFocal(focalInicial);
     setLentesAbiertos(false);
@@ -1217,7 +1282,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
           <div className="visor-set-3d__marco">
             <div className="visor-set-3d__datos-camara">
               <span>{recortar(camaraActiva.nombre, 42)}</span>
-              <strong>{focal} mm · {fovVerticalDesdeFocal(focal).toFixed(1)}°</strong>
+              <strong>{focal} mm · {fovDeCamara(camaraActiva, focal).toFixed(1)}°</strong>
             </div>
           </div>
         </div>
@@ -1253,9 +1318,24 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
           )}
           {camaraActiva && (
             <div ref={lentesRef} className="visor-set-3d__lente-flotante">
+              {rangoFocalActivo && !rangoFocalActivo.pasos ? (
+                <label className="visor-set-3d__rango-lente visor-set-3d__vidrio">
+                  <span>Focal</span>
+                  <input
+                    type="range"
+                    min={rangoFocalActivo.min}
+                    max={rangoFocalActivo.max}
+                    step="1"
+                    value={focal}
+                    aria-label={`Distancia focal temporal de ${camaraActiva.nombre}`}
+                    onChange={(evento) => setFocal(Number(evento.target.value))}
+                  />
+                  <strong>{focal} mm</strong>
+                </label>
+              ) : <>
               {lentesAbiertos && (
                 <div className="visor-set-3d__lista-lentes visor-set-3d__vidrio" aria-label="Distancia focal temporal">
-                  {LENTES.map((valor) => (
+                  {focalesDisponibles.map((valor) => (
                     <button
                       key={valor}
                       type="button"
@@ -1276,6 +1356,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
               >
                 {focal} mm <span aria-hidden="true">⌄</span>
               </button>
+              </>}
             </div>
           )}
           {mostrarAyuda && !camaraActiva && (
