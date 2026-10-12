@@ -6,7 +6,9 @@ import { MUEBLE_ASIENTOS } from "./catalogos.js";
 import {
   actualizarCorteCiclorama,
   cambiarColorCiclorama,
+  COLORES_CICLORAMA,
   crearCuartoCiclorama,
+  normalizarColorCiclorama,
 } from "./ciclorama3d.js";
 import {
   crearModeloBoom,
@@ -784,7 +786,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   const [camaraActivaId, setCamaraActivaId] = useState(null);
   const [focal, setFocal] = useState(35);
   const [colorCiclorama, setColorCiclorama] = useState(
-    () => colorCicloramaPorSet.get(set.id) || "verde"
+    () => normalizarColorCiclorama(colorCicloramaPorSet.get(set.id))
   );
   const [creditosAbiertos, setCreditosAbiertos] = useState(false);
   const [creditos, setCreditos] = useState(null);
@@ -1215,8 +1217,20 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
               <div className="visor-set-3d__ciclorama" role="group" aria-label="Color del ciclorama">
                 <span>Ciclorama</span>
                 <div>
-                  <button type="button" className={colorCiclorama === "verde" ? "activo verde" : ""} aria-pressed={colorCiclorama === "verde"} onClick={() => elegirColorCiclorama("verde")}>Verde</button>
-                  <button type="button" className={colorCiclorama === "blanco" ? "activo blanco" : ""} aria-pressed={colorCiclorama === "blanco"} onClick={() => elegirColorCiclorama("blanco")}>Blanco</button>
+                  {Object.entries(COLORES_CICLORAMA).map(([color, { etiqueta }]) => {
+                    const activo = colorCiclorama === color;
+                    return (
+                      <button
+                        key={color}
+                        type="button"
+                        className={activo ? `activo ${color}` : ""}
+                        aria-pressed={activo}
+                        onClick={() => elegirColorCiclorama(color)}
+                      >
+                        {etiqueta}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -2,9 +2,35 @@ import * as THREE from "three";
 import { medidasForo, RADIO_CICLORAMA_METROS } from "./setGeometria.js";
 
 export const COLORES_CICLORAMA = Object.freeze({
-  verde: "#159E2B",
-  blanco: "#E9E9E6",
+  verde: Object.freeze({
+    etiqueta: "Verde",
+    pared: "#159E2B",
+    piso: "#107A21",
+    roughness: 0.62,
+    envMapIntensity: 0.18,
+    toneMapped: false,
+  }),
+  azul: Object.freeze({
+    etiqueta: "Azul",
+    pared: "#1F4FBF",
+    piso: "#183C93",
+    roughness: 0.62,
+    envMapIntensity: 0.18,
+    toneMapped: false,
+  }),
+  blanco: Object.freeze({
+    etiqueta: "Blanco",
+    pared: "#E9E9E6",
+    piso: "#B4B4AE",
+    roughness: 0.9,
+    envMapIntensity: 0.5,
+    toneMapped: true,
+  }),
 });
+
+export function normalizarColorCiclorama(color) {
+  return Object.prototype.hasOwnProperty.call(COLORES_CICLORAMA, color) ? color : "verde";
+}
 
 export function limitesDelCuarto(set) {
   const { ancho, fondo } = medidasForo(set);
@@ -16,25 +42,23 @@ export function limitesDelCuarto(set) {
   };
 }
 
-function crearMaterialCiclorama(color) {
+function crearMaterialCiclorama(color, superficie) {
   const material = new THREE.MeshStandardMaterial({
-    color: COLORES_CICLORAMA.verde,
-    roughness: 0.62,
+    color: COLORES_CICLORAMA.verde[superficie],
     metalness: 0,
-    envMapIntensity: 0.18,
     side: THREE.DoubleSide,
     fog: false,
   });
-  aplicarColorAlMaterial(material, color);
+  aplicarColorAlMaterial(material, color, superficie);
   return material;
 }
 
-function aplicarColorAlMaterial(material, color) {
-  const esVerde = color !== "blanco";
-  material.color.set(esVerde ? COLORES_CICLORAMA.verde : COLORES_CICLORAMA.blanco);
-  material.roughness = esVerde ? 0.62 : 0.9;
-  material.envMapIntensity = esVerde ? 0.18 : 0.5;
-  material.toneMapped = !esVerde;
+function aplicarColorAlMaterial(material, color, superficie) {
+  const configuracion = COLORES_CICLORAMA[normalizarColorCiclorama(color)];
+  material.color.set(configuracion[superficie]);
+  material.roughness = configuracion.roughness;
+  material.envMapIntensity = configuracion.envMapIntensity;
+  material.toneMapped = configuracion.toneMapped;
   material.needsUpdate = true;
 }
 
@@ -126,25 +150,27 @@ function crearParrilla(limites, alto) {
 }
 
 export function crearCuartoCiclorama(color = "verde", set = null) {
+  const colorNormalizado = normalizarColorCiclorama(color);
   const limites = limitesDelCuarto(set);
   const { alto } = medidasForo(set);
   const radio = RADIO_CICLORAMA_METROS;
-  const material = crearMaterialCiclorama(color);
+  const materialPared = crearMaterialCiclorama(colorNormalizado, "pared");
+  const materialPiso = crearMaterialCiclorama(colorNormalizado, "piso");
   const grupo = new THREE.Group();
   const ancho = limites.xMax - limites.xMin;
   const fondo = limites.zMax - limites.zMin;
 
-  const piso = new THREE.Mesh(new THREE.PlaneGeometry(ancho, fondo), material);
+  const piso = new THREE.Mesh(new THREE.PlaneGeometry(ancho, fondo), materialPiso);
   piso.rotation.x = -Math.PI / 2;
   piso.position.set((limites.xMin + limites.xMax) / 2, -0.005, (limites.zMin + limites.zMax) / 2);
   piso.receiveShadow = true;
   grupo.add(piso);
 
   const paredes = {
-    fondo: crearParedConCove(ancho - radio * 2, alto, radio, material),
-    frente: crearParedConCove(ancho - radio * 2, alto, radio, material),
-    izquierda: crearParedConCove(fondo - radio * 2, alto, radio, material),
-    derecha: crearParedConCove(fondo - radio * 2, alto, radio, material),
+    fondo: crearParedConCove(ancho - radio * 2, alto, radio, materialPared),
+    frente: crearParedConCove(ancho - radio * 2, alto, radio, materialPared),
+    izquierda: crearParedConCove(fondo - radio * 2, alto, radio, materialPared),
+    derecha: crearParedConCove(fondo - radio * 2, alto, radio, materialPared),
   };
   paredes.fondo.position.set(0, 0, limites.zMin);
   paredes.frente.position.set(0, 0, limites.zMax);
@@ -156,21 +182,24 @@ export function crearCuartoCiclorama(color = "verde", set = null) {
   grupo.add(paredes.fondo, paredes.frente, paredes.izquierda, paredes.derecha);
 
   const esquinas = {
-    fondoIzquierda: crearEsquinaVertical(limites.xMin + radio, limites.zMin + radio, Math.PI, radio, alto, material),
-    fondoDerecha: crearEsquinaVertical(limites.xMax - radio, limites.zMin + radio, Math.PI * 1.5, radio, alto, material),
-    frenteDerecha: crearEsquinaVertical(limites.xMax - radio, limites.zMax - radio, 0, radio, alto, material),
-    frenteIzquierda: crearEsquinaVertical(limites.xMin + radio, limites.zMax - radio, Math.PI / 2, radio, alto, material),
+    fondoIzquierda: crearEsquinaVertical(limites.xMin + radio, limites.zMin + radio, Math.PI, radio, alto, materialPared),
+    fondoDerecha: crearEsquinaVertical(limites.xMax - radio, limites.zMin + radio, Math.PI * 1.5, radio, alto, materialPared),
+    frenteDerecha: crearEsquinaVertical(limites.xMax - radio, limites.zMax - radio, 0, radio, alto, materialPared),
+    frenteIzquierda: crearEsquinaVertical(limites.xMin + radio, limites.zMax - radio, Math.PI / 2, radio, alto, materialPared),
   };
   grupo.add(...Object.values(esquinas));
   grupo.add(crearParrilla(limites, alto));
-  grupo.userData = { material, paredes, esquinas, limites, color, alto };
+  grupo.userData = { materialPared, materialPiso, paredes, esquinas, limites, color: colorNormalizado, alto };
   return grupo;
 }
 
 export function cambiarColorCiclorama(ciclorama, color) {
-  if (!ciclorama?.userData?.material) return;
-  aplicarColorAlMaterial(ciclorama.userData.material, color);
-  ciclorama.userData.color = color;
+  const { materialPared, materialPiso } = ciclorama?.userData || {};
+  if (!materialPared || !materialPiso) return;
+  const colorNormalizado = normalizarColorCiclorama(color);
+  aplicarColorAlMaterial(materialPared, colorNormalizado, "pared");
+  aplicarColorAlMaterial(materialPiso, colorNormalizado, "piso");
+  ciclorama.userData.color = colorNormalizado;
 }
 
 export function actualizarCorteCiclorama(ciclorama, camara, modoCamara) {
