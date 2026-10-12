@@ -380,6 +380,11 @@ function agregarEtiqueta(grupo, texto, color, posicion, altura, prioridad = 1, s
   grupo.add(etiqueta);
 }
 
+// Luz general del visor ("luz de trabajo" del foro). Antes (1.18 / 2.35 / 1.08
+// y entorno a 1) estaba pensada para maquetas blancas y deslavaba los modelos
+// con color de Blender: el sofá azul salía casi blanco.
+const LUZ_VISOR = { cielo: 0.62, clave: 1.55, entorno: 0.55, exposicion: 0.98 };
+
 function decorarModeloDescargado(modelo, reemplazo) {
   if (reemplazo.clase === "camara") {
     const color = reemplazo.color || "#0A84FF";
@@ -912,7 +917,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMappingExposure = LUZ_VISOR.exposicion;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.shadowMap.autoUpdate = false;
@@ -925,6 +930,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     const sala = new RoomEnvironment();
     entorno = pmrem.fromScene(sala, 0.04);
     escena.environment = entorno.texture;
+    escena.environmentIntensity = LUZ_VISOR.entorno;
     sala.dispose();
     pmrem.dispose();
     const camara = new THREE.PerspectiveCamera(45, 1, 0.05, 80);
@@ -938,8 +944,8 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     controles.maxDistance = 31;
     controles.maxPolarAngle = Math.PI / 2 - 0.018;
     controles.update();
-    escena.add(new THREE.HemisphereLight(0xffffff, 0xbfc4c8, 1.18));
-    const luzClave = new THREE.DirectionalLight(0xfff7ed, 2.35);
+    escena.add(new THREE.HemisphereLight(0xffffff, 0xbfc4c8, LUZ_VISOR.cielo));
+    const luzClave = new THREE.DirectionalLight(0xfff7ed, LUZ_VISOR.clave);
     luzClave.position.set(8, 12, 7);
     luzClave.castShadow = true;
     luzClave.shadow.mapSize.set(1536, 1536);
