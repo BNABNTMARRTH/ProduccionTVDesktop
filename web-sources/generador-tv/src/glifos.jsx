@@ -4,6 +4,8 @@
 // Ojo: existe una copia vanilla de estos mismos dibujos en
 // frontend/public/tools/shared/sheets.js (hojas imprimibles); si cambias un
 // glifo aquí, cámbialo allá para que el plano y la hoja se vean iguales.
+// tests/espejos_react_vanilla.test.mjs compara las dos copias y falla si se
+// desincronizan (también el catálogo de muebles de catalogos.js).
 
 // Glifos de los elementos de iluminación (mismo lenguaje visual que la copia
 // vanilla en tools/shared/sheets.js). Se dibujan centrados en (0,0), ~24px.
