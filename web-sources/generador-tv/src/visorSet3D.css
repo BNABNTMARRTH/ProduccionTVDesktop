@@ -256,26 +256,41 @@
   box-shadow: inset -1px 0 rgba(255, 255, 255, .12);
 }
 
-.visor-set-3d__lente-flotante {
+.visor-set-3d__controles-camara {
   position: absolute;
   z-index: 7;
-  right: max(8px, env(safe-area-inset-right));
-  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 58px);
+  top: calc(var(--marco-final, 60%) + 8px);
+  left: var(--marco-x, max(8px, env(safe-area-inset-left)));
   display: flex;
-  flex-direction: column;
+  width: var(--marco-ancho, calc(100% - 16px));
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.visor-set-3d__lente-flotante {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
   align-items: flex-end;
+  justify-content: flex-end;
   gap: 7px;
 }
 
 .visor-set-3d__capturar {
-  position: absolute;
-  z-index: 7;
-  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 58px);
-  left: max(8px, env(safe-area-inset-left));
   display: inline-flex;
+  min-height: 48px !important;
   align-items: center;
+  justify-content: center;
   gap: 7px;
+  border: 1px solid rgba(118, 190, 255, .62) !important;
   border-radius: 14px !important;
+  color: #fff !important;
+  background: #087bed !important;
+  box-shadow: 0 8px 24px rgba(0, 77, 153, .34), inset 0 1px rgba(255, 255, 255, .2);
+  font-size: 13px !important;
 }
 
 .visor-set-3d__capturar:disabled {
@@ -510,15 +525,16 @@
   inset: 0;
   display: flex;
   align-items: stretch;
-  justify-content: flex-end;
+  justify-content: center;
   padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
   background: rgba(2, 7, 14, .46);
 }
 
 .visor-set-3d__destino {
   display: flex;
-  width: min(520px, 100%);
+  width: min(720px, 100%);
   min-width: 0;
+  max-height: 100%;
   flex-direction: column;
   overflow: hidden;
   border-radius: 22px;
@@ -559,24 +575,43 @@
 }
 
 .visor-set-3d__destino-cuerpo {
-  display: flex;
+  display: grid;
   min-height: 0;
   flex: 1;
-  flex-direction: column;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 11px;
   padding: 12px;
+  overflow: hidden;
+}
+
+.visor-set-3d__destino-vista-previa {
+  display: flex;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.visor-set-3d__destino-lista {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 11px;
+  padding-right: 2px;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
 }
 
 .visor-set-3d__captura-previa {
-  width: 100%;
-  max-height: 170px;
+  display: block;
+  width: min(100%, 480px);
+  height: auto;
   flex: 0 0 auto;
   border: 1px solid rgba(255, 255, 255, .14);
   border-radius: 13px;
-  object-fit: contain;
+  object-fit: cover;
   aspect-ratio: 16 / 9;
   background: #070b11;
 }
@@ -600,7 +635,8 @@
 }
 
 .visor-set-3d__destino-segmento {
-  overflow: hidden;
+  flex: 0 0 auto;
+  overflow: clip;
   border: 1px solid rgba(255, 255, 255, .12);
   border-radius: 15px;
   background: rgba(255, 255, 255, .035);
@@ -611,31 +647,13 @@
   min-height: 52px;
   align-items: center;
   gap: 8px;
-  padding: 4px 5px 4px 12px;
+  padding: 4px 5px 4px 13px;
   background: rgba(255, 255, 255, .055);
 }
 
-.visor-set-3d__destino-segmento-cab > div {
-  display: flex;
+.visor-set-3d__destino-segmento-cab > strong {
   min-width: 0;
   flex: 1;
-  align-items: center;
-  gap: 8px;
-}
-
-.visor-set-3d__destino-segmento-cab b {
-  display: grid;
-  width: 25px;
-  height: 25px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 7px;
-  color: #fff;
-  background: rgba(10, 132, 255, .68);
-  font-size: 11px;
-}
-
-.visor-set-3d__destino-segmento-cab strong {
   overflow: hidden;
   color: rgba(255, 255, 255, .9);
   font-size: 12px;
@@ -644,6 +662,9 @@
 }
 
 .visor-set-3d__destino-segmento-cab button {
+  min-width: 44px;
+  min-height: 44px;
+  padding-inline: 10px;
   color: #fff;
   background: rgba(10, 132, 255, .25);
   box-shadow: inset 0 0 0 1px rgba(72, 167, 255, .36);
@@ -658,6 +679,7 @@
 }
 
 .visor-set-3d__destino-opcion {
+  min-height: 72px;
   border-top: 1px solid rgba(255, 255, 255, .09);
 }
 
@@ -791,11 +813,11 @@
   }
 
   .visor-set-3d__captura-previa {
-    max-height: 116px;
+    width: min(100%, 340px);
   }
 
   .visor-set-3d__destino-plano {
-    grid-template-columns: 72px minmax(0, 1fr);
+    grid-template-columns: 72px minmax(0, 1fr) auto;
   }
 
   .visor-set-3d__destino-plano > img,
@@ -805,7 +827,105 @@
   }
 
   .visor-set-3d__coincide {
-    display: none;
+    padding-inline: 6px;
+    font-size: 8px;
+  }
+}
+
+@media (orientation: portrait) and (max-width: 560px) {
+  .visor-set-3d__controles-camara {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .visor-set-3d__capturar,
+  .visor-set-3d__lente-flotante {
+    width: 100%;
+  }
+
+  .visor-set-3d__lente-flotante {
+    justify-content: space-between;
+  }
+
+  .visor-set-3d__rango-lente {
+    width: 100%;
+    flex-basis: 100%;
+    order: 2;
+  }
+
+  .visor-set-3d__datos-camara {
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .visor-set-3d__controles-camara {
+    top: var(--marco-superior, max(62px, env(safe-area-inset-top)));
+    right: max(6px, env(safe-area-inset-right));
+    left: auto;
+    width: clamp(248px, 34vw, 292px);
+    flex-direction: column;
+  }
+
+  .visor-set-3d__capturar,
+  .visor-set-3d__lente-flotante {
+    width: 100%;
+  }
+
+  .visor-set-3d__lente-flotante {
+    justify-content: space-between;
+  }
+
+  .visor-set-3d__rango-lente {
+    width: 100%;
+    flex-basis: 100%;
+    order: 2;
+  }
+
+  .visor-set-3d__camaras-flotantes {
+    right: max(6px, env(safe-area-inset-right));
+    left: auto;
+    width: clamp(248px, 34vw, 292px);
+    max-width: none;
+    transform: none;
+  }
+
+  .visor-set-3d__datos-camara {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .visor-set-3d__destino-capa {
+    align-items: stretch;
+    padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+  }
+
+  .visor-set-3d__destino {
+    width: 100%;
+    height: 100%;
+    border-radius: 18px;
+  }
+
+  .visor-set-3d__destino-cabecera {
+    min-height: 52px;
+    padding-block: 4px;
+  }
+
+  .visor-set-3d__destino-cuerpo {
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: minmax(240px, .9fr) minmax(300px, 1.1fr);
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .visor-set-3d__destino-vista-previa,
+  .visor-set-3d__destino-lista {
+    min-width: 0;
+  }
+
+  .visor-set-3d__captura-previa {
+    width: 100%;
   }
 }
 

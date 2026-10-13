@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, X } from "lucide-react";
+import { Camera } from "lucide-react";
 import * as THREE from "three";
 import catalogoCamaras from "virtual:catalogo-camaras";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { MUEBLE_ASIENTOS } from "./catalogos.js";
 import { armarTextoEtiquetaCaptura, gradosConSigno, nombreCortoCamara } from "./captura3d.js";
+import PanelCapturaStoryboard from "./PanelCapturaStoryboard.jsx";
 import {
   actualizarCorteCiclorama,
   cambiarColorCiclorama,
@@ -32,7 +33,6 @@ import {
 } from "./modelosDescargados3d.js";
 import { modeloDe, rangoFocalDeEquipo, sensorMmDeEquipo } from "./equipoCamara.js";
 import { prepararCapturaParaStoryboard } from "./imagenesStoryboard.js";
-import { esNarrativo } from "./proyecto.js";
 import {
   ALTURAS_3D,
   clasificarMicrofonos,
@@ -46,7 +46,6 @@ import {
   puntoPlanoAMetros,
   zObjetivoParedPosterior,
 } from "./setGeometria.js";
-import { camaraAsignadaAlPlano } from "./tomas.js";
 import "./visorSet3D.css";
 
 const LENTES = [13, 18, 24, 35, 50, 85, 135];
@@ -976,107 +975,13 @@ function renderizarCapturaDeCamara(motor) {
   }
 }
 
-function PanelDestinoCaptura({ cfg, camaraId, imagen, onGuardar, onCerrar }) {
-  const narrativo = esNarrativo(cfg);
-  const [confirmacion, setConfirmacion] = useState(null);
-  const segmentos = cfg.escaleta || [];
-  const camarasPorId = Object.fromEntries((cfg.camaras || []).map((camara) => [camara.id, camara]));
-  const camaraCaptura = camarasPorId[camaraId];
-
-  const elegirPlano = (segmentoId, toma, numero) => {
-    const destino = { segmentoId, tomaId: toma.id, numero };
-    if (toma.imagen) setConfirmacion(destino);
-    else onGuardar(destino);
-  };
-
-  return (
-    <div
-      className="visor-set-3d__destino-capa"
-      onPointerDown={(evento) => { if (evento.target === evento.currentTarget) onCerrar(); }}
-    >
-      <aside className="visor-set-3d__destino visor-set-3d__vidrio" role="dialog" aria-modal="true" aria-labelledby="destino-captura-titulo">
-        <header className="visor-set-3d__destino-cabecera">
-          <div>
-            <strong id="destino-captura-titulo">¿A qué plano va?</strong>
-            <span>{nombreCortoCamara(camaraCaptura, Math.max(0, (cfg.camaras || []).findIndex((camara) => camara.id === camaraId)))}</span>
-          </div>
-          <button type="button" onClick={onCerrar} aria-label="Cancelar captura"><X size={19} /></button>
-        </header>
-        <div className="visor-set-3d__destino-cuerpo">
-          <img className="visor-set-3d__captura-previa" src={imagen} alt="Captura que se guardará en el storyboard" />
-          {!segmentos.length && (
-            <div className="visor-set-3d__sin-destinos" role="status">
-              <strong>Todavía no hay {narrativo ? "escenas" : "segmentos"}.</strong>
-              <p>
-                {narrativo
-                  ? "Créalas en Guion literario; después podrás volver aquí y agregar un plano."
-                  : "Agrégalos en Escaleta editorial; después podrás volver aquí y agregar un plano de cámara."}
-              </p>
-            </div>
-          )}
-          {segmentos.map((segmento, indiceSegmento) => {
-            const tomas = (segmento.tomas || [])
-              .map((toma, indiceToma) => ({
-                toma,
-                numero: `${indiceSegmento + 1}.${indiceToma + 1}`,
-                asignada: camaraAsignadaAlPlano(toma, narrativo),
-              }))
-              .filter(({ toma }) => narrativo || (toma.tipo || "camara") === "camara")
-              .sort((a, b) => Number(b.asignada === camaraId) - Number(a.asignada === camaraId));
-            const numeroNuevo = `${indiceSegmento + 1}.${(segmento.tomas || []).length + 1}`;
-            return (
-              <section key={segmento.id} className="visor-set-3d__destino-segmento">
-                <div className="visor-set-3d__destino-segmento-cab">
-                  <div><b>{indiceSegmento + 1}</b><strong>{segmento.segmento || (narrativo ? "Escena sin título" : "Segmento sin título")}</strong></div>
-                  <button type="button" onClick={() => onGuardar({ segmentoId: segmento.id, tomaId: null, numero: numeroNuevo })}>＋ Plano nuevo</button>
-                </div>
-                {!tomas.length && <p className="visor-set-3d__destino-vacio">Sin planos de cámara todavía.</p>}
-                {tomas.map(({ toma, numero, asignada }) => {
-                  const coincide = asignada === camaraId;
-                  const distinta = Boolean(asignada && !coincide);
-                  const confirmando = confirmacion?.segmentoId === segmento.id && confirmacion?.tomaId === toma.id;
-                  return (
-                    <div key={toma.id} className={`visor-set-3d__destino-opcion${coincide ? " coincide" : ""}`}>
-                      <button
-                        type="button"
-                        className="visor-set-3d__destino-plano"
-                        onClick={() => elegirPlano(segmento.id, toma, numero)}
-                        aria-label={`Guardar captura en el plano ${numero}`}
-                      >
-                        {toma.imagen
-                          ? <img src={toma.imagen} alt="" />
-                          : <span className="visor-set-3d__destino-sin-imagen"><Camera size={19} /></span>}
-                        <span className="visor-set-3d__destino-detalle">
-                          <b>{numero} · {toma.plano || (narrativo ? "Sin plano" : "Cue de cámara")}</b>
-                          <small>{asignada ? (camarasPorId[asignada]?.nombre || "Cámara no disponible") : "Sin cámara asignada"}</small>
-                          {distinta && <em>Se conservará esta cámara; la captura es de {camaraCaptura?.nombre || "otra cámara"}.</em>}
-                        </span>
-                        {coincide && <span className="visor-set-3d__coincide">Esta cámara</span>}
-                      </button>
-                      {confirmando && (
-                        <div className="visor-set-3d__confirmar-reemplazo" role="alert">
-                          <span>Este plano ya tiene imagen</span>
-                          <button type="button" className="principal" onClick={() => onGuardar(confirmacion)}>Reemplazar</button>
-                          <button type="button" onClick={() => setConfirmacion(null)}>Cancelar</button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </section>
-            );
-          })}
-        </div>
-      </aside>
-    </div>
-  );
-}
-
 export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGuardarCaptura, onOrientarCamara, onClose }) {
   const hostRef = useRef(null);
   const panelRef = useRef(null);
+  const superiorIzquierdaRef = useRef(null);
   const capasRef = useRef(null);
   const camarasRef = useRef(null);
+  const controlesCamaraRef = useRef(null);
   const lentesRef = useRef(null);
   const motorRef = useRef(null);
   const vistaCamaraPendienteRef = useRef(null);
@@ -1469,20 +1374,54 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
       const ancho = Math.max(1, host.clientWidth);
       const alto = Math.max(1, host.clientHeight);
       const rectHost = host.getBoundingClientRect();
+      const rectSuperiorIzquierda = superiorIzquierdaRef.current?.getBoundingClientRect();
+      const rectVistas = capasRef.current?.querySelector(".visor-set-3d__vistas")?.getBoundingClientRect();
       const rectCamaras = camarasRef.current?.getBoundingClientRect();
-      const limiteInferior = rectCamaras
-        ? Math.min(alto, Math.max(1, rectCamaras.top - rectHost.top))
-        : alto;
+      const rectControles = controlesCamaraRef.current?.getBoundingClientRect();
       const margen = Math.min(ancho, alto) < 500 ? 6 : 12;
-      const disponible = Math.max(1, limiteInferior - margen * 2);
-      const anchoMarco = Math.max(1, Math.min(ancho - margen * 2, disponible * (16 / 9)));
-      const altoMarco = anchoMarco * (9 / 16);
-      const x = (ancho - anchoMarco) / 2;
-      const y = margen + (disponible - altoMarco) / 2;
+      const finalSuperior = Math.max(
+        rectSuperiorIzquierda?.bottom || 0,
+        rectVistas?.bottom || 0
+      ) - rectHost.top;
+      const superior = Math.min(alto - margen, Math.max(margen, finalSuperior + 8));
+      const horizontalCompacto = ancho > alto && alto <= 500;
+      let anchoDisponible;
+      let altoDisponible;
+      let anchoMarco;
+      let altoMarco;
+      let x;
+      let y;
+
+      if (horizontalCompacto) {
+        const anchoRiel = Math.max(248, Math.min(292, ancho * 0.34));
+        anchoDisponible = Math.max(1, ancho - margen * 2 - anchoRiel - 8);
+        altoDisponible = Math.max(1, alto - superior - margen);
+        anchoMarco = Math.max(1, Math.min(anchoDisponible, altoDisponible * (16 / 9)));
+        altoMarco = anchoMarco * (9 / 16);
+        x = margen + (anchoDisponible - anchoMarco) / 2;
+        y = superior + (altoDisponible - altoMarco) / 2;
+      } else {
+        const limiteInferior = rectCamaras
+          ? Math.min(alto - margen, Math.max(superior + 1, rectCamaras.top - rectHost.top - 8))
+          : alto - margen;
+        const altoControles = rectControles?.height || 52;
+        const finalMarco = controlesCamaraRef.current
+          ? limiteInferior - altoControles - 8
+          : limiteInferior;
+        anchoDisponible = Math.max(1, ancho - margen * 2);
+        altoDisponible = Math.max(1, finalMarco - superior);
+        anchoMarco = Math.max(1, Math.min(anchoDisponible, altoDisponible * (16 / 9)));
+        altoMarco = anchoMarco * (9 / 16);
+        x = (ancho - anchoMarco) / 2;
+        y = superior;
+      }
+
       panelRef.current?.style.setProperty("--marco-x", `${x}px`);
       panelRef.current?.style.setProperty("--marco-y", `${y}px`);
       panelRef.current?.style.setProperty("--marco-ancho", `${anchoMarco}px`);
       panelRef.current?.style.setProperty("--marco-alto", `${altoMarco}px`);
+      panelRef.current?.style.setProperty("--marco-final", `${y + altoMarco}px`);
+      panelRef.current?.style.setProperty("--marco-superior", `${superior}px`);
       return { x, y, ancho: anchoMarco, alto: altoMarco, altoTotal: alto };
     };
     const invalidar = () => {
@@ -1542,6 +1481,7 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
       observador = new ResizeObserver(alRedimensionar);
       observador.observe(host);
       if (camarasRef.current) observador.observe(camarasRef.current);
+      if (controlesCamaraRef.current) observador.observe(controlesCamaraRef.current);
     } else window.addEventListener("resize", alRedimensionar);
     const motor = {
       renderer,
@@ -1795,7 +1735,7 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
       tabIndex={-1}
     >
       <div ref={hostRef} className="visor-set-3d__lienzo" aria-hidden="true" />
-      <div className="visor-set-3d__superior-izquierda visor-set-3d__vidrio">
+      <div ref={superiorIzquierdaRef} className="visor-set-3d__superior-izquierda visor-set-3d__vidrio">
         <button type="button" className="visor-set-3d__cerrar" onClick={cerrarVisor} aria-label="Cerrar vista 3D">
           <span aria-hidden="true">×</span>
         </button>
@@ -1889,17 +1829,6 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
       )}
       {!error && (
         <>
-          {camaraActiva && editable && typeof onGuardarCaptura === "function" && (
-            <button
-              type="button"
-              className="visor-set-3d__capturar visor-set-3d__vidrio"
-              onClick={capturarParaStoryboard}
-              disabled={capturando}
-            >
-              <Camera size={17} aria-hidden="true" />
-              {capturando ? "Capturando…" : "Capturar"}
-            </button>
-          )}
           {cams.length > 0 && (
             <div ref={camarasRef} className="visor-set-3d__camaras-flotantes visor-set-3d__vidrio">
               <div className="visor-set-3d__camaras" aria-label="Ver desde una cámara">
@@ -1921,59 +1850,73 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
             </div>
           )}
           {camaraActiva && (
-            <div ref={lentesRef} className="visor-set-3d__lente-flotante">
-              <div className="visor-set-3d__movimiento-camara visor-set-3d__vidrio" role="toolbar" aria-label="Orientación guardada de la cámara">
-                <button type="button" onClick={centrarVistaCamara}>Centrar</button>
-                {giroscopioDisponible && (
+            <div ref={controlesCamaraRef} className="visor-set-3d__controles-camara">
+              {editable && typeof onGuardarCaptura === "function" && (
+                <button
+                  type="button"
+                  className="visor-set-3d__capturar"
+                  onClick={capturarParaStoryboard}
+                  disabled={capturando}
+                >
+                  <Camera size={19} aria-hidden="true" />
+                  {capturando ? "Capturando…" : "Capturar"}
+                </button>
+              )}
+              <div ref={lentesRef} className="visor-set-3d__lente-flotante">
+                <div className="visor-set-3d__movimiento-camara visor-set-3d__vidrio" role="toolbar" aria-label="Orientación guardada de la cámara">
+                  <button type="button" onClick={centrarVistaCamara}>Centrar</button>
+                  {giroscopioDisponible && (
+                    <button
+                      type="button"
+                      className={giroscopioActivo ? "activo" : ""}
+                      aria-label={giroscopioActivo ? "Desactivar giroscopio" : "Activar giroscopio"}
+                      aria-pressed={giroscopioActivo}
+                      onClick={alternarGiroscopio}
+                    >
+                      Giroscopio
+                    </button>
+                  )}
+                </div>
+                {rangoFocalActivo && !rangoFocalActivo.pasos ? (
+                  <label className="visor-set-3d__rango-lente visor-set-3d__vidrio">
+                    <span>Focal</span>
+                    <input
+                      type="range"
+                      min={rangoFocalActivo.min}
+                      max={rangoFocalActivo.max}
+                      step="1"
+                      value={focal}
+                      aria-label={`Distancia focal temporal de ${camaraActiva.nombre}`}
+                      onChange={(evento) => setFocal(Number(evento.target.value))}
+                    />
+                    <strong>{focal} mm</strong>
+                  </label>
+                ) : <>
+                {lentesAbiertos && (
+                  <div className="visor-set-3d__lista-lentes visor-set-3d__vidrio" aria-label="Distancia focal temporal">
+                    {focalesDisponibles.map((valor) => (
+                      <button
+                        key={valor}
+                        type="button"
+                        className={focal === valor ? "activo" : ""}
+                        aria-pressed={focal === valor}
+                        onClick={() => { setFocal(valor); setLentesAbiertos(false); }}
+                      >
+                        {valor} mm
+                      </button>
+                    ))}
+                  </div>
+                )}
                   <button
                     type="button"
-                    className={giroscopioActivo ? "activo" : ""}
-                    aria-pressed={giroscopioActivo}
-                    onClick={alternarGiroscopio}
+                    className="visor-set-3d__selector-lente visor-set-3d__vidrio"
+                    aria-expanded={lentesAbiertos}
+                    onClick={() => setLentesAbiertos((valor) => !valor)}
                   >
-                    {giroscopioActivo ? "Desactivar giroscopio" : "Activar giroscopio"}
+                    {focal} mm <span aria-hidden="true">⌄</span>
                   </button>
-                )}
+                </>}
               </div>
-              {rangoFocalActivo && !rangoFocalActivo.pasos ? (
-                <label className="visor-set-3d__rango-lente visor-set-3d__vidrio">
-                  <span>Focal</span>
-                  <input
-                    type="range"
-                    min={rangoFocalActivo.min}
-                    max={rangoFocalActivo.max}
-                    step="1"
-                    value={focal}
-                    aria-label={`Distancia focal temporal de ${camaraActiva.nombre}`}
-                    onChange={(evento) => setFocal(Number(evento.target.value))}
-                  />
-                  <strong>{focal} mm</strong>
-                </label>
-              ) : <>
-              {lentesAbiertos && (
-                <div className="visor-set-3d__lista-lentes visor-set-3d__vidrio" aria-label="Distancia focal temporal">
-                  {focalesDisponibles.map((valor) => (
-                    <button
-                      key={valor}
-                      type="button"
-                      className={focal === valor ? "activo" : ""}
-                      aria-pressed={focal === valor}
-                      onClick={() => { setFocal(valor); setLentesAbiertos(false); }}
-                    >
-                      {valor} mm
-                    </button>
-                  ))}
-                </div>
-              )}
-              <button
-                type="button"
-                className="visor-set-3d__selector-lente visor-set-3d__vidrio"
-                aria-expanded={lentesAbiertos}
-                onClick={() => setLentesAbiertos((valor) => !valor)}
-              >
-                {focal} mm <span aria-hidden="true">⌄</span>
-              </button>
-              </>}
             </div>
           )}
           {mostrarAyuda && !camaraActiva && (
@@ -1987,7 +1930,7 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
         <div className={`visor-set-3d__toast ${aviso.tipo}`} role="status">{aviso.mensaje}</div>
       )}
       {capturaPendiente && (
-        <PanelDestinoCaptura
+        <PanelCapturaStoryboard
           cfg={cfg}
           camaraId={capturaPendiente.captura3d.camId}
           imagen={capturaPendiente.imagen}
