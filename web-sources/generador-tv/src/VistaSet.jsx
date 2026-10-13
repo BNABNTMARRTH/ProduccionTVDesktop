@@ -6,6 +6,7 @@ import { MuebleIcon } from "./glifos.jsx";
 import { EstudioCenital } from "./EstudioCenital.jsx";
 import { PanelIluminacion } from "./PanelIluminacion.jsx";
 import { PersonalGrid } from "./PersonalGrid.jsx";
+import { esNarrativo } from "./proyecto.js";
 import { SetCommandManager, AddFurnitureCommand, RemoveFurnitureCommand, ToggleTalentSeatCommand } from "./setCommands.js";
 import { SET_LAYOUT_STRATEGIES, applyLayoutStrategy } from "./layoutStrategies.js";
 import {
@@ -17,6 +18,7 @@ import {
   traerElementosAdentro,
 } from "./setGeometria.js";
 import { posMuebleDefault, setActivoDe, setNuevo, upSetPor } from "./sets.js";
+import { camaraAsignadaAlPlano, crearPlanoNuevoPorModo } from "./tomas.js";
 import { TarjetaAyuda } from "./ui.jsx";
 import { trunc, uid } from "./util.js";
 import {
@@ -391,6 +393,38 @@ export function VistaSet({ cfg, setCfg }) {
       tilt[key] = Number.isFinite(orientacion?.tilt) ? orientacion.tilt : 0;
       return { ...s, setLayout: { ...(s.setLayout || {}), rot, tilt } };
     }), { commit: true });
+  };
+
+  const guardarCapturaStoryboard = ({ segmentoId, tomaId, imagen, captura3d }) => {
+    if (!editable) return;
+    setCfg((c) => {
+      const narrativo = esNarrativo(c);
+      return {
+        ...c,
+        escaleta: (c.escaleta || []).map((segmento) => {
+          if (segmento.id !== segmentoId) return segmento;
+          if (!tomaId) {
+            const plano = {
+              ...crearPlanoNuevoPorModo(c, captura3d.camId),
+              imagen,
+              captura3d,
+            };
+            return { ...segmento, tomas: [...(segmento.tomas || []), plano] };
+          }
+          return {
+            ...segmento,
+            tomas: (segmento.tomas || []).map((toma) => {
+              if (toma.id !== tomaId) return toma;
+              const asignada = camaraAsignadaAlPlano(toma, narrativo);
+              const asignarCamara = asignada
+                ? {}
+                : (narrativo ? { camId: captura3d.camId } : { alAire: captura3d.camId });
+              return { ...toma, ...asignarCamara, imagen, captura3d };
+            }),
+          };
+        }),
+      };
+    }, { commit: true });
   };
 
   return (
@@ -810,6 +844,8 @@ export function VistaSet({ cfg, setCfg }) {
             cfg={cfg}
             set={activo}
             cams={cams}
+            editable={editable}
+            onGuardarCaptura={guardarCapturaStoryboard}
             onOrientarCamara={orientarCamara}
             onClose={() => setVisor3DOpen(false)}
           />

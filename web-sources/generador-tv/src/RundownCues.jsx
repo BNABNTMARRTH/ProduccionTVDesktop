@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ChevronDown, ChevronUp, Pencil, Trash2, X } from "lucide-react";
 import { CUE_ESTADO, CUE_ESTADOS, CUE_TIPO, CUE_TIPOS, TRANSICIONES } from "./catalogos.js";
 import { NAVY } from "./theme.js";
+import { nuevoCue } from "./tomas.js";
 import { btn } from "./ui.jsx";
 import { fmt, uid } from "./util.js";
 
@@ -15,19 +16,6 @@ const parseMMSS = (txt) => {
   const s = m ? Number(m[1]) * 60 + Number(m[2]) : Number(txt);
   return Number.isFinite(s) && s >= 0 ? Math.round(s) : null;
 };
-const nuevoCue = (c, tipo = "camara") => {
-  const cams = c.camaras || [];
-  const corte = (c.extras || []).find((x) => x.esCorte);
-  const base = { id: uid(), tipo, dur: 8, alAire: cams[0]?.id || "", previo: cams[1]?.id || "", transicion: "Corte", audio: "", grafico: "", texto: "", plano: "", estado: "borrador" };
-  if (tipo === "grafico") return { ...base, grafico: "Lower third", texto: "Lanzar gráfico" };
-  if (tipo === "comercial") return { ...base, alAire: corte?.id || base.alAire, dur: 30, texto: "Corte a comercial" };
-  if (tipo === "cortinilla") return { ...base, dur: 10, texto: "Cortinilla" };
-  if (tipo === "audio") return { ...base, texto: "Abrir micrófono" };
-  if (tipo === "vtr") return { ...base, dur: 30, texto: "Lanzar VTR" };
-  if (tipo === "instruccion") return { ...base, texto: "Instrucción del director" };
-  return base;
-};
-
 export function RundownCues({ cfg, setCfg, rows, fuentes, editable, onOpenEscaleta }) {
   const [sel, setSel] = useState(null); // { segId, tomaId } → editor lateral
   const upToma = (segId, tomaId, patch) => setCfg((c) => ({

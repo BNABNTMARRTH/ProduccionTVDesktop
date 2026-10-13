@@ -6,30 +6,12 @@ import { EscaletaEditor } from "./EscaletaEditor.jsx";
 import { MetaDuracion } from "./MetaDuracion.jsx";
 import { Escaleta, Timeline } from "./EscaletaVistas.jsx";
 import { RundownCues } from "./RundownCues.jsx";
+import { leerImagenStoryboard } from "./imagenesStoryboard.js";
 import { esNarrativo } from "./proyecto.js";
+import { crearPlanoNuevoPorModo } from "./tomas.js";
 import { Box, TarjetaAyuda, btn, inp, inpStyle } from "./ui.jsx";
-import { fmt, trunc, uid } from "./util.js";
+import { fmt, trunc } from "./util.js";
 import { SelectorDeReferencia, useFichasDelTablero } from "./MesaDeLuz.jsx";
-
-// Reduce una imagen a un cuadro de storyboard ligero (JPEG de 480px de ancho):
-// las imágenes viven en base64 dentro del proyecto y sin esta reducción
-// inflarían localStorage y los .ptv.
-const leerImagenStoryboard = (file) => new Promise((resolve, reject) => {
-  const img = new Image();
-  const url = URL.createObjectURL(file);
-  img.onload = () => {
-    const w = 480;
-    const h = Math.max(1, Math.round((img.height / img.width) * w) || 270);
-    const cv = document.createElement("canvas");
-    cv.width = w;
-    cv.height = h;
-    cv.getContext("2d").drawImage(img, 0, 0, w, h);
-    URL.revokeObjectURL(url);
-    resolve(cv.toDataURL("image/jpeg", 0.8));
-  };
-  img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("No se pudo leer la imagen")); };
-  img.src = url;
-});
 
 // Pestaña "Escaleta / Rundown": ¿qué pasa primero, qué pasa después y cuánto dura?
 
@@ -60,7 +42,7 @@ export function VistaEscaleta({ cfg, setCfg }) {
   const addToma = (segId) => setCfg((c) => ({
     ...c,
     escaleta: c.escaleta.map((s) => (s.id === segId
-      ? { ...s, tomas: [...(s.tomas || []), { id: uid(), camId: c.camaras[0]?.id || "", plano: "Plano Medio", mov: "Fija", audio: "", texto: "", imagen: "" }] }
+      ? { ...s, tomas: [...(s.tomas || []), crearPlanoNuevoPorModo(c, c.camaras[0]?.id)] }
       : s)),
   }));
   const delToma = (segId, tomaId) => setCfg((c) => ({
@@ -228,7 +210,7 @@ export function VistaEscaleta({ cfg, setCfg }) {
                 <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${delTablero.length ? 300 : 215}px, 1fr))` }}>
                   {cuadrosDe(s).map(({ t, n }) => {
                     // En vivo la cámara del cue vive en `alAire`, no en `camId`.
-                    const cam = camDe(t.camId || t.alAire);
+                    const cam = camDe(narr ? t.camId : t.alAire);
                     return (
                       <figure key={t.id} className="m-0 rounded-lg border overflow-hidden" style={{ background: "var(--vidrio-a)", borderColor: "var(--vidrio-borde)" }}>
                         {/* LA REFERENCIA Y EL CUADRO, UNO JUNTO AL OTRO. Solo

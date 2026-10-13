@@ -267,6 +267,22 @@
   gap: 7px;
 }
 
+.visor-set-3d__capturar {
+  position: absolute;
+  z-index: 7;
+  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 58px);
+  left: max(8px, env(safe-area-inset-left));
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 14px !important;
+}
+
+.visor-set-3d__capturar:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
 .visor-set-3d__movimiento-camara {
   display: flex;
   gap: 2px;
@@ -465,6 +481,284 @@
   line-height: 1.45;
 }
 
+.visor-set-3d__toast {
+  position: absolute;
+  z-index: 22;
+  top: max(66px, calc(env(safe-area-inset-top) + 58px));
+  left: 50%;
+  max-width: calc(100% - 32px);
+  padding: 10px 15px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(111, 224, 153, .5);
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(12, 82, 45, .92);
+  box-shadow: 0 12px 38px rgba(0, 0, 0, .3);
+  font-size: 13px;
+  font-weight: 760;
+  text-align: center;
+}
+
+.visor-set-3d__toast.error {
+  border-color: rgba(255, 130, 130, .54);
+  background: rgba(130, 25, 31, .94);
+}
+
+.visor-set-3d__destino-capa {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  background: rgba(2, 7, 14, .46);
+}
+
+.visor-set-3d__destino {
+  display: flex;
+  width: min(520px, 100%);
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--vidrio-fuerte);
+}
+
+.visor-set-3d__destino-cabecera {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 9px 8px 17px;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+}
+
+.visor-set-3d__destino-cabecera > div {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.visor-set-3d__destino-cabecera strong {
+  color: #fff;
+  font-size: 17px;
+}
+
+.visor-set-3d__destino-cabecera span {
+  color: rgba(255, 255, 255, .62);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.visor-set-3d__destino-cabecera button {
+  width: 44px;
+  padding: 0;
+}
+
+.visor-set-3d__destino-cuerpo {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 11px;
+  padding: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.visor-set-3d__captura-previa {
+  width: 100%;
+  max-height: 170px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 13px;
+  object-fit: contain;
+  aspect-ratio: 16 / 9;
+  background: #070b11;
+}
+
+.visor-set-3d__sin-destinos {
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, .13);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .06);
+}
+
+.visor-set-3d__sin-destinos strong {
+  font-size: 14px;
+}
+
+.visor-set-3d__sin-destinos p {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, .7);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.visor-set-3d__destino-segmento {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .035);
+}
+
+.visor-set-3d__destino-segmento-cab {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 5px 4px 12px;
+  background: rgba(255, 255, 255, .055);
+}
+
+.visor-set-3d__destino-segmento-cab > div {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+}
+
+.visor-set-3d__destino-segmento-cab b {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 7px;
+  color: #fff;
+  background: rgba(10, 132, 255, .68);
+  font-size: 11px;
+}
+
+.visor-set-3d__destino-segmento-cab strong {
+  overflow: hidden;
+  color: rgba(255, 255, 255, .9);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visor-set-3d__destino-segmento-cab button {
+  color: #fff;
+  background: rgba(10, 132, 255, .25);
+  box-shadow: inset 0 0 0 1px rgba(72, 167, 255, .36);
+  white-space: nowrap;
+}
+
+.visor-set-3d__destino-vacio {
+  margin: 0;
+  padding: 10px 12px;
+  color: rgba(255, 255, 255, .56);
+  font-size: 12px;
+}
+
+.visor-set-3d__destino-opcion {
+  border-top: 1px solid rgba(255, 255, 255, .09);
+}
+
+.visor-set-3d__destino-opcion.coincide {
+  background: rgba(10, 132, 255, .11);
+  box-shadow: inset 3px 0 rgba(72, 167, 255, .78);
+}
+
+.visor-set-3d__destino-plano {
+  display: grid;
+  width: 100%;
+  min-height: 72px !important;
+  grid-template-columns: 88px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px !important;
+  border-radius: 0 !important;
+  text-align: left;
+}
+
+.visor-set-3d__destino-plano > img,
+.visor-set-3d__destino-sin-imagen {
+  display: grid;
+  width: 88px;
+  height: 50px;
+  place-items: center;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, .08);
+}
+
+.visor-set-3d__destino-detalle {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.visor-set-3d__destino-detalle b,
+.visor-set-3d__destino-detalle small,
+.visor-set-3d__destino-detalle em {
+  overflow-wrap: anywhere;
+}
+
+.visor-set-3d__destino-detalle b {
+  color: #fff;
+  font-size: 12px;
+}
+
+.visor-set-3d__destino-detalle small {
+  color: rgba(255, 255, 255, .62);
+  font-size: 11px;
+}
+
+.visor-set-3d__destino-detalle em {
+  color: #ffd48a;
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1.3;
+}
+
+.visor-set-3d__coincide {
+  padding: 4px 7px;
+  border-radius: 999px;
+  color: #d9efff;
+  background: rgba(10, 132, 255, .28);
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.visor-set-3d__confirmar-reemplazo {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 7px 9px;
+  border-top: 1px solid rgba(255, 190, 92, .3);
+  background: rgba(112, 65, 9, .28);
+}
+
+.visor-set-3d__confirmar-reemplazo span {
+  min-width: 0;
+  flex: 1;
+  color: #ffe4b5;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.visor-set-3d__confirmar-reemplazo button {
+  min-width: 0;
+  padding-inline: 10px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16);
+}
+
+.visor-set-3d__confirmar-reemplazo button.principal {
+  color: #fff;
+  background: #0a84ff;
+}
+
 .visor-set-3d--compacto .visor-set-3d__vistas button,
 .visor-set-3d--compacto .visor-set-3d__camaras button {
   padding-inline: 10px;
@@ -483,6 +777,35 @@
 
   .visor-set-3d__ayuda {
     white-space: normal;
+  }
+
+  .visor-set-3d__destino-capa {
+    align-items: flex-end;
+    padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+  }
+
+  .visor-set-3d__destino {
+    width: 100%;
+    max-height: calc(100dvh - max(12px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom)));
+    border-radius: 20px;
+  }
+
+  .visor-set-3d__captura-previa {
+    max-height: 116px;
+  }
+
+  .visor-set-3d__destino-plano {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .visor-set-3d__destino-plano > img,
+  .visor-set-3d__destino-sin-imagen {
+    width: 72px;
+    height: 41px;
+  }
+
+  .visor-set-3d__coincide {
+    display: none;
   }
 }
 

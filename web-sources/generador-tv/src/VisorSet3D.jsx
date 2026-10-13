@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Camera, X } from "lucide-react";
 import * as THREE from "three";
 import catalogoCamaras from "virtual:catalogo-camaras";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { MUEBLE_ASIENTOS } from "./catalogos.js";
+import { armarTextoEtiquetaCaptura, gradosConSigno, nombreCortoCamara } from "./captura3d.js";
 import {
   actualizarCorteCiclorama,
   cambiarColorCiclorama,
@@ -29,6 +31,8 @@ import {
   reiniciarCacheModelosDescargados,
 } from "./modelosDescargados3d.js";
 import { modeloDe, rangoFocalDeEquipo, sensorMmDeEquipo } from "./equipoCamara.js";
+import { prepararCapturaParaStoryboard } from "./imagenesStoryboard.js";
+import { esNarrativo } from "./proyecto.js";
 import {
   ALTURAS_3D,
   clasificarMicrofonos,
@@ -43,6 +47,7 @@ import {
   puntoPlanoAMetros,
   zObjetivoParedPosterior,
 } from "./setGeometria.js";
+import { camaraAsignadaAlPlano } from "./tomas.js";
 import "./visorSet3D.css";
 
 const LENTES = [13, 18, 24, 35, 50, 85, 135];
@@ -82,8 +87,12 @@ function sinOrientacionDeCamaras(set) {
 // se actualizan en la escena viva. Cualquier otro cambio del proyecto sí crea
 // de nuevo la escena para mantener sincronizados mobiliario, foro y equipo.
 function firmaEscenaDe(cfg, set, cams) {
+  const cfgEscena = { ...cfg };
+  // Una imagen de storyboard no cambia ningún objeto 3D. Omitir la escaleta
+  // evita destruir el contexto y conserva encuadre y giroscopio al guardarla.
+  delete cfgEscena.escaleta;
   return JSON.stringify({
-    cfg: { ...cfg, sets: (cfg.sets || []).map(sinOrientacionDeCamaras) },
+    cfg: { ...cfgEscena, sets: (cfg.sets || []).map(sinOrientacionDeCamaras) },
     set: sinOrientacionDeCamaras(set),
     cams,
   });
@@ -184,12 +193,6 @@ function esPantallaCompacta() {
 function recortar(texto, maximo = 25) {
   const valor = String(texto || "");
   return valor.length <= maximo ? valor : `${valor.slice(0, Math.max(1, maximo - 1))}…`;
-}
-
-function gradosConSigno(valor) {
-  const entero = Object.is(valor, -0) ? 0 : Math.round(valor || 0);
-  if (entero === 0) return "0°";
-  return `${entero > 0 ? "+" : "−"}${Math.abs(entero)}°`;
 }
 
 function dibujarRectanguloRedondeado(ctx, x, y, ancho, alto, radio) {
@@ -911,11 +914,6 @@ function liberarEscena(escena) {
   geometrias.forEach((geometria) => geometria.dispose());
 }
 
-function nombreCortoCamara(camara, indice) {
-  const encontrada = String(camara.nombre || "").match(/CAM(?:ARA)?\s+[A-Z0-9]+/i);
-  return encontrada ? encontrada[0].toUpperCase().replace("CAMARA", "CAM") : `CAM ${String.fromCharCode(65 + indice)}`;
-}
-
 function cajaDeEncuadreDelSet(objetos = [], set = null) {
   const foro = medidasForo(set);
   const caja = new THREE.Box3();
@@ -1038,7 +1036,132 @@ function distribuirEtiquetas(etiquetas, camara, ancho, alto, mostrar) {
   });
 }
 
-export default function VisorSet3D({ cfg, set, cams = [], onOrientarCamara, onClose }) {
+function renderizarCapturaDeCamara(motor) {
+  if (!motor?.modoCamara || !motor.vistaCamara) throw new Error("No hay una cámara activa");
+  const { renderer, escena, camara } = motor;
+  const proporcionAnterior = renderer.getPixelRatio();
+  const aspectoAnterior = camara.aspect;
+  const destinoAnterior = renderer.getRenderTarget();
+  try {
+    // El buffer se vuelve 960×540 físicos sin importar DPR, zoom CSS ni el
+    // tamaño visible. Se renderiza y se lee en el mismo gesto; no depende de
+    // preserveDrawingBuffer.
+    renderer.setRenderTarget(null);
+    renderer.setPixelRatio(1);
+    renderer.setSize(960, 540, false);
+    renderer.setViewport(0, 0, 960, 540);
+    renderer.setScissorTest(false);
+    camara.aspect = 16 / 9;
+    camara.updateProjectionMatrix();
+    renderer.clear();
+    renderer.render(escena, camara);
+    return renderer.domElement.toDataURL("image/png");
+  } finally {
+    renderer.setRenderTarget(destinoAnterior);
+    renderer.setPixelRatio(proporcionAnterior);
+    camara.aspect = aspectoAnterior;
+    camara.updateProjectionMatrix();
+    motor.ajustar();
+  }
+}
+
+function PanelDestinoCaptura({ cfg, camaraId, imagen, onGuardar, onCerrar }) {
+  const narrativo = esNarrativo(cfg);
+  const [confirmacion, setConfirmacion] = useState(null);
+  const segmentos = cfg.escaleta || [];
+  const camarasPorId = Object.fromEntries((cfg.camaras || []).map((camara) => [camara.id, camara]));
+  const camaraCaptura = camarasPorId[camaraId];
+
+  const elegirPlano = (segmentoId, toma, numero) => {
+    const destino = { segmentoId, tomaId: toma.id, numero };
+    if (toma.imagen) setConfirmacion(destino);
+    else onGuardar(destino);
+  };
+
+  return (
+    <div
+      className="visor-set-3d__destino-capa"
+      onPointerDown={(evento) => { if (evento.target === evento.currentTarget) onCerrar(); }}
+    >
+      <aside className="visor-set-3d__destino visor-set-3d__vidrio" role="dialog" aria-modal="true" aria-labelledby="destino-captura-titulo">
+        <header className="visor-set-3d__destino-cabecera">
+          <div>
+            <strong id="destino-captura-titulo">¿A qué plano va?</strong>
+            <span>{nombreCortoCamara(camaraCaptura, Math.max(0, (cfg.camaras || []).findIndex((camara) => camara.id === camaraId)))}</span>
+          </div>
+          <button type="button" onClick={onCerrar} aria-label="Cancelar captura"><X size={19} /></button>
+        </header>
+        <div className="visor-set-3d__destino-cuerpo">
+          <img className="visor-set-3d__captura-previa" src={imagen} alt="Captura que se guardará en el storyboard" />
+          {!segmentos.length && (
+            <div className="visor-set-3d__sin-destinos" role="status">
+              <strong>Todavía no hay {narrativo ? "escenas" : "segmentos"}.</strong>
+              <p>
+                {narrativo
+                  ? "Créalas en Guion literario; después podrás volver aquí y agregar un plano."
+                  : "Agrégalos en Escaleta editorial; después podrás volver aquí y agregar un plano de cámara."}
+              </p>
+            </div>
+          )}
+          {segmentos.map((segmento, indiceSegmento) => {
+            const tomas = (segmento.tomas || [])
+              .map((toma, indiceToma) => ({
+                toma,
+                numero: `${indiceSegmento + 1}.${indiceToma + 1}`,
+                asignada: camaraAsignadaAlPlano(toma, narrativo),
+              }))
+              .filter(({ toma }) => narrativo || (toma.tipo || "camara") === "camara")
+              .sort((a, b) => Number(b.asignada === camaraId) - Number(a.asignada === camaraId));
+            const numeroNuevo = `${indiceSegmento + 1}.${(segmento.tomas || []).length + 1}`;
+            return (
+              <section key={segmento.id} className="visor-set-3d__destino-segmento">
+                <div className="visor-set-3d__destino-segmento-cab">
+                  <div><b>{indiceSegmento + 1}</b><strong>{segmento.segmento || (narrativo ? "Escena sin título" : "Segmento sin título")}</strong></div>
+                  <button type="button" onClick={() => onGuardar({ segmentoId: segmento.id, tomaId: null, numero: numeroNuevo })}>＋ Plano nuevo</button>
+                </div>
+                {!tomas.length && <p className="visor-set-3d__destino-vacio">Sin planos de cámara todavía.</p>}
+                {tomas.map(({ toma, numero, asignada }) => {
+                  const coincide = asignada === camaraId;
+                  const distinta = Boolean(asignada && !coincide);
+                  const confirmando = confirmacion?.segmentoId === segmento.id && confirmacion?.tomaId === toma.id;
+                  return (
+                    <div key={toma.id} className={`visor-set-3d__destino-opcion${coincide ? " coincide" : ""}`}>
+                      <button
+                        type="button"
+                        className="visor-set-3d__destino-plano"
+                        onClick={() => elegirPlano(segmento.id, toma, numero)}
+                        aria-label={`Guardar captura en el plano ${numero}`}
+                      >
+                        {toma.imagen
+                          ? <img src={toma.imagen} alt="" />
+                          : <span className="visor-set-3d__destino-sin-imagen"><Camera size={19} /></span>}
+                        <span className="visor-set-3d__destino-detalle">
+                          <b>{numero} · {toma.plano || (narrativo ? "Sin plano" : "Cue de cámara")}</b>
+                          <small>{asignada ? (camarasPorId[asignada]?.nombre || "Cámara no disponible") : "Sin cámara asignada"}</small>
+                          {distinta && <em>Se conservará esta cámara; la captura es de {camaraCaptura?.nombre || "otra cámara"}.</em>}
+                        </span>
+                        {coincide && <span className="visor-set-3d__coincide">Esta cámara</span>}
+                      </button>
+                      {confirmando && (
+                        <div className="visor-set-3d__confirmar-reemplazo" role="alert">
+                          <span>Este plano ya tiene imagen</span>
+                          <button type="button" className="principal" onClick={() => onGuardar(confirmacion)}>Reemplazar</button>
+                          <button type="button" onClick={() => setConfirmacion(null)}>Cancelar</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </section>
+            );
+          })}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGuardarCaptura, onOrientarCamara, onClose }) {
   const hostRef = useRef(null);
   const panelRef = useRef(null);
   const capasRef = useRef(null);
@@ -1046,6 +1169,8 @@ export default function VisorSet3D({ cfg, set, cams = [], onOrientarCamara, onCl
   const lentesRef = useRef(null);
   const motorRef = useRef(null);
   const vistaCamaraPendienteRef = useRef(null);
+  const avisoRef = useRef(null);
+  const trabajoCapturaRef = useRef(0);
   const onOrientarCamaraRef = useRef(onOrientarCamara);
   onOrientarCamaraRef.current = onOrientarCamara;
   const giroscopioRef = useRef(null);
@@ -1064,6 +1189,9 @@ export default function VisorSet3D({ cfg, set, cams = [], onOrientarCamara, onCl
   const [giroscopioDisponible, setGiroscopioDisponible] = useState(false);
   const [giroscopioActivo, setGiroscopioActivo] = useState(false);
   const [tiltEnVivo, setTiltEnVivo] = useState(0);
+  const [capturando, setCapturando] = useState(false);
+  const [capturaPendiente, setCapturaPendiente] = useState(null);
+  const [aviso, setAviso] = useState(null);
   const [colorCiclorama, setColorCiclorama] = useState(
     () => normalizarColorCiclorama(colorCicloramaPorSet.get(set.id))
   );
@@ -1103,6 +1231,65 @@ export default function VisorSet3D({ cfg, set, cams = [], onOrientarCamara, onCl
     vista.tiltGuardado = centrar ? 0 : tiltRad;
     vista.sucia = false;
     return true;
+  };
+
+  const mostrarAvisoTemporal = (mensaje, tipo = "ok") => {
+    window.clearTimeout(avisoRef.current);
+    setAviso({ mensaje, tipo });
+    avisoRef.current = window.setTimeout(() => setAviso(null), 2800);
+  };
+
+  const capturarParaStoryboard = async () => {
+    const motor = motorRef.current;
+    if (!editable || typeof onGuardarCaptura !== "function" || !camaraActiva || !motor?.vistaCamara) return;
+    const trabajo = ++trabajoCapturaRef.current;
+    setCapturando(true);
+    setCapasAbiertas(false);
+    setLentesAbiertos(false);
+    try {
+      const vista = motor.vistaCamara;
+      const fovH = Math.round(fovHorizontalDeCamara(camaraActiva, focal));
+      const fovV = Math.round(fovDeCamara(camaraActiva, focal));
+      const tilt = Math.round(THREE.MathUtils.radToDeg(vista.tilt));
+      const rot = normalizarGrados(THREE.MathUtils.radToDeg(vista.yawBase + vista.pan));
+      const indiceCamara = Math.max(0, cams.findIndex((camara) => camara.id === camaraActiva.id));
+      const textoEtiqueta = armarTextoEtiquetaCaptura({ camara: camaraActiva, indiceCamara, focal, fovH, fovV, tilt });
+      const captura3d = {
+        camId: camaraActiva.id,
+        setId: set.id,
+        focal: Number(focal),
+        fovH,
+        fovV,
+        tilt,
+        rot,
+        fecha: new Date().toISOString(),
+      };
+
+      // Persistir la orientación aquí hace que el metadato y el set queden
+      // de acuerdo incluso si la vista se movió con el giroscopio.
+      guardarOrientacionMotor(motor);
+      const cuadro = renderizarCapturaDeCamara(motor);
+      const imagen = await prepararCapturaParaStoryboard(cuadro, textoEtiqueta);
+      if (trabajo !== trabajoCapturaRef.current) return;
+      setCapturaPendiente({ imagen, captura3d });
+    } catch (fallo) {
+      console.warn("No se pudo capturar la vista 3D", fallo);
+      if (trabajo === trabajoCapturaRef.current) mostrarAvisoTemporal("No se pudo crear la captura", "error");
+    } finally {
+      if (trabajo === trabajoCapturaRef.current) setCapturando(false);
+    }
+  };
+
+  const guardarCapturaEnPlano = (destino) => {
+    if (!capturaPendiente || !editable || typeof onGuardarCaptura !== "function") return;
+    onGuardarCaptura({
+      segmentoId: destino.segmentoId,
+      tomaId: destino.tomaId,
+      imagen: capturaPendiente.imagen,
+      captura3d: capturaPendiente.captura3d,
+    });
+    setCapturaPendiente(null);
+    mostrarAvisoTemporal(`Guardado en el plano ${destino.numero}`);
   };
 
   const activarVistaCamaraEnMotor = (motor, camaraSeleccionada) => {
@@ -1236,6 +1423,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onOrientarCamara, onCl
   };
 
   const cerrarVisor = () => {
+    trabajoCapturaRef.current += 1;
     guardarOrientacionMotor();
     apagarGiroscopio();
     onClose();
@@ -1244,18 +1432,21 @@ export default function VisorSet3D({ cfg, set, cams = [], onOrientarCamara, onCl
   useEffect(() => {
     const alTeclado = (evento) => {
       if (evento.key !== "Escape") return;
-      if (lentesAbiertos) setLentesAbiertos(false);
+      if (capturaPendiente) setCapturaPendiente(null);
+      else if (lentesAbiertos) setLentesAbiertos(false);
       else if (capasAbiertas) setCapasAbiertas(false);
       else cerrarVisor();
     };
     window.addEventListener("keydown", alTeclado);
     panelRef.current?.focus({ preventScroll: true });
     return () => window.removeEventListener("keydown", alTeclado);
-  }, [capasAbiertas, lentesAbiertos, onClose]);
+  }, [capasAbiertas, capturaPendiente, lentesAbiertos, onClose]);
 
   useEffect(() => {
     setGiroscopioDisponible(esDispositivoIOSConGiroscopio());
     return () => {
+      trabajoCapturaRef.current += 1;
+      window.clearTimeout(avisoRef.current);
       guardarOrientacionMotor();
       apagarGiroscopio(false);
     };
@@ -1787,6 +1978,17 @@ export default function VisorSet3D({ cfg, set, cams = [], onOrientarCamara, onCl
       )}
       {!error && (
         <>
+          {camaraActiva && editable && typeof onGuardarCaptura === "function" && (
+            <button
+              type="button"
+              className="visor-set-3d__capturar visor-set-3d__vidrio"
+              onClick={capturarParaStoryboard}
+              disabled={capturando}
+            >
+              <Camera size={17} aria-hidden="true" />
+              {capturando ? "Capturando…" : "Capturar"}
+            </button>
+          )}
           {cams.length > 0 && (
             <div ref={camarasRef} className="visor-set-3d__camaras-flotantes visor-set-3d__vidrio">
               <div className="visor-set-3d__camaras" aria-label="Ver desde una cámara">
@@ -1869,6 +2071,18 @@ export default function VisorSet3D({ cfg, set, cams = [], onOrientarCamara, onCl
             </div>
           )}
         </>
+      )}
+      {aviso && (
+        <div className={`visor-set-3d__toast ${aviso.tipo}`} role="status">{aviso.mensaje}</div>
+      )}
+      {capturaPendiente && (
+        <PanelDestinoCaptura
+          cfg={cfg}
+          camaraId={capturaPendiente.captura3d.camId}
+          imagen={capturaPendiente.imagen}
+          onGuardar={guardarCapturaEnPlano}
+          onCerrar={() => setCapturaPendiente(null)}
+        />
       )}
     </section>
   );
