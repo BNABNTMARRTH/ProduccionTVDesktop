@@ -981,7 +981,6 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
   const superiorIzquierdaRef = useRef(null);
   const capasRef = useRef(null);
   const camarasRef = useRef(null);
-  const controlesCamaraRef = useRef(null);
   const lentesRef = useRef(null);
   const motorRef = useRef(null);
   const vistaCamaraPendienteRef = useRef(null);
@@ -1375,53 +1374,29 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
       const alto = Math.max(1, host.clientHeight);
       const rectHost = host.getBoundingClientRect();
       const rectSuperiorIzquierda = superiorIzquierdaRef.current?.getBoundingClientRect();
-      const rectVistas = capasRef.current?.querySelector(".visor-set-3d__vistas")?.getBoundingClientRect();
       const rectCamaras = camarasRef.current?.getBoundingClientRect();
-      const rectControles = controlesCamaraRef.current?.getBoundingClientRect();
       const margen = Math.min(ancho, alto) < 500 ? 6 : 12;
-      const finalSuperior = Math.max(
-        rectSuperiorIzquierda?.bottom || 0,
-        rectVistas?.bottom || 0
-      ) - rectHost.top;
-      const superior = Math.min(alto - margen, Math.max(margen, finalSuperior + 8));
-      const horizontalCompacto = ancho > alto && alto <= 500;
-      let anchoDisponible;
-      let altoDisponible;
-      let anchoMarco;
-      let altoMarco;
-      let x;
-      let y;
-
-      if (horizontalCompacto) {
-        const anchoRiel = Math.max(248, Math.min(292, ancho * 0.34));
-        anchoDisponible = Math.max(1, ancho - margen * 2 - anchoRiel - 8);
-        altoDisponible = Math.max(1, alto - superior - margen);
-        anchoMarco = Math.max(1, Math.min(anchoDisponible, altoDisponible * (16 / 9)));
-        altoMarco = anchoMarco * (9 / 16);
-        x = margen + (anchoDisponible - anchoMarco) / 2;
-        y = superior + (altoDisponible - altoMarco) / 2;
-      } else {
-        const limiteInferior = rectCamaras
-          ? Math.min(alto - margen, Math.max(superior + 1, rectCamaras.top - rectHost.top - 8))
-          : alto - margen;
-        const altoControles = rectControles?.height || 52;
-        const finalMarco = controlesCamaraRef.current
-          ? limiteInferior - altoControles - 8
-          : limiteInferior;
-        anchoDisponible = Math.max(1, ancho - margen * 2);
-        altoDisponible = Math.max(1, finalMarco - superior);
-        anchoMarco = Math.max(1, Math.min(anchoDisponible, altoDisponible * (16 / 9)));
-        altoMarco = anchoMarco * (9 / 16);
-        x = (ancho - anchoMarco) / 2;
-        y = superior;
-      }
+      // El encuadre ocupa todo lo que queda arriba de la barra de cámaras;
+      // los controles flotan encima de la imagen, como en el diseño original.
+      const limiteInferior = rectCamaras
+        ? Math.min(alto, Math.max(1, rectCamaras.top - rectHost.top))
+        : alto;
+      const disponible = Math.max(1, limiteInferior - margen * 2);
+      const anchoMarco = Math.max(1, Math.min(ancho - margen * 2, disponible * (16 / 9)));
+      const altoMarco = anchoMarco * (9 / 16);
+      const x = (ancho - anchoMarco) / 2;
+      const y = margen + (disponible - altoMarco) / 2;
+      // El letrero de la cámara baja lo justo para no quedar debajo del botón «Vista 3D».
+      const finalBotonCerrar = rectSuperiorIzquierda
+        ? rectSuperiorIzquierda.bottom - rectHost.top
+        : 0;
+      const letreroArriba = Math.max(10, finalBotonCerrar - y + 8);
 
       panelRef.current?.style.setProperty("--marco-x", `${x}px`);
       panelRef.current?.style.setProperty("--marco-y", `${y}px`);
       panelRef.current?.style.setProperty("--marco-ancho", `${anchoMarco}px`);
       panelRef.current?.style.setProperty("--marco-alto", `${altoMarco}px`);
-      panelRef.current?.style.setProperty("--marco-final", `${y + altoMarco}px`);
-      panelRef.current?.style.setProperty("--marco-superior", `${superior}px`);
+      panelRef.current?.style.setProperty("--letrero-arriba", `${letreroArriba}px`);
       return { x, y, ancho: anchoMarco, alto: altoMarco, altoTotal: alto };
     };
     const invalidar = () => {
@@ -1481,7 +1456,6 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
       observador = new ResizeObserver(alRedimensionar);
       observador.observe(host);
       if (camarasRef.current) observador.observe(camarasRef.current);
-      if (controlesCamaraRef.current) observador.observe(controlesCamaraRef.current);
     } else window.addEventListener("resize", alRedimensionar);
     const motor = {
       renderer,
@@ -1850,7 +1824,7 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
             </div>
           )}
           {camaraActiva && (
-            <div ref={controlesCamaraRef} className="visor-set-3d__controles-camara">
+            <div className="visor-set-3d__controles-camara">
               {editable && typeof onGuardarCaptura === "function" && (
                 <button
                   type="button"

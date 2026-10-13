@@ -257,29 +257,25 @@
 }
 
 .visor-set-3d__controles-camara {
-  position: absolute;
-  z-index: 7;
-  top: calc(var(--marco-final, 60%) + 8px);
-  left: var(--marco-x, max(8px, env(safe-area-inset-left)));
-  display: flex;
-  width: var(--marco-ancho, calc(100% - 16px));
-  min-width: 0;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
+  display: contents;
 }
 
 .visor-set-3d__lente-flotante {
-  position: relative;
+  position: absolute;
+  z-index: 7;
+  right: max(8px, env(safe-area-inset-right));
+  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 58px);
   display: flex;
-  min-width: 0;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: flex-end;
-  justify-content: flex-end;
   gap: 7px;
 }
 
 .visor-set-3d__capturar {
+  position: absolute;
+  z-index: 7;
+  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 58px);
+  left: max(8px, env(safe-area-inset-left));
   display: inline-flex;
   min-height: 48px !important;
   align-items: center;
@@ -434,7 +430,7 @@
 
 .visor-set-3d__datos-camara {
   position: absolute;
-  top: 10px;
+  top: var(--letrero-arriba, 10px);
   left: 10px;
   display: flex;
   max-width: calc(100% - 20px);
@@ -833,26 +829,6 @@
 }
 
 @media (orientation: portrait) and (max-width: 560px) {
-  .visor-set-3d__controles-camara {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .visor-set-3d__capturar,
-  .visor-set-3d__lente-flotante {
-    width: 100%;
-  }
-
-  .visor-set-3d__lente-flotante {
-    justify-content: space-between;
-  }
-
-  .visor-set-3d__rango-lente {
-    width: 100%;
-    flex-basis: 100%;
-    order: 2;
-  }
-
   .visor-set-3d__datos-camara {
     flex-direction: column;
     gap: 2px;
@@ -860,37 +836,6 @@
 }
 
 @media (orientation: landscape) and (max-height: 500px) {
-  .visor-set-3d__controles-camara {
-    top: var(--marco-superior, max(62px, env(safe-area-inset-top)));
-    right: max(6px, env(safe-area-inset-right));
-    left: auto;
-    width: clamp(248px, 34vw, 292px);
-    flex-direction: column;
-  }
-
-  .visor-set-3d__capturar,
-  .visor-set-3d__lente-flotante {
-    width: 100%;
-  }
-
-  .visor-set-3d__lente-flotante {
-    justify-content: space-between;
-  }
-
-  .visor-set-3d__rango-lente {
-    width: 100%;
-    flex-basis: 100%;
-    order: 2;
-  }
-
-  .visor-set-3d__camaras-flotantes {
-    right: max(6px, env(safe-area-inset-right));
-    left: auto;
-    width: clamp(248px, 34vw, 292px);
-    max-width: none;
-    transform: none;
-  }
-
   .visor-set-3d__datos-camara {
     flex-direction: column;
     gap: 2px;
