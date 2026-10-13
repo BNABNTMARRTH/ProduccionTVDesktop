@@ -80,7 +80,9 @@ def revisar(f, vocabulario):
         importados |= set(re.findall(r"[A-Za-z_$][\w$]*", bloque)) - {"as", "from"}
     texto = solo_codigo(crudo)
     definidos = set(DEF.findall(texto))
-    palabras = set(re.findall(r"\b[A-Za-z_$][\w$]*\b", texto))
+    # Un nombre precedido de punto es una propiedad (Math.trunc, obj.uid), no
+    # la función compartida del mismo nombre: no cuenta como uso suelto.
+    palabras = set(re.findall(r"(?<![.\w$])[A-Za-z_$][\w$]*\b", texto))
     candidatos = sorted((palabras & vocabulario) - importados - definidos)
     # Descarta los que el archivo declara dentro de una función, los que recibe
     # desestructurados (const { x } = ...) y los parámetros de una función.

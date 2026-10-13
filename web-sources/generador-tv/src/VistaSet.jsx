@@ -6,7 +6,6 @@ import { MuebleIcon } from "./glifos.jsx";
 import { EstudioCenital } from "./EstudioCenital.jsx";
 import { PanelIluminacion } from "./PanelIluminacion.jsx";
 import { PersonalGrid } from "./PersonalGrid.jsx";
-import { esNarrativo } from "./proyecto.js";
 import { SetCommandManager, AddFurnitureCommand, RemoveFurnitureCommand, ToggleTalentSeatCommand } from "./setCommands.js";
 import { SET_LAYOUT_STRATEGIES, applyLayoutStrategy } from "./layoutStrategies.js";
 import {
@@ -17,8 +16,8 @@ import {
   posicionesFueraDelForo,
   traerElementosAdentro,
 } from "./setGeometria.js";
-import { posMuebleDefault, setActivoDe, setNuevo, upSetPor } from "./sets.js";
-import { camaraAsignadaAlPlano, crearPlanoNuevoPorModo } from "./tomas.js";
+import { conOrientacionDeCamara, posMuebleDefault, setActivoDe, setNuevo, upSetPor } from "./sets.js";
+import { conCapturaEnStoryboard } from "./tomas.js";
 import { TarjetaAyuda } from "./ui.jsx";
 import { trunc, uid } from "./util.js";
 import {
@@ -248,7 +247,10 @@ export function VistaSet({ cfg, setCfg }) {
   const [strategyMenuOpen, setStrategyMenuOpen] = useState(false);
   const [visor3DOpen, setVisor3DOpen] = useState(false);
 
-  // Gestor de Comandos GoF con soporte Undo/Redo
+  // Gestor de Comandos GoF con soporte Undo/Redo. Existe siempre que el
+  // proyecto es editable, y las acciones de mobiliario salen antes si no lo
+  // es: por eso usan cmdMgr directo, sin una segunda copia "por si acaso" de
+  // la misma lógica (había una, nunca corría y se iba quedando vieja).
   const commandManagerRef = useRef(null);
   if (!commandManagerRef.current && editable) {
     commandManagerRef.current = new SetCommandManager(setCfg);
@@ -279,15 +281,7 @@ export function VistaSet({ cfg, setCfg }) {
     const item = { id, tipo, ocupantes: [] };
     const pos = posMuebleDefault(n, activo, tipo);
 
-    if (cmdMgr) {
-      cmdMgr.execute(new AddFurnitureCommand(activo.id, item, pos));
-    } else {
-      setCfg((c) => upSetPor(c, activo.id, (s) => ({
-        ...s,
-        muebles: [...(s.muebles || []), item],
-        setLayout: { ...(s.setLayout || {}), pos: { ...(s.setLayout?.pos || {}), [`mue:${id}`]: pos } },
-      })), { commit: true });
-    }
+    cmdMgr.execute(new AddFurnitureCommand(activo.id, item, pos));
   };
 
   const quitarMueble = (id) => {
@@ -297,16 +291,7 @@ export function VistaSet({ cfg, setCfg }) {
     const curPos = activo.setLayout?.pos?.[`mue:${id}`];
     const curRot = activo.setLayout?.rot?.[`mue:${id}`];
 
-    if (cmdMgr) {
-      cmdMgr.execute(new RemoveFurnitureCommand(activo.id, mueble, curPos, curRot));
-    } else {
-      setCfg((c) => upSetPor(c, activo.id, (s) => {
-        const pos = { ...(s.setLayout?.pos || {}) };
-        const rot = { ...(s.setLayout?.rot || {}) };
-        delete pos[`mue:${id}`]; delete rot[`mue:${id}`];
-        return { ...s, muebles: (s.muebles || []).filter((m) => m.id !== id), setLayout: { ...(s.setLayout || {}), pos, rot } };
-      }), { commit: true });
-    }
+    cmdMgr.execute(new RemoveFurnitureCommand(activo.id, mueble, curPos, curRot));
   };
 
   const toggleAsiento = (muebleId, talId) => {
@@ -317,21 +302,7 @@ export function VistaSet({ cfg, setCfg }) {
     const cap = MUEBLES_CATALOGO[mueble.tipo]?.cap ?? 1;
     if (!dentro && (mueble.ocupantes || []).length >= cap) return;
 
-    if (cmdMgr) {
-      cmdMgr.execute(new ToggleTalentSeatCommand(activo.id, muebleId, talId, dentro));
-    } else {
-      setCfg((c) => upSetPor(c, activo.id, (s) => ({
-        ...s,
-        muebles: (s.muebles || []).map((m) => {
-          if (m.id === muebleId) {
-            return dentro
-              ? { ...m, ocupantes: (m.ocupantes || []).filter((x) => x !== talId) }
-              : { ...m, ocupantes: [...(m.ocupantes || []), talId] };
-          }
-          return dentro ? m : { ...m, ocupantes: (m.ocupantes || []).filter((x) => x !== talId) };
-        }),
-      })), { commit: true });
-    }
+    cmdMgr.execute(new ToggleTalentSeatCommand(activo.id, muebleId, talId, dentro));
   };
 
   // Gestión de sets
@@ -381,50 +352,12 @@ export function VistaSet({ cfg, setCfg }) {
 
   const orientarCamara = (camaraId, orientacion) => {
     if (!editable) return;
-    const key = `cam:${camaraId}`;
-    setCfg((c) => upSetPor(c, activo.id, (s) => {
-      const rot = { ...(s.setLayout?.rot || {}) };
-      const tilt = { ...(s.setLayout?.tilt || {}) };
-      if (typeof orientacion?.rot === "number" && Number.isFinite(orientacion.rot)) {
-        rot[key] = orientacion.rot;
-      } else {
-        delete rot[key];
-      }
-      tilt[key] = Number.isFinite(orientacion?.tilt) ? orientacion.tilt : 0;
-      return { ...s, setLayout: { ...(s.setLayout || {}), rot, tilt } };
-    }), { commit: true });
+    setCfg((c) => upSetPor(c, activo.id, (s) => conOrientacionDeCamara(s, camaraId, orientacion)), { commit: true });
   };
 
-  const guardarCapturaStoryboard = ({ segmentoId, tomaId, imagen, captura3d }) => {
+  const guardarCapturaStoryboard = (destino) => {
     if (!editable) return;
-    setCfg((c) => {
-      const narrativo = esNarrativo(c);
-      return {
-        ...c,
-        escaleta: (c.escaleta || []).map((segmento) => {
-          if (segmento.id !== segmentoId) return segmento;
-          if (!tomaId) {
-            const plano = {
-              ...crearPlanoNuevoPorModo(c, captura3d.camId),
-              imagen,
-              captura3d,
-            };
-            return { ...segmento, tomas: [...(segmento.tomas || []), plano] };
-          }
-          return {
-            ...segmento,
-            tomas: (segmento.tomas || []).map((toma) => {
-              if (toma.id !== tomaId) return toma;
-              const asignada = camaraAsignadaAlPlano(toma, narrativo);
-              const asignarCamara = asignada
-                ? {}
-                : (narrativo ? { camId: captura3d.camId } : { alAire: captura3d.camId });
-              return { ...toma, ...asignarCamara, imagen, captura3d };
-            }),
-          };
-        }),
-      };
-    }, { commit: true });
+    setCfg((c) => conCapturaEnStoryboard(c, destino), { commit: true });
   };
 
   return (

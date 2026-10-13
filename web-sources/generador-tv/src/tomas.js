@@ -47,3 +47,32 @@ export function crearPlanoNuevoPorModo(cfg, camaraId, crearId = uid) {
 export function camaraAsignadaAlPlano(toma, narrativo) {
   return narrativo ? (toma?.camId || "") : (toma?.alAire || "");
 }
+
+/* Guarda una captura de la Vista 3D en el storyboard. Sin tomaId crea un plano
+   nuevo en ese segmento con la cámara de la captura; con tomaId reemplaza la
+   imagen de ese plano y, si no tenía cámara, le pone la de la captura (si ya
+   tenía otra, la respeta). `captura3d` guarda focal, visión, tilt y pan para
+   poder volver a ese encuadre algún día. */
+export function conCapturaEnStoryboard(cfg, { segmentoId, tomaId, imagen, captura3d }, crearId = uid) {
+  const narrativo = esNarrativo(cfg);
+  return {
+    ...cfg,
+    escaleta: (cfg.escaleta || []).map((segmento) => {
+      if (segmento.id !== segmentoId) return segmento;
+      if (!tomaId) {
+        const plano = { ...crearPlanoNuevoPorModo(cfg, captura3d.camId, crearId), imagen, captura3d };
+        return { ...segmento, tomas: [...(segmento.tomas || []), plano] };
+      }
+      return {
+        ...segmento,
+        tomas: (segmento.tomas || []).map((toma) => {
+          if (toma.id !== tomaId) return toma;
+          const asignarCamara = camaraAsignadaAlPlano(toma, narrativo)
+            ? {}
+            : (narrativo ? { camId: captura3d.camId } : { alAire: captura3d.camId });
+          return { ...toma, ...asignarCamara, imagen, captura3d };
+        }),
+      };
+    }),
+  };
+}
