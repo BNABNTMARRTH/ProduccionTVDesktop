@@ -841,5 +841,11 @@
       ${sigs(['Guionista', 'Director(a)'])}`;
   }
 
-  window.PTVSheets = { esc, fmt, trunc, head, foot, sigs, setsDe, perfil, guion, medidasGuion, escaleta, camaras, checklist, plano, planoSvg, iluminacion, llamado, cambios };
+  /* _espejos NO es para las hojas: expone las copias vanilla del catálogo de
+     muebles y de los glifos para que tests/espejos_react_vanilla.test.mjs
+     las compare con sus gemelas de React (catalogos.js, glifos.jsx). Si una
+     cambia y la otra no, esa prueba falla antes de que el plano y la hoja
+     impresa se vean distintos. */
+  const _espejos = { MUEBLES, muebleGlyph, luzGlyph };
+  window.PTVSheets = { esc, fmt, trunc, head, foot, sigs, setsDe, perfil, guion, medidasGuion, escaleta, camaras, checklist, plano, planoSvg, iluminacion, llamado, cambios, _espejos };
 })();

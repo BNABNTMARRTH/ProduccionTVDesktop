@@ -35,3 +35,17 @@ export const reacomodoDe = (s) => {
   (s.muebles || []).forEach((m, i) => { pos[`mue:${m.id}`] = posMuebleDefault(i, s, m.tipo); });
   return { ...s, setLayout: { ...(s.setLayout || {}), pos, rot: {}, tilt: {} } };
 };
+
+/* Dónde apunta una cámara: el pan va en setLayout.rot (el mismo campo que gira
+   la manija del plano 2D) y el tilt en setLayout.tilt (solo lo cambia la Vista
+   3D). Un rot no numérico borra el manual y la cámara vuelve a auto-apuntar;
+   el tilt ausente o inválido queda en 0 (horizonte). */
+export function conOrientacionDeCamara(set, camaraId, orientacion) {
+  const key = `cam:${camaraId}`;
+  const rot = { ...(set.setLayout?.rot || {}) };
+  const tilt = { ...(set.setLayout?.tilt || {}) };
+  if (typeof orientacion?.rot === "number" && Number.isFinite(orientacion.rot)) rot[key] = orientacion.rot;
+  else delete rot[key];
+  tilt[key] = Number.isFinite(orientacion?.tilt) ? orientacion.tilt : 0;
+  return { ...set, setLayout: { ...(set.setLayout || {}), rot, tilt } };
+}
