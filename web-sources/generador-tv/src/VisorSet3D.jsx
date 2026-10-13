@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Camera } from "lucide-react";
+import { Camera, LocateFixed, Rotate3d } from "lucide-react";
 import * as THREE from "three";
 import catalogoCamaras from "virtual:catalogo-camaras";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -978,7 +978,6 @@ function renderizarCapturaDeCamara(motor) {
 export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGuardarCaptura, onOrientarCamara, onClose }) {
   const hostRef = useRef(null);
   const panelRef = useRef(null);
-  const superiorIzquierdaRef = useRef(null);
   const capasRef = useRef(null);
   const camarasRef = useRef(null);
   const lentesRef = useRef(null);
@@ -1373,7 +1372,6 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
       const ancho = Math.max(1, host.clientWidth);
       const alto = Math.max(1, host.clientHeight);
       const rectHost = host.getBoundingClientRect();
-      const rectSuperiorIzquierda = superiorIzquierdaRef.current?.getBoundingClientRect();
       const rectCamaras = camarasRef.current?.getBoundingClientRect();
       const margen = Math.min(ancho, alto) < 500 ? 6 : 12;
       // El encuadre ocupa todo lo que queda arriba de la barra de cámaras;
@@ -1386,17 +1384,10 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
       const altoMarco = anchoMarco * (9 / 16);
       const x = (ancho - anchoMarco) / 2;
       const y = margen + (disponible - altoMarco) / 2;
-      // El letrero de la cámara baja lo justo para no quedar debajo del botón «Vista 3D».
-      const finalBotonCerrar = rectSuperiorIzquierda
-        ? rectSuperiorIzquierda.bottom - rectHost.top
-        : 0;
-      const letreroArriba = Math.max(10, finalBotonCerrar - y + 8);
-
       panelRef.current?.style.setProperty("--marco-x", `${x}px`);
       panelRef.current?.style.setProperty("--marco-y", `${y}px`);
       panelRef.current?.style.setProperty("--marco-ancho", `${anchoMarco}px`);
       panelRef.current?.style.setProperty("--marco-alto", `${altoMarco}px`);
-      panelRef.current?.style.setProperty("--letrero-arriba", `${letreroArriba}px`);
       return { x, y, ancho: anchoMarco, alto: altoMarco, altoTotal: alto };
     };
     const invalidar = () => {
@@ -1704,12 +1695,12 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
   return (
     <section
       ref={panelRef}
-      className={`visor-set-3d${esCompacto ? " visor-set-3d--compacto" : ""}`}
+      className={`visor-set-3d${esCompacto ? " visor-set-3d--compacto" : ""}${camaraActiva ? " visor-set-3d--camara" : ""}`}
       aria-label="Vista 3D del plano del set"
       tabIndex={-1}
     >
       <div ref={hostRef} className="visor-set-3d__lienzo" aria-hidden="true" />
-      <div ref={superiorIzquierdaRef} className="visor-set-3d__superior-izquierda visor-set-3d__vidrio">
+      <div className="visor-set-3d__superior-izquierda visor-set-3d__vidrio">
         <button type="button" className="visor-set-3d__cerrar" onClick={cerrarVisor} aria-label="Cerrar vista 3D">
           <span aria-hidden="true">×</span>
         </button>
@@ -1838,16 +1829,19 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
               )}
               <div ref={lentesRef} className="visor-set-3d__lente-flotante">
                 <div className="visor-set-3d__movimiento-camara visor-set-3d__vidrio" role="toolbar" aria-label="Orientación guardada de la cámara">
-                  <button type="button" onClick={centrarVistaCamara}>Centrar</button>
+                  <button type="button" onClick={centrarVistaCamara} aria-label="Centrar la cámara" title="Centrar">
+                    <LocateFixed size={20} aria-hidden="true" />
+                  </button>
                   {giroscopioDisponible && (
                     <button
                       type="button"
                       className={giroscopioActivo ? "activo" : ""}
                       aria-label={giroscopioActivo ? "Desactivar giroscopio" : "Activar giroscopio"}
                       aria-pressed={giroscopioActivo}
+                      title={giroscopioActivo ? "Desactivar giroscopio" : "Activar giroscopio"}
                       onClick={alternarGiroscopio}
                     >
-                      Giroscopio
+                      <Rotate3d size={20} aria-hidden="true" />
                     </button>
                   )}
                 </div>

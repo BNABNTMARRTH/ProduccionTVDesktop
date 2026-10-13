@@ -260,6 +260,13 @@
   display: contents;
 }
 
+/* Viendo por una cámara: las vistas, las capas y el cierre solo sirven en
+   órbita; se esconden y se sale con «Órbita» en la barra de cámaras. */
+.visor-set-3d--camara .visor-set-3d__superior-izquierda,
+.visor-set-3d--camara .visor-set-3d__superior-derecha {
+  display: none;
+}
+
 .visor-set-3d__lente-flotante {
   position: absolute;
   z-index: 7;
@@ -303,11 +310,13 @@
 }
 
 .visor-set-3d__movimiento-camara button {
-  min-width: 0;
-  min-height: 40px;
-  padding-inline: 10px;
+  display: grid;
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  place-items: center;
   border-radius: 11px;
-  white-space: nowrap;
 }
 
 .visor-set-3d__selector-lente {
@@ -430,7 +439,7 @@
 
 .visor-set-3d__datos-camara {
   position: absolute;
-  top: var(--letrero-arriba, 10px);
+  top: 10px;
   left: 10px;
   display: flex;
   max-width: calc(100% - 20px);
