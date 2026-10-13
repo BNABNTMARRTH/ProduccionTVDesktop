@@ -19,6 +19,7 @@ import { revisar, publicoDe, escalaDePlano, NIVELES } from '../web-sources/gener
 import { FICHAS, fichasDe } from '../web-sources/generador-tv/src/fichas.js';
 import { objetivoDe, objetivoSegDe, normalizeCfg, normPerfil, formatoSugerido, porSegundo,
          repartoCalculado, repartoVacio, BLOQUES, FORMATOS } from '../web-sources/generador-tv/src/proyecto.js';
+import { reacomodoDe } from '../web-sources/generador-tv/src/sets.js';
 import { escaletaEnVivoDe, TIPOS_PROGRAMA, construirEscaletaEnVivo } from '../web-sources/generador-tv/src/envivo.js';
 import { guionDe,
   TIPOS, TIPO_SIGUIENTE, siguienteEnRotacion, bloqueNuevo, renglonesDe, medidasDe,
@@ -108,7 +109,24 @@ test('un proyecto viejo NO pierde la mesa que ya tenía', () => {
   const viejo = normalizeCfg({ camaras: [], microfonos: [], escaleta: [],
     sets: [{ id: 's1', nombre: 'Set', locacion: 'int', setLayout: { pos: {}, rot: {} }, muebles: [] }], setActivo: 's1' });
   assert.equal(viejo.sets[0].mesaVisible, true, 'a un proyecto viejo no se le quita la mesa');
+  assert.deepEqual(viejo.sets[0].setLayout.tilt, {}, 'el tilt opcional se normaliza sin romper el proyecto viejo');
   assert.equal(viejo.impresion.mostrarTiposGuion, true, 'los tipos impresos nacen encendidos en proyectos anteriores');
+});
+
+test('reacomodar el set también retira el tilt manual de las cámaras', () => {
+  const set = {
+    id: 's1',
+    muebles: [],
+    iluminacion: null,
+    setLayout: {
+      pos: { mesa: { x: 490, y: 240 } },
+      rot: { 'cam:c1': 12 },
+      tilt: { 'cam:c1': -7 },
+    },
+  };
+  const reacomodado = reacomodoDe(set);
+  assert.deepEqual(reacomodado.setLayout.rot, {});
+  assert.deepEqual(reacomodado.setLayout.tilt, {});
 });
 
 test('la mesa redonda del panel sienta a los cuatro en corro', () => {

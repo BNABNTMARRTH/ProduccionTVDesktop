@@ -14,7 +14,7 @@ import { FORO_COMO_ESTABA, posicionMuebleDefault, posicionesDefaultDelSet } from
 export const setNuevo = (n = 1) => ({
   id: `set-${uid()}`, nombre: n === 1 ? "Set principal" : `Set ${n}`,
   locacion: "int", mesaVisible: false,
-  setLayout: { pos: {}, rot: {}, foro: { ...FORO_COMO_ESTABA } }, iluminacion: null, muebles: [],
+  setLayout: { pos: {}, rot: {}, tilt: {}, foro: { ...FORO_COMO_ESTABA } }, iluminacion: null, muebles: [],
 });
 
 // Set actualmente seleccionado (siempre existe tras normalizeCfg).
@@ -33,5 +33,5 @@ export const reacomodoDe = (s) => {
   const mesa = posicionesDefaultDelSet({ talentos: [], microfonos: [] }, s).mesa;
   const pos = posicionesParaLuces(s.iluminacion?.luces, mesa, s);
   (s.muebles || []).forEach((m, i) => { pos[`mue:${m.id}`] = posMuebleDefault(i, s); });
-  return { ...s, setLayout: { ...(s.setLayout || {}), pos, rot: {} } };
+  return { ...s, setLayout: { ...(s.setLayout || {}), pos, rot: {}, tilt: {} } };
 };

@@ -9,6 +9,7 @@ import {
   distanciaFocalDeCamara,
   escalaAnotacionesPlano,
   FORO_COMO_ESTABA,
+  fovHorizontalDesdeFocal,
   fovVerticalDesdeFocal,
   geometriaPlano,
   medidasPantallaDelForo,
@@ -328,6 +329,10 @@ test("posición viva, posición guardada y rotación manual mantienen su precede
   assert.deepEqual(geometria.posDe("cam:c1"), { x: 135, y: 225 });
   assert.deepEqual(geometria.posDe("mesa"), { x: 500, y: 245 });
   assert.equal(geometria.rotacionDe("cam:c1", "camara"), 23);
+  casiIgual(
+    geometria.rotacionAutomaticaDe("cam:c1", "camara"),
+    (Math.atan2(245 - 225, 500 - 135) * 180) / Math.PI
+  );
   assert.equal(geometria.rotacionDe("luz:fondo", "luz", "muro"), -90);
   assert.equal(geometria.rotacionDe("luz:ambiente", "luz", null), null);
 });
@@ -351,4 +356,9 @@ test("el FOV vertical usa un sensor full-frame de 24 mm de alto", () => {
   const esperado = (2 * Math.atan(24 / (2 * 50)) * 180) / Math.PI;
   casiIgual(fovVerticalDesdeFocal(50), esperado);
   casiIgual(fovVerticalDesdeFocal(24), 53.13010235415598);
+});
+
+test("el FOV horizontal usa el ancho del mismo sensor", () => {
+  casiIgual(fovHorizontalDesdeFocal(50), (2 * Math.atan(36 / 100) * 180) / Math.PI);
+  casiIgual(fovHorizontalDesdeFocal(35, [24, 13.5]), (2 * Math.atan(24 / 70) * 180) / Math.PI);
 });

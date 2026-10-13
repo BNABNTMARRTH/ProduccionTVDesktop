@@ -377,6 +377,22 @@ export function VistaSet({ cfg, setCfg }) {
     (s) => traerElementosAdentro(s, clavesActivasDelSet(c, s, cams))
   ), { commit: true });
 
+  const orientarCamara = (camaraId, orientacion) => {
+    if (!editable) return;
+    const key = `cam:${camaraId}`;
+    setCfg((c) => upSetPor(c, activo.id, (s) => {
+      const rot = { ...(s.setLayout?.rot || {}) };
+      const tilt = { ...(s.setLayout?.tilt || {}) };
+      if (typeof orientacion?.rot === "number" && Number.isFinite(orientacion.rot)) {
+        rot[key] = orientacion.rot;
+      } else {
+        delete rot[key];
+      }
+      tilt[key] = Number.isFinite(orientacion?.tilt) ? orientacion.tilt : 0;
+      return { ...s, setLayout: { ...(s.setLayout || {}), rot, tilt } };
+    }), { commit: true });
+  };
+
   return (
     <div className="vista-set relative flex h-[calc(100vh-50px)] w-full flex-col overflow-hidden bg-[#0a0f18] text-white select-none">
       {/* 1. BARRA SUPERIOR UNIFICADA DE ESTUDIO (macOS Studio Toolbar) */}
@@ -510,7 +526,7 @@ export function VistaSet({ cfg, setCfg }) {
             pasos={[
               "<b>Elige o crea un set</b> desde la barra superior; cada set guarda su propia planta física.",
               "<b>Agrega mobiliario</b> desde el Inspector lateral y arrástralo en el plano para ubicarlo.",
-              "Lo direccional (cámaras, luces, boom) <b>gira con su manija</b>; doble clic vuelve al blanco automático.",
+              "Las cámaras <b>solo se mueven aquí</b>: ábrelas en <b>Vista 3D</b> para apuntarlas. Luces, boom y muebles conservan su manija de giro.",
               "<b>Doble clic en una etiqueta</b> la oculta individualmente; el toggle superior las controla todas.",
               "Usa <b>Reacomodar set</b> para aplicar fórmulas probadas de la industria (Noticiero, Talk Show, Debate).",
             ]}
@@ -790,7 +806,13 @@ export function VistaSet({ cfg, setCfg }) {
             </div>
           )}
         >
-          <VisorSet3D cfg={cfg} set={activo} cams={cams} onClose={() => setVisor3DOpen(false)} />
+          <VisorSet3D
+            cfg={cfg}
+            set={activo}
+            cams={cams}
+            onOrientarCamara={orientarCamara}
+            onClose={() => setVisor3DOpen(false)}
+          />
         </React.Suspense>
       )}
     </div>

@@ -258,7 +258,12 @@ export function cfgDePlantilla(plantilla, nombre = '') {
         if (sinDuenno[i]) pos[`mic:${sinDuenno[i].id}`] = p;
     });
 
-    set.setLayout = { ...(set.setLayout || {}), pos, rot: set.setLayout?.rot || {} };
+    set.setLayout = {
+        ...(set.setLayout || {}),
+        pos,
+        rot: set.setLayout?.rot || {},
+        tilt: set.setLayout?.tilt || {},
+    };
     cfg.plantillaSet = plantilla.id;
     delete cfg.iluminacionSugerida;
     delete cfg.mueblesSugeridos;

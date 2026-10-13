@@ -386,9 +386,7 @@ export function crearGeometriaSet({ cfg, set, cams = [], live = null, liveRot = 
   const posDe = (key) => live?.[key] || guardadas[key] || defaults[key] || { x: plano.ancho / 2, y: plano.alto / 2 + 20 };
   const giroManualDe = (key) => liveRot?.[key] ?? girosGuardados[key];
 
-  const rotacionDe = (key, tipo, dir = null) => {
-    const manual = giroManualDe(key);
-    if (typeof manual === "number") return manual;
+  const rotacionAutomaticaDe = (key, tipo, dir = null) => {
     if (tipo === "camara" || tipo === "boom" || dir === "mesa") {
       const punto = posDe(key);
       const mesa = posDe("mesa");
@@ -398,7 +396,12 @@ export function crearGeometriaSet({ cfg, set, cams = [], live = null, liveRot = 
     return tipo === "luz" ? null : 0;
   };
 
-  return { defaults, plano, posDe, giroManualDe, rotacionDe };
+  const rotacionDe = (key, tipo, dir = null) => {
+    const manual = giroManualDe(key);
+    return typeof manual === "number" ? manual : rotacionAutomaticaDe(key, tipo, dir);
+  };
+
+  return { defaults, plano, posDe, giroManualDe, rotacionAutomaticaDe, rotacionDe };
 }
 
 export function posicionMuebleDefault(indice, set) {
@@ -453,4 +456,17 @@ export function fovVerticalDesdeFocal(distanciaFocal, sensorMm = null) {
   }
   // Compatibilidad exacta: los proyectos sin ficha conservan el cálculo viejo.
   return (2 * Math.atan(SENSOR_FULL_FRAME.alto / (2 * focal)) * 180) / Math.PI;
+}
+
+export function fovHorizontalDesdeFocal(distanciaFocal, sensorMm = null) {
+  const focal = Math.max(1, Number(distanciaFocal) || 35);
+  const anchoSensor = Number(
+    Array.isArray(sensorMm)
+      ? sensorMm[0]
+      : (sensorMm?.sensor_mm?.[0] ?? sensorMm?.ancho ?? sensorMm)
+  );
+  const ancho = Number.isFinite(anchoSensor) && anchoSensor > 0
+    ? anchoSensor
+    : SENSOR_FULL_FRAME.ancho;
+  return (2 * Math.atan(ancho / (2 * focal)) * 180) / Math.PI;
 }

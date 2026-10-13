@@ -407,7 +407,7 @@
   left: 10px;
   display: flex;
   max-width: calc(100% - 20px);
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
   padding: 6px 9px;
   overflow: hidden;
@@ -421,6 +421,19 @@
 .visor-set-3d__datos-camara span {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.visor-set-3d__datos-camara div {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.visor-set-3d__datos-camara em {
+  color: rgba(255, 255, 255, .78);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
 }
 
 .visor-set-3d__error {

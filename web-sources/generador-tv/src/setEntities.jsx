@@ -35,7 +35,7 @@ export class CameraEntity extends SetEntity {
     this.shotgunMics = shotgunMics;
   }
 
-  renderSVG({ isSelected, showGuides, showLabels, isManualRot, onSelect, startDrag, startRotate, resetRotate, grab, editable, labProps, escalaAnotaciones = 1 }) {
+  renderSVG({ isSelected, showGuides, showLabels, onSelect, startDrag, grab, labProps, escalaAnotaciones = 1 }) {
     const { camera, pos, rot, key, shotgunMics } = this;
     const color = camera.color || "#0A84FF";
 
@@ -78,39 +78,6 @@ export class CameraEntity extends SetEntity {
             </g>
           )}
 
-          {/* Manija de rotación Apple Studio */}
-          {editable && (
-            <g
-              className="no-print set-rotate-handle"
-              onPointerDown={startRotate(key)}
-              onDoubleClick={resetRotate(key)}
-              transform={`translate(20 0) scale(${escalaAnotaciones})`}
-              style={{ cursor: "crosshair" }}
-            >
-              <title>Arrastra para girar · doble clic: apuntar al foco</title>
-              <line x1="0" y1="0" x2="68" y2="0" stroke={color} strokeWidth="1.5" strokeDasharray="3 3" opacity="0.65" />
-              <circle
-                cx="78"
-                cy="0"
-                r="9.5"
-                fill={isManualRot ? color : "var(--plano-objeto, #161f2d)"}
-                stroke={color}
-                strokeWidth="2.5"
-                filter="drop-shadow(0 2px 4px rgba(0,0,0,0.35))"
-              />
-              <text
-                x="78"
-                y="3.5"
-                textAnchor="middle"
-                fontSize="10"
-                fontWeight="800"
-                fill={isManualRot ? textOn(color) : color}
-                style={{ pointerEvents: "none", userSelect: "none" }}
-              >
-                ⟳
-              </text>
-            </g>
-          )}
         </g>
 
         {/* Tally badge numérico con contraste exacto */}

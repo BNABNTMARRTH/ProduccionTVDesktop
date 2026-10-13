@@ -80,6 +80,7 @@ function demoCfg() {
                     'luz:demo-luz-back': { x: 585, y: 110 },
                 },
                 rot: {},
+                tilt: {},
             },
         }],
         setActivo: 'demo-set-1',

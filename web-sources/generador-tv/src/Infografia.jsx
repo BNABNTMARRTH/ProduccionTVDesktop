@@ -23,7 +23,9 @@ function Estudio({ cfg, fuentes, setCfg }) {
   return (
     <div className="flex flex-col gap-3">
       {sets.map((s) => {
-        const tieneCustom = Object.keys(s.setLayout?.pos || {}).length > 0 || Object.keys(s.setLayout?.rot || {}).length > 0;
+        const tieneCustom = Object.keys(s.setLayout?.pos || {}).length > 0
+          || Object.keys(s.setLayout?.rot || {}).length > 0
+          || Object.keys(s.setLayout?.tilt || {}).length > 0;
         return (
           <div key={s.id} className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center justify-between gap-2 px-1">

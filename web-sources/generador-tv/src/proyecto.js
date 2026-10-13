@@ -74,7 +74,7 @@ export const DEMO = () => ({
     { id: "m1", nombre: "Mic conductor", conexion: "XLR", micTipo: "solapa", asignadoA: "tal:t1" },
     { id: "m2", nombre: "Mic invitado", conexion: "Inalámbrico", micTipo: "solapa", asignadoA: "tal:t2" },
   ],
-  sets: [{ id: "set-demo", nombre: "Set principal", locacion: "int", mesaVisible: true, setLayout: { pos: {}, rot: {} }, iluminacion: null }],
+  sets: [{ id: "set-demo", nombre: "Set principal", locacion: "int", mesaVisible: true, setLayout: { pos: {}, rot: {}, tilt: {} }, iluminacion: null }],
   setActivo: "set-demo",
   branding: { primaryColor: NAVY, logoDataUrl: "" },
   extras: [{ id: "xcom", nombre: "COMERCIALES", color: "#F3C513", esCorte: true }],
@@ -313,13 +313,13 @@ export const normalizeCfg = (cfg, catalogoCamaras = null) => {
     c.sets = [{
       ...setNuevo(1),
       locacion: c.locacion === "ext" ? "ext" : "int",
-      setLayout: c.setLayout || { pos: {}, rot: {} },
+      setLayout: c.setLayout || { pos: {}, rot: {}, tilt: {} },
       iluminacion: c.iluminacion || null,
     }];
   }
   const talIds = new Set(c.talentos.map((t) => t.id));
   c.sets = c.sets.map((s) => {
-    const layout = s.setLayout || { pos: {}, rot: {} };
+    const layout = s.setLayout || { pos: {}, rot: {}, tilt: {} };
     let pos = layout.pos || {};
     // Posiciones legadas de micrófonos (mic:<id>) pasan al talento derivado.
     if (migroTalentos && Object.keys(pos).some((k) => k.startsWith("mic:"))) {
@@ -328,7 +328,14 @@ export const normalizeCfg = (cfg, catalogoCamaras = null) => {
     // Mobiliario: solo ocupantes que sigan existiendo como talentos.
     const muebles = (Array.isArray(s.muebles) ? s.muebles : [])
       .map((m) => ({ ...m, ocupantes: (m.ocupantes || []).filter((id) => talIds.has(id)) }));
-    return { mesaVisible: true, locacion: "int", nombre: "Set", ...s, muebles, setLayout: { ...layout, pos, rot: layout.rot || {} } };
+    return {
+      mesaVisible: true,
+      locacion: "int",
+      nombre: "Set",
+      ...s,
+      muebles,
+      setLayout: { ...layout, pos, rot: layout.rot || {}, tilt: layout.tilt || {} },
+    };
   });
   if (!c.sets.some((s) => s.id === c.setActivo)) c.setActivo = c.sets[0].id;
   // Sugerencias del asistente (iluminación/mobiliario por plantilla): se

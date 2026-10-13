@@ -80,7 +80,7 @@ export class ProjectBuilder {
             nombre,
             locacion,
             mesaVisible: false,
-            setLayout: { pos: {}, rot: {} },
+            setLayout: { pos: {}, rot: {}, tilt: {} },
             iluminacion: null,
             muebles: [],
         }));

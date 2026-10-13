@@ -34,6 +34,7 @@ import {
   clasificarMicrofonos,
   crearGeometriaSet,
   distanciaFocalDeCamara,
+  fovHorizontalDesdeFocal,
   fovVerticalDesdeFocal,
   geometriaPlano,
   medidasForo,
@@ -58,6 +59,36 @@ function envolverAngulo(angulo) {
   return Math.atan2(Math.sin(angulo), Math.cos(angulo));
 }
 
+function normalizarGrados(grados) {
+  const normalizados = THREE.MathUtils.radToDeg(envolverAngulo(THREE.MathUtils.degToRad(grados)));
+  return Object.is(normalizados, -0) ? 0 : normalizados;
+}
+
+function valorTiltGuardado(set, key) {
+  const valor = Number(set?.setLayout?.tilt?.[key]);
+  return Number.isFinite(valor) ? THREE.MathUtils.clamp(valor, -85, 85) : 0;
+}
+
+function sinOrientacionDeCamaras(set) {
+  if (!set) return set;
+  const layout = set.setLayout || {};
+  const rot = Object.fromEntries(
+    Object.entries(layout.rot || {}).filter(([key]) => !key.startsWith("cam:"))
+  );
+  return { ...set, setLayout: { ...layout, rot, tilt: {} } };
+}
+
+// Guardar pan/tilt no debe reconstruir WebGL: el modelo y el campo de cámara
+// se actualizan en la escena viva. Cualquier otro cambio del proyecto sí crea
+// de nuevo la escena para mantener sincronizados mobiliario, foro y equipo.
+function firmaEscenaDe(cfg, set, cams) {
+  return JSON.stringify({
+    cfg: { ...cfg, sets: (cfg.sets || []).map(sinOrientacionDeCamaras) },
+    set: sinOrientacionDeCamaras(set),
+    cams,
+  });
+}
+
 function aplicarOrientacionDeCamara(motor) {
   if (!motor?.modoCamara || !motor.vistaCamara) return;
   const vista = motor.vistaCamara;
@@ -71,6 +102,7 @@ function aplicarOrientacionDeCamara(motor) {
   ).multiplyScalar(10).add(motor.camara.position);
   motor.camara.up.set(0, 1, 0);
   motor.camara.lookAt(objetivo);
+  motor.alCambiarOrientacion?.(vista);
   motor.invalidar();
 }
 
@@ -139,6 +171,11 @@ function fovDeCamara(camara, focal) {
   return fovVerticalDesdeFocal(focal, sensor);
 }
 
+function fovHorizontalDeCamara(camara, focal) {
+  const sensor = camara?.equipo ? sensorMmDeEquipo(catalogoCamaras, camara.equipo) : null;
+  return fovHorizontalDesdeFocal(focal, sensor);
+}
+
 function esPantallaCompacta() {
   if (typeof window === "undefined") return false;
   return Math.min(window.innerWidth, window.innerHeight) < 500;
@@ -147,6 +184,12 @@ function esPantallaCompacta() {
 function recortar(texto, maximo = 25) {
   const valor = String(texto || "");
   return valor.length <= maximo ? valor : `${valor.slice(0, Math.max(1, maximo - 1))}…`;
+}
+
+function gradosConSigno(valor) {
+  const entero = Object.is(valor, -0) ? 0 : Math.round(valor || 0);
+  if (entero === 0) return "0°";
+  return `${entero > 0 ? "+" : "−"}${Math.abs(entero)}°`;
 }
 
 function dibujarRectanguloRedondeado(ctx, x, y, ancho, alto, radio) {
@@ -381,6 +424,41 @@ function orientarHaciaAngulo(objeto, rotacion) {
   objeto.rotation.y = Math.PI / 2 - THREE.MathUtils.degToRad(rotacion || 0);
 }
 
+function inclinarCabezalCamara(modelo, tilt, altoLente = ALTURAS_3D.lenteCamara) {
+  if (!modelo) return;
+  let pivote = modelo.userData.pivoteTiltCamara;
+  if (!pivote) {
+    modelo.updateWorldMatrix(true, true);
+    const caja = new THREE.Box3();
+    const centro = new THREE.Vector3();
+    const piezas = [];
+    modelo.traverse((objeto) => {
+      if (!objeto.isMesh) return;
+      caja.setFromObject(objeto).getCenter(centro);
+      modelo.worldToLocal(centro);
+      if (centro.y >= altoLente - 0.3) piezas.push(objeto);
+    });
+    const piezasRaiz = piezas.filter((pieza) => {
+      let padre = pieza.parent;
+      while (padre && padre !== modelo) {
+        if (piezas.includes(padre)) return false;
+        padre = padre.parent;
+      }
+      return true;
+    });
+    pivote = new THREE.Group();
+    pivote.position.y = altoLente;
+    modelo.add(pivote);
+    modelo.updateWorldMatrix(true, true);
+    piezasRaiz.forEach((pieza) => pivote.attach(pieza));
+    modelo.userData.pivoteTiltCamara = pivote;
+  }
+  // El modelo mira hacia +Z: para que un tilt positivo levante el lente,
+  // su cabezal gira en X con signo contrario.
+  pivote.rotation.x = -THREE.MathUtils.degToRad(tilt || 0);
+  pivote.updateMatrixWorld(true);
+}
+
 function ubicarModelo(objeto, posicion, rotacion, orientaHacia = false, set = null) {
   const p = puntoPlanoAMetros(posicion, set);
   objeto.position.set(p.x, 0, p.z);
@@ -389,20 +467,29 @@ function ubicarModelo(objeto, posicion, rotacion, orientaHacia = false, set = nu
   return objeto;
 }
 
-function crearCampoCamara(posicion, rotacion, color, set) {
+function crearCampoCamara(posicion, rotacion, tilt, color, altoLente, set) {
   const p = puntoPlanoAMetros(posicion, set);
+  const largo = 4.3;
+  const mitadAncho = 1.7;
+  const mitadAlto = 0.96;
   const geometria = new THREE.BufferGeometry();
   geometria.setAttribute("position", new THREE.Float32BufferAttribute([
-    0, 0.03, 0, 4.3, 0.03, -1.7,
-    0, 0.03, 0, 4.3, 0.03, 1.7,
-    4.3, 0.03, -1.7, 4.3, 0.03, 1.7,
+    0, 0, 0, -mitadAncho, -mitadAlto, largo,
+    0, 0, 0, mitadAncho, -mitadAlto, largo,
+    0, 0, 0, -mitadAncho, mitadAlto, largo,
+    0, 0, 0, mitadAncho, mitadAlto, largo,
+    -mitadAncho, -mitadAlto, largo, mitadAncho, -mitadAlto, largo,
+    mitadAncho, -mitadAlto, largo, mitadAncho, mitadAlto, largo,
+    mitadAncho, mitadAlto, largo, -mitadAncho, mitadAlto, largo,
+    -mitadAncho, mitadAlto, largo, -mitadAncho, -mitadAlto, largo,
   ], 3));
   const lineas = new THREE.LineSegments(
     geometria,
     new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.28, depthWrite: false })
   );
-  lineas.position.set(p.x, 0, p.z);
+  lineas.position.set(p.x, altoLente, p.z);
   orientarHaciaAngulo(lineas, rotacion);
+  lineas.rotation.x = -THREE.MathUtils.degToRad(tilt || 0);
   return lineas;
 }
 
@@ -609,6 +696,7 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
   const campos = new THREE.Group();
   const etiquetas = new THREE.Group();
   const objetosCamara = new Map();
+  const camposCamara = new Map();
   const objetosEncuadre = [];
   const reemplazos = [];
   escena.add(conos, campos, etiquetas);
@@ -661,6 +749,11 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     const key = `cam:${camara.id}`;
     const posicion = geometria.posDe(key);
     const rotacion = geometria.rotacionDe(key, "camara");
+    const tilt = valorTiltGuardado(set, key);
+    const ajusteCamara = ajusteDeCamara(camara);
+    const altoLente = Number(ajusteCamara?.alto_lente) > 0
+      ? Number(ajusteCamara.alto_lente)
+      : ALTURAS_3D.lenteCamara;
     const modelo = ubicarModelo(
       crearModeloCamara({ color: camara.color, tieneShotgun: shotgunDe(camara.id).length > 0 }),
       posicion,
@@ -668,7 +761,10 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
       true,
       set
     );
-    const ajusteCamara = ajusteDeCamara(camara);
+    modelo.userData.altoLenteOrientacion = altoLente;
+    modelo.userData.rotacionCamara = rotacion;
+    modelo.userData.tiltCamara = tilt;
+    inclinarCabezalCamara(modelo, tilt, altoLente);
     if (ajusteCamara?.alto) modelo.userData.alturaRotulo = ajusteCamara.alto + 0.3;
     objetosCamara.set(camara.id, modelo);
     escena.add(modelo);
@@ -679,9 +775,32 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
       clase: "camara",
       color: camara.color,
       tieneShotgun: shotgunDe(camara.id).length > 0,
-      alReemplazar: (descargado) => objetosCamara.set(camara.id, descargado),
+      alReemplazar: (descargado) => {
+        const orientacionActual = objetosCamara.get(camara.id)?.userData || {};
+        const rotacionActual = Number.isFinite(orientacionActual.rotacionCamara)
+          ? orientacionActual.rotacionCamara
+          : rotacion;
+        const tiltActual = Number.isFinite(orientacionActual.tiltCamara)
+          ? orientacionActual.tiltCamara
+          : tilt;
+        descargado.userData.altoLenteOrientacion = altoLente;
+        descargado.userData.rotacionCamara = rotacionActual;
+        descargado.userData.tiltCamara = tiltActual;
+        orientarHaciaAngulo(descargado, rotacionActual);
+        inclinarCabezalCamara(descargado, tiltActual, altoLente);
+        objetosCamara.set(camara.id, descargado);
+      },
     });
-    campos.add(crearCampoCamara(posicion, rotacion, camara.color || "#0A84FF", set));
+    const campo = crearCampoCamara(
+      posicion,
+      rotacion,
+      tilt,
+      camara.color || "#0A84FF",
+      altoLente,
+      set
+    );
+    campos.add(campo);
+    camposCamara.set(camara.id, campo);
     agregarEtiqueta(etiquetas, camara.nombre, camara.color || "#0A84FF", posicion, modelo.userData.alturaRotulo || 2.1, 0, set);
   });
   booms.forEach((mic) => {
@@ -748,9 +867,29 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     ciclorama: superficie.ciclorama,
     etiquetas,
     objetosCamara,
+    camposCamara,
     objetosEncuadre,
     reemplazos,
   };
+}
+
+function actualizarOrientacionCamaraEnEscena(motor, camaraId, rotacion, tilt) {
+  const modelo = motor?.objetosCamara?.get(camaraId);
+  if (modelo) {
+    modelo.userData.rotacionCamara = rotacion;
+    modelo.userData.tiltCamara = tilt;
+    orientarHaciaAngulo(modelo, rotacion);
+    inclinarCabezalCamara(modelo, tilt, modelo.userData.altoLenteOrientacion);
+  }
+  const campo = motor?.camposCamara?.get(camaraId);
+  if (campo) {
+    orientarHaciaAngulo(campo, rotacion);
+    campo.rotation.x = -THREE.MathUtils.degToRad(tilt || 0);
+  }
+  if (modelo || campo) {
+    motor.renderer.shadowMap.needsUpdate = true;
+    motor.invalidar();
+  }
 }
 
 function liberarEscena(escena) {
@@ -899,13 +1038,16 @@ function distribuirEtiquetas(etiquetas, camara, ancho, alto, mostrar) {
   });
 }
 
-export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
+export default function VisorSet3D({ cfg, set, cams = [], onOrientarCamara, onClose }) {
   const hostRef = useRef(null);
   const panelRef = useRef(null);
   const capasRef = useRef(null);
   const camarasRef = useRef(null);
   const lentesRef = useRef(null);
   const motorRef = useRef(null);
+  const vistaCamaraPendienteRef = useRef(null);
+  const onOrientarCamaraRef = useRef(onOrientarCamara);
+  onOrientarCamaraRef.current = onOrientarCamara;
   const giroscopioRef = useRef(null);
   if (!giroscopioRef.current) giroscopioRef.current = crearEstadoGiroscopio();
   const [error, setError] = useState("");
@@ -921,6 +1063,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   const [focal, setFocal] = useState(35);
   const [giroscopioDisponible, setGiroscopioDisponible] = useState(false);
   const [giroscopioActivo, setGiroscopioActivo] = useState(false);
+  const [tiltEnVivo, setTiltEnVivo] = useState(0);
   const [colorCiclorama, setColorCiclorama] = useState(
     () => normalizarColorCiclorama(colorCicloramaPorSet.get(set.id))
   );
@@ -933,6 +1076,68 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     [camaraActiva]
   );
   const focalesDisponibles = rangoFocalActivo?.pasos || LENTES;
+  const firmaEscena = useMemo(() => firmaEscenaDe(cfg, set, cams), [cfg, set, cams]);
+
+  const publicarOrientacion = (vista) => {
+    const tilt = Math.round(THREE.MathUtils.radToDeg(vista?.tilt || 0));
+    setTiltEnVivo((actual) => (actual === tilt ? actual : tilt));
+  };
+
+  const guardarOrientacionMotor = (motor = motorRef.current, { centrar = false } = {}) => {
+    const vista = motor?.vistaCamara;
+    if (!motor?.modoCamara || !vista?.camaraId) return false;
+    const yaw = envolverAngulo(vista.yawBase + vista.pan);
+    const tiltRad = limitarTilt(vista.tilt);
+    const cambio = Math.abs(envolverAngulo(yaw - vista.yawGuardado)) > 0.00001
+      || Math.abs(tiltRad - vista.tiltGuardado) > 0.00001;
+    if (!centrar && !cambio) {
+      vista.sucia = false;
+      return false;
+    }
+    const rot = centrar ? null : normalizarGrados(THREE.MathUtils.radToDeg(yaw));
+    const tilt = centrar ? 0 : THREE.MathUtils.radToDeg(tiltRad);
+    const rotacionEscena = rot ?? normalizarGrados(THREE.MathUtils.radToDeg(vista.yawBase));
+    actualizarOrientacionCamaraEnEscena(motor, vista.camaraId, rotacionEscena, tilt);
+    onOrientarCamaraRef.current?.(vista.camaraId, { rot, tilt });
+    vista.yawGuardado = centrar ? vista.yawBase : yaw;
+    vista.tiltGuardado = centrar ? 0 : tiltRad;
+    vista.sucia = false;
+    return true;
+  };
+
+  const activarVistaCamaraEnMotor = (motor, camaraSeleccionada) => {
+    const key = `cam:${camaraSeleccionada.id}`;
+    const punto = puntoPlanoAMetros(motor.geometria.posDe(key), set);
+    const rotacionAutomatica = motor.geometria.rotacionAutomaticaDe(key, "camara");
+    const rotacionManual = set.setLayout?.rot?.[key];
+    const rotacion = Number.isFinite(rotacionManual) ? rotacionManual : rotacionAutomatica;
+    const yawBase = THREE.MathUtils.degToRad(rotacionAutomatica || 0);
+    const yawGuardado = THREE.MathUtils.degToRad(rotacion || 0);
+    const tiltGuardado = THREE.MathUtils.degToRad(valorTiltGuardado(set, key));
+    const ajusteCamara = ajusteDeCamara(camaraSeleccionada);
+    const altoLente = Number(ajusteCamara?.alto_lente) > 0
+      ? Number(ajusteCamara.alto_lente)
+      : ALTURAS_3D.lenteCamara;
+    motor.modoCamara = true;
+    motor.controles.enabled = false;
+    motor.etiquetas.visible = false;
+    motor.conos.visible = false;
+    motor.campos.visible = false;
+    motor.reticula.visible = false;
+    motor.objetosCamara.forEach((objeto, id) => { objeto.visible = id !== camaraSeleccionada.id; });
+    motor.camara.up.set(0, 1, 0);
+    motor.camara.position.set(punto.x, altoLente, punto.z);
+    motor.vistaCamara = {
+      camaraId: camaraSeleccionada.id,
+      yawBase,
+      pan: envolverAngulo(yawGuardado - yawBase),
+      tilt: limitarTilt(tiltGuardado),
+      yawGuardado: envolverAngulo(yawGuardado),
+      tiltGuardado: limitarTilt(tiltGuardado),
+      sucia: false,
+    };
+    aplicarOrientacionDeCamara(motor);
+  };
 
   const apagarGiroscopio = (actualizarInterfaz = true) => {
     const estado = giroscopioRef.current;
@@ -984,6 +1189,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
       const tiltObjetivo = limitarTilt(estado.tiltBase + angulos.pitch - estado.pitchBase);
       motor.vistaCamara.pan += (panObjetivo - motor.vistaCamara.pan) * mezcla;
       motor.vistaCamara.tilt += (tiltObjetivo - motor.vistaCamara.tilt) * mezcla;
+      motor.vistaCamara.sucia = true;
       aplicarOrientacionDeCamara(motor);
     };
     const alCambiarOrientacion = () => recalibrarGiroscopio();
@@ -1000,6 +1206,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
 
   const alternarGiroscopio = async () => {
     if (giroscopioRef.current.activo) {
+      guardarOrientacionMotor();
       apagarGiroscopio();
       return;
     }
@@ -1022,11 +1229,14 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     if (!motor?.modoCamara || !motor.vistaCamara) return;
     motor.vistaCamara.pan = 0;
     motor.vistaCamara.tilt = 0;
+    motor.vistaCamara.sucia = true;
     aplicarOrientacionDeCamara(motor);
+    guardarOrientacionMotor(motor, { centrar: true });
     recalibrarGiroscopio();
   };
 
   const cerrarVisor = () => {
+    guardarOrientacionMotor();
     apagarGiroscopio();
     onClose();
   };
@@ -1045,7 +1255,10 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
 
   useEffect(() => {
     setGiroscopioDisponible(esDispositivoIOSConGiroscopio());
-    return () => apagarGiroscopio(false);
+    return () => {
+      guardarOrientacionMotor();
+      apagarGiroscopio(false);
+    };
   }, []);
 
   useEffect(() => {
@@ -1242,12 +1455,14 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
       ciclorama: contenido.ciclorama,
       etiquetas: contenido.etiquetas,
       objetosCamara: contenido.objetosCamara,
+      camposCamara: contenido.camposCamara,
       cajaEncuadre: cajaDeEncuadreDelSet(contenido.objetosEncuadre, set),
       estadoOrbita: null,
       modoCamara: false,
       vistaCamara: null,
       mostrarNombres,
       vistaOrbita: "perspectiva",
+      alCambiarOrientacion: publicarOrientacion,
     };
     motorRef.current = motor;
 
@@ -1271,6 +1486,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
       motor.vistaCamara.tilt = limitarTilt(
         arrastreCamara.tilt - (evento.clientY - arrastreCamara.y) * SENSIBILIDAD_ARRASTRE_CAMARA
       );
+      motor.vistaCamara.sucia = true;
       aplicarOrientacionDeCamara(motor);
     };
     const alTerminarArrastreCamara = (evento) => {
@@ -1282,6 +1498,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
       // El arrastre suma un desfase manual. Al soltar se recalibra el sensor
       // sobre ese nuevo encuadre para que el giroscopio continúe sin un salto.
       giroscopioRef.current.pausadoPorArrastre = false;
+      guardarOrientacionMotor(motor);
       recalibrarGiroscopio();
     };
     renderer.domElement.addEventListener("pointerdown", alIniciarArrastreCamara);
@@ -1298,9 +1515,44 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     };
     hidratarModelosDescargados(contenido.reemplazos, motor, () => destruido);
     ajustar();
-    encuadrarSet(motor, "perspectiva", false);
+    const vistaPendiente = vistaCamaraPendienteRef.current;
+    const camaraARestaurar = cams.find((camara) => (
+      camara.id === (vistaPendiente?.camaraId || camaraActivaId)
+    ));
+    if (camaraARestaurar) {
+      activarVistaCamaraEnMotor(motor, camaraARestaurar);
+      if (vistaPendiente?.camaraId === camaraARestaurar.id) {
+        motor.vistaCamara.pan = envolverAngulo(vistaPendiente.yaw - motor.vistaCamara.yawBase);
+        motor.vistaCamara.tilt = limitarTilt(vistaPendiente.tilt);
+        motor.vistaCamara.yawGuardado = envolverAngulo(vistaPendiente.yaw);
+        motor.vistaCamara.tiltGuardado = limitarTilt(vistaPendiente.tilt);
+        aplicarOrientacionDeCamara(motor);
+        actualizarOrientacionCamaraEnEscena(
+          motor,
+          camaraARestaurar.id,
+          normalizarGrados(THREE.MathUtils.radToDeg(vistaPendiente.yaw)),
+          THREE.MathUtils.radToDeg(vistaPendiente.tilt)
+        );
+      }
+      vistaCamaraPendienteRef.current = null;
+      motor.camara.aspect = 16 / 9;
+      motor.camara.fov = fovDeCamara(camaraARestaurar, focal);
+      motor.camara.updateProjectionMatrix();
+      recalibrarGiroscopio();
+    } else {
+      vistaCamaraPendienteRef.current = null;
+      encuadrarSet(motor, "perspectiva", false);
+    }
     invalidar();
     return () => {
+      if (motor.modoCamara && motor.vistaCamara) {
+        vistaCamaraPendienteRef.current = {
+          camaraId: motor.vistaCamara.camaraId,
+          yaw: envolverAngulo(motor.vistaCamara.yawBase + motor.vistaCamara.pan),
+          tilt: limitarTilt(motor.vistaCamara.tilt),
+        };
+      }
+      guardarOrientacionMotor(motor);
       destruido = true;
       if (frame !== null) cancelAnimationFrame(frame);
       observador?.disconnect();
@@ -1320,9 +1572,9 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
       renderer.dispose();
       renderer.forceContextLoss();
       renderer.domElement.remove();
-      motorRef.current = null;
+      if (motorRef.current === motor) motorRef.current = null;
     };
-  }, [cfg, set, cams]);
+  }, [firmaEscena]);
 
   useEffect(() => {
     const motor = motorRef.current;
@@ -1354,6 +1606,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   const volverAOrbita = () => {
     const motor = motorRef.current;
     if (!motor) return;
+    guardarOrientacionMotor(motor);
     apagarGiroscopio();
     motor.modoCamara = false;
     motor.vistaCamara = null;
@@ -1399,7 +1652,13 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   const verDesdeCamara = (camaraSeleccionada) => {
     const motor = motorRef.current;
     if (!motor) return;
-    apagarGiroscopio();
+    if (motor.vistaCamara?.camaraId === camaraSeleccionada.id) {
+      guardarOrientacionMotor(motor);
+      return;
+    }
+    const conservarGiroscopio = giroscopioRef.current.activo;
+    guardarOrientacionMotor(motor);
+    if (!conservarGiroscopio) apagarGiroscopio();
     setCapasAbiertas(false);
     if (!motor.modoCamara) {
       motor.estadoOrbita = {
@@ -1409,32 +1668,15 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
         vista: motor.vistaOrbita,
       };
     }
-    const key = `cam:${camaraSeleccionada.id}`;
-    const punto = puntoPlanoAMetros(motor.geometria.posDe(key), set);
-    const rotacion = motor.geometria.rotacionDe(key, "camara");
-    const angulo = THREE.MathUtils.degToRad(rotacion || 0);
     const focalInicial = distanciaFocalDeCamara(camaraSeleccionada);
-    const ajusteCamara = ajusteDeCamara(camaraSeleccionada);
-    const altoLente = Number(ajusteCamara?.alto_lente) > 0
-      ? Number(ajusteCamara.alto_lente)
-      : ALTURAS_3D.lenteCamara;
-    motor.modoCamara = true;
-    motor.controles.enabled = false;
-    motor.etiquetas.visible = false;
-    motor.conos.visible = false;
-    motor.campos.visible = false;
-    motor.reticula.visible = false;
-    motor.objetosCamara.forEach((objeto, id) => { objeto.visible = id !== camaraSeleccionada.id; });
-    motor.camara.up.set(0, 1, 0);
-    motor.camara.position.set(punto.x, altoLente, punto.z);
-    motor.vistaCamara = { yawBase: angulo, pan: 0, tilt: 0 };
-    aplicarOrientacionDeCamara(motor);
+    activarVistaCamaraEnMotor(motor, camaraSeleccionada);
     motor.camara.aspect = 16 / 9;
     motor.camara.fov = fovDeCamara(camaraSeleccionada, focalInicial);
     motor.camara.updateProjectionMatrix();
     setFocal(focalInicial);
     setLentesAbiertos(false);
     setCamaraActivaId(camaraSeleccionada.id);
+    if (conservarGiroscopio) recalibrarGiroscopio();
     motor.ajustar();
   };
 
@@ -1524,7 +1766,14 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
           <div className="visor-set-3d__marco">
             <div className="visor-set-3d__datos-camara">
               <span>{recortar(camaraActiva.nombre, 42)}</span>
-              <strong>{focal} mm · {fovDeCamara(camaraActiva, focal).toFixed(1)}°</strong>
+              <div>
+                <strong>
+                  {focal} mm · visión {Math.round(fovHorizontalDeCamara(camaraActiva, focal))}° × {Math.round(fovDeCamara(camaraActiva, focal))}°
+              </strong>
+              <em>
+                Tilt {gradosConSigno(tiltEnVivo)}
+              </em>
+              </div>
             </div>
           </div>
         </div>
@@ -1560,7 +1809,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
           )}
           {camaraActiva && (
             <div ref={lentesRef} className="visor-set-3d__lente-flotante">
-              <div className="visor-set-3d__movimiento-camara visor-set-3d__vidrio" role="toolbar" aria-label="Orientación temporal de la cámara">
+              <div className="visor-set-3d__movimiento-camara visor-set-3d__vidrio" role="toolbar" aria-label="Orientación guardada de la cámara">
                 <button type="button" onClick={centrarVistaCamara}>Centrar</button>
                 {giroscopioDisponible && (
                   <button
