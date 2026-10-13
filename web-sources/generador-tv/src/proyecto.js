@@ -8,6 +8,7 @@ import { MUEBLES_CATALOGO, SECCIONES_IDS, SECCIONES_INFO, seccionesDefault } fro
 import { normalizarEquipo } from "./equipoCamara.js";
 import { getSetup, instanciarSetup } from "./iluminacion.js";
 import { posMuebleDefault, setNuevo } from "./sets.js";
+import { posicionPantallaMueble } from "./setGeometria.js";
 import { NAVY, PALETTE } from "./theme.js";
 import { uid } from "./util.js";
 
@@ -74,7 +75,7 @@ export const DEMO = () => ({
     { id: "m1", nombre: "Mic conductor", conexion: "XLR", micTipo: "solapa", asignadoA: "tal:t1" },
     { id: "m2", nombre: "Mic invitado", conexion: "Inalámbrico", micTipo: "solapa", asignadoA: "tal:t2" },
   ],
-  sets: [{ id: "set-demo", nombre: "Set principal", locacion: "int", mesaVisible: true, setLayout: { pos: {}, rot: {}, tilt: {} }, iluminacion: null }],
+  sets: [{ id: "set-demo", nombre: "Set principal", locacion: "int", mesaVisible: true, pantallaMobiliarioMigrada: true, setLayout: { pos: {}, rot: {}, tilt: {} }, iluminacion: null, muebles: [] }],
   setActivo: "set-demo",
   branding: { primaryColor: NAVY, logoDataUrl: "" },
   extras: [{ id: "xcom", nombre: "COMERCIALES", color: "#F3C513", esCorte: true }],
@@ -313,6 +314,9 @@ export const normalizeCfg = (cfg, catalogoCamaras = null) => {
     c.sets = [{
       ...setNuevo(1),
       locacion: c.locacion === "ext" ? "ext" : "int",
+      // Si el proyecto todavía tenía el set en la raíz, es un proyecto
+      // anterior al mobiliario-pantalla aunque setNuevo ya marque los nuevos.
+      pantallaMobiliarioMigrada: false,
       setLayout: c.setLayout || { pos: {}, rot: {}, tilt: {} },
       iluminacion: c.iluminacion || null,
     }];
@@ -326,9 +330,14 @@ export const normalizeCfg = (cfg, catalogoCamaras = null) => {
       pos = Object.fromEntries(Object.entries(pos).map(([k, v]) => [k.startsWith("mic:") ? `tal:tal-${k.slice(4)}` : k, v]));
     }
     // Mobiliario: solo ocupantes que sigan existiendo como talentos.
-    const muebles = (Array.isArray(s.muebles) ? s.muebles : [])
-      .map((m) => ({ ...m, ocupantes: (m.ocupantes || []).filter((id) => talIds.has(id)) }));
-    return {
+    let muebles = (Array.isArray(s.muebles) ? s.muebles : [])
+      .map((m) => ({
+        ...m,
+        ocupantes: m.tipo === "pantalla"
+          ? []
+          : (m.ocupantes || []).filter((id) => talIds.has(id)),
+      }));
+    const normalizado = {
       mesaVisible: true,
       locacion: "int",
       nombre: "Set",
@@ -336,6 +345,27 @@ export const normalizeCfg = (cfg, catalogoCamaras = null) => {
       muebles,
       setLayout: { ...layout, pos, rot: layout.rot || {}, tilt: layout.tilt || {} },
     };
+
+    // La pantalla dejó de ser parte fija del foro. Cada set guardado antes de
+    // este cambio recibe una sola instancia en el mismo centro de la banda
+    // histórica. La marca queda aun si después se elimina el mueble, para que
+    // normalizar de nuevo nunca lo resucite. Los exteriores solo se marcan.
+    if (normalizado.pantallaMobiliarioMigrada !== true) {
+      normalizado.pantallaMobiliarioMigrada = true;
+      if (normalizado.locacion !== "ext" && !muebles.some((m) => m.tipo === "pantalla")) {
+        const id = uid();
+        muebles = [...muebles, { id, tipo: "pantalla", ocupantes: [] }];
+        normalizado.muebles = muebles;
+        normalizado.setLayout = {
+          ...normalizado.setLayout,
+          pos: {
+            ...(normalizado.setLayout.pos || {}),
+            [`mue:${id}`]: posicionPantallaMueble(normalizado),
+          },
+        };
+      }
+    }
+    return normalizado;
   });
   if (!c.sets.some((s) => s.id === c.setActivo)) c.setActivo = c.sets[0].id;
   // Sugerencias del asistente (iluminación/mobiliario por plantilla): se
@@ -349,14 +379,16 @@ export const normalizeCfg = (cfg, catalogoCamaras = null) => {
       s0.setLayout = { ...s0.setLayout, pos: { ...(s0.setLayout.pos || {}), ...pos } };
     }
   }
-  if ((c.mueblesSugeridos || []).length && s0 && !(s0.muebles || []).length) {
+  if ((c.mueblesSugeridos || []).length && s0 && !(s0.muebles || []).some((m) => m.tipo !== "pantalla")) {
     const pos = { ...(s0.setLayout.pos || {}) };
-    s0.muebles = c.mueblesSugeridos.filter((tipo) => MUEBLES_CATALOGO[tipo]).map((tipo, i) => {
+    const existentes = s0.muebles || [];
+    const sugeridos = c.mueblesSugeridos.filter((tipo) => MUEBLES_CATALOGO[tipo]).map((tipo, i) => {
       const id = uid();
-      pos[`mue:${id}`] = posMuebleDefault(i, s0);
+      pos[`mue:${id}`] = posMuebleDefault(existentes.length + i, s0, tipo);
       // Un talento sentado por mueble, en orden (conductor primero).
       return { id, tipo, ocupantes: c.talentos[i] ? [c.talentos[i].id] : [] };
     });
+    s0.muebles = [...existentes, ...sugeridos];
     s0.setLayout = { ...s0.setLayout, pos };
   }
   delete c.iluminacionSugerida;

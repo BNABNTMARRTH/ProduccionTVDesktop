@@ -12,12 +12,6 @@ export const RADIO_CICLORAMA_METROS = 0.6;
 const DESFASE_Y_PANTALLA_PLANO = 18;
 const ALTO_PANTALLA_PLANO = 16;
 const HOLGURA_CICLORAMA_METROS = 0.01;
-const Z_LOCAL_FRENTE_PANTALLA_3D = 0.15;
-const Z_LOCAL_MIN_PANTALLA_3D = 0.12 - 0.38 / 2;
-const Z_LOCAL_MAX_PANTALLA_3D = 0.12 + 0.38 / 2;
-const MEDIO_FONDO_MARCO_PANTALLA_3D = 0.06;
-const Y_MIN_PANTALLA_3D = 0.03 - 0.025;
-const Y_MAX_PANTALLA_3D = 1.93 + 1.98 / 2;
 export const FORO_COMO_ESTABA = Object.freeze({
   ancho: (ANCHO_LIENZO_COMO_ESTABA - MARGEN_PLANO * 2) / UNIDADES_POR_METRO,
   fondo: (600 - MARGEN_PLANO * 2) / UNIDADES_POR_METRO,
@@ -100,30 +94,14 @@ export function bandaPantallaDelForo(set) {
   };
 }
 
-// La cara visible coincide con el frente de la banda del plano 2D. El marco
-// queda delante del radio del ciclorama, con una holgura que evita el z-fight.
-export function posicionPantallaDelForo(set) {
-  const foro = medidasForo(set);
-  const { escala3d } = medidasPantallaDelForo(set);
+// Posición histórica de la pantalla fija, expresada ahora como el centro del
+// mueble que la sustituye. La migración y "Reacomodar automáticamente" pasan
+// por aquí para que el proyecto viejo no dé un salto visual.
+export function posicionPantallaMueble(set) {
   const banda = bandaPantallaDelForo(set);
-  const zMuro = -foro.fondo / 2;
-  const frenteBanda = (banda.y + banda.alto - geometriaPlano(set).alto / 2)
-    / UNIDADES_POR_METRO;
-  const desdeMuro = Math.max(
-    frenteBanda - zMuro,
-    RADIO_CICLORAMA_METROS
-      + HOLGURA_CICLORAMA_METROS
-      + MEDIO_FONDO_MARCO_PANTALLA_3D * escala3d
-  );
-  const zFrente = zMuro + desdeMuro;
   return {
-    zMuro,
-    zFrente,
-    zGrupo: zFrente - Z_LOCAL_FRENTE_PANTALLA_3D * escala3d,
-    zMin: zFrente + (Z_LOCAL_MIN_PANTALLA_3D - Z_LOCAL_FRENTE_PANTALLA_3D) * escala3d,
-    zMax: zFrente + (Z_LOCAL_MAX_PANTALLA_3D - Z_LOCAL_FRENTE_PANTALLA_3D) * escala3d,
-    yMin: Y_MIN_PANTALLA_3D * escala3d,
-    yMax: Y_MAX_PANTALLA_3D * escala3d,
+    x: banda.x + banda.ancho / 2,
+    y: banda.y + banda.alto / 2,
   };
 }
 
@@ -208,7 +186,7 @@ export function acotarPuntoAlForo(punto, set, resguardo = {}) {
   };
 }
 
-// Huellas cenitales de la escenografía fija. El cálculo rotado usa la caja
+// Huellas cenitales del mobiliario. El cálculo rotado usa la caja
 // envolvente para que ni una esquina del mueble atraviese el muro.
 const HUELLAS_MUEBLES = Object.freeze({
   mesa: [56, 23],
@@ -229,22 +207,30 @@ export function resguardoElementoPlano(clave, set) {
   const id = String(clave).slice(4);
   const mueble = (set?.muebles || []).find((item) => String(item.id) === id);
   if (!mueble) return null;
-  const [mitadX, mitadY] = HUELLAS_MUEBLES[mueble.tipo] || HUELLAS_MUEBLES.sillon1;
+  const [mitadX, mitadY] = mueble.tipo === "pantalla"
+    ? [medidasPantallaDelForo(set).anchoPlano / 2, ALTO_PANTALLA_PLANO / 2]
+    : (HUELLAS_MUEBLES[mueble.tipo] || HUELLAS_MUEBLES.sillon1);
   const giro = Number(set?.setLayout?.rot?.[clave]) || 0;
   const radianes = (giro * Math.PI) / 180;
   const x = Math.abs(Math.cos(radianes)) * mitadX + Math.abs(Math.sin(radianes)) * mitadY;
   const y = Math.abs(Math.sin(radianes)) * mitadX + Math.abs(Math.cos(radianes)) * mitadY;
-  return { izquierda: x, derecha: x, arriba: y, abajo: y };
+  return {
+    izquierda: x, derecha: x, arriba: y, abajo: y,
+    // La pantalla histórica vive junto al muro posterior. No se le aplica el
+    // margen superior de 80 unidades reservado a objetos del piso.
+    ...(mueble.tipo === "pantalla" ? { arrastreAlBorde: true } : {}),
+  };
 }
 
 // Conserva exactamente los resguardos históricos (48/100/932/556) en el
 // foro legado. La escenografía puede pedir más espacio para conservar dentro
 // del cuarto todo su volumen, no solamente su punto central.
 export function acotarPuntoArrastrable(punto, set, resguardo = {}) {
+  const margenVertical = resguardo.arrastreAlBorde ? 0 : 80;
   return acotarPuntoAlForo(punto, set, {
     izquierda: Math.max(28, resguardo.izquierda ?? resguardo.x ?? 0),
     derecha: Math.max(28, resguardo.derecha ?? resguardo.x ?? 0),
-    arriba: Math.max(80, resguardo.arriba ?? resguardo.y ?? 0),
+    arriba: Math.max(margenVertical, resguardo.arriba ?? resguardo.y ?? 0),
     abajo: Math.max(24, resguardo.abajo ?? resguardo.y ?? 0),
   });
 }
@@ -364,7 +350,7 @@ export function posicionesDefaultDelSet(cfg, set, cams = []) {
     });
   });
   muebles.forEach((mueble, indice) => {
-    defaults[`mue:${mueble.id}`] = posicionMuebleDefault(indice, set);
+    defaults[`mue:${mueble.id}`] = posicionMuebleDefault(indice, set, mueble.tipo);
   });
   cams.forEach((camara, indice) => {
     const k = cams.length === 1 ? 0 : -1 + (2 * indice) / (cams.length - 1);
@@ -404,14 +390,16 @@ export function crearGeometriaSet({ cfg, set, cams = [], live = null, liveRot = 
   return { defaults, plano, posDe, giroManualDe, rotacionAutomaticaDe, rotacionDe };
 }
 
-export function posicionMuebleDefault(indice, set) {
+export function posicionMuebleDefault(indice, set, tipo = null) {
+  const mueble = set?.muebles?.[indice];
+  const tipoMueble = tipo || mueble?.tipo;
+  if (tipoMueble === "pantalla") return posicionPantallaMueble(set);
   const { ancho, alto } = geometriaPlano(set);
   const escala = escalaDefaultsDelForo(set);
   const punto = {
     x: ancho / 2 + (-155 + (indice % 4) * 85) * escala,
     y: alto / 2 + (30 + Math.floor(indice / 4) * 75) * escala,
   };
-  const mueble = set?.muebles?.[indice];
   const clave = mueble ? `mue:${mueble.id}` : null;
   const resguardo = clave ? (resguardoElementoPlano(clave, set) || {}) : {};
   return puntoFueraDelForo(punto, set, resguardo)

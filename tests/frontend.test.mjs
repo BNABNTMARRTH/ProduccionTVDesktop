@@ -100,6 +100,8 @@ test('la mesa dejó de venir de serie y ahora es mobiliario', () => {
     assert.equal(asientos.length, MUEBLES_CATALOGO[tipo].cap, `${tipo}: plazas y asientos no cuadran`);
     asientos.forEach((a) => assert.ok(Math.hypot(a.x, a.y) > 20, `${tipo}: un asiento cae encima de la mesa`));
   });
+  assert.equal(MUEBLES_CATALOGO.pantalla.cap, 0, 'la pantalla no admite talentos sentados');
+  assert.deepEqual(MUEBLE_ASIENTOS.pantalla, []);
   assert.equal(MUEBLE_ASIENTOS.mesa[0].x, 0, 'con una sola persona, se sienta al centro del escritorio');
 });
 
@@ -113,10 +115,54 @@ test('un proyecto viejo NO pierde la mesa que ya tenía', () => {
   assert.equal(viejo.impresion.mostrarTiposGuion, true, 'los tipos impresos nacen encendidos en proyectos anteriores');
 });
 
+test('la pantalla fija de un set interior viejo migra a mobiliario una sola vez', () => {
+  const viejo = {
+    camaras: [], microfonos: [], escaleta: [],
+    sets: [{
+      id: 'set-viejo', nombre: 'Foro', locacion: 'int', muebles: [],
+      setLayout: { pos: {}, rot: {}, tilt: {} },
+    }],
+    setActivo: 'set-viejo',
+  };
+  const migrado = normalizeCfg(viejo);
+  const pantallas = migrado.sets[0].muebles.filter((m) => m.tipo === 'pantalla');
+  assert.equal(pantallas.length, 1);
+  assert.equal(migrado.sets[0].pantallaMobiliarioMigrada, true);
+  assert.deepEqual(
+    migrado.sets[0].setLayout.pos[`mue:${pantallas[0].id}`],
+    { x: 490, y: 46 },
+    'conserva el centro de la pantalla fija histórica'
+  );
+
+  const otraVez = normalizeCfg(migrado);
+  assert.equal(otraVez.sets[0].muebles.filter((m) => m.tipo === 'pantalla').length, 1);
+  assert.equal(otraVez.sets[0].muebles.find((m) => m.tipo === 'pantalla').id, pantallas[0].id);
+
+  const borrada = normalizeCfg({
+    ...migrado,
+    sets: [{ ...migrado.sets[0], muebles: [], setLayout: { ...migrado.sets[0].setLayout, pos: {} } }],
+  });
+  assert.equal(borrada.sets[0].muebles.some((m) => m.tipo === 'pantalla'), false, 'borrarla no la resucita');
+});
+
+test('los sets nuevos y los exteriores no reciben una pantalla automática', () => {
+  const nuevo = normalizeCfg(makeTemplate('vacio', {}));
+  assert.equal(nuevo.sets[0].pantallaMobiliarioMigrada, true);
+  assert.equal(nuevo.sets[0].muebles.some((m) => m.tipo === 'pantalla'), false);
+
+  const exteriorViejo = normalizeCfg({
+    camaras: [], microfonos: [], escaleta: [],
+    sets: [{ id: 'ext-viejo', locacion: 'ext', muebles: [], setLayout: { pos: {}, rot: {} } }],
+    setActivo: 'ext-viejo',
+  });
+  assert.equal(exteriorViejo.sets[0].pantallaMobiliarioMigrada, true);
+  assert.equal(exteriorViejo.sets[0].muebles.some((m) => m.tipo === 'pantalla'), false);
+});
+
 test('reacomodar el set también retira el tilt manual de las cámaras', () => {
   const set = {
     id: 's1',
-    muebles: [],
+    muebles: [{ id: 'pantalla-1', tipo: 'pantalla', ocupantes: [] }],
     iluminacion: null,
     setLayout: {
       pos: { mesa: { x: 490, y: 240 } },
@@ -127,6 +173,7 @@ test('reacomodar el set también retira el tilt manual de las cámaras', () => {
   const reacomodado = reacomodoDe(set);
   assert.deepEqual(reacomodado.setLayout.rot, {});
   assert.deepEqual(reacomodado.setLayout.tilt, {});
+  assert.deepEqual(reacomodado.setLayout.pos['mue:pantalla-1'], { x: 490, y: 46 });
 });
 
 test('la mesa redonda del panel sienta a los cuatro en corro', () => {

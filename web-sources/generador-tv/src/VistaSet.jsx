@@ -277,7 +277,7 @@ export function VistaSet({ cfg, setCfg }) {
     const id = uid();
     const n = (activo.muebles || []).length;
     const item = { id, tipo, ocupantes: [] };
-    const pos = posMuebleDefault(n, activo);
+    const pos = posMuebleDefault(n, activo, tipo);
 
     if (cmdMgr) {
       cmdMgr.execute(new AddFurnitureCommand(activo.id, item, pos));
@@ -314,7 +314,7 @@ export function VistaSet({ cfg, setCfg }) {
     const mueble = (activo.muebles || []).find((m) => m.id === muebleId);
     if (!mueble) return;
     const dentro = (mueble.ocupantes || []).includes(talId);
-    const cap = MUEBLES_CATALOGO[mueble.tipo]?.cap || 1;
+    const cap = MUEBLES_CATALOGO[mueble.tipo]?.cap ?? 1;
     if (!dentro && (mueble.ocupantes || []).length >= cap) return;
 
     if (cmdMgr) {
@@ -560,7 +560,7 @@ export function VistaSet({ cfg, setCfg }) {
             pasos={[
               "<b>Elige o crea un set</b> desde la barra superior; cada set guarda su propia planta física.",
               "<b>Agrega mobiliario</b> desde el Inspector lateral y arrástralo en el plano para ubicarlo.",
-              "Gira las cámaras con su manija para el ángulo aproximado y afina <b>pan y tilt en Vista 3D</b>; doble clic vuelve al blanco automático.",
+              "Gira las cámaras con su manija para el ángulo aproximado y afina <b>pan y tilt en Vista 3D</b>.",
               "<b>Doble clic en una etiqueta</b> la oculta individualmente; el toggle superior las controla todas.",
               "Usa <b>Reacomodar set</b> para aplicar fórmulas probadas de la industria (Noticiero, Talk Show, Debate).",
             ]}
@@ -757,7 +757,7 @@ export function VistaSet({ cfg, setCfg }) {
                         >
                           <MuebleIcon tipo={id} width={42} height={20} />
                           <span className="mt-1 font-bold text-[11px] text-white/90">{d.es}</span>
-                          <span className="text-[9px] text-white/50">{d.cap > 1 ? `${d.cap} plazas` : "1 plaza"}</span>
+                          <span className="text-[9px] text-white/50">{d.cap === 0 ? "Sin plazas" : d.cap > 1 ? `${d.cap} plazas` : "1 plaza"}</span>
                         </button>
                       ))}
                     </div>
@@ -791,7 +791,7 @@ export function VistaSet({ cfg, setCfg }) {
                             </div>
 
                             {/* Talentos para sentar */}
-                            <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-white/5">
+                            {def.cap > 0 && <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-white/5">
                               <span className="text-[10px] text-white/50">Sentar:</span>
                               {(cfg.talentos || []).map((t) => {
                                 const dentro = ocupantes.includes(t.id);
@@ -811,7 +811,7 @@ export function VistaSet({ cfg, setCfg }) {
                                   </button>
                                 );
                               })}
-                            </div>
+                            </div>}
                           </div>
                         );
                       })}

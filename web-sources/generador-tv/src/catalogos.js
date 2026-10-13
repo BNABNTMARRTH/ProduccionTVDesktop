@@ -108,6 +108,7 @@ export const CATALOGO_ROLES = [
 // poner varias. Y hay mesa redonda, que es la de los paneles y las tertulias.
 // (Los proyectos viejos conservan su mesa fija; ver mesaVisible en proyecto.js.)
 export const MUEBLES_CATALOGO = {
+  pantalla:     { es: "Pantalla",            cap: 0, mitad: 250 },
   mesa:        { es: "Mesa / escritorio", cap: 3, mitad: 62 },
   mesaRedonda: { es: "Mesa redonda",      cap: 6, mitad: 50 },
   podio:   { es: "Atril / podio",      cap: 1, mitad: 17 },
@@ -123,6 +124,7 @@ export const MUEBLES_CATALOGO = {
 // plano de planta de verdad. El primer asiento va al centro, para que una sola
 // persona no quede descuadrada.
 export const MUEBLE_ASIENTOS = {
+  pantalla: [],
   mesa: [{ x: 0, y: -34 }, { x: -42, y: -34 }, { x: 42, y: -34 }],
   mesaRedonda: [
     { x: 0, y: -46 }, { x: 40, y: -23 }, { x: 40, y: 23 },

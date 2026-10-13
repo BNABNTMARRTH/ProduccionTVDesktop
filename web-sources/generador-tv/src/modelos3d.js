@@ -5,6 +5,7 @@ import { ALTURAS_3D } from "./setGeometria.js";
 // mira hacia +Z; quien compone la escena aplica la posición y el giro del plano.
 
 export const MUEBLES_3D = Object.freeze({
+  pantalla: { ancho: 4.95, fondo: 0.38, alto: 2.92, asiento: 0 },
   mesa: { ancho: 2.4, fondo: 0.82, alto: ALTURAS_3D.mesa, asiento: 0.48 },
   mesaRedonda: { ancho: 1.7, fondo: 1.7, alto: ALTURAS_3D.mesa, asiento: 0.48 },
   podio: { ancho: 0.62, fondo: 0.52, alto: 1.08, asiento: 0.05 },
@@ -352,7 +353,96 @@ function crearSillaDirector() {
   return grupo;
 }
 
-export function crearModeloMueble(tipo) {
+function partirTextoPantalla(ctx, texto, anchoMaximo) {
+  const palabras = String(texto || "").trim().split(/\s+/).filter(Boolean);
+  const lineas = [];
+  let linea = "";
+  palabras.forEach((palabraOriginal) => {
+    let palabra = palabraOriginal;
+    if (ctx.measureText(palabra).width > anchoMaximo) {
+      if (linea) lineas.push(linea);
+      linea = "";
+      let parte = "";
+      [...palabra].forEach((letra) => {
+        if (ctx.measureText(parte + letra).width > anchoMaximo && parte) {
+          lineas.push(parte);
+          parte = letra;
+        } else parte += letra;
+      });
+      palabra = parte;
+    }
+    const candidata = linea ? `${linea} ${palabra}` : palabra;
+    if (ctx.measureText(candidata).width <= anchoMaximo) linea = candidata;
+    else {
+      if (linea) lineas.push(linea);
+      linea = palabra;
+    }
+  });
+  if (linea) lineas.push(linea);
+  return lineas.length ? lineas : ["PANTALLA"];
+}
+
+function crearTexturaPantalla(texto) {
+  const lienzo = document.createElement("canvas");
+  lienzo.width = 1024;
+  lienzo.height = 384;
+  const ctx = lienzo.getContext("2d");
+  const degradado = ctx.createLinearGradient(0, 0, lienzo.width, lienzo.height);
+  degradado.addColorStop(0, "#0B1D35");
+  degradado.addColorStop(1, "#07101D");
+  ctx.fillStyle = degradado;
+  ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+  ctx.strokeStyle = "rgba(10, 132, 255, .42)";
+  ctx.lineWidth = 7;
+  ctx.strokeRect(18, 18, lienzo.width - 36, lienzo.height - 36);
+  let tamano = 78;
+  let lineas = [];
+  while (tamano >= 5) {
+    ctx.font = `750 ${tamano}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    lineas = partirTextoPantalla(ctx, texto || "PANTALLA", 900);
+    if (lineas.length * tamano * 1.16 <= 286) break;
+    tamano -= 2;
+  }
+  ctx.fillStyle = "#F8FAFC";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const interlinea = tamano * 1.16;
+  const inicio = lienzo.height / 2 - ((lineas.length - 1) * interlinea) / 2;
+  lineas.forEach((linea, indice) => ctx.fillText(linea, lienzo.width / 2, inicio + indice * interlinea));
+  const textura = new THREE.CanvasTexture(lienzo);
+  textura.colorSpace = THREE.SRGBColorSpace;
+  textura.minFilter = THREE.LinearFilter;
+  textura.anisotropy = 2;
+  return textura;
+}
+
+function crearPantalla(texto) {
+  const grupo = new THREE.Group();
+  const materialMarco = new THREE.MeshStandardMaterial({ color: "#171A1F", roughness: 0.44, metalness: 0.32 });
+  const borde = new THREE.Mesh(new THREE.BoxGeometry(4.95, 1.98, 0.12), materialMarco);
+  borde.position.set(0, 1.93, 0.08);
+  grupo.add(borde);
+  const pantalla = new THREE.Mesh(
+    new THREE.PlaneGeometry(4.75, 1.78),
+    new THREE.MeshStandardMaterial({ map: crearTexturaPantalla(texto), roughness: 0.34, metalness: 0.05 })
+  );
+  pantalla.position.set(0, 1.93, 0.15);
+  pantalla.renderOrder = 1;
+  grupo.add(pantalla);
+  [-1.65, 1.65].forEach((x) => {
+    const pie = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 1.0, 10), materialMarco);
+    pie.position.set(x, 0.51, 0.03);
+    grupo.add(pie);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.05, 0.38), materialMarco);
+    base.position.set(x, 0.03, 0.12);
+    grupo.add(base);
+  });
+  grupo.userData.alturaRotulo = 3.25;
+  return grupo;
+}
+
+export function crearModeloMueble(tipo, { textoPantalla = "" } = {}) {
+  if (tipo === "pantalla") return crearPantalla(textoPantalla);
   const grupo = new THREE.Group();
   const { madera, maderaClara, metal, tapiz, tapizClaro } = materialesBase();
   const medidas = MUEBLES_3D[tipo] || MUEBLES_3D.sillon1;

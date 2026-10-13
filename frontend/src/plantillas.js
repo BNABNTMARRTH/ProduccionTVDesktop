@@ -51,7 +51,7 @@ const invitado = (nombre) => ({ name: nombre, tipo: 'invitado' });
    solas en arco alrededor del foco, que es exactamente lo que uno haría.
 
    Estas plantillas nacen con la medida histórica del foro. Arriba está el
-   muro con la pantalla; abajo y a los lados, las cámaras. O sea: lo que mira
+   muro; abajo y a los lados, las cámaras. O sea: lo que mira
    a cámara se pone ARRIBA del centro, y el público estaría abajo.            */
 export const PLANTILLAS_SET = [
     {
@@ -90,7 +90,7 @@ export const PLANTILLAS_SET = [
     {
         id: 'noticiero', kind: 'noticiero', nombre: 'Noticiero', category: 'multicam',
         resumen: 'Escritorio al centro y luz de estudio',
-        detalle: 'La mesa de noticias: conductor(a) al frente, tres cámaras (general, medio y detalle) y la pantalla del set al fondo.',
+        detalle: 'La mesa de noticias: conductor(a) al frente y tres cámaras para general, medio y detalle.',
         cams: 3, mesa: false, locacion: 'int',
         talentos: [conductor('Conductor(a)')],
         muebles: ['mesa'],
@@ -240,7 +240,7 @@ export function cfgDePlantilla(plantilla, nombre = '') {
     };
     set.muebles = (plantilla.muebles || []).map((tipo, i) => {
         const id = uid('mue');
-        pos[`mue:${id}`] = plano.muebles?.[i] || posMuebleDefault(i, set);
+        pos[`mue:${id}`] = plano.muebles?.[i] || posMuebleDefault(i, set, tipo);
         return { id, tipo, ocupantes: quienes(i) };
     });
 

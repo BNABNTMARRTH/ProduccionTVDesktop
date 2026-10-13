@@ -4,17 +4,16 @@ import { MoveEntityCommand, RotateEntityCommand } from "./setCommands.js";
 import {
   acotarPuntoAlForo,
   acotarPuntoArrastrable,
-  bandaPantallaDelForo,
   clavesActivasDelSet,
   clasificarMicrofonos,
   crearGeometriaSet,
   escalaAnotacionesPlano,
   geometriaPlano,
+  medidasPantallaDelForo,
   posicionesFueraDelForo,
   resguardoElementoPlano,
 } from "./setGeometria.js";
 import { upSetPor } from "./sets.js";
-import { trunc } from "./util.js";
 
 /**
  * EstudioCenital:
@@ -246,7 +245,7 @@ export function EstudioCenital({
   const ext = set.locacion === "ext";
   const fuera = posicionesFueraDelForo(set, clavesActivasDelSet(cfg, set, cams));
   const escalaAnotaciones = escalaAnotacionesPlano(set);
-  const pantalla = bandaPantallaDelForo(set);
+  const anchoPantalla = medidasPantallaDelForo(set).anchoPlano;
 
   // Colores de estudio estilo Apple Pro
   const piso = ext
@@ -313,17 +312,10 @@ export function EstudioCenital({
         <rect x={M} y={M} width={W - M * 2} height={H - M * 2} rx="16" fill="url(#studioGridPattern)" />
         <circle cx={W / 2} cy={H / 2} r={Math.min(280, (W - M * 2) * 0.35, (H - M * 2) * 0.45)} fill="url(#stageSpotGradient)" pointerEvents="none" />
 
-        {/* Interior: Pantalla/Muro de fondo. Exterior: Locación exterior */}
+        {/* Interior: muro/ciclorama. Exterior: locación exterior. La pantalla
+            ya es mobiliario y se dibuja más abajo junto con los demás. */}
         {!ext ? (
-          <g>
-            <rect x={M} y={M} width={W - M * 2} height="32" rx="14" fill="#182333" stroke="#25354e" strokeWidth="1.5" />
-            <rect x={pantalla.x} y={pantalla.y} width={pantalla.ancho} height={pantalla.alto} rx="5" fill="#0c121c" stroke="#0A84FF" strokeWidth="1.8" filter="drop-shadow(0 2px 6px rgba(10,132,255,0.25))" />
-            <g transform={`translate(${W / 2} ${pantalla.y + pantalla.alto + 20 * escalaAnotaciones}) scale(${escalaAnotaciones})`}>
-              <text textAnchor="middle" fontSize="12" fontWeight="800" fill="#E5EDF7" style={{ letterSpacing: 1.5 }}>
-                PANTALLA · {trunc(cfg.pantalla || "NOTICIERO", 42)}
-              </text>
-            </g>
-          </g>
+          <rect x={M} y={M} width={W - M * 2} height="32" rx="14" fill="#182333" stroke="#25354e" strokeWidth="1.5" />
         ) : (
           <g>
             <g transform={`translate(${W - M - 55 * escalaAnotaciones} ${M + 48 * escalaAnotaciones}) scale(${escalaAnotaciones})`}>
@@ -402,6 +394,8 @@ export function EstudioCenital({
             editable,
             labProps,
             micsDeTal,
+            textoPantalla: cfg.pantalla || "",
+            anchoPantalla,
             escalaAnotaciones,
           });
         })}
@@ -482,7 +476,6 @@ export function EstudioCenital({
             onSelect: onSelectEntity,
             startDrag,
             startRotate,
-            resetRotate,
             grab,
             editable,
             labProps,

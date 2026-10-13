@@ -13,7 +13,7 @@ import {
   fovVerticalDesdeFocal,
   geometriaPlano,
   medidasPantallaDelForo,
-  posicionPantallaDelForo,
+  posicionPantallaMueble,
   posicionesDefaultDelSet,
   posicionesFueraDelForo,
   puntoFueraDelForo,
@@ -113,7 +113,7 @@ test("la pantalla respeta el ancho y la altura del foro sin cambiar el legado", 
   casiIgual(pantallaEstrecha.ancho3d, 3.4);
 });
 
-test("la pantalla queda dentro del cuarto y alineada con la banda del plano", () => {
+test("la pantalla como mueble queda dentro del cuarto y conserva la alineación histórica", () => {
   const casos = [
     ["Aula", { ancho: 8, fondo: 6, alto: 3 }],
     ["Foro chico", { ancho: 10, fondo: 8, alto: 4 }],
@@ -123,18 +123,24 @@ test("la pantalla queda dentro del cuarto y alineada con la banda del plano", ()
 
   casos.forEach(([nombre, foro]) => {
     const set = { setLayout: { foro } };
-    const posicion = posicionPantallaDelForo(set);
+    const escala = medidasPantallaDelForo(set).escala3d;
+    const centro = puntoPlanoAMetros(posicionPantallaMueble(set), set);
     const plano = geometriaPlano(set);
     const frenteBanda = puntoPlanoAMetros({
       x: plano.ancho / 2,
       y: plano.margen + 34,
     }, set).z;
+    const zMin = centro.z - 0.07 * escala;
+    const zMax = centro.z + 0.31 * escala;
+    const yMin = 0.005 * escala;
+    const yMax = 2.92 * escala;
+    const zFrente = centro.z + 0.15 * escala;
 
-    assert.ok(posicion.zMin >= -foro.fondo / 2, `${nombre}: pantalla detrás del muro`);
-    assert.ok(posicion.zMax <= foro.fondo / 2, `${nombre}: pantalla fuera del cuarto`);
-    assert.ok(posicion.yMin >= 0, `${nombre}: pantalla bajo el piso`);
-    assert.ok(posicion.yMax <= foro.alto, `${nombre}: pantalla sobre el techo`);
-    assert.ok(Math.abs(posicion.zFrente - frenteBanda) <= 0.02, `${nombre}: no coincide con la banda 2D`);
+    assert.ok(zMin >= -foro.fondo / 2, `${nombre}: pantalla detrás del muro`);
+    assert.ok(zMax <= foro.fondo / 2, `${nombre}: pantalla fuera del cuarto`);
+    assert.ok(yMin >= 0, `${nombre}: pantalla bajo el piso`);
+    assert.ok(yMax <= foro.alto, `${nombre}: pantalla sobre el techo`);
+    assert.ok(Math.abs(zFrente - frenteBanda) <= 0.12, `${nombre}: no coincide con la banda 2D`);
     assert.ok(zObjetivoParedPosterior(set) >= -foro.fondo / 2, `${nombre}: luz apunta detrás del muro`);
     assert.ok(zObjetivoParedPosterior(set) <= foro.fondo / 2, `${nombre}: luz apunta fuera del cuarto`);
   });

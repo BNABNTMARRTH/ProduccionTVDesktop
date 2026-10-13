@@ -199,6 +199,7 @@
 
   // Mobiliario (espejo del catálogo del generador React).
   const MUEBLES = {
+    pantalla: { es: 'Pantalla', cap: 0, asientos: [] },
     mesa: { es: 'Mesa / escritorio', asientos: [{ x: 0, y: -34 }, { x: -42, y: -34 }, { x: 42, y: -34 }] },
     mesaRedonda: { es: 'Mesa redonda', asientos: [
       { x: 0, y: -46 }, { x: 40, y: -23 }, { x: 40, y: 23 },
@@ -231,9 +232,11 @@
     };
   }
 
-  function muebleGlyph(tipo) {
+  function muebleGlyph(tipo, anchoPantalla) {
     const tela = '#93A5BC', asiento = '#C9D4E2', borde = '#5F7189';
     switch (tipo) {
+      case 'pantalla':
+        return `<rect x="${-anchoPantalla / 2}" y="-8" width="${anchoPantalla}" height="16" rx="5" fill="#0C121C" stroke="#0A84FF" stroke-width="1.8"/><line x1="${-anchoPantalla / 2 + 10}" y1="0" x2="${anchoPantalla / 2 - 10}" y2="0" stroke="#0A84FF" stroke-width="1" opacity="0.28"/>`;
       // Gemelas de GlyphMueble en glifos.jsx: las mesas usan las tintas del
       // plano, que en la hoja impresa son las de papel.
       case 'mesa':
@@ -310,6 +313,7 @@
     const W = foro.ancho * U + M * 2;
     const H = foro.fondo * U + M * 2;
     const centroX = W / 2, centroY = H / 2;
+    const anchoPantallaPlano = Math.min(500, Math.max(0, (foro.ancho - 0.6) * U));
     // El viewBox cambia con el foro, pero tipografía, badges y avisos son UI:
     // se contraescalan para conservar en papel el tamaño del plano de 980 px.
     const escalaAnotaciones = W / 980;
@@ -366,10 +370,12 @@
       });
     });
     muebles.forEach((m, i) => {
-      defaults['mue:' + m.id] = acotarDefault({
-        x: centroX + (-155 + (i % 4) * 85) * escalaDefaults,
-        y: centroY + (30 + Math.floor(i / 4) * 75) * escalaDefaults,
-      });
+      defaults['mue:' + m.id] = m.tipo === 'pantalla'
+        ? { x: centroX, y: M + 26 }
+        : acotarDefault({
+          x: centroX + (-155 + (i % 4) * 85) * escalaDefaults,
+          y: centroY + (30 + Math.floor(i / 4) * 75) * escalaDefaults,
+        });
     });
     cams.forEach((c, i) => {
       const t = cams.length === 1 ? 0 : -1 + (2 * i) / (cams.length - 1);
@@ -407,7 +413,8 @@
       const p = at('mue:' + m.id);
       const manual = rots['mue:' + m.id];
       const rot = typeof manual === 'number' ? manual : 0;
-      const ocupantes = (m.ocupantes || []).map((id) => porId[id]).filter(Boolean);
+      const esPantalla = m.tipo === 'pantalla';
+      const ocupantes = esPantalla ? [] : (m.ocupantes || []).map((id) => porId[id]).filter(Boolean);
       const gente = ocupantes.map((t, i) => {
         const a = def.asientos[i % def.asientos.length];
         const col = t.tipo === 'invitado' ? '#0E9F9E' : '#16365F';
@@ -417,7 +424,9 @@
           <path d="M-4.5 2.5 q4.5 5 9 0 l1 4.5 h-11 z" fill="${col}"/>
         </g>`;
       }).join('');
-      const rotulo = rotulosDe(def.asientos, rot);
+      const rotulo = esPantalla
+        ? { mueble: 28, de: function () { return { x: 0, y: 0, corta: 0 }; } }
+        : rotulosDe(def.asientos, rot);
       const nombres = ocupantes.map((t, i) => {
         if (!labOk('tal:' + t.id)) return '';
         const micsT = (esLegacy ? [] : mics.filter((x) => x.micTipo !== 'boom' && x.asignadoA === 'tal:' + t.id));
@@ -426,8 +435,8 @@
         return `<g transform="translate(${d.x} ${d.y}) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="9" font-weight="700" fill="${t.tipo === 'invitado' ? '#0E9F9E' : '#33445f'}">${esc(trunc(t.nombre + micTxt, d.corta))}</text></g>`;
       }).join('');
       return `<g transform="translate(${p.x} ${p.y})">
-        <g transform="rotate(${rot})">${muebleGlyph(m.tipo)}${gente}</g>
-        ${labOk('mue:' + m.id) ? `<g transform="translate(0 ${rotulo.mueble}) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="9" font-weight="700" fill="${dark ? '#9CB0CC' : '#5F7189'}">${esc(def.es.toUpperCase())}</text></g>` : ''}
+        <g transform="rotate(${rot})">${muebleGlyph(m.tipo, anchoPantallaPlano)}${gente}</g>
+        ${labOk('mue:' + m.id) ? `<g transform="translate(0 ${rotulo.mueble}) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="9" font-weight="700" fill="${dark ? '#9CB0CC' : '#5F7189'}">${esc(esPantalla ? 'PANTALLA · ' + trunc(cfg.pantalla || 'PANTALLA', 42) : def.es.toUpperCase())}</text></g>` : ''}
         ${nombres}
       </g>`;
     }).join('');
@@ -538,15 +547,15 @@
            <text y="5" text-anchor="middle" font-size="13" font-weight="800" fill="#fff" letter-spacing="1">AL AIRE · ${esc(trunc(opts.badge.text || '', 28))}</text>
          </g>`
       : '';
-    // Interior: muro con pantalla. Exterior: sol y etiqueta de locación.
+    // Interior: muro/ciclorama. La pantalla se dibuja como mobiliario.
+    // Exterior: sol y etiqueta de locación.
     const cabecera = ext
       ? `<g transform="translate(${W - M - 57 * escalaAnotaciones} ${M + 48 * escalaAnotaciones}) scale(${escalaAnotaciones})">
            <circle r="14" fill="#FCD34D" stroke="#F59E0B" stroke-width="2"/>
            ${[0, 45, 90, 135, 180, 225, 270, 315].map((a) => `<line transform="rotate(${a})" x1="0" y1="-19" x2="0" y2="-25" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round"/>`).join('')}
          </g>
          <g transform="translate(${M + 20 * escalaAnotaciones} ${M + 54 * escalaAnotaciones}) scale(${escalaAnotaciones})"><text font-size="12" font-weight="800" fill="#4C7C54" letter-spacing="1">LOCACIÓN EXTERIOR</text></g>`
-      : `<rect x="${M}" y="${M}" width="${W - M * 2}" height="26" rx="12" fill="${dark ? '#1A273B' : (opts.display ? '#16365F' : '#33445f')}"/>
-         <g transform="translate(${centroX} ${M + 26 + 26 * escalaAnotaciones}) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="12" font-weight="800" fill="${dark ? '#9CB0CC' : '#33445f'}" letter-spacing="1">PANTALLA · ${esc(trunc(cfg.pantalla || '', 42))}</text></g>`;
+      : `<rect x="${M}" y="${M}" width="${W - M * 2}" height="26" rx="12" fill="${dark ? '#1A273B' : (opts.display ? '#16365F' : '#33445f')}"/>`;
     // Mesa del set, o punto de foco cuando el set no tiene mesa.
     const mesaSvg = set.mesaVisible !== false
       ? `<g transform="translate(${mesa.x} ${mesa.y})">

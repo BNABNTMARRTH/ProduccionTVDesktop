@@ -80,6 +80,7 @@ export class ProjectBuilder {
             nombre,
             locacion,
             mesaVisible: false,
+            pantallaMobiliarioMigrada: true,
             setLayout: { pos: {}, rot: {}, tilt: {} },
             iluminacion: null,
             muebles: [],

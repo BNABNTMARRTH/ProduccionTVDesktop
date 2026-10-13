@@ -27,7 +27,7 @@ function demoCfg() {
         titulo: 'DEMO – CONOCE PRODUCCIÓN TV',
         subtitulo: 'Cada sección de este proyecto explica cómo se usa · bórralo cuando quieras',
         organizacion: 'FCC · UASLP',
-        pantalla: 'ESTA ES LA PANTALLA DEL SET · CÁMBIAME EN PERFIL (⌘1)',
+        pantalla: 'TEXTO PARA UNA PANTALLA · AGRÉGALA EN MOBILIARIO',
         mesa: 'MESA · ARRÁSTRAME EN SET',
         camaras: CAMS.map((c) => ({ ...c })),
         talentos: TALENTOS.map((t) => ({ ...t })),
@@ -58,6 +58,7 @@ function demoCfg() {
             nombre: 'Set principal',
             locacion: 'int',
             mesaVisible: true,
+            pantallaMobiliarioMigrada: true,
             iluminacion: {
                 setup: 'three_point_lighting',
                 luces: [

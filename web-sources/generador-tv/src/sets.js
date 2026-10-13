@@ -13,7 +13,7 @@ import { FORO_COMO_ESTABA, posicionMuebleDefault, posicionesDefaultDelSet } from
 // conservan la suya: el valor por omisión al MIGRAR sigue siendo true.
 export const setNuevo = (n = 1) => ({
   id: `set-${uid()}`, nombre: n === 1 ? "Set principal" : `Set ${n}`,
-  locacion: "int", mesaVisible: false,
+  locacion: "int", mesaVisible: false, pantallaMobiliarioMigrada: true,
   setLayout: { pos: {}, rot: {}, tilt: {}, foro: { ...FORO_COMO_ESTABA } }, iluminacion: null, muebles: [],
 });
 
@@ -24,7 +24,7 @@ export const setActivoDe = (cfg) => (cfg.sets || []).find((s) => s.id === cfg.se
 export const upSetPor = (c, setId, fn) => ({ ...c, sets: (c.sets || []).map((s) => (s.id === setId ? fn(s) : s)) });
 
 // Posición inicial (y de reacomodo) del mueble n en el lienzo.
-export const posMuebleDefault = (n, set) => posicionMuebleDefault(n, set);
+export const posMuebleDefault = (n, set, tipo = null) => posicionMuebleDefault(n, set, tipo);
 
 // "Reacomodar automáticamente": regresa mesa/talentos/cámaras a sus posiciones
 // derivadas y recoloca luces y muebles en sus posiciones típicas (las luces y
@@ -32,6 +32,6 @@ export const posMuebleDefault = (n, set) => posicionMuebleDefault(n, set);
 export const reacomodoDe = (s) => {
   const mesa = posicionesDefaultDelSet({ talentos: [], microfonos: [] }, s).mesa;
   const pos = posicionesParaLuces(s.iluminacion?.luces, mesa, s);
-  (s.muebles || []).forEach((m, i) => { pos[`mue:${m.id}`] = posMuebleDefault(i, s); });
+  (s.muebles || []).forEach((m, i) => { pos[`mue:${m.id}`] = posMuebleDefault(i, s, m.tipo); });
   return { ...s, setLayout: { ...(s.setLayout || {}), pos, rot: {}, tilt: {} } };
 };

@@ -49,16 +49,18 @@ export const LuzIcon = ({ forma, color, size = 15 }) => (
 // Icono de un mueble para la galería y las tarjetas (escala compartida: un
 // sofá se ve más ancho que una silla, como en el plano).
 export const MuebleIcon = ({ tipo, width = 58, height = 26 }) => (
-  <svg width={width} height={height} viewBox="-56 -24 112 48" style={{ display: "block", flex: "0 0 auto" }}>
+  <svg width={width} height={height} viewBox={tipo === "pantalla" ? "-260 -30 520 60" : "-56 -24 112 48"} style={{ display: "block", flex: "0 0 auto" }}>
     <GlyphMueble tipo={tipo} />
   </svg>
 );
 
 // Glifos de mobiliario en planta (frente del mueble hacia abajo; giran con su
 // manija). Mismo lenguaje visual que muebleGlyph en tools/shared/sheets.js.
-export function GlyphMueble({ tipo }) {
+export function GlyphMueble({ tipo, anchoPantalla = 500 }) {
   const tela = "#93A5BC", asiento = "#C9D4E2", borde = "#5F7189";
   switch (tipo) {
+    case "pantalla":
+      return (<g><rect x={-anchoPantalla / 2} y="-8" width={anchoPantalla} height="16" rx="5" fill="#0C121C" stroke="#0A84FF" strokeWidth="1.8" /><line x1={-anchoPantalla / 2 + 10} y1="0" x2={anchoPantalla / 2 - 10} y2="0" stroke="#0A84FF" strokeWidth="1" opacity="0.28" /></g>);
     // Las mesas usan las tintas del PLANO (no las de la tela) porque son la
     // superficie de trabajo del set: así se apagan con el tema, igual que la
     // mesa fija a la que sustituyen.

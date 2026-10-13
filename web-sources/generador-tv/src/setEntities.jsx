@@ -35,7 +35,7 @@ export class CameraEntity extends SetEntity {
     this.shotgunMics = shotgunMics;
   }
 
-  renderSVG({ isSelected, showGuides, showLabels, isManualRot, onSelect, startDrag, startRotate, resetRotate, grab, editable, labProps, escalaAnotaciones = 1 }) {
+  renderSVG({ isSelected, showGuides, showLabels, isManualRot, onSelect, startDrag, startRotate, grab, editable, labProps, escalaAnotaciones = 1 }) {
     const { camera, pos, rot, key, shotgunMics } = this;
     const color = camera.color || "#0A84FF";
 
@@ -83,11 +83,10 @@ export class CameraEntity extends SetEntity {
             <g
               className="no-print set-rotate-handle"
               onPointerDown={startRotate(key)}
-              onDoubleClick={resetRotate(key)}
               transform={`translate(20 0) scale(${escalaAnotaciones})`}
               style={{ cursor: "crosshair" }}
             >
-              <title>Arrastra para girar · doble clic: apuntar al foco</title>
+              <title>Arrastra para girar la cámara</title>
               <line x1="0" y1="0" x2="68" y2="0" stroke={color} strokeWidth="1.5" strokeDasharray="3 3" opacity="0.65" />
               <circle
                 cx="78"
@@ -245,10 +244,12 @@ export class FurnitureEntity extends SetEntity {
     this.occupants = occupants;
   }
 
-  renderSVG({ isSelected, showLabels, isManualRot, onSelect, startDrag, startRotate, resetRotate, grab, editable, labProps, micsDeTal, escalaAnotaciones = 1 }) {
+  renderSVG({ isSelected, showLabels, isManualRot, onSelect, startDrag, startRotate, resetRotate, grab, editable, labProps, micsDeTal, textoPantalla = "", anchoPantalla = 500, escalaAnotaciones = 1 }) {
     const { furniture, pos, rot, key, occupants } = this;
     const def = MUEBLES_CATALOGO[furniture.tipo] || MUEBLES_CATALOGO.sillon1;
     const asientos = MUEBLE_ASIENTOS[furniture.tipo] || MUEBLE_ASIENTOS.sillon1;
+    const esPantalla = furniture.tipo === "pantalla";
+    const mitad = esPantalla ? anchoPantalla / 2 : def.mitad;
 
     return (
       <g
@@ -261,10 +262,10 @@ export class FurnitureEntity extends SetEntity {
         style={grab}
         className="set-entity set-entity-furniture"
       >
-        <title>{def.es}{occupants.length ? ` · ${occupants.map((t) => t.nombre).join(", ")}` : ""}</title>
+        <title>{esPantalla ? `${def.es} · ${textoPantalla || "PANTALLA"}` : def.es}{occupants.length ? ` · ${occupants.map((t) => t.nombre).join(", ")}` : ""}</title>
 
         <g transform={`rotate(${rot})`}>
-          <GlyphMueble tipo={furniture.tipo} />
+          <GlyphMueble tipo={furniture.tipo} anchoPantalla={anchoPantalla} />
 
           {/* Ocupantes sentados sobre el mueble */}
           {occupants.map((t, i) => {
@@ -285,7 +286,7 @@ export class FurnitureEntity extends SetEntity {
               className="no-print set-rotate-handle"
               onPointerDown={startRotate(key)}
               onDoubleClick={resetRotate(key)}
-              transform={`translate(${def.mitad + 2} 0) scale(${escalaAnotaciones})`}
+              transform={`translate(${mitad + 2} 0) scale(${escalaAnotaciones})`}
               style={{ cursor: "crosshair" }}
             >
               <title>Arrastra para girar el mueble · doble clic: orientación original</title>
@@ -304,9 +305,9 @@ export class FurnitureEntity extends SetEntity {
 
         {/* Rótulo de tipo de mueble */}
         {showLabels && (
-          <g transform={`translate(0 24) scale(${escalaAnotaciones})`}>
+          <g transform={`translate(0 ${esPantalla ? 16 : 24}) scale(${escalaAnotaciones})`}>
             <text {...(labProps ? labProps(key) : {})} y="12" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--plano-linea, #7d8ea3)">
-              {def.es.toUpperCase()}
+              {esPantalla ? `PANTALLA · ${trunc(textoPantalla || "PANTALLA", 42)}` : def.es.toUpperCase()}
             </text>
           </g>
         )}
