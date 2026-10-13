@@ -57,6 +57,8 @@
 	<string>© 2026 Producción TV</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Solo si grabas un video desde la app; Producción TV no graba audio por su cuenta.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Para orientar temporalmente la vista de una cámara 3D al mover tu iPhone o iPad.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Para usar una foto tuya como cuadro del storyboard o como logo del proyecto.</string>
 	<key>UIApplicationSceneManifest</key>

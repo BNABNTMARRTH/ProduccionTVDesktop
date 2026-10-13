@@ -45,8 +45,89 @@ import {
 import "./visorSet3D.css";
 
 const LENTES = [13, 18, 24, 35, 50, 85, 135];
+const LIMITE_TILT_CAMARA = THREE.MathUtils.degToRad(85);
+const SENSIBILIDAD_ARRASTRE_CAMARA = 0.0042;
 const colorCicloramaPorSet = new Map();
 let ayudaNavegacionMostrada = false;
+
+function limitarTilt(angulo) {
+  return THREE.MathUtils.clamp(angulo, -LIMITE_TILT_CAMARA, LIMITE_TILT_CAMARA);
+}
+
+function envolverAngulo(angulo) {
+  return Math.atan2(Math.sin(angulo), Math.cos(angulo));
+}
+
+function aplicarOrientacionDeCamara(motor) {
+  if (!motor?.modoCamara || !motor.vistaCamara) return;
+  const vista = motor.vistaCamara;
+  vista.tilt = limitarTilt(vista.tilt);
+  const yaw = vista.yawBase + vista.pan;
+  const cosenoTilt = Math.cos(vista.tilt);
+  const objetivo = new THREE.Vector3(
+    Math.cos(yaw) * cosenoTilt,
+    Math.sin(vista.tilt),
+    Math.sin(yaw) * cosenoTilt
+  ).multiplyScalar(10).add(motor.camara.position);
+  motor.camara.up.set(0, 1, 0);
+  motor.camara.lookAt(objetivo);
+  motor.invalidar();
+}
+
+function esDispositivoIOSConGiroscopio() {
+  if (typeof window === "undefined" || typeof window.DeviceOrientationEvent === "undefined") return false;
+  const agente = navigator.userAgent || "";
+  const esIOS = /iPad|iPhone|iPod/.test(agente)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  return esIOS;
+}
+
+function crearEstadoGiroscopio() {
+  return {
+    activo: false,
+    limpiar: null,
+    requiereCalibracion: true,
+    pausadoPorArrastre: false,
+    yawAnterior: 0,
+    yawAcumulado: 0,
+    pitchBase: 0,
+    panBase: 0,
+    tiltBase: 0,
+    ultimoTiempo: 0,
+    euler: new THREE.Euler(),
+    cuaternion: new THREE.Quaternion(),
+    giroPantalla: new THREE.Quaternion(),
+    giroCamara: new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)),
+    ejePantalla: new THREE.Vector3(0, 0, 1),
+    frente: new THREE.Vector3(),
+  };
+}
+
+function angulosDelDispositivo(evento, estado) {
+  if (![evento.alpha, evento.beta, evento.gamma].every(Number.isFinite)) return null;
+  const alpha = THREE.MathUtils.degToRad(evento.alpha);
+  const beta = THREE.MathUtils.degToRad(evento.beta);
+  const gamma = THREE.MathUtils.degToRad(evento.gamma);
+  const anguloPantalla = Number.isFinite(window.screen?.orientation?.angle)
+    ? window.screen.orientation.angle
+    : (Number(window.orientation) || 0);
+
+  // Es la misma corrección de ejes de DeviceOrientationControls: primero pone
+  // la espalda del teléfono como visor y después compensa retrato/horizontal.
+  estado.euler.set(beta, alpha, -gamma, "YXZ");
+  estado.cuaternion.setFromEuler(estado.euler);
+  estado.cuaternion.multiply(estado.giroCamara);
+  estado.giroPantalla.setFromAxisAngle(
+    estado.ejePantalla,
+    -THREE.MathUtils.degToRad(anguloPantalla)
+  );
+  estado.cuaternion.multiply(estado.giroPantalla);
+  estado.frente.set(0, 0, -1).applyQuaternion(estado.cuaternion).normalize();
+  return {
+    yaw: Math.atan2(estado.frente.x, -estado.frente.z),
+    pitch: Math.asin(THREE.MathUtils.clamp(estado.frente.y, -1, 1)),
+  };
+}
 
 function ajusteDeCamara(camara) {
   const clave = modeloDe(catalogoCamaras, camara?.equipo);
@@ -825,6 +906,8 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   const camarasRef = useRef(null);
   const lentesRef = useRef(null);
   const motorRef = useRef(null);
+  const giroscopioRef = useRef(null);
+  if (!giroscopioRef.current) giroscopioRef.current = crearEstadoGiroscopio();
   const [error, setError] = useState("");
   const [mostrarConos, setMostrarConos] = useState(true);
   const [mostrarCampos, setMostrarCampos] = useState(true);
@@ -836,6 +919,8 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   const [mostrarAyuda, setMostrarAyuda] = useState(() => !ayudaNavegacionMostrada);
   const [camaraActivaId, setCamaraActivaId] = useState(null);
   const [focal, setFocal] = useState(35);
+  const [giroscopioDisponible, setGiroscopioDisponible] = useState(false);
+  const [giroscopioActivo, setGiroscopioActivo] = useState(false);
   const [colorCiclorama, setColorCiclorama] = useState(
     () => normalizarColorCiclorama(colorCicloramaPorSet.get(set.id))
   );
@@ -849,17 +934,119 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   );
   const focalesDisponibles = rangoFocalActivo?.pasos || LENTES;
 
+  const apagarGiroscopio = (actualizarInterfaz = true) => {
+    const estado = giroscopioRef.current;
+    estado.limpiar?.();
+    estado.limpiar = null;
+    estado.activo = false;
+    estado.requiereCalibracion = true;
+    estado.pausadoPorArrastre = false;
+    estado.ultimoTiempo = 0;
+    if (actualizarInterfaz) setGiroscopioActivo(false);
+  };
+
+  const recalibrarGiroscopio = () => {
+    const estado = giroscopioRef.current;
+    if (estado.activo) estado.requiereCalibracion = true;
+  };
+
+  const iniciarEscuchaGiroscopio = () => {
+    apagarGiroscopio(false);
+    const estado = giroscopioRef.current;
+    estado.activo = true;
+    estado.requiereCalibracion = true;
+
+    const alOrientar = (evento) => {
+      const motor = motorRef.current;
+      if (!estado.activo || estado.pausadoPorArrastre || !motor?.modoCamara || !motor.vistaCamara) return;
+      const angulos = angulosDelDispositivo(evento, estado);
+      if (!angulos) return;
+
+      if (estado.requiereCalibracion) {
+        estado.requiereCalibracion = false;
+        estado.yawAnterior = angulos.yaw;
+        estado.yawAcumulado = 0;
+        estado.pitchBase = angulos.pitch;
+        estado.panBase = motor.vistaCamara.pan;
+        estado.tiltBase = motor.vistaCamara.tilt;
+        estado.ultimoTiempo = evento.timeStamp || performance.now();
+        return;
+      }
+
+      estado.yawAcumulado += envolverAngulo(angulos.yaw - estado.yawAnterior);
+      estado.yawAnterior = angulos.yaw;
+      const ahora = evento.timeStamp || performance.now();
+      const segundos = Math.min(0.1, Math.max(1 / 120, (ahora - estado.ultimoTiempo) / 1000));
+      estado.ultimoTiempo = ahora;
+      // Unos 45 ms quitan el temblor del sensor sin dar sensación de retraso.
+      const mezcla = 1 - Math.exp(-segundos / 0.045);
+      const panObjetivo = estado.panBase + estado.yawAcumulado;
+      const tiltObjetivo = limitarTilt(estado.tiltBase + angulos.pitch - estado.pitchBase);
+      motor.vistaCamara.pan += (panObjetivo - motor.vistaCamara.pan) * mezcla;
+      motor.vistaCamara.tilt += (tiltObjetivo - motor.vistaCamara.tilt) * mezcla;
+      aplicarOrientacionDeCamara(motor);
+    };
+    const alCambiarOrientacion = () => recalibrarGiroscopio();
+    window.addEventListener("deviceorientation", alOrientar);
+    window.addEventListener("orientationchange", alCambiarOrientacion);
+    window.screen?.orientation?.addEventListener?.("change", alCambiarOrientacion);
+    estado.limpiar = () => {
+      window.removeEventListener("deviceorientation", alOrientar);
+      window.removeEventListener("orientationchange", alCambiarOrientacion);
+      window.screen?.orientation?.removeEventListener?.("change", alCambiarOrientacion);
+    };
+    setGiroscopioActivo(true);
+  };
+
+  const alternarGiroscopio = async () => {
+    if (giroscopioRef.current.activo) {
+      apagarGiroscopio();
+      return;
+    }
+    try {
+      const Orientacion = window.DeviceOrientationEvent;
+      if (typeof Orientacion?.requestPermission === "function") {
+        // iOS exige que esta llamada ocurra directamente dentro del gesto.
+        const permiso = await Orientacion.requestPermission();
+        if (permiso !== "granted") return;
+      }
+      const motor = motorRef.current;
+      if (motor?.modoCamara && motor.vistaCamara) iniciarEscuchaGiroscopio();
+    } catch (fallo) {
+      console.warn("No se pudo activar el giroscopio", fallo);
+    }
+  };
+
+  const centrarVistaCamara = () => {
+    const motor = motorRef.current;
+    if (!motor?.modoCamara || !motor.vistaCamara) return;
+    motor.vistaCamara.pan = 0;
+    motor.vistaCamara.tilt = 0;
+    aplicarOrientacionDeCamara(motor);
+    recalibrarGiroscopio();
+  };
+
+  const cerrarVisor = () => {
+    apagarGiroscopio();
+    onClose();
+  };
+
   useEffect(() => {
     const alTeclado = (evento) => {
       if (evento.key !== "Escape") return;
       if (lentesAbiertos) setLentesAbiertos(false);
       else if (capasAbiertas) setCapasAbiertas(false);
-      else onClose();
+      else cerrarVisor();
     };
     window.addEventListener("keydown", alTeclado);
     panelRef.current?.focus({ preventScroll: true });
     return () => window.removeEventListener("keydown", alTeclado);
   }, [capasAbiertas, lentesAbiertos, onClose]);
+
+  useEffect(() => {
+    setGiroscopioDisponible(esDispositivoIOSConGiroscopio());
+    return () => apagarGiroscopio(false);
+  }, []);
 
   useEffect(() => {
     const revisarTamano = () => setEsCompacto(esPantallaCompacta());
@@ -904,6 +1091,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     let observador;
     let destruido = false;
     let entorno;
+    let limpiarArrastreCamara = () => {};
     const lienzo = document.createElement("canvas");
     try {
       const atributos = { antialias: true, alpha: false, powerPreference: "high-performance" };
@@ -1057,10 +1245,57 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
       cajaEncuadre: cajaDeEncuadreDelSet(contenido.objetosEncuadre, set),
       estadoOrbita: null,
       modoCamara: false,
+      vistaCamara: null,
       mostrarNombres,
       vistaOrbita: "perspectiva",
     };
     motorRef.current = motor;
+
+    const arrastreCamara = { puntero: null, x: 0, y: 0, pan: 0, tilt: 0 };
+    const alIniciarArrastreCamara = (evento) => {
+      if (!motor.modoCamara || !motor.vistaCamara || evento.button !== 0) return;
+      evento.preventDefault();
+      arrastreCamara.puntero = evento.pointerId;
+      arrastreCamara.x = evento.clientX;
+      arrastreCamara.y = evento.clientY;
+      arrastreCamara.pan = motor.vistaCamara.pan;
+      arrastreCamara.tilt = motor.vistaCamara.tilt;
+      renderer.domElement.setPointerCapture?.(evento.pointerId);
+      giroscopioRef.current.pausadoPorArrastre = true;
+    };
+    const alArrastrarCamara = (evento) => {
+      if (evento.pointerId !== arrastreCamara.puntero || !motor.vistaCamara) return;
+      evento.preventDefault();
+      motor.vistaCamara.pan = arrastreCamara.pan
+        + (evento.clientX - arrastreCamara.x) * SENSIBILIDAD_ARRASTRE_CAMARA;
+      motor.vistaCamara.tilt = limitarTilt(
+        arrastreCamara.tilt - (evento.clientY - arrastreCamara.y) * SENSIBILIDAD_ARRASTRE_CAMARA
+      );
+      aplicarOrientacionDeCamara(motor);
+    };
+    const alTerminarArrastreCamara = (evento) => {
+      if (evento.pointerId !== arrastreCamara.puntero) return;
+      arrastreCamara.puntero = null;
+      if (renderer.domElement.hasPointerCapture?.(evento.pointerId)) {
+        renderer.domElement.releasePointerCapture(evento.pointerId);
+      }
+      // El arrastre suma un desfase manual. Al soltar se recalibra el sensor
+      // sobre ese nuevo encuadre para que el giroscopio continúe sin un salto.
+      giroscopioRef.current.pausadoPorArrastre = false;
+      recalibrarGiroscopio();
+    };
+    renderer.domElement.addEventListener("pointerdown", alIniciarArrastreCamara);
+    renderer.domElement.addEventListener("pointermove", alArrastrarCamara);
+    renderer.domElement.addEventListener("pointerup", alTerminarArrastreCamara);
+    renderer.domElement.addEventListener("pointercancel", alTerminarArrastreCamara);
+    renderer.domElement.addEventListener("lostpointercapture", alTerminarArrastreCamara);
+    limpiarArrastreCamara = () => {
+      renderer.domElement.removeEventListener("pointerdown", alIniciarArrastreCamara);
+      renderer.domElement.removeEventListener("pointermove", alArrastrarCamara);
+      renderer.domElement.removeEventListener("pointerup", alTerminarArrastreCamara);
+      renderer.domElement.removeEventListener("pointercancel", alTerminarArrastreCamara);
+      renderer.domElement.removeEventListener("lostpointercapture", alTerminarArrastreCamara);
+    };
     hidratarModelosDescargados(contenido.reemplazos, motor, () => destruido);
     ajustar();
     encuadrarSet(motor, "perspectiva", false);
@@ -1072,6 +1307,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
       window.removeEventListener("resize", alRedimensionar);
       controles.removeEventListener("change", invalidar);
       controles.dispose();
+      limpiarArrastreCamara();
       renderer.domElement.removeEventListener("webglcontextlost", contextoPerdido);
       renderer.domElement.removeEventListener("webglcontextrestored", contextoRestaurado);
       escena.background = null;
@@ -1118,7 +1354,9 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   const volverAOrbita = () => {
     const motor = motorRef.current;
     if (!motor) return;
+    apagarGiroscopio();
     motor.modoCamara = false;
+    motor.vistaCamara = null;
     motor.controles.enabled = true;
     motor.camara.fov = 45;
     motor.etiquetas.visible = mostrarNombres;
@@ -1161,6 +1399,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
   const verDesdeCamara = (camaraSeleccionada) => {
     const motor = motorRef.current;
     if (!motor) return;
+    apagarGiroscopio();
     setCapasAbiertas(false);
     if (!motor.modoCamara) {
       motor.estadoOrbita = {
@@ -1188,11 +1427,8 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     motor.objetosCamara.forEach((objeto, id) => { objeto.visible = id !== camaraSeleccionada.id; });
     motor.camara.up.set(0, 1, 0);
     motor.camara.position.set(punto.x, altoLente, punto.z);
-    motor.camara.lookAt(
-      punto.x + Math.cos(angulo) * 10,
-      altoLente,
-      punto.z + Math.sin(angulo) * 10
-    );
+    motor.vistaCamara = { yawBase: angulo, pan: 0, tilt: 0 };
+    aplicarOrientacionDeCamara(motor);
     motor.camara.aspect = 16 / 9;
     motor.camara.fov = fovDeCamara(camaraSeleccionada, focalInicial);
     motor.camara.updateProjectionMatrix();
@@ -1216,7 +1452,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
     >
       <div ref={hostRef} className="visor-set-3d__lienzo" aria-hidden="true" />
       <div className="visor-set-3d__superior-izquierda visor-set-3d__vidrio">
-        <button type="button" className="visor-set-3d__cerrar" onClick={onClose} aria-label="Cerrar vista 3D">
+        <button type="button" className="visor-set-3d__cerrar" onClick={cerrarVisor} aria-label="Cerrar vista 3D">
           <span aria-hidden="true">×</span>
         </button>
         <strong>Vista 3D</strong>
@@ -1297,7 +1533,7 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
         <div className="visor-set-3d__error" role="status">
           <strong>La vista 3D no está disponible</strong>
           <p>{error}</p>
-          <button type="button" onClick={onClose}>Volver al plano 2D</button>
+          <button type="button" onClick={cerrarVisor}>Volver al plano 2D</button>
         </div>
       )}
       {!error && (
@@ -1324,6 +1560,19 @@ export default function VisorSet3D({ cfg, set, cams = [], onClose }) {
           )}
           {camaraActiva && (
             <div ref={lentesRef} className="visor-set-3d__lente-flotante">
+              <div className="visor-set-3d__movimiento-camara visor-set-3d__vidrio" role="toolbar" aria-label="Orientación temporal de la cámara">
+                <button type="button" onClick={centrarVistaCamara}>Centrar</button>
+                {giroscopioDisponible && (
+                  <button
+                    type="button"
+                    className={giroscopioActivo ? "activo" : ""}
+                    aria-pressed={giroscopioActivo}
+                    onClick={alternarGiroscopio}
+                  >
+                    {giroscopioActivo ? "Desactivar giroscopio" : "Activar giroscopio"}
+                  </button>
+                )}
+              </div>
               {rangoFocalActivo && !rangoFocalActivo.pasos ? (
                 <label className="visor-set-3d__rango-lente visor-set-3d__vidrio">
                   <span>Focal</span>

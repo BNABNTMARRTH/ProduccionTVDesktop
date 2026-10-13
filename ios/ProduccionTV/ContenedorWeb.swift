@@ -135,6 +135,18 @@ struct ContenedorWeb: UIViewRepresentable {
             return nil
         }
 
+        /* El botón del visor ya pide permiso desde un gesto. El origen propio
+           solo sirve archivos incluidos en la app, así que puede usar los
+           sensores sin presentar un segundo diálogo ajeno a la interfaz. */
+        func webView(_ webView: WKWebView,
+                     requestDeviceOrientationAndMotionPermissionFor origen: WKSecurityOrigin,
+                     initiatedByFrame frame: WKFrameInfo,
+                     decisionHandler decidir: @escaping (WKPermissionDecision) -> Void) {
+            let esLaApp = origen.protocol == ServidorDeRecursos.esquema
+                && origen.host == ServidorDeRecursos.anfitrion
+            decidir(esLaApp ? .grant : .deny)
+        }
+
         // MARK: Diálogos de JavaScript
         // La app evita alert/confirm/prompt a propósito, pero una herramienta
         // podría usarlos: sin esto el WebView se queda esperando para siempre.

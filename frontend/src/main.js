@@ -372,7 +372,7 @@ document.querySelector('#app').innerHTML = `
         </div>
       </section>
 
-      <div class="frame-wrap" id="frame-wrap"><div class="loading" id="loading"><span></span>Cargando herramienta…</div><iframe id="tool-frame" class="panel cargando" aria-label="Herramienta de Producción TV" allow="clipboard-read; clipboard-write"></iframe></div>
+      <div class="frame-wrap" id="frame-wrap"><div class="loading" id="loading"><span></span>Cargando herramienta…</div><iframe id="tool-frame" class="panel cargando" aria-label="Herramienta de Producción TV" allow="clipboard-read; clipboard-write; accelerometer; gyroscope; magnetometer"></iframe></div>
       <section class="production-view" id="production-view"></section>
       <div class="export-toast" id="export-toast"></div>
     </main>
@@ -1597,7 +1597,7 @@ function panelDe(vista) {
         const marco = document.createElement('iframe');
         marco.className = 'panel cargando';
         marco.title = `${etiquetaModulo(vista)} — Producción TV`;
-        marco.setAttribute('allow', 'clipboard-read; clipboard-write');
+        marco.setAttribute('allow', 'clipboard-read; clipboard-write; accelerometer; gyroscope; magnetometer');
         marco.addEventListener('load', () => {
             ajustes.mandarA(marco.contentWindow);
             requestAnimationFrame(() => {

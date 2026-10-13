@@ -32,6 +32,7 @@ export class PanelProxy {
             : this.src;
         iframe.src = srcWithTheme;
         if (this.title) iframe.title = this.title;
+        iframe.setAttribute?.('allow', 'clipboard-read; clipboard-write; accelerometer; gyroscope; magnetometer');
         iframe.dataset.panel = this.id;
         iframe.onload = () => {
             this.isLoaded = true;
