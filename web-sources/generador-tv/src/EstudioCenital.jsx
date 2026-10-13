@@ -470,6 +470,7 @@ export function EstudioCenital({
         {cams.map((c) => {
           const key = `cam:${c.id}`;
           const p = posDe(key);
+          const manual = giroManualDe(key);
           const rot = rotacionDe(key, "camara");
           const shots = shotgunDe(c.id);
           const camEntity = SetEntityFactory.createCamera(c, p, rot, shots);
@@ -477,9 +478,13 @@ export function EstudioCenital({
             isSelected: selectedKey === key,
             showGuides,
             showLabels: lab(key),
+            isManualRot: typeof manual === "number",
             onSelect: onSelectEntity,
             startDrag,
+            startRotate,
+            resetRotate,
             grab,
+            editable,
             labProps,
             escalaAnotaciones,
           });

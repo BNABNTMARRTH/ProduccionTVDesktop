@@ -95,6 +95,26 @@ test("GoF Command Pattern: RotateEntityCommand gestiona rotaciones manuales y re
   assert.equal(mockConfig.sets[0].setLayout.rot["luz:l1"], 90);
 });
 
+test("RotateEntityCommand restaura el pan automático de una cámara sin borrar su tilt", () => {
+  let mockConfig = {
+    sets: [{
+      id: "set_1",
+      setLayout: {
+        rot: { "cam:c1": 23 },
+        tilt: { "cam:c1": -8 },
+      },
+    }],
+  };
+  const manager = new SetCommandManager((updater) => {
+    mockConfig = updater(mockConfig);
+  });
+
+  manager.execute(new RotateEntityCommand("set_1", "cam:c1", 23, null));
+
+  assert.equal(Object.hasOwn(mockConfig.sets[0].setLayout.rot, "cam:c1"), false);
+  assert.equal(mockConfig.sets[0].setLayout.tilt["cam:c1"], -8);
+});
+
 test("GoF Command Pattern: AddFurnitureCommand y RemoveFurnitureCommand gestionan catálogo de muebles", () => {
   let mockConfig = {
     sets: [

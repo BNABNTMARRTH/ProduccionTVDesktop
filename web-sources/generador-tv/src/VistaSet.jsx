@@ -526,7 +526,7 @@ export function VistaSet({ cfg, setCfg }) {
             pasos={[
               "<b>Elige o crea un set</b> desde la barra superior; cada set guarda su propia planta física.",
               "<b>Agrega mobiliario</b> desde el Inspector lateral y arrástralo en el plano para ubicarlo.",
-              "Las cámaras <b>solo se mueven aquí</b>: ábrelas en <b>Vista 3D</b> para apuntarlas. Luces, boom y muebles conservan su manija de giro.",
+              "Gira las cámaras con su manija para el ángulo aproximado y afina <b>pan y tilt en Vista 3D</b>; doble clic vuelve al blanco automático.",
               "<b>Doble clic en una etiqueta</b> la oculta individualmente; el toggle superior las controla todas.",
               "Usa <b>Reacomodar set</b> para aplicar fórmulas probadas de la industria (Noticiero, Talk Show, Debate).",
             ]}
