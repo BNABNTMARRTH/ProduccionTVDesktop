@@ -1,6 +1,6 @@
-node_modules/
+node_modules
 frontend/dist/
-frontend/wailsjs/
+frontend/wailsjs
 frontend/package.json.md5
 build/bin/
 # El apartadero de compilar.sh: solo existe mientras dura una compilación.
