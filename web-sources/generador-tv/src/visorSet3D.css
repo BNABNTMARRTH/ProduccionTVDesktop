@@ -256,8 +256,24 @@
   box-shadow: inset -1px 0 rgba(255, 255, 255, .12);
 }
 
+/* Viendo por una cámara: los controles van en una fila debajo del encuadre,
+   del ancho del encuadre; la barra de cámaras flota DENTRO de la imagen. */
 .visor-set-3d__controles-camara {
-  display: contents;
+  position: absolute;
+  z-index: 7;
+  top: calc(var(--marco-final, 80%) + 8px);
+  left: var(--marco-x, 8px);
+  display: flex;
+  width: var(--marco-ancho, calc(100% - 16px));
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.visor-set-3d--camara .visor-set-3d__camaras-flotantes {
+  top: calc(var(--marco-final, 80%) - 10px);
+  bottom: auto;
+  transform: translate(-50%, -100%);
 }
 
 /* Viendo por una cámara: las vistas, las capas y el cierre solo sirven en
@@ -267,32 +283,30 @@
   display: none;
 }
 
+/* Fuera de la imagen el vidrio oscuro se perdería contra el fondo negro:
+   aquí el vidrio es claro, para que se lea como cápsula translúcida. */
+.visor-set-3d__controles-camara .visor-set-3d__capturar,
+.visor-set-3d__controles-camara .visor-set-3d__movimiento-camara,
+.visor-set-3d__controles-camara .visor-set-3d__selector-lente,
+.visor-set-3d__controles-camara .visor-set-3d__rango-lente {
+  border: 1px solid rgba(255, 255, 255, .2) !important;
+  background: rgba(255, 255, 255, .1) !important;
+}
+
 .visor-set-3d__lente-flotante {
-  position: absolute;
-  z-index: 7;
-  right: max(8px, env(safe-area-inset-right));
-  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 58px);
+  position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   gap: 7px;
 }
 
 .visor-set-3d__capturar {
-  position: absolute;
-  z-index: 7;
-  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 58px);
-  left: max(8px, env(safe-area-inset-left));
   display: inline-flex;
-  min-height: 48px !important;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border: 1px solid rgba(118, 190, 255, .62) !important;
   border-radius: 14px !important;
   color: #fff !important;
-  background: #087bed !important;
-  box-shadow: 0 8px 24px rgba(0, 77, 153, .34), inset 0 1px rgba(255, 255, 255, .2);
   font-size: 13px !important;
 }
 
@@ -370,6 +384,7 @@
 .visor-set-3d__lista-lentes button {
   min-width: 58px;
   padding: 0 7px;
+  white-space: nowrap;
 }
 
 .visor-set-3d__ayuda {

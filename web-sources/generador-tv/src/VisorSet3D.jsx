@@ -981,6 +981,7 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
   const capasRef = useRef(null);
   const camarasRef = useRef(null);
   const lentesRef = useRef(null);
+  const controlesCamaraRef = useRef(null);
   const motorRef = useRef(null);
   const vistaCamaraPendienteRef = useRef(null);
   const avisoRef = useRef(null);
@@ -1376,9 +1377,14 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
       const margen = Math.min(ancho, alto) < 500 ? 6 : 12;
       // El encuadre ocupa todo lo que queda arriba de la barra de cámaras;
       // los controles flotan encima de la imagen, como en el diseño original.
-      const limiteInferior = rectCamaras
-        ? Math.min(alto, Math.max(1, rectCamaras.top - rectHost.top))
-        : alto;
+      // Viendo por una cámara, la barra de cámaras flota dentro de la imagen
+      // y debajo solo queda la fila de controles (Capturar, Centrar, focal).
+      const rectControles = controlesCamaraRef.current?.getBoundingClientRect();
+      const limiteInferior = controlesCamaraRef.current
+        ? Math.max(1, alto - (rectControles?.height || 48) - margen - 8)
+        : rectCamaras
+          ? Math.min(alto, Math.max(1, rectCamaras.top - rectHost.top))
+          : alto;
       const disponible = Math.max(1, limiteInferior - margen * 2);
       const anchoMarco = Math.max(1, Math.min(ancho - margen * 2, disponible * (16 / 9)));
       const altoMarco = anchoMarco * (9 / 16);
@@ -1388,6 +1394,7 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
       panelRef.current?.style.setProperty("--marco-y", `${y}px`);
       panelRef.current?.style.setProperty("--marco-ancho", `${anchoMarco}px`);
       panelRef.current?.style.setProperty("--marco-alto", `${altoMarco}px`);
+      panelRef.current?.style.setProperty("--marco-final", `${y + altoMarco}px`);
       return { x, y, ancho: anchoMarco, alto: altoMarco, altoTotal: alto };
     };
     const invalidar = () => {
@@ -1815,11 +1822,11 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
             </div>
           )}
           {camaraActiva && (
-            <div className="visor-set-3d__controles-camara">
+            <div ref={controlesCamaraRef} className="visor-set-3d__controles-camara">
               {editable && typeof onGuardarCaptura === "function" && (
                 <button
                   type="button"
-                  className="visor-set-3d__capturar"
+                  className="visor-set-3d__capturar visor-set-3d__vidrio"
                   onClick={capturarParaStoryboard}
                   disabled={capturando}
                 >
