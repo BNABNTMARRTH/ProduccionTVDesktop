@@ -1254,6 +1254,16 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
     onClose();
   };
 
+  // La fila de controles cambia de alto (barra de focal continua o lista de
+  // lentes, giroscopio sí o no): el encuadre y la planta se recalculan.
+  useEffect(() => {
+    const controles = controlesCamaraRef.current;
+    if (!controles || typeof ResizeObserver === "undefined") return undefined;
+    const observador = new ResizeObserver(() => motorRef.current?.invalidar());
+    observador.observe(controles);
+    return () => observador.disconnect();
+  }, [camaraActiva]);
+
   useEffect(() => {
     const alTeclado = (evento) => {
       if (evento.key !== "Escape") return;
@@ -1407,7 +1417,9 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
         altoMarco = anchoMarco * (9 / 16);
         x = margen;
         y = margen;
-        controlesArriba = alto - altoControles - margen;
+        // La barra de inicio del iPhone ocupa la orilla de abajo: los
+        // controles se quedan lejos de ella para no provocar toques fantasma.
+        controlesArriba = alto - altoControles - 30;
         const plantaY = y + altoMarco + 10;
         const plantaAlto = controlesArriba - 10 - plantaY;
         if (plantaAlto >= 120) planta = { x: margen, y: plantaY, ancho: anchoMarco, alto: plantaAlto };
@@ -1457,6 +1469,7 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
         estilo?.setProperty("--planta-alto", `${planta.alto}px`);
       }
       panelRef.current?.classList.toggle("visor-set-3d--con-planta", Boolean(planta));
+      panelRef.current?.classList.toggle("visor-set-3d--vertical", vertical);
       return { x, y, ancho: anchoMarco, alto: altoMarco, altoTotal: alto, planta };
     };
     const invalidar = () => {

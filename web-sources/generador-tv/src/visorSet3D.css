@@ -271,6 +271,18 @@
   gap: 8px;
 }
 
+/* Vertical: la barra de focal va ARRIBA de los botones, a todo lo ancho, y
+   los botones en una sola fila debajo. */
+.visor-set-3d--vertical .visor-set-3d__lente-flotante {
+  display: contents;
+}
+
+.visor-set-3d--vertical .visor-set-3d__rango-lente {
+  width: 100%;
+  flex-basis: 100%;
+  order: -1;
+}
+
 /* Planta en vivo (pantalla vertical): el dibujo lo hace el lienzo 3D; esto
    solo le pone marco y rótulo encima. */
 .visor-set-3d__planta {
