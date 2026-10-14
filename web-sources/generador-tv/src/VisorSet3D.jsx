@@ -1413,30 +1413,21 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
         if (plantaAlto >= 120) planta = { x: margen, y: plantaY, ancho: anchoMarco, alto: plantaAlto };
         controlesX = margen;
         controlesAncho = anchoMarco;
-      } else if (controlesCamaraRef.current) {
-        // Horizontal: la imagen y la planta van lado a lado y los controles en
-        // una sola fila debajo de las dos. Si a la planta no le queda un
-        // ancho útil (iPad, Mac), la imagen se queda con todo, como antes.
-        controlesArriba = alto - altoControles - margen;
-        const altoUtil = Math.max(1, controlesArriba - 8 - margen);
+      } else if (controlesCamaraRef.current && ancho >= alto * 1.75) {
+        // Horizontal alargado (iPhone acostado): la imagen usa TODO el alto a
+        // la izquierda; a la derecha va una columna con la planta arriba y los
+        // controles abajo. Así la imagen siempre sale más grande que la planta.
+        const altoUtil = alto - margen * 2;
         const anchoUtil = ancho - margen * 2;
-        anchoMarco = Math.min(anchoUtil, altoUtil * (16 / 9));
-        const anchoPlanta = anchoUtil - anchoMarco - 10;
-        if (anchoPlanta >= 180) {
-          altoMarco = anchoMarco * (9 / 16);
-          x = margen;
-          y = margen + (altoUtil - altoMarco) / 2;
-          planta = { x: x + anchoMarco + 10, y, ancho: anchoPlanta, alto: altoMarco };
-          controlesX = margen;
-          controlesAncho = anchoUtil;
-        } else {
-          const disponible = Math.max(1, alto - altoControles - margen - 8 - margen * 2);
-          anchoMarco = Math.max(1, Math.min(anchoUtil, disponible * (16 / 9)));
-          altoMarco = anchoMarco * (9 / 16);
-          x = (ancho - anchoMarco) / 2;
-          y = margen + (disponible - altoMarco) / 2;
-          controlesArriba = y + altoMarco + 8;
-        }
+        anchoMarco = Math.min(altoUtil * (16 / 9), anchoUtil - 10 - 262);
+        altoMarco = anchoMarco * (9 / 16);
+        x = margen;
+        y = margen + (altoUtil - altoMarco) / 2;
+        controlesX = x + anchoMarco + 10;
+        controlesAncho = anchoUtil - anchoMarco - 10;
+        controlesArriba = y + altoMarco - altoControles;
+        const plantaAlto = controlesArriba - 8 - y;
+        if (plantaAlto >= 90) planta = { x: controlesX, y, ancho: controlesAncho, alto: plantaAlto };
       } else {
         const limiteInferior = controlesCamaraRef.current
           ? Math.max(1, alto - altoControles - margen - 8)
