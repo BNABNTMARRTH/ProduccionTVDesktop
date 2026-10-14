@@ -1399,6 +1399,8 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
       let anchoMarco;
       let altoMarco;
       let controlesArriba;
+      let controlesX = null;
+      let controlesAncho = null;
       let planta = null;
       if (vertical) {
         anchoMarco = ancho - margen * 2;
@@ -1409,6 +1411,32 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
         const plantaY = y + altoMarco + 10;
         const plantaAlto = controlesArriba - 10 - plantaY;
         if (plantaAlto >= 120) planta = { x: margen, y: plantaY, ancho: anchoMarco, alto: plantaAlto };
+        controlesX = margen;
+        controlesAncho = anchoMarco;
+      } else if (controlesCamaraRef.current) {
+        // Horizontal: la imagen y la planta van lado a lado y los controles en
+        // una sola fila debajo de las dos. Si a la planta no le queda un
+        // ancho útil (iPad, Mac), la imagen se queda con todo, como antes.
+        controlesArriba = alto - altoControles - margen;
+        const altoUtil = Math.max(1, controlesArriba - 8 - margen);
+        const anchoUtil = ancho - margen * 2;
+        anchoMarco = Math.min(anchoUtil, altoUtil * (16 / 9));
+        const anchoPlanta = anchoUtil - anchoMarco - 10;
+        if (anchoPlanta >= 180) {
+          altoMarco = anchoMarco * (9 / 16);
+          x = margen;
+          y = margen + (altoUtil - altoMarco) / 2;
+          planta = { x: x + anchoMarco + 10, y, ancho: anchoPlanta, alto: altoMarco };
+          controlesX = margen;
+          controlesAncho = anchoUtil;
+        } else {
+          const disponible = Math.max(1, alto - altoControles - margen - 8 - margen * 2);
+          anchoMarco = Math.max(1, Math.min(anchoUtil, disponible * (16 / 9)));
+          altoMarco = anchoMarco * (9 / 16);
+          x = (ancho - anchoMarco) / 2;
+          y = margen + (disponible - altoMarco) / 2;
+          controlesArriba = y + altoMarco + 8;
+        }
       } else {
         const limiteInferior = controlesCamaraRef.current
           ? Math.max(1, alto - altoControles - margen - 8)
@@ -1429,7 +1457,11 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
       estilo?.setProperty("--marco-alto", `${altoMarco}px`);
       estilo?.setProperty("--marco-final", `${y + altoMarco}px`);
       estilo?.setProperty("--controles-arriba", `${controlesArriba}px`);
+      estilo?.setProperty("--controles-x", `${controlesX ?? x}px`);
+      estilo?.setProperty("--controles-ancho", `${controlesAncho ?? anchoMarco}px`);
       if (planta) {
+        estilo?.setProperty("--planta-x", `${planta.x}px`);
+        estilo?.setProperty("--planta-ancho", `${planta.ancho}px`);
         estilo?.setProperty("--planta-y", `${planta.y}px`);
         estilo?.setProperty("--planta-alto", `${planta.alto}px`);
       }
@@ -1880,9 +1912,10 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
                   className="visor-set-3d__capturar visor-set-3d__vidrio"
                   onClick={capturarParaStoryboard}
                   disabled={capturando}
+                  aria-label={capturando ? "Capturando…" : "Capturar para el storyboard"}
+                  title="Capturar para el storyboard"
                 >
-                  <Camera size={19} aria-hidden="true" />
-                  {capturando ? "Capturando…" : "Capturar"}
+                  <Camera size={22} aria-hidden="true" />
                 </button>
               )}
               <div ref={lentesRef} className="visor-set-3d__lente-flotante">

@@ -262,9 +262,9 @@
   position: absolute;
   z-index: 7;
   top: var(--controles-arriba, calc(var(--marco-final, 80%) + 8px));
-  left: var(--marco-x, 8px);
+  left: var(--controles-x, 8px);
   display: flex;
-  width: var(--marco-ancho, calc(100% - 16px));
+  width: var(--controles-ancho, calc(100% - 16px));
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
@@ -281,9 +281,9 @@
   position: absolute;
   z-index: 3;
   top: var(--planta-y);
-  left: var(--marco-x);
+  left: var(--planta-x);
   display: block;
-  width: var(--marco-ancho);
+  width: var(--planta-ancho);
   height: var(--planta-alto);
   border: 1px solid rgba(255, 255, 255, .16);
   border-radius: 14px;
@@ -305,6 +305,8 @@
 .visor-set-3d--camara .visor-set-3d__camaras-flotantes {
   top: calc(var(--marco-final, 80%) - 10px);
   bottom: auto;
+  left: calc(var(--marco-x, 0px) + var(--marco-ancho, 100%) / 2);
+  max-width: calc(var(--marco-ancho, 100%) - 20px);
   transform: translate(-50%, -100%);
 }
 
@@ -336,6 +338,9 @@
 }
 
 .visor-set-3d__capturar {
+  width: 52px;
+  min-width: 52px !important;
+  padding: 0 !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
