@@ -15,8 +15,17 @@ export function gradosConSigno(valor) {
   return `${entero > 0 ? "+" : "−"}${Math.abs(entero)}°`;
 }
 
-export function armarTextoEtiquetaCaptura({ camara, indiceCamara = 0, focal, fovH, fovV, tilt }) {
-  return `${nombreCortoCamara(camara, indiceCamara)} · ${Math.round(Number(focal) || 0)} mm`
-    + ` · visión ${Math.round(Number(fovH) || 0)}° × ${Math.round(Number(fovV) || 0)}°`
+// En producción se anota el lente que se usó, no el ángulo de visión: el
+// letrero dice cámara · lente · focal · tilt. El ángulo queda en los
+// metadatos de la captura, no impreso.
+export function nombreCortoLente(nombre) {
+  return String(nombre || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+}
+
+export function armarTextoEtiquetaCaptura({ camara, indiceCamara = 0, lente, focal, tilt }) {
+  const nombreLente = nombreCortoLente(lente);
+  return `${nombreCortoCamara(camara, indiceCamara)}`
+    + (nombreLente ? ` · ${nombreLente}` : "")
+    + ` · ${Math.round(Number(focal) || 0)} mm`
     + ` · Tilt ${gradosConSigno(tilt)}`;
 }

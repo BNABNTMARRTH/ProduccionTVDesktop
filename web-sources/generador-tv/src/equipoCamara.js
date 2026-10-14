@@ -239,3 +239,24 @@ export function normalizarEquipo(catalogo, equipo) {
     soporte,
   };
 }
+
+// Óptica que va montada en el modelo 3D de una cámara: el lente elegido en su
+// equipo (o el recomendado de ese cuerpo si no hay equipo) y, delante de la
+// montura, el adaptador que pida ese lente. `claveCamaraModelo` es el cuerpo
+// que de verdad se dibuja (la cámara genérica usa el modelo de la FX6).
+export function opticaDeEquipo(catalogo, equipo, claveCamaraModelo) {
+  const cuerpo = entradaCamara(catalogo, claveCamaraModelo || equipo?.camara);
+  if (!cuerpo) return null;
+  const pedido = equipo?.camara === cuerpo.clave ? entradaLente(catalogo, equipo?.lente) : null;
+  const lente = pedido || entradaLente(catalogo, cuerpo.recomendado);
+  if (!lente?.modelo) return null;
+  const via = (cuerpo.lentes || []).find((opcion) => opcion.clave === lente.clave);
+  const datosAdaptador = via?.adaptador ? catalogo?.adaptadores?.[via.adaptador] : null;
+  const adaptador = datosAdaptador?.modelo
+    ? { clave: via.adaptador, nombre: datosAdaptador.nombre, modelo: datosAdaptador.modelo, largo: numeroFinito(datosAdaptador.largo) || 0 }
+    : null;
+  return {
+    lente: { clave: lente.clave, nombre: lente.nombre, modelo: lente.modelo },
+    adaptador,
+  };
+}

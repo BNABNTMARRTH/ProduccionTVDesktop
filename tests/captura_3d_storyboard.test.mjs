@@ -45,7 +45,8 @@ test("la etiqueta de captura usa los mismos redondeos y siempre muestra tilt", (
     fovH: 37.6,
     fovV: 21.7,
     tilt: -4.6,
-  }), "CAM 1 · 34 mm · visión 38° × 22° · Tilt −5°");
+    lente: "Sony FE PZ 28-135mm f/4 G",
+  }), "CAM 1 · Sony FE PZ 28-135mm f/4 G · 34 mm · Tilt −5°");
 
   assert.equal(armarTextoEtiquetaCaptura({
     camara: { nombre: "Unidad móvil" },
@@ -54,5 +55,12 @@ test("la etiqueta de captura usa los mismos redondeos y siempre muestra tilt", (
     fovH: 20,
     fovV: 12,
     tilt: 0,
-  }), "CAM B · 50 mm · visión 20° × 12° · Tilt 0°");
+  }), "CAM B · 50 mm · Tilt 0°");
+
+  assert.equal(armarTextoEtiquetaCaptura({
+    camara: { nombre: "CAM 2" },
+    focal: 24,
+    tilt: 3,
+    lente: "DZOFilm Vespid (económico)",
+  }), "CAM 2 · DZOFilm Vespid · 24 mm · Tilt +3°");
 });

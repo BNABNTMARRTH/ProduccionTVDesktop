@@ -60,10 +60,34 @@ function prepararSombras(modelo) {
   });
 }
 
-export async function crearModeloDescargado(ajuste) {
+// Lente y adaptador: sus .glb tienen el origen en la montura trasera y el eje
+// óptico en +X, igual que el cuerpo antes de girarlo. Se cuelgan del cuerpo en
+// su `montura` (coordenadas glTF del propio modelo), así heredan giro y tilt.
+async function montarOptica(modelo, montura, optica) {
+  const piezas = [optica.adaptador, optica.lente].filter((pieza) => pieza?.modelo);
+  const plantillas = await Promise.all(piezas.map((pieza) => cargarPlantilla(pieza.modelo)));
+  let avance = 0;
+  piezas.forEach((pieza, indice) => {
+    const copia = plantillas[indice].clone(true);
+    copia.position.set(montura[0] + avance, montura[1], montura[2]);
+    copia.traverse((objeto) => { objeto.userData.esOptica = true; });
+    modelo.add(copia);
+    avance += pieza === optica.adaptador ? Number(pieza.largo) || 0 : 0;
+  });
+}
+
+export async function crearModeloDescargado(ajuste, optica = null) {
   const plantilla = await cargarPlantilla(ajuste.archivo);
   const modelo = plantilla.clone(true);
   normalizarModelo(modelo, ajuste);
+  if (optica && Array.isArray(ajuste.montura)) {
+    try {
+      await montarOptica(modelo, ajuste.montura, optica);
+    } catch (fallo) {
+      // Sin lente se ve el cuerpo solo, como antes: no se pierde la cámara.
+    }
+  }
+  modelo.updateMatrixWorld(true);
   prepararSombras(modelo);
   const grupo = new THREE.Group();
   grupo.add(modelo);

@@ -261,13 +261,45 @@
 .visor-set-3d__controles-camara {
   position: absolute;
   z-index: 7;
-  top: calc(var(--marco-final, 80%) + 8px);
+  top: var(--controles-arriba, calc(var(--marco-final, 80%) + 8px));
   left: var(--marco-x, 8px);
   display: flex;
   width: var(--marco-ancho, calc(100% - 16px));
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+/* Planta en vivo (pantalla vertical): el dibujo lo hace el lienzo 3D; esto
+   solo le pone marco y rótulo encima. */
+.visor-set-3d__planta {
+  display: none;
+}
+
+.visor-set-3d--con-planta .visor-set-3d__planta {
+  position: absolute;
+  z-index: 3;
+  top: var(--planta-y);
+  left: var(--marco-x);
+  display: block;
+  width: var(--marco-ancho);
+  height: var(--planta-alto);
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 14px;
+  pointer-events: none;
+}
+
+.visor-set-3d__planta span {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  padding: 3px 8px;
+  border-radius: 7px;
+  color: rgba(255, 255, 255, .86);
+  background: rgba(0, 0, 0, .55);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .visor-set-3d--camara .visor-set-3d__camaras-flotantes {
@@ -296,6 +328,9 @@
 .visor-set-3d__lente-flotante {
   position: relative;
   display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 7px;
 }
@@ -345,7 +380,7 @@
 
 .visor-set-3d__rango-lente {
   display: grid;
-  width: min(290px, calc(100vw - 16px));
+  width: min(290px, 100%);
   min-height: 46px;
   grid-template-columns: auto minmax(110px, 1fr) auto;
   align-items: center;

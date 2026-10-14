@@ -5,8 +5,9 @@ import catalogoCamaras from "virtual:catalogo-camaras";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { MUEBLE_ASIENTOS } from "./catalogos.js";
-import { armarTextoEtiquetaCaptura, gradosConSigno, nombreCortoCamara } from "./captura3d.js";
+import { armarTextoEtiquetaCaptura, gradosConSigno, nombreCortoCamara, nombreCortoLente } from "./captura3d.js";
 import PanelCapturaStoryboard from "./PanelCapturaStoryboard.jsx";
+import { crearPlantaEnVivo } from "./plantaEnVivo3d.js";
 import {
   actualizarCorteCiclorama,
   cambiarColorCiclorama,
@@ -31,7 +32,7 @@ import {
   precargarModelosDescargados,
   reiniciarCacheModelosDescargados,
 } from "./modelosDescargados3d.js";
-import { modeloDe, rangoFocalDeEquipo, sensorMmDeEquipo } from "./equipoCamara.js";
+import { modeloDe, opticaDeEquipo, rangoFocalDeEquipo, sensorMmDeEquipo } from "./equipoCamara.js";
 import { prepararCapturaParaStoryboard } from "./imagenesStoryboard.js";
 import {
   ALTURAS_3D,
@@ -483,6 +484,7 @@ function decorarModeloDescargado(modelo, reemplazo) {
     modelo.traverse((objeto) => {
       if (!objeto.isMesh) return;
       cajaPieza.setFromObject(objeto);
+      if (objeto.userData.esOptica) return;
       if (cajaPieza.getCenter(centroPieza).y >= altoLente - 0.06) cuerpo.union(cajaPieza);
     });
     if (cuerpo.isEmpty()) cuerpo.copy(cajaTotal);
@@ -573,7 +575,7 @@ function hidratarModelosDescargados(reemplazos, motor, destruido) {
   Promise.allSettled(precargarModelosDescargados(ajustes));
   reemplazos.forEach(async (reemplazo) => {
     try {
-      const modelo = await crearModeloDescargado(reemplazo.ajuste);
+      const modelo = await crearModeloDescargado(reemplazo.ajuste, reemplazo.optica);
       if (destruido()) return;
       decorarModeloDescargado(modelo, reemplazo);
       const eraVisible = reemplazo.respaldo.visible;
@@ -684,6 +686,7 @@ function poblarEscena(escena, cfg, set, cams, colorCiclorama) {
     objetosEncuadre.push(modelo);
     reemplazos.push({
       ajuste: ajusteCamara,
+      optica: opticaDeEquipo(catalogoCamaras, camara.equipo, ajusteCamara?.camara),
       respaldo: modelo,
       clase: "camara",
       color: camara.color,
@@ -1019,6 +1022,12 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
     [camaraActiva]
   );
   const focalesDisponibles = rangoFocalActivo?.pasos || LENTES;
+  const lenteActivo = useMemo(
+    () => (camaraActiva
+      ? opticaDeEquipo(catalogoCamaras, camaraActiva.equipo, ajusteDeCamara(camaraActiva)?.camara)?.lente?.nombre
+      : null),
+    [camaraActiva]
+  );
   const firmaEscena = useMemo(() => firmaEscenaDe(cfg, set, cams), [cfg, set, cams]);
 
   const publicarOrientacion = (vista) => {
@@ -1068,7 +1077,8 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
       const tilt = Math.round(THREE.MathUtils.radToDeg(vista.tilt));
       const rot = normalizarGrados(THREE.MathUtils.radToDeg(vista.yawBase + vista.pan));
       const indiceCamara = Math.max(0, cams.findIndex((camara) => camara.id === camaraActiva.id));
-      const textoEtiqueta = armarTextoEtiquetaCaptura({ camara: camaraActiva, indiceCamara, focal, fovH, fovV, tilt });
+      const lente = opticaDeEquipo(catalogoCamaras, camaraActiva.equipo, ajusteDeCamara(camaraActiva)?.camara)?.lente?.nombre;
+      const textoEtiqueta = armarTextoEtiquetaCaptura({ camara: camaraActiva, indiceCamara, lente, focal, tilt });
       const captura3d = {
         camId: camaraActiva.id,
         setId: set.id,
@@ -1367,6 +1377,7 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
     luzClave.target.position.set(0, 0, -0.6);
     escena.add(luzClave, luzClave.target);
     const contenido = poblarEscena(escena, cfg, set, cams, colorCiclorama);
+    const plantaEnVivo = crearPlantaEnVivo(escena);
     renderer.shadowMap.needsUpdate = true;
 
     const calcularMarco = () => {
@@ -1375,27 +1386,55 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
       const rectHost = host.getBoundingClientRect();
       const rectCamaras = camarasRef.current?.getBoundingClientRect();
       const margen = Math.min(ancho, alto) < 500 ? 6 : 12;
-      // El encuadre ocupa todo lo que queda arriba de la barra de cámaras;
-      // los controles flotan encima de la imagen, como en el diseño original.
-      // Viendo por una cámara, la barra de cámaras flota dentro de la imagen
-      // y debajo solo queda la fila de controles (Capturar, Centrar, focal).
+      // En órbita el encuadre ocupa lo que queda arriba de la barra de cámaras.
+      // Viendo por una cámara, esa barra flota dentro de la imagen y debajo
+      // queda la fila de controles (Capturar, Centrar, focal).
       const rectControles = controlesCamaraRef.current?.getBoundingClientRect();
-      const limiteInferior = controlesCamaraRef.current
-        ? Math.max(1, alto - (rectControles?.height || 48) - margen - 8)
-        : rectCamaras
-          ? Math.min(alto, Math.max(1, rectCamaras.top - rectHost.top))
-          : alto;
-      const disponible = Math.max(1, limiteInferior - margen * 2);
-      const anchoMarco = Math.max(1, Math.min(ancho - margen * 2, disponible * (16 / 9)));
-      const altoMarco = anchoMarco * (9 / 16);
-      const x = (ancho - anchoMarco) / 2;
-      const y = margen + (disponible - altoMarco) / 2;
-      panelRef.current?.style.setProperty("--marco-x", `${x}px`);
-      panelRef.current?.style.setProperty("--marco-y", `${y}px`);
-      panelRef.current?.style.setProperty("--marco-ancho", `${anchoMarco}px`);
-      panelRef.current?.style.setProperty("--marco-alto", `${altoMarco}px`);
-      panelRef.current?.style.setProperty("--marco-final", `${y + altoMarco}px`);
-      return { x, y, ancho: anchoMarco, alto: altoMarco, altoTotal: alto };
+      const altoControles = rectControles?.height || 48;
+      // Pantalla vertical: la imagen 16:9 va arriba a todo lo ancho, los
+      // controles abajo, y el hueco de en medio lo llena la planta en vivo.
+      const vertical = Boolean(controlesCamaraRef.current) && alto > ancho * 1.15;
+      let x;
+      let y;
+      let anchoMarco;
+      let altoMarco;
+      let controlesArriba;
+      let planta = null;
+      if (vertical) {
+        anchoMarco = ancho - margen * 2;
+        altoMarco = anchoMarco * (9 / 16);
+        x = margen;
+        y = margen;
+        controlesArriba = alto - altoControles - margen;
+        const plantaY = y + altoMarco + 10;
+        const plantaAlto = controlesArriba - 10 - plantaY;
+        if (plantaAlto >= 120) planta = { x: margen, y: plantaY, ancho: anchoMarco, alto: plantaAlto };
+      } else {
+        const limiteInferior = controlesCamaraRef.current
+          ? Math.max(1, alto - altoControles - margen - 8)
+          : rectCamaras
+            ? Math.min(alto, Math.max(1, rectCamaras.top - rectHost.top))
+            : alto;
+        const disponible = Math.max(1, limiteInferior - margen * 2);
+        anchoMarco = Math.max(1, Math.min(ancho - margen * 2, disponible * (16 / 9)));
+        altoMarco = anchoMarco * (9 / 16);
+        x = (ancho - anchoMarco) / 2;
+        y = margen + (disponible - altoMarco) / 2;
+        controlesArriba = y + altoMarco + 8;
+      }
+      const estilo = panelRef.current?.style;
+      estilo?.setProperty("--marco-x", `${x}px`);
+      estilo?.setProperty("--marco-y", `${y}px`);
+      estilo?.setProperty("--marco-ancho", `${anchoMarco}px`);
+      estilo?.setProperty("--marco-alto", `${altoMarco}px`);
+      estilo?.setProperty("--marco-final", `${y + altoMarco}px`);
+      estilo?.setProperty("--controles-arriba", `${controlesArriba}px`);
+      if (planta) {
+        estilo?.setProperty("--planta-y", `${planta.y}px`);
+        estilo?.setProperty("--planta-alto", `${planta.alto}px`);
+      }
+      panelRef.current?.classList.toggle("visor-set-3d--con-planta", Boolean(planta));
+      return { x, y, ancho: anchoMarco, alto: altoMarco, altoTotal: alto, planta };
     };
     const invalidar = () => {
       if (destruido || frame !== null) return;
@@ -1417,6 +1456,17 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
           renderer.setScissorTest(true);
           renderer.render(escena, camara);
           renderer.setScissorTest(false);
+          if (marco.planta) {
+            const activa = cams.find((camaraSet) => camaraSet.id === motor.vistaCamara?.camaraId);
+            plantaEnVivo.dibujar({
+              renderer,
+              motor,
+              contenido,
+              rect: marco.planta,
+              altoTotal: marco.altoTotal,
+              color: activa?.color || "#0A84FF",
+            });
+          }
         } else {
           renderer.setViewport(0, 0, ancho, alto);
           renderer.setScissorTest(false);
@@ -1776,17 +1826,18 @@ export default function VisorSet3D({ cfg, set, cams = [], editable = false, onGu
         )}
       </div>
       {camaraActiva && (
+        <div className="visor-set-3d__planta" aria-hidden="true"><span>Vista desde arriba</span></div>
+      )}
+      {camaraActiva && (
         <div className="visor-set-3d__encuadre" aria-hidden="true">
           <div className="visor-set-3d__marco">
             <div className="visor-set-3d__datos-camara">
               <span>{recortar(camaraActiva.nombre, 42)}</span>
               <div>
-                <strong>
-                  {focal} mm · visión {Math.round(fovHorizontalDeCamara(camaraActiva, focal))}° × {Math.round(fovDeCamara(camaraActiva, focal))}°
-              </strong>
-              <em>
-                Tilt {gradosConSigno(tiltEnVivo)}
-              </em>
+                {lenteActivo && <strong>{nombreCortoLente(lenteActivo)}</strong>}
+                <em>
+                  {focal} mm · Tilt {gradosConSigno(tiltEnVivo)}
+                </em>
               </div>
             </div>
           </div>
