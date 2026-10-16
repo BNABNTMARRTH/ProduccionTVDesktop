@@ -6,7 +6,8 @@ import { esc } from './constants.js';
 import { ProductionFSM } from './production_fsm.js';
 import { formatTime } from './formato_tiempo.js';
 import { abrirTeleprompter } from './teleprompter.js';
-import { htmlChecklist, htmlSalaDeControl, htmlSalaVacia } from './sala_control_html.js';
+import { etiquetaEstadoSwitcher, htmlChecklist, htmlMapeoSwitcher, htmlSalaDeControl, htmlSalaVacia } from './sala_control_html.js';
+import { crearControlSwitcher, SWITCHER_PUERTOS } from './switcher.js';
 
 export { formatTime };
 
@@ -266,21 +267,72 @@ export function accionDeTecla(e, numCams) {
     return null;
 }
 
-export function createProductionView({ container, getProject, getInfografia, getDiagram, onGoHome, onEnsayo }) {
+export function createProductionView({
+    container, getProject, getInfografia, getDiagram, onGoHome, onEnsayo,
+    onConfigChange, loadSettings, saveSettings,
+}) {
     let nodos = {};
     let inspectorVisible = false; // Por omisión plegado para máxima amplitud de estudio
     let filtroActivo = 'all';
+    let visible = false;
+    let switcher;
 
     const fsm = new ProductionFSM({
         onTick: () => refrescar(),
         onEnsayo,
         getPrograma: () => nodos.programa,
+        onProgram: (camId) => switcher?.setProgram(camId),
+        onPreview: (camId) => switcher?.setPreview(camId),
+    });
+
+    switcher = crearControlSwitcher({
+        getConfig: getInfografia,
+        onConfigChange,
+        loadSettings,
+        saveSettings,
+        onState: (status) => pintarEstadoSwitcher(status),
+        onInputs: () => pintarMapeoSwitcher(),
+        onExternal: (estado) => {
+            fsm.syncFromSwitcher(estado);
+            refrescar();
+        },
     });
 
     const commandManager = new ProductionCommandManager(fsm);
 
     const rows = () => getInfografia()?.escaleta || [];
     const transcurrido = () => fsm.transcurrido();
+
+    const etiquetaSwitcher = (status = switcher.status) => etiquetaEstadoSwitcher(status);
+
+    function pintarEstadoSwitcher(status = switcher.status) {
+        if (!nodos.switcherStatus) return;
+        nodos.switcherStatus.className = `apple-studio-btn lg-interactive switcher-status ${status.estado || 'desconectado'}`;
+        if (nodos.switcherStatusLabel) nodos.switcherStatusLabel.textContent = etiquetaSwitcher(status);
+        if (nodos.switcherPanelState) nodos.switcherPanelState.textContent = etiquetaSwitcher(status);
+        if (nodos.switcherError) {
+            nodos.switcherError.hidden = !status.error;
+            nodos.switcherError.textContent = status.error || '';
+        }
+        if (nodos.switcherConnect) nodos.switcherConnect.disabled = status.estado === 'conectando';
+        if (nodos.switcherDisconnect) nodos.switcherDisconnect.disabled = !(status.conectado || status.estado === 'conectando' || status.estado === 'error');
+    }
+
+    function enlazarSelectoresMapeo(kind) {
+        container.querySelectorAll('[data-switcher-map]').forEach((select) => {
+            select.addEventListener('change', () => switcher.setMapping(select.dataset.switcherMap, kind, select.value));
+        });
+    }
+
+    function pintarMapeoSwitcher(kind = nodos.switcherKind?.value || switcher.options.kind) {
+        if (!nodos.switcherMapBody) return;
+        const cfg = getInfografia();
+        nodos.switcherMapBody.innerHTML = htmlMapeoSwitcher(
+            cfg?.camaras || [], cfg?.switcher?.mapa || {}, kind, switcher.inputs || []
+        );
+        if (nodos.switcherInputHeading) nodos.switcherInputHeading.textContent = kind === 'obs' ? 'Escena de OBS' : 'Entrada ATEM';
+        enlazarSelectoresMapeo(kind);
+    }
 
     function fuente(cfg, id) {
         if (!id) return null;
@@ -301,6 +353,8 @@ export function createProductionView({ container, getProject, getInfografia, get
     const renderChecklistItems = (checklist) => htmlChecklist(checklist.byCategory(filtroActivo));
 
     function render() {
+        switcher.loadMachineSettings();
+        switcher.ensureMapping();
         const project = getProject();
         const cfg = getInfografia();
         if (!project || !cfg) {
@@ -328,6 +382,7 @@ export function createProductionView({ container, getProject, getInfografia, get
         container.innerHTML = htmlSalaDeControl({
             project, programa, hayPrograma, hayEscaleta: rows().length > 0, cams, checklist, listo,
             alistamientoPct, totalItems, diagCount, runCount, inspectorVisible, filtroActivo,
+            switcher: switcher.viewModel(),
         });
 
         nodos = {
@@ -357,8 +412,23 @@ export function createProductionView({ container, getProject, getInfografia, get
             plano: container.querySelector('#vivo-plano'),
             cams: [...container.querySelectorAll('[data-cam]')],
             timeBadge: container.querySelector('.timecode-badge'),
+            switcherStatus: container.querySelector('#switcher-status-btn'),
+            switcherStatusLabel: container.querySelector('#switcher-status-label'),
+            switcherSheet: container.querySelector('#switcher-sheet'),
+            switcherKind: container.querySelector('#switcher-kind'),
+            switcherHost: container.querySelector('#switcher-host'),
+            switcherPort: container.querySelector('#switcher-port'),
+            switcherPassword: container.querySelector('#switcher-password'),
+            switcherPasswordRow: container.querySelector('#switcher-password-row'),
+            switcherConnect: container.querySelector('#switcher-connect'),
+            switcherDisconnect: container.querySelector('#switcher-disconnect'),
+            switcherPanelState: container.querySelector('#switcher-panel-state'),
+            switcherError: container.querySelector('#switcher-panel-error'),
+            switcherMapBody: container.querySelector('#switcher-map-body'),
+            switcherInputHeading: container.querySelector('#switcher-input-heading'),
             programa, cfg, nom,
         };
+        fsm._getEffectiveAir = () => pasoEn(nodos.programa, fsm.transcurrido())?.aire || null;
 
         container.querySelector('#go-home')?.addEventListener('click', onGoHome);
         container.querySelector('#open-prompter')?.addEventListener('click', openPrompter);
@@ -366,6 +436,41 @@ export function createProductionView({ container, getProject, getInfografia, get
         nodos.reset?.addEventListener('click', () => commandManager.resetTransport());
         nodos.prevStep?.addEventListener('click', () => commandManager.prevStep());
         nodos.nextStep?.addEventListener('click', () => commandManager.nextStep());
+
+        const cerrarSwitcher = () => { if (nodos.switcherSheet) nodos.switcherSheet.hidden = true; };
+        nodos.switcherStatus?.addEventListener('click', () => { if (nodos.switcherSheet) nodos.switcherSheet.hidden = false; });
+        container.querySelector('.switcher-sheet-close')?.addEventListener('click', cerrarSwitcher);
+        nodos.switcherSheet?.addEventListener('click', (event) => { if (event.target === nodos.switcherSheet) cerrarSwitcher(); });
+        nodos.switcherKind?.addEventListener('change', () => {
+            const kind = nodos.switcherKind.value;
+            if (nodos.switcherPort) nodos.switcherPort.value = String(SWITCHER_PUERTOS[kind]);
+            if (nodos.switcherPasswordRow) nodos.switcherPasswordRow.hidden = kind === 'atem';
+            const ayuda = container.querySelector('#switcher-password-help');
+            if (ayuda) ayuda.hidden = kind === 'atem';
+            pintarMapeoSwitcher(kind);
+        });
+        nodos.switcherConnect?.addEventListener('click', async () => {
+            await switcher.connect({
+                kind: nodos.switcherKind?.value,
+                host: nodos.switcherHost?.value,
+                port: Number(nodos.switcherPort?.value),
+                password: nodos.switcherPassword?.value || '',
+            });
+            pintarEstadoSwitcher();
+            pintarMapeoSwitcher();
+        });
+        nodos.switcherDisconnect?.addEventListener('click', async () => {
+            await switcher.disconnect();
+            pintarEstadoSwitcher();
+        });
+        container.querySelector('#switcher-follow')?.addEventListener('click', (event) => {
+            const next = !switcher.followRundown;
+            switcher.setFollowRundown(next);
+            event.currentTarget.classList.toggle('active', next);
+            event.currentTarget.setAttribute('aria-checked', String(next));
+        });
+        enlazarSelectoresMapeo(nodos.switcherKind?.value || switcher.options.kind);
+        pintarEstadoSwitcher();
 
         // Manejador interactivo de Scrubber (Seek en la línea de tiempo con arrastre continuo)
         let isScrubbing = false;
@@ -440,8 +545,11 @@ export function createProductionView({ container, getProject, getInfografia, get
         container._camKeyHandler = handleKeys;
         container.addEventListener('keydown', handleKeys);
 
-        fsm.pasoActual = -1;
-        fsm.mount(container);
+        if (visible || !container.hidden) {
+            visible = true;
+            fsm.mount(container);
+            switcher.activate();
+        }
         refrescar();
     }
 
@@ -502,11 +610,16 @@ export function createProductionView({ container, getProject, getInfografia, get
             if (!paso) return;
 
             if (paso.i !== fsm.pasoActual) {
-                if (fsm.isRunning) {
+                fsm.pasoActual = paso.i;
+                if (fsm.isRunning && !switcher.status.conectado) {
+                    // Ensayo sin switcher: cada paso nuevo vuelve a lo que pide el programa.
                     fsm.air = null;
                     fsm.preview = null;
+                } else if (fsm.isRunning) {
+                    // Con switcher, lo que está al aire se queda hasta que alguien corte.
+                    if (switcher.followRundown && paso.aire) fsm.takeCamera(paso.aire);
+                    if (paso.previo && paso.previo !== fsm.air) fsm.setPreview(paso.previo);
                 }
-                fsm.pasoActual = paso.i;
             }
 
             const aireReal = fsm.air || paso.aire;
@@ -514,10 +627,10 @@ export function createProductionView({ container, getProject, getInfografia, get
             const fAire = fuente(cfg, aireReal);
             const fPrevio = fuente(cfg, previoReal);
 
-            if (nodos.aire) nodos.aire.textContent = nom(paso.aire);
-            if (nodos.aireSub) nodos.aireSub.textContent = fuente(cfg, paso.aire)?.plano || '';
-            if (nodos.previo) nodos.previo.textContent = nom(paso.previo);
-            if (nodos.previoSub) nodos.previoSub.textContent = fuente(cfg, paso.previo)?.plano || '';
+            if (nodos.aire) nodos.aire.textContent = nom(aireReal);
+            if (nodos.aireSub) nodos.aireSub.textContent = fuente(cfg, aireReal)?.plano || '';
+            if (nodos.previo) nodos.previo.textContent = nom(previoReal);
+            if (nodos.previoSub) nodos.previoSub.textContent = fuente(cfg, previoReal)?.plano || '';
 
             const desviado = fsm.air && paso.aire && fsm.air !== paso.aire;
             if (nodos.desvio) {
@@ -589,6 +702,21 @@ export function createProductionView({ container, getProject, getInfografia, get
 
     return {
         render,
-        unmount: () => fsm.unmount(),
+        setVisible: (value) => {
+            visible = value === true;
+            if (visible) {
+                fsm.mount(container);
+                switcher.activate();
+            } else {
+                // La conexión con el switcher sigue viva fuera de Producción:
+                // en vivo no puede caerse por ir a mirar el guion.
+                fsm.unmount();
+            }
+        },
+        unmount: () => {
+            visible = false;
+            fsm.unmount();
+            switcher.deactivate();
+        },
     };
 }

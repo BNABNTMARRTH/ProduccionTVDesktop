@@ -47,10 +47,12 @@ class FinishedState extends ProductionState {
 }
 
 export class ProductionFSM {
-    constructor({ onTick, onEnsayo, getPrograma }) {
+    constructor({ onTick, onEnsayo, getPrograma, onProgram, onPreview }) {
         this.onTick = onTick;
         this.onEnsayo = onEnsayo;
         this.getPrograma = getPrograma;
+        this.onProgram = onProgram;
+        this.onPreview = onPreview;
 
         this.states = {
             stopped: new StoppedState(this),
@@ -98,6 +100,7 @@ export class ProductionFSM {
     }
 
     startRunning() {
+        this.pasoActual = -1;
         this.arranque = performance.now();
         this.state = this.states.running;
         this.marcarEnsayado();
@@ -202,12 +205,31 @@ export class ProductionFSM {
         this.state.toggle();
     }
 
-    takeCamera(id) {
+    takeCamera(id, { externo = false } = {}) {
         if (id === this.air) return;
-        this.preview = this.air;
+        const anterior = this.air || this._getEffectiveAir?.() || null;
+        this.preview = anterior;
         this.air = id;
         this.marcarEnsayado();
+        if (!externo) {
+            if (anterior) this.onPreview?.(anterior);
+            this.onProgram?.(id);
+        }
         this.onTick?.();
+    }
+
+    setPreview(id, { externo = false } = {}) {
+        if (!id || id === this.preview) return;
+        this.preview = id;
+        if (!externo) this.onPreview?.(id);
+        this.onTick?.();
+    }
+
+    syncFromSwitcher({ air, preview } = {}) {
+        let changed = false;
+        if (air && air !== this.air) { this.air = air; changed = true; }
+        if (preview && preview !== this.preview) { this.preview = preview; changed = true; }
+        if (changed) this.onTick?.();
     }
 
     startTimer() {

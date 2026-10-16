@@ -1523,6 +1523,13 @@ const production = createProductionView({
     getDiagram: () => latestDiagram,
     onGoHome: () => irAInicio(),
     onEnsayo: () => marcaHito('ensayado'),
+    onConfigChange: (cfg) => {
+        latestInfografia = cfg;
+        marcarCambio();
+        scheduleSave();
+    },
+    loadSettings: () => ajustes.obtener(),
+    saveSettings: (parcial) => ajustes.actualizar(parcial),
 });
 
 // Recorrido guiado de primera vez (y repetible desde el botón ❔ del header).
@@ -1692,6 +1699,7 @@ function pintarEspacio() {
     frameWrap.hidden = !esHerramienta;
     // El Ensayo se ve si es la vista del proyecto o si es la pestaña activa.
     productionView.hidden = vista !== 'production';
+    production.setVisible?.(vista === 'production');
     // De los iframes solo se ve el de la pestaña que manda.
     panelPrincipal.el.hidden = !(enPrincipal && esHerramienta);
     paneles.forEach((p, v) => { if (!p.esVista) p.el.hidden = !(v === vista && !enPrincipal); });

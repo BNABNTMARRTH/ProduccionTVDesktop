@@ -26,6 +26,7 @@ type App struct {
 	trashStore    *TrashStore
 	assetStore    *AssetStore
 	settingsStore *SettingsStore
+	switcherMgr   *SwitcherManager
 }
 
 // NewApp creates a new App application struct
@@ -40,12 +41,18 @@ func NewApp(projectID string, projectJSON string, openFileJSON string, toolView 
 		trashStore:    defaultTrashStore,
 		assetStore:    defaultAssetStore,
 		settingsStore: defaultSettingsStore,
+		switcherMgr:   NewSwitcherManager(),
 	}
 }
 
 // startup se ejecuta al arrancar la ventana y registra el proceso en el WindowManager.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	a.switcherMgr.SetEmitter(func(status SwitcherStatus) {
+		if a.ctx != nil {
+			runtime.EventsEmit(a.ctx, "ptv:switcher-estado", status)
+		}
+	})
 	a.registerWindow()
 	initColorPanelBackend(ctx)
 
@@ -67,6 +74,7 @@ func (a *App) domReady(ctx context.Context) {
 
 // shutdown se ejecuta al cerrar la ventana y libera la marca en el WindowManager.
 func (a *App) shutdown(ctx context.Context) {
+	a.SwitcherDisconnect()
 	a.StopWatch()
 	a.releaseWindow()
 }
@@ -267,6 +275,35 @@ func (a *App) LoadSettings() (string, error) {
 
 func (a *App) SaveSettings(content string) error {
 	return a.settingsStore.SaveSettings(content)
+}
+
+/* ---------------- Switcher de video externo ---------------- */
+
+// SwitcherConnect conecta esta ventana con OBS Studio o un Blackmagic ATEM.
+// Cada proceso tiene su propio gestor: una ventana que no muestra Producción
+// no comparte ni mantiene abierta la conexión de otra.
+func (a *App) SwitcherConnect(kind string, host string, port int, password string) error {
+	return a.switcherMgr.Connect(kind, host, port, password)
+}
+
+func (a *App) SwitcherDisconnect() {
+	a.switcherMgr.Disconnect()
+}
+
+func (a *App) SwitcherSetProgram(input string) error {
+	return a.switcherMgr.SetProgram(input)
+}
+
+func (a *App) SwitcherSetPreview(input string) error {
+	return a.switcherMgr.SetPreview(input)
+}
+
+func (a *App) SwitcherStatus() SwitcherStatus {
+	return a.switcherMgr.Status()
+}
+
+func (a *App) SwitcherListInputs() ([]string, error) {
+	return a.switcherMgr.ListInputs()
 }
 
 /* ---------------- Diálogos Nativos de Guardado ---------------- */

@@ -3022,6 +3022,47 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 }
 .switcher-action-btn:active{transform:scale(.95)}
 
+/* Conexión de red y hoja de mapeo. Todos los estados toman los tokens de la
+   app para conservar contraste y tema sin una segunda paleta. */
+.switcher-status{color:var(--azul-apple);border-color:var(--azul-apple)}
+.switcher-status.conectado{color:var(--tinta);border-color:var(--ok)}
+.switcher-status.error{color:var(--peligro);border-color:var(--peligro)}
+.switcher-status-dot{flex:none;width:8px;height:8px;border-radius:50%;background:currentColor}
+.switcher-status.conectando .switcher-status-dot{background:var(--alerta)}
+.switcher-status.conectado .switcher-status-dot{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent)}
+.switcher-sheet-backdrop{
+  position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:24px;
+  background:color-mix(in srgb,var(--yeso) 72%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+}
+.switcher-sheet-backdrop[hidden]{display:none!important}
+.switcher-sheet{
+  width:min(680px,100%);max-height:min(720px,calc(100vh - 48px));display:flex;flex-direction:column;gap:14px;padding:20px;
+  border:1px solid var(--vidrio-borde);border-radius:20px;background:var(--yeso);color:var(--tinta);
+  box-shadow:inset 0 1px 0 var(--vidrio-filo),0 24px 64px var(--hueco-fondo);overflow:hidden;
+}
+.switcher-sheet>header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.switcher-sheet h2,.switcher-sheet h3{margin:2px 0 0;color:var(--tinta)}
+.switcher-sheet h2{font-size:20px}.switcher-sheet h3{font-size:13px}
+.switcher-sheet-close{width:32px;height:32px;border-radius:9px;border:1px solid var(--vidrio-borde);background:var(--vidrio-a);color:var(--tinta);cursor:pointer}
+.switcher-sheet-help,.switcher-mapping-head p{margin:0;color:var(--tinta-media);font-size:11px;line-height:1.45}
+.switcher-form-grid{display:grid;grid-template-columns:1fr 1.4fr .7fr 1.2fr;gap:10px}
+.switcher-form-grid label{display:flex;flex-direction:column;gap:5px;color:var(--tinta-baja);font-size:10px;font-weight:700}
+.switcher-form-grid input,.switcher-form-grid select,.switcher-mapping-scroll select{
+  width:100%;height:34px;border:1px solid var(--hueco-borde);border-radius:9px;background:var(--hueco-fondo);box-shadow:var(--hueco-sombra);
+  color:var(--tinta);font:inherit;font-size:12px;padding:0 9px;outline:none;
+}
+.switcher-form-grid input:focus,.switcher-form-grid select:focus,.switcher-mapping-scroll select:focus{border-color:var(--azul-apple)}
+.switcher-sheet-actions{display:flex;align-items:center;gap:8px}
+.switcher-sheet-actions>span{margin-left:auto;color:var(--tinta-baja);font-size:10px;font-weight:650}
+.switcher-panel-error{margin:0;padding:8px 10px;border:1px solid var(--peligro);border-radius:9px;color:var(--peligro);font-size:11px;background:var(--hueco-fondo)}
+.switcher-mapping-head{display:flex;align-items:end;justify-content:space-between;gap:10px;padding-top:4px;border-top:1px solid var(--vidrio-borde)}
+.switcher-mapping-scroll{min-height:0;overflow:auto;border:1px solid var(--vidrio-borde);border-radius:12px;background:var(--vidrio-b)}
+.switcher-mapping-scroll table{width:100%;border-collapse:collapse;font-size:11px}
+.switcher-mapping-scroll th,.switcher-mapping-scroll td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--vidrio-borde)}
+.switcher-mapping-scroll thead th{position:sticky;top:0;background:var(--yeso);color:var(--tinta-baja);font-size:9px;text-transform:uppercase;letter-spacing:.06em}
+.switcher-mapping-scroll tbody th{color:var(--tinta);font-weight:650;width:45%}
+.switcher-mapping-scroll tr:last-child th,.switcher-mapping-scroll tr:last-child td{border-bottom:0}
+
 /* Inspector Lateral de Alistamiento Técnico */
 .studio-readiness-inspector{
   height:100%;min-height:0;border-radius:18px;padding:14px;border:1px solid rgba(255,255,255,.12);
@@ -4089,6 +4130,16 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   min-height:48px;
   height:48px;
 }
+:root[data-layout="compact"] .switcher-sheet-backdrop{align-items:end;padding:0}
+:root[data-layout="compact"] .switcher-sheet{width:100%;max-height:92vh;border-radius:20px 20px 0 0;padding:18px 16px max(18px,var(--ptv-safe-bottom,env(safe-area-inset-bottom)))}
+:root[data-layout="compact"] .switcher-sheet-close{width:44px;height:44px}
+:root[data-layout="compact"] .switcher-form-grid{grid-template-columns:minmax(0,1fr)}
+:root[data-layout="compact"] .switcher-form-grid input,
+:root[data-layout="compact"] .switcher-form-grid select,
+:root[data-layout="compact"] .switcher-mapping-scroll select{height:48px;font-size:16px}
+:root[data-layout="compact"] .switcher-sheet-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+:root[data-layout="compact"] .switcher-sheet-actions .apple-studio-btn{min-height:48px}
+:root[data-layout="compact"] .switcher-sheet-actions>span{grid-column:1/-1;margin:0;text-align:center;font-size:12px}
 :root[data-layout="compact"] .studio-readiness-inspector {
   height:auto;
   min-height:0;

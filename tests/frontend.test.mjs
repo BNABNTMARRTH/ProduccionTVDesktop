@@ -10,6 +10,10 @@ import { PLANTILLAS_SET, cfgDePlantilla, plantillaPorId } from '../frontend/src/
 import { construirPrograma, pasoEn } from '../frontend/src/production.js';
 import { normalizarAjustes, ESCALAS } from '../frontend/src/ajustes.js';
 import {
+  normalizarNombreSwitcher, mapaSwitcherPorDefecto, camIdPorEntradaSwitcher,
+  entradaSwitcherPorCamId, normalizarConexionSwitcher,
+} from '../frontend/src/switcher.js';
+import {
   LUZ_CATALOGO, SETUPS_ILUMINACION, SETUPS_EXTERIOR, RECOMENDADAS_POR_PLANTILLA,
   getSetup, instanciarSetup, instanciarElemento, posicionesParaLuces,
 } from '../web-sources/generador-tv/src/iluminacion.js';
@@ -1357,6 +1361,46 @@ test('una escaleta con duraciones en cero no tumba el programa', () => {
   assert.equal(pasoEn(programa, 0).segNombre, 'Vacío');
 });
 
+/* ---- Switcher externo: lógica pura, sin Wails ni equipos en red ---- */
+
+test('los nombres de escenas se comparan sin mayúsculas, acentos ni signos', () => {
+  assert.equal(normalizarNombreSwitcher('  CÁM-ÁRA  1 / PGM '), 'cam ara 1 pgm');
+  assert.equal(normalizarNombreSwitcher('Cámara Uno'), normalizarNombreSwitcher('CAMARA UNO'));
+});
+
+test('el mapa del switcher asigna ATEM por orden y OBS por nombre o CAM n', () => {
+  const cams = [
+    { id: 'a', nombre: 'Cámara General' },
+    { id: 'b', nombre: 'Entrevistá' },
+    { id: 'c', nombre: 'Sin escena' },
+  ];
+  const mapa = mapaSwitcherPorDefecto(cams, ['CAM 1', 'ENTREVISTA', 'Otra']);
+  assert.deepEqual(mapa.a, { obs: 'CAM 1', atem: 1 }, 'CAM n sirve de respaldo');
+  assert.deepEqual(mapa.b, { obs: 'ENTREVISTA', atem: 2 }, 'el nombre gana sin acentos/mayúsculas');
+  assert.deepEqual(mapa.c, { obs: '', atem: 3 }, 'sin coincidencia OBS queda vacío');
+});
+
+test('el mapa conserva asignaciones existentes y traduce en ambos sentidos', () => {
+  const cams = [{ id: 'a', nombre: 'CAM 1' }, { id: 'b', nombre: 'CAM 2' }];
+  const mapa = mapaSwitcherPorDefecto(cams, ['CAM 1', 'CAM 2'], {
+    a: { obs: 'Mi escena', atem: 7 },
+  });
+  assert.deepEqual(mapa.a, { obs: 'Mi escena', atem: 7 });
+  assert.equal(camIdPorEntradaSwitcher(cams, mapa, 'obs', 'Mi escena'), 'a');
+  assert.equal(camIdPorEntradaSwitcher(cams, mapa, 'atem', '2'), 'b');
+  assert.equal(camIdPorEntradaSwitcher(cams, mapa, 'obs', 'No existe'), null);
+  assert.equal(entradaSwitcherPorCamId(mapa, 'atem', 'a'), '7');
+});
+
+test('la conexión usa los puertos conocidos y solo recuerda reconexión explícita', () => {
+  assert.deepEqual(normalizarConexionSwitcher({ kind: 'obs' }), {
+    kind: 'obs', host: '127.0.0.1', port: 4455, password: '', reconectar: false,
+  });
+  assert.deepEqual(normalizarConexionSwitcher({ kind: 'atem', host: '10.0.0.8', reconectar: true }), {
+    kind: 'atem', host: '10.0.0.8', port: 9910, password: '', reconectar: true,
+  });
+});
+
 /* ---- LOS AJUSTES DE ACCESIBILIDAD ----
    Se leen del disco, o sea que pueden venir de una versión anterior, de otra
    ventana o simplemente rotos. Un tamaño inventado dejaría la app en un zoom
@@ -1364,6 +1408,13 @@ test('una escaleta con duraciones en cero no tumba el programa', () => {
 
 test('los ajustes vacíos son los de fábrica: nada elegido, todo normal', () => {
   assert.deepEqual(normalizarAjustes(), { tema: '', escala: 1, contraste: 'normal', movimiento: 'normal' });
+});
+
+test('los ajustes compartidos conservan la última conexión del switcher', () => {
+  const ajustes = normalizarAjustes({ switcher: { kind: 'atem', host: '192.168.1.20', port: 9910, reconectar: true } });
+  assert.deepEqual(ajustes.switcher, {
+    kind: 'atem', host: '192.168.1.20', port: 9910, password: '', reconectar: true,
+  });
 });
 
 test('un tamaño que no está en la lista vuelve al 100%', () => {

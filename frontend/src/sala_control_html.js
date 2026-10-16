@@ -41,12 +41,69 @@ export function htmlChecklist(items) {
     }).join('');
 }
 
+export const etiquetaEstadoSwitcher = (status = {}) => {
+    if (status.estado === 'no-disponible') return 'Switcher: solo en Mac';
+    if (!status.kind || status.estado === 'desconectado') return 'Conectar switcher';
+    const nombre = status.kind.toUpperCase();
+    if (status.estado === 'conectando') return `${nombre} · conectando…`;
+    if (status.conectado) return `${nombre} conectado`;
+    return `${nombre} sin conexión`;
+};
+
+export function htmlMapeoSwitcher(cams = [], mapa = {}, kind = 'obs', inputs = []) {
+    const disponibles = kind === 'atem' ? Array.from({ length: 8 }, (_, i) => String(i + 1)) : inputs.map(String);
+    return cams.map((camara, indice) => {
+        const actual = String(mapa?.[camara.id]?.[kind] ?? '');
+        const opciones = [...new Set([actual, ...disponibles].filter(Boolean))];
+        return `<tr>
+            <th scope="row">${esc(camara.nombre || `CAM ${indice + 1}`)}</th>
+            <td><select data-switcher-map="${esc(camara.id)}" aria-label="Entrada para ${esc(camara.nombre || `CAM ${indice + 1}`)}">
+                <option value="">Sin asignar</option>
+                ${opciones.map((input) => `<option value="${esc(input)}" ${input === actual ? 'selected' : ''}>${esc(kind === 'atem' ? `Entrada ${input}` : input)}</option>`).join('')}
+            </select></td>
+        </tr>`;
+    }).join('');
+}
+
+export function htmlPanelSwitcher({ cams = [], status = {}, options = {}, mapa = {}, inputs = [] } = {}) {
+    const kind = options.kind === 'atem' ? 'atem' : 'obs';
+    return `
+        <div class="switcher-sheet-backdrop" id="switcher-sheet" hidden>
+            <section class="switcher-sheet lg-container" role="dialog" aria-modal="true" aria-labelledby="switcher-sheet-title">
+                <header>
+                    <div><span class="studio-eyebrow">CONTROL POR RED</span><h2 id="switcher-sheet-title">Switcher externo</h2></div>
+                    <button type="button" class="switcher-sheet-close" aria-label="Cerrar">✕</button>
+                </header>
+                <p class="switcher-sheet-help">Conecta OBS Studio o un ATEM en la misma red. Si la conexión falla, el ensayo sigue funcionando aquí.</p>
+                <div class="switcher-form-grid">
+                    <label>Tipo<select id="switcher-kind"><option value="obs" ${kind === 'obs' ? 'selected' : ''}>OBS Studio</option><option value="atem" ${kind === 'atem' ? 'selected' : ''}>Blackmagic ATEM</option></select></label>
+                    <label>Dirección<input id="switcher-host" value="${esc(options.host || '127.0.0.1')}" placeholder="127.0.0.1" autocomplete="off"></label>
+                    <label>Puerto<input id="switcher-port" type="number" min="1" max="65535" value="${esc(options.port || (kind === 'atem' ? 9910 : 4455))}"></label>
+                    <label id="switcher-password-row" ${kind === 'atem' ? 'hidden' : ''}>Contraseña<input id="switcher-password" type="password" value="${esc(options.password || '')}" autocomplete="current-password" placeholder="La de OBS"></label>
+                </div>
+                <p class="switcher-sheet-help" id="switcher-password-help" ${kind === 'atem' ? 'hidden' : ''}><strong>¿Dónde está la contraseña?</strong> En OBS: menú <em>Herramientas → Ajustes del servidor WebSocket → Mostrar información de conexión</em>. Si OBS corre en esta misma Mac, puedes dejarla vacía: la app la toma sola.</p>
+                <div class="switcher-sheet-actions">
+                    <button type="button" id="switcher-connect" class="apple-studio-btn">Conectar</button>
+                    <button type="button" id="switcher-disconnect" class="apple-studio-btn" ${status.conectado || status.estado === 'conectando' ? '' : 'disabled'}>Desconectar</button>
+                    <span id="switcher-panel-state">${esc(etiquetaEstadoSwitcher(status))}</span>
+                </div>
+                <p id="switcher-panel-error" class="switcher-panel-error" ${status.error ? '' : 'hidden'}>${esc(status.error || '')}</p>
+                <div class="switcher-mapping-head"><div><h3>Mapa de cámaras</h3><p>Cada cámara de este proyecto controla una entrada.</p></div></div>
+                <div class="switcher-mapping-scroll"><table><thead><tr><th>Cámara</th><th id="switcher-input-heading">${kind === 'obs' ? 'Escena de OBS' : 'Entrada ATEM'}</th></tr></thead>
+                    <tbody id="switcher-map-body">${htmlMapeoSwitcher(cams, mapa, kind, inputs)}</tbody>
+                </table></div>
+            </section>
+        </div>`;
+}
+
 /**
  * La sala completa. `datos` trae lo que la plantilla original tomaba del
  * cierre de createProductionView.
  */
 export function htmlSalaDeControl({ project, programa, hayPrograma, hayEscaleta, cams, checklist, listo,
-    alistamientoPct, totalItems, diagCount, runCount, inspectorVisible, filtroActivo }) {
+    alistamientoPct, totalItems, diagCount, runCount, inspectorVisible, filtroActivo, switcher = {} }) {
+    const switcherVM = switcher || {};
+    const switcherStatus = switcherVM.status || {};
     return `
         <div class="studio-workspace ${inspectorVisible ? 'with-inspector' : 'inspector-collapsed'}">
             <!-- CABECERA PRINCIPAL APPLE STUDIO: TÍTULO, MASTER TRANSPORT Y ACCIONES -->
@@ -101,6 +158,13 @@ export function htmlSalaDeControl({ project, programa, hayPrograma, hayEscaleta,
 
                 <!-- ACCIONES SUPERIORES APPLE: TELEPROMPTER E INSPECTOR TOGGLE -->
                 <div class="studio-header-actions">
+                    <button id="switcher-status-btn" class="apple-studio-btn lg-interactive switcher-status ${esc(switcherStatus.estado || 'desconectado')}" type="button" title="Conectar la app con OBS o con un ATEM">
+                        <span class="switcher-status-dot" aria-hidden="true"></span><span id="switcher-status-label">${esc(etiquetaEstadoSwitcher(switcherStatus))}</span>
+                    </button>
+                    <button id="switcher-follow" class="apple-studio-btn toggle-btn lg-interactive ${switcherVM.followRundown ? 'active' : ''}" role="switch" aria-checked="${switcherVM.followRundown ? 'true' : 'false'}"
+                        title="Al entrar un paso nuevo, poner automáticamente su cámara al aire">
+                        <span>Seguir la escaleta</span>
+                    </button>
                     <button id="open-prompter" class="apple-studio-btn lg-interactive" ${hayEscaleta ? '' : 'disabled'}
                         title="Guion en teleprompter con auto-scroll y modo espejo">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -259,5 +323,6 @@ export function htmlSalaDeControl({ project, programa, hayPrograma, hayEscaleta,
                     </div>
                 </aside>
             </div>
+            ${htmlPanelSwitcher({ cams, status: switcherStatus, options: switcherVM.options, mapa: switcherVM.mapa, inputs: switcherVM.inputs })}
         </div>`;
 }
