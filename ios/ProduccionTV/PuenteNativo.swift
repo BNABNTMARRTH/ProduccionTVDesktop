@@ -27,6 +27,14 @@ final class PuenteNativo: NSObject, WKScriptMessageHandlerWithReply {
 
     weak var webView: WKWebView?
 
+    /// Los dos protocolos viven en actores propios. El cierre sólo agenda la
+    /// entrega al WKWebView en el hilo principal (ver `emitir`).
+    private let switcher = GestorSwitcherNativo { estado in
+        Task { @MainActor in
+            PuenteNativo.compartido.emitirEstadoSwitcher(estado)
+        }
+    }
+
     /// La página terminó de cargar y ya hay quien escuche los eventos.
     private var paginaLista = false
 
@@ -54,6 +62,10 @@ final class PuenteNativo: NSObject, WKScriptMessageHandlerWithReply {
         i < args.count ? (args[i] as? String ?? "") : ""
     }
 
+    private func entero(_ args: [Any], _ i: Int) -> Int {
+        i < args.count ? (args[i] as? NSNumber)?.intValue ?? 0 : 0
+    }
+
     // MARK: - Las funciones de app.go, una por una
 
     private func atender(_ funcion: String, _ args: [Any], _ responder: @escaping (Any?, String?) -> Void) {
@@ -61,6 +73,58 @@ final class PuenteNativo: NSObject, WKScriptMessageHandlerWithReply {
         let arranque = EstadoDeArranque.compartido
 
         switch funcion {
+
+        // ---- Switcher externo (OBS / ATEM) ---------------------------------------
+        case "SwitcherConnect":
+            Task { @MainActor in
+                do {
+                    try await switcher.conectar(kind: texto(args, 0), host: texto(args, 1),
+                                                puerto: entero(args, 2), contrasena: texto(args, 3))
+                    responder(nil, nil)
+                } catch {
+                    responder(nil, error.localizedDescription)
+                }
+            }
+
+        case "SwitcherDisconnect":
+            Task { @MainActor in
+                await switcher.desconectar()
+                responder(nil, nil)
+            }
+
+        case "SwitcherSetProgram":
+            Task { @MainActor in
+                do {
+                    try await switcher.ponerPrograma(texto(args, 0))
+                    responder(nil, nil)
+                } catch {
+                    responder(nil, error.localizedDescription)
+                }
+            }
+
+        case "SwitcherSetPreview":
+            Task { @MainActor in
+                do {
+                    try await switcher.ponerPreview(texto(args, 0))
+                    responder(nil, nil)
+                } catch {
+                    responder(nil, error.localizedDescription)
+                }
+            }
+
+        case "SwitcherStatus":
+            Task { @MainActor in
+                responder(await switcher.estadoActual().diccionario, nil)
+            }
+
+        case "SwitcherListInputs":
+            Task { @MainActor in
+                do {
+                    responder(try await switcher.listarEntradas(), nil)
+                } catch {
+                    responder(nil, error.localizedDescription)
+                }
+            }
 
         // ---- Contexto de arranque -------------------------------------------------
         case "GetLaunchContext":
@@ -340,6 +404,18 @@ final class PuenteNativo: NSObject, WKScriptMessageHandlerWithReply {
                   let nombre = Self.aLiteralJS(evento),
                   let carga = Self.aLiteralJS(dato) else { return }
             vista.evaluateJavaScript("window.__ptvEmitir && window.__ptvEmitir(\(nombre), \(carga));")
+        }
+    }
+
+    /// `ptv:switcher-estado` lleva un objeto, no una cadena. Se codifica como
+    /// JSON nativo para que `EventsOn` reciba exactamente el payload de Wails.
+    nonisolated func emitirEstadoSwitcher(_ estado: EstadoSwitcherNativo) {
+        guard let datos = try? JSONEncoder().encode(estado),
+              let json = String(data: datos, encoding: .utf8) else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let vista = self?.webView,
+                  let nombre = Self.aLiteralJS("ptv:switcher-estado") else { return }
+            vista.evaluateJavaScript("window.__ptvEmitir && window.__ptvEmitir(\(nombre), \(json));")
         }
     }
 

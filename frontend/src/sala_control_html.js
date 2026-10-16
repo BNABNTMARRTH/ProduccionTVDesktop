@@ -65,8 +65,13 @@ export function htmlMapeoSwitcher(cams = [], mapa = {}, kind = 'obs', inputs = [
     }).join('');
 }
 
-export function htmlPanelSwitcher({ cams = [], status = {}, options = {}, mapa = {}, inputs = [] } = {}) {
+export function htmlPanelSwitcher({ cams = [], status = {}, options = {}, mapa = {}, inputs = [], tactil = false } = {}) {
     const kind = options.kind === 'atem' ? 'atem' : 'obs';
+    const host = options.host ?? (tactil ? '' : '127.0.0.1');
+    const placeholderHost = tactil ? 'IP de la Mac, p. ej. 192.168.1.20' : '127.0.0.1';
+    const ayudaOBS = tactil
+        ? '<strong>¿Dónde están la IP y la contraseña?</strong> Salen de OBS en la Mac: <em>Herramientas → Ajustes del servidor WebSocket → Mostrar información de conexión</em>.'
+        : '<strong>¿Dónde está la contraseña?</strong> En OBS: <em>Herramientas → Ajustes del servidor WebSocket → Mostrar información de conexión</em>. Si OBS corre en esta misma Mac, puedes dejarla vacía: la app la toma sola.';
     return `
         <div class="switcher-sheet-backdrop" id="switcher-sheet" hidden>
             <section class="switcher-sheet lg-container" role="dialog" aria-modal="true" aria-labelledby="switcher-sheet-title">
@@ -77,11 +82,11 @@ export function htmlPanelSwitcher({ cams = [], status = {}, options = {}, mapa =
                 <p class="switcher-sheet-help">Conecta OBS Studio o un ATEM en la misma red. Si la conexión falla, el ensayo sigue funcionando aquí.</p>
                 <div class="switcher-form-grid">
                     <label>Tipo<select id="switcher-kind"><option value="obs" ${kind === 'obs' ? 'selected' : ''}>OBS Studio</option><option value="atem" ${kind === 'atem' ? 'selected' : ''}>Blackmagic ATEM</option></select></label>
-                    <label>Dirección<input id="switcher-host" value="${esc(options.host || '127.0.0.1')}" placeholder="127.0.0.1" autocomplete="off"></label>
+                    <label>Dirección<input id="switcher-host" value="${esc(host)}" placeholder="${esc(placeholderHost)}" autocomplete="off"></label>
                     <label>Puerto<input id="switcher-port" type="number" min="1" max="65535" value="${esc(options.port || (kind === 'atem' ? 9910 : 4455))}"></label>
                     <label id="switcher-password-row" ${kind === 'atem' ? 'hidden' : ''}>Contraseña<input id="switcher-password" type="password" value="${esc(options.password || '')}" autocomplete="current-password" placeholder="La de OBS"></label>
                 </div>
-                <p class="switcher-sheet-help" id="switcher-password-help" ${kind === 'atem' ? 'hidden' : ''}><strong>¿Dónde está la contraseña?</strong> En OBS: menú <em>Herramientas → Ajustes del servidor WebSocket → Mostrar información de conexión</em>. Si OBS corre en esta misma Mac, puedes dejarla vacía: la app la toma sola.</p>
+                <p class="switcher-sheet-help" id="switcher-password-help" ${kind === 'atem' ? 'hidden' : ''}>${ayudaOBS}</p>
                 <div class="switcher-sheet-actions">
                     <button type="button" id="switcher-connect" class="apple-studio-btn">Conectar</button>
                     <button type="button" id="switcher-disconnect" class="apple-studio-btn" ${status.conectado || status.estado === 'conectando' ? '' : 'disabled'}>Desconectar</button>
@@ -323,6 +328,6 @@ export function htmlSalaDeControl({ project, programa, hayPrograma, hayEscaleta,
                     </div>
                 </aside>
             </div>
-            ${htmlPanelSwitcher({ cams, status: switcherStatus, options: switcherVM.options, mapa: switcherVM.mapa, inputs: switcherVM.inputs })}
+            ${htmlPanelSwitcher({ cams, status: switcherStatus, options: switcherVM.options, mapa: switcherVM.mapa, inputs: switcherVM.inputs, tactil: switcherVM.tactil === true })}
         </div>`;
 }

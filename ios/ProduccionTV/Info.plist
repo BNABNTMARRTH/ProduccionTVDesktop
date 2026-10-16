@@ -55,12 +55,19 @@
 	<string>Para tomar fotos del storyboard y medir las dimensiones del foro con la cámara y LiDAR del dispositivo.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Producción TV</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Para conectarse con OBS o con un switcher ATEM en tu red.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Solo si grabas un video desde la app; Producción TV no graba audio por su cuenta.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>Para orientar temporalmente la vista de una cámara 3D al mover tu iPhone o iPad.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Para usar una foto tuya como cuadro del storyboard o como logo del proyecto.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -20,6 +20,7 @@
      La app lee esta bandera y no ofrece el gesto. Las PESTAÑAS sí se quedan:
      ésas viven dentro de la misma ventana y funcionan igual que en el Mac. */
   window.__ptvSinVentanas = true;
+  document.documentElement.setAttribute('data-tactil', '');
   if (window.__ptvPuenteListo) return;
   window.__ptvPuenteListo = true;
 
@@ -47,7 +48,9 @@
     'LoadProjectFile', 'LoadReferenceImage', 'LoadSettings', 'OpenProjectWindow',
     'OpenToolWindow', 'Print', 'ReadTrashFile', 'SaveBase64File', 'SaveContact',
     'SaveProjectFile', 'SaveReference', 'SaveSettings', 'SaveTextFile',
-    'SetWindowTitle', 'StopWatch', 'WatchProject'
+    'SetWindowTitle', 'StopWatch', 'WatchProject',
+    'SwitcherConnect', 'SwitcherDisconnect', 'SwitcherSetProgram',
+    'SwitcherSetPreview', 'SwitcherStatus', 'SwitcherListInputs'
   ];
 
   /* Y estas NO existen en app.go: son capacidades que solo tiene el iPad.

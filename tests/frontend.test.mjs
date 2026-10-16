@@ -5,6 +5,7 @@
 // Cubre plantillas/migración de datos y el catálogo de iluminación.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
 import { makeTemplate, infografiaFromDiagram, templateDefaults, SCHEMA_VERSION, normalizeMode } from '../frontend/src/templates.js';
 import { PLANTILLAS_SET, cfgDePlantilla, plantillaPorId } from '../frontend/src/plantillas.js';
 import { construirPrograma, pasoEn } from '../frontend/src/production.js';
@@ -13,6 +14,7 @@ import {
   normalizarNombreSwitcher, mapaSwitcherPorDefecto, camIdPorEntradaSwitcher,
   entradaSwitcherPorCamId, normalizarConexionSwitcher,
 } from '../frontend/src/switcher.js';
+import { htmlPanelSwitcher } from '../frontend/src/sala_control_html.js';
 import {
   LUZ_CATALOGO, SETUPS_ILUMINACION, SETUPS_EXTERIOR, RECOMENDADAS_POR_PLANTILLA,
   getSetup, instanciarSetup, instanciarElemento, posicionesParaLuces,
@@ -1524,4 +1526,49 @@ test('el logo sigue activo en Inicio y el pliegue usa el mismo estado', () => {
   assert.match(STYLE,
     /\.desktop-shell\.vista-inicio\.rail-plegado \.rail-logo\{[^}]*z-index:\s*16[^}]*\}/,
     'la caja transparente del encabezado no debe quedarse con el clic del logo');
+});
+
+test('el puente iOS publica los seis bindings del switcher', async () => {
+  const { readFileSync } = await import('node:fs');
+  const codigo = readFileSync(new URL('../ios/ProduccionTV/Recursos/puente-ios.js', import.meta.url), 'utf8');
+  const html = { setAttribute() {}, hasAttribute() { return false; } };
+  const contexto = {
+    console,
+    document: { documentElement: html, createElement() { throw new Error('no debe crear controles al arrancar'); } },
+    window: {
+      webkit: { messageHandlers: { producciontv: { postMessage: () => Promise.resolve(null) } } },
+      innerWidth: 1024,
+      innerHeight: 768,
+      open() {},
+      location: { reload() {} },
+    },
+  };
+  contexto.window.window = contexto.window;
+  vm.createContext(contexto);
+  vm.runInContext(codigo, contexto);
+  const api = contexto.window.go.main.App;
+  for (const nombre of [
+    'SwitcherConnect', 'SwitcherDisconnect', 'SwitcherSetProgram',
+    'SwitcherSetPreview', 'SwitcherStatus', 'SwitcherListInputs',
+  ]) assert.equal(typeof api[nombre], 'function', `${nombre} debe existir en iOS`);
+  let recibido = null;
+  contexto.window.runtime.EventsOn('ptv:switcher-estado', (dato) => { recibido = dato; });
+  contexto.window.__ptvEmitir('ptv:switcher-estado', { kind: 'obs', estado: 'conectado', conectado: true });
+  assert.equal(recibido.kind, 'obs');
+  assert.equal(recibido.conectado, true);
+});
+
+test('el switcher no propone loopback como dirección en iPhone/iPad', () => {
+  assert.equal(normalizarConexionSwitcher({}, { tactil: true }).host, '');
+  assert.equal(normalizarConexionSwitcher({}, { tactil: false }).host, '127.0.0.1');
+});
+
+test('la ayuda táctil pide la IP de la Mac y reserva loopback para escritorio', () => {
+  const tactil = htmlPanelSwitcher({ options: { kind: 'obs', host: '' }, tactil: true });
+  assert.match(tactil, /IP de la Mac, p\. ej\. 192\.168\.1\.20/);
+  assert.match(tactil, /Salen de OBS en la Mac/);
+  assert.doesNotMatch(tactil, /Si OBS corre en esta misma Mac/);
+  const escritorio = htmlPanelSwitcher({ options: { kind: 'obs' }, tactil: false });
+  assert.match(escritorio, /placeholder="127\.0\.0\.1"/);
+  assert.match(escritorio, /Si OBS corre en esta misma Mac/);
 });

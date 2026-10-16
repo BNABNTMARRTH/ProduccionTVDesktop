@@ -1,6 +1,6 @@
 // Puente de la Sala de Control con OBS Studio y Blackmagic ATEM.
-// No importa bindings generados: en iPad o navegador `window.go` no existe y
-// el módulo queda inactivo sin alterar el ensayo local.
+// No importa bindings generados: tanto Wails como el puente Swift publican el
+// mismo `window.go.main.App`; en un navegador común el módulo queda inactivo.
 
 export const SWITCHER_PUERTOS = Object.freeze({ obs: 4455, atem: 9910 });
 
@@ -43,12 +43,20 @@ export function entradaSwitcherPorCamId(mapa = {}, kind, camId) {
     return String(mapa?.[camId]?.[kind] ?? '').trim();
 }
 
-export function normalizarConexionSwitcher(value = {}) {
+export function esEntornoTactilNativo() {
+    try {
+        return globalThis.__ptvSinVentanas === true
+            || globalThis.document?.documentElement?.hasAttribute?.('data-tactil') === true;
+    } catch { return false; }
+}
+
+export function normalizarConexionSwitcher(value = {}, { tactil = esEntornoTactilNativo() } = {}) {
     const kind = value.kind === 'atem' ? 'atem' : 'obs';
     const port = Number(value.port);
+    const hostInicial = Object.prototype.hasOwnProperty.call(value, 'host') ? value.host : (tactil ? '' : '127.0.0.1');
     return {
         kind,
-        host: String(value.host || '127.0.0.1').trim() || '127.0.0.1',
+        host: String(hostInicial ?? '').trim(),
         port: Number.isInteger(port) && port > 0 && port <= 65535 ? port : SWITCHER_PUERTOS[kind],
         password: String(value.password || ''),
         reconectar: value.reconectar === true,
@@ -94,6 +102,7 @@ export class ControlSwitcher {
             inputs: [...this.inputs],
             mapa: this.getConfig()?.switcher?.mapa || {},
             followRundown: this.followRundown,
+            tactil: esEntornoTactilNativo(),
         };
     }
 

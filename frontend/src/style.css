@@ -3063,6 +3063,18 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .switcher-mapping-scroll tbody th{color:var(--tinta);font-weight:650;width:45%}
 .switcher-mapping-scroll tr:last-child th,.switcher-mapping-scroll tr:last-child td{border-bottom:0}
 
+/* El puente iOS marca el documento al arrancar. Los blancos de 44 px evitan
+   controles pequeños sin cambiar la densidad de la versión de escritorio. */
+:root[data-tactil] .switcher-sheet-close,
+:root[data-tactil] .switcher-sheet-actions button,
+:root[data-tactil] .switcher-status,
+:root[data-tactil] #switcher-follow,
+:root[data-tactil] .switcher-cam-btn,
+:root[data-tactil] .switcher-action-btn{min-width:44px;min-height:44px}
+:root[data-tactil] .switcher-form-grid input,
+:root[data-tactil] .switcher-form-grid select,
+:root[data-tactil] .switcher-mapping-scroll select{height:44px}
+
 /* Inspector Lateral de Alistamiento Técnico */
 .studio-readiness-inspector{
   height:100%;min-height:0;border-radius:18px;padding:14px;border:1px solid rgba(255,255,255,.12);
