@@ -34,6 +34,7 @@ final class PuenteNativo: NSObject, WKScriptMessageHandlerWithReply {
             PuenteNativo.compartido.emitirEstadoSwitcher(estado)
         }
     }
+    private let buscadorOBS = BuscadorOBSNativo()
 
     /// La página terminó de cargar y ya hay quien escuche los eventos.
     private var paginaLista = false
@@ -121,6 +122,16 @@ final class PuenteNativo: NSObject, WKScriptMessageHandlerWithReply {
             Task { @MainActor in
                 do {
                     responder(try await switcher.listarEntradas(), nil)
+                } catch {
+                    responder(nil, error.localizedDescription)
+                }
+            }
+
+        case "SwitcherBuscarOBS":
+            Task { @MainActor in
+                do {
+                    let encontrados = try await buscadorOBS.buscar(puerto: entero(args, 0))
+                    responder(encontrados.map(\.diccionario), nil)
                 } catch {
                     responder(nil, error.localizedDescription)
                 }

@@ -276,6 +276,7 @@ export function createProductionView({
     let filtroActivo = 'all';
     let visible = false;
     let switcher;
+    let avisoSwitcherTimer = 0;
 
     const fsm = new ProductionFSM({
         onTick: () => refrescar(),
@@ -292,6 +293,8 @@ export function createProductionView({
         saveSettings,
         onState: (status) => pintarEstadoSwitcher(status),
         onInputs: () => pintarMapeoSwitcher(),
+        onDiscovery: (estado) => pintarBusquedaOBS(estado),
+        onNotice: (mensaje) => mostrarAvisoSwitcher(mensaje),
         onExternal: (estado) => {
             fsm.syncFromSwitcher(estado);
             refrescar();
@@ -316,6 +319,57 @@ export function createProductionView({
         }
         if (nodos.switcherConnect) nodos.switcherConnect.disabled = status.estado === 'conectando';
         if (nodos.switcherDisconnect) nodos.switcherDisconnect.disabled = !(status.conectado || status.estado === 'conectando' || status.estado === 'error');
+    }
+
+    function mostrarAvisoSwitcher(mensaje) {
+        if (!nodos.switcherNotice) return;
+        clearTimeout(avisoSwitcherTimer);
+        nodos.switcherNotice.textContent = mensaje || '';
+        nodos.switcherNotice.hidden = !mensaje;
+        if (mensaje) {
+            avisoSwitcherTimer = setTimeout(() => {
+                if (nodos.switcherNotice) nodos.switcherNotice.hidden = true;
+            }, 6500);
+        }
+    }
+
+    function pintarBusquedaOBS(estado = switcher.discovery) {
+        if (!nodos.switcherSearchBox) return;
+        const esOBS = (nodos.switcherKind?.value || switcher.options.kind) === 'obs';
+        nodos.switcherSearchBox.hidden = !esOBS;
+        if (!esOBS) return;
+        const buscando = estado?.buscando === true;
+        const resultados = Array.isArray(estado?.resultados) ? estado.resultados : [];
+        if (nodos.switcherSearch) nodos.switcherSearch.disabled = buscando;
+        if (nodos.switcherSearchStatus) {
+            nodos.switcherSearchStatus.textContent = buscando
+                ? 'Buscando OBS en tu red…'
+                : estado?.error
+                ? `No se pudo buscar OBS: ${estado.error}`
+                : switcher.lastDiscoveryAt && resultados.length === 0
+                ? 'No encontré OBS. Revisa que OBS esté abierto en la Mac, que el servidor WebSocket esté habilitado y que estés en la misma Wi-Fi.'
+                : resultados.length
+                ? `${resultados.length === 1 ? 'Encontré un OBS' : `Encontré ${resultados.length} equipos con OBS`}. Toca uno para usarlo:`
+                : '';
+        }
+        if (nodos.switcherSearchResults) {
+            nodos.switcherSearchResults.innerHTML = resultados.map((item) =>
+                `<button type="button" class="switcher-search-result" data-obs-host="${esc(item.host)}" data-obs-port="${item.port}"><b>${esc(item.nombre)}</b><span>· ${esc(item.host)}</span></button>`
+            ).join('');
+            nodos.switcherSearchResults.querySelectorAll('[data-obs-host]').forEach((boton) => {
+                boton.addEventListener('click', () => {
+                    if (nodos.switcherHost) nodos.switcherHost.value = boton.dataset.obsHost || '';
+                    if (nodos.switcherPort) nodos.switcherPort.value = boton.dataset.obsPort || String(SWITCHER_PUERTOS.obs);
+                    switcher.persistOptions({
+                        ...switcher.options, kind: 'obs', host: boton.dataset.obsHost || '',
+                        port: Number(boton.dataset.obsPort) || SWITCHER_PUERTOS.obs,
+                    });
+                });
+            });
+        }
+        if (!buscando && !String(nodos.switcherHost?.value || '').trim() && switcher.options.host) {
+            nodos.switcherHost.value = switcher.options.host;
+        }
     }
 
     function enlazarSelectoresMapeo(kind) {
@@ -417,6 +471,10 @@ export function createProductionView({
             switcherSheet: container.querySelector('#switcher-sheet'),
             switcherKind: container.querySelector('#switcher-kind'),
             switcherHost: container.querySelector('#switcher-host'),
+            switcherSearch: container.querySelector('#switcher-search'),
+            switcherSearchBox: container.querySelector('#switcher-search-box'),
+            switcherSearchStatus: container.querySelector('#switcher-search-status'),
+            switcherSearchResults: container.querySelector('#switcher-search-results'),
             switcherPort: container.querySelector('#switcher-port'),
             switcherPassword: container.querySelector('#switcher-password'),
             switcherPasswordRow: container.querySelector('#switcher-password-row'),
@@ -424,6 +482,7 @@ export function createProductionView({
             switcherDisconnect: container.querySelector('#switcher-disconnect'),
             switcherPanelState: container.querySelector('#switcher-panel-state'),
             switcherError: container.querySelector('#switcher-panel-error'),
+            switcherNotice: container.querySelector('#switcher-panel-notice'),
             switcherMapBody: container.querySelector('#switcher-map-body'),
             switcherInputHeading: container.querySelector('#switcher-input-heading'),
             programa, cfg, nom,
@@ -438,17 +497,29 @@ export function createProductionView({
         nodos.nextStep?.addEventListener('click', () => commandManager.nextStep());
 
         const cerrarSwitcher = () => { if (nodos.switcherSheet) nodos.switcherSheet.hidden = true; };
-        nodos.switcherStatus?.addEventListener('click', () => { if (nodos.switcherSheet) nodos.switcherSheet.hidden = false; });
+        const abrirSwitcher = () => {
+            if (nodos.switcherSheet) nodos.switcherSheet.hidden = false;
+            if (nodos.switcherKind?.value === 'obs' && !String(nodos.switcherHost?.value || '').trim()) {
+                switcher.buscarOBS(Number(nodos.switcherPort?.value), { hostActual: '' });
+            }
+        };
+        nodos.switcherStatus?.addEventListener('click', abrirSwitcher);
         container.querySelector('.switcher-sheet-close')?.addEventListener('click', cerrarSwitcher);
         nodos.switcherSheet?.addEventListener('click', (event) => { if (event.target === nodos.switcherSheet) cerrarSwitcher(); });
         nodos.switcherKind?.addEventListener('change', () => {
             const kind = nodos.switcherKind.value;
             if (nodos.switcherPort) nodos.switcherPort.value = String(SWITCHER_PUERTOS[kind]);
             if (nodos.switcherPasswordRow) nodos.switcherPasswordRow.hidden = kind === 'atem';
+            if (nodos.switcherSearch) nodos.switcherSearch.hidden = kind === 'atem';
+            if (nodos.switcherSearchBox) nodos.switcherSearchBox.hidden = kind === 'atem';
             const ayuda = container.querySelector('#switcher-password-help');
             if (ayuda) ayuda.hidden = kind === 'atem';
             pintarMapeoSwitcher(kind);
+            pintarBusquedaOBS();
         });
+        nodos.switcherSearch?.addEventListener('click', () => switcher.buscarOBS(
+            Number(nodos.switcherPort?.value), { hostActual: nodos.switcherHost?.value || '' }
+        ));
         nodos.switcherConnect?.addEventListener('click', async () => {
             await switcher.connect({
                 kind: nodos.switcherKind?.value,
@@ -471,6 +542,7 @@ export function createProductionView({
         });
         enlazarSelectoresMapeo(nodos.switcherKind?.value || switcher.options.kind);
         pintarEstadoSwitcher();
+        pintarBusquedaOBS();
 
         // Manejador interactivo de Scrubber (Seek en la línea de tiempo con arrastre continuo)
         let isScrubbing = false;

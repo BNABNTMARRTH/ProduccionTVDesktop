@@ -12,7 +12,8 @@ import { construirPrograma, pasoEn } from '../frontend/src/production.js';
 import { normalizarAjustes, ESCALAS } from '../frontend/src/ajustes.js';
 import {
   normalizarNombreSwitcher, mapaSwitcherPorDefecto, camIdPorEntradaSwitcher,
-  entradaSwitcherPorCamId, normalizarConexionSwitcher,
+  entradaSwitcherPorCamId, normalizarConexionSwitcher, normalizarResultadosOBS,
+  errorOBSRequiereBusqueda, elegirResultadoOBS,
 } from '../frontend/src/switcher.js';
 import { htmlPanelSwitcher } from '../frontend/src/sala_control_html.js';
 import {
@@ -1417,6 +1418,8 @@ test('los ajustes compartidos conservan la última conexión del switcher', () =
   assert.deepEqual(ajustes.switcher, {
     kind: 'atem', host: '192.168.1.20', port: 9910, password: '', reconectar: true,
   });
+  assert.equal(normalizarAjustes({ switcher: { kind: 'obs', host: '' } }).switcher.host, '',
+    'iPad conserva el campo vacío para poder buscar OBS al abrir el panel');
 });
 
 test('un tamaño que no está en la lista vuelve al 100%', () => {
@@ -1528,7 +1531,7 @@ test('el logo sigue activo en Inicio y el pliegue usa el mismo estado', () => {
     'la caja transparente del encabezado no debe quedarse con el clic del logo');
 });
 
-test('el puente iOS publica los seis bindings del switcher', async () => {
+test('el puente iOS publica los siete bindings del switcher', async () => {
   const { readFileSync } = await import('node:fs');
   const codigo = readFileSync(new URL('../ios/ProduccionTV/Recursos/puente-ios.js', import.meta.url), 'utf8');
   const html = { setAttribute() {}, hasAttribute() { return false; } };
@@ -1549,7 +1552,7 @@ test('el puente iOS publica los seis bindings del switcher', async () => {
   const api = contexto.window.go.main.App;
   for (const nombre of [
     'SwitcherConnect', 'SwitcherDisconnect', 'SwitcherSetProgram',
-    'SwitcherSetPreview', 'SwitcherStatus', 'SwitcherListInputs',
+    'SwitcherSetPreview', 'SwitcherStatus', 'SwitcherListInputs', 'SwitcherBuscarOBS',
   ]) assert.equal(typeof api[nombre], 'function', `${nombre} debe existir en iOS`);
   let recibido = null;
   contexto.window.runtime.EventsOn('ptv:switcher-estado', (dato) => { recibido = dato; });
@@ -1563,12 +1566,44 @@ test('el switcher no propone loopback como dirección en iPhone/iPad', () => {
   assert.equal(normalizarConexionSwitcher({}, { tactil: false }).host, '127.0.0.1');
 });
 
+test('la búsqueda de OBS normaliza y elige sólo un resultado inequívoco', () => {
+  const encontrados = normalizarResultadosOBS([
+    { host: '192.168.100.77', nombre: 'Mac-de-Aldo.local.', port: 4455 },
+    { host: '192.168.100.77', nombre: 'repetido', port: 4455 },
+  ]);
+  assert.deepEqual(encontrados, [{ host: '192.168.100.77', nombre: 'Mac-de-Aldo.local.', port: 4455 }]);
+  assert.equal(elegirResultadoOBS(encontrados, '')?.host, '192.168.100.77');
+  assert.equal(elegirResultadoOBS(encontrados, '192.168.100.77', { soloOtraDireccion: true }), null);
+  assert.equal(elegirResultadoOBS([
+    ...encontrados, { host: '192.168.100.88', nombre: 'Otra Mac', port: 4455 },
+  ], ''), null, 'dos equipos no se deben elegir solos');
+  assert.equal(elegirResultadoOBS([
+    ...encontrados, { host: '192.168.100.88', nombre: 'Otra Mac', port: 4455 },
+  ], '192.168.100.77', { soloOtraDireccion: true })?.host, '192.168.100.88');
+});
+
+test('sólo los errores de transporte de OBS ameritan buscar otra IP', () => {
+  assert.equal(errorOBSRequiereBusqueda('OBS no contestó'), true);
+  assert.equal(errorOBSRequiereBusqueda('La Mac rechazó la conexión: OBS no está escuchando'), true);
+  // El consejo de «Red local» en el aviso de tiempo agotado no debe frenar la búsqueda.
+  assert.equal(errorOBSRequiereBusqueda('OBS no contestó. Nadie contestó en 192.168.100.22 a tiempo: revisa ... Ajustes → Privacidad y seguridad → Red local.'), true);
+  assert.equal(errorOBSRequiereBusqueda('iOS está bloqueando la red local: abre Ajustes'), false);
+  assert.equal(errorOBSRequiereBusqueda('la contraseña no coincide con la de OBS'), false);
+  assert.equal(errorOBSRequiereBusqueda('OBS pide contraseña'), false);
+  assert.equal(errorOBSRequiereBusqueda('OBS no envió un saludo válido'), false);
+  assert.equal(errorOBSRequiereBusqueda('OBS no contestó. iOS está bloqueando la red local'), false);
+});
+
 test('la ayuda táctil pide la IP de la Mac y reserva loopback para escritorio', () => {
   const tactil = htmlPanelSwitcher({ options: { kind: 'obs', host: '' }, tactil: true });
   assert.match(tactil, /IP de la Mac, p\. ej\. 192\.168\.1\.20/);
   assert.match(tactil, /Salen de OBS en la Mac/);
+  assert.match(tactil, /Buscar OBS en la red/);
+  assert.match(tactil, /id="switcher-search-status"/);
   assert.doesNotMatch(tactil, /Si OBS corre en esta misma Mac/);
   const escritorio = htmlPanelSwitcher({ options: { kind: 'obs' }, tactil: false });
   assert.match(escritorio, /placeholder="127\.0\.0\.1"/);
   assert.match(escritorio, /Si OBS corre en esta misma Mac/);
+  const atem = htmlPanelSwitcher({ options: { kind: 'atem', host: '192.168.1.9' } });
+  assert.match(atem, /id="switcher-search" class="apple-studio-btn" hidden/);
 });

@@ -1,4 +1,5 @@
 import CryptoKit
+import Darwin
 import Foundation
 import Network
 
@@ -28,6 +29,258 @@ struct EstadoSwitcherNativo: Codable, Sendable {
 private struct FalloSwitcher: LocalizedError, Sendable {
     let mensaje: String
     var errorDescription: String? { mensaje }
+}
+
+struct OBSEncontradoNativo: Sendable {
+    let host: String
+    let nombre: String
+    let port: Int
+
+    var diccionario: [String: Any] {
+        ["host": host, "nombre": nombre, "port": port]
+    }
+}
+
+/// Descubre OBS sin Bonjour: toma las interfaces IPv4 privadas activas, limita
+/// cada red a un máximo de /24 y confirma el Hello de obs-websocket. Al ser un
+/// actor separado, ni getifaddrs ni los timeouts de red ocupan el actor de UI.
+actor BuscadorOBSNativo {
+    private struct Red: Sendable {
+        let ip: UInt32
+        let mascara: UInt32
+    }
+
+    private final class CajaValor<T>: @unchecked Sendable {
+        private let candado = NSLock()
+        private var valor: T?
+
+        func guardar(_ nuevo: T) {
+            candado.lock()
+            valor = nuevo
+            candado.unlock()
+        }
+
+        func guardarSiVacio(_ nuevo: T) -> Bool {
+            candado.lock()
+            defer { candado.unlock() }
+            guard valor == nil else { return false }
+            valor = nuevo
+            return true
+        }
+
+        func leer() -> T? {
+            candado.lock()
+            defer { candado.unlock() }
+            return valor
+        }
+    }
+
+    func buscar(puerto: Int) async throws -> [OBSEncontradoNativo] {
+        guard (1...65535).contains(puerto) else {
+            throw FalloSwitcher(mensaje: "el puerto debe estar entre 1 y 65535")
+        }
+        let inicio = Date()
+        let limite = inicio.addingTimeInterval(3.85)
+        let redes = try Self.redesPrivadasActivas()
+        let propias = Set(redes.map(\.ip))
+        var objetivos = Set<UInt32>()
+        for red in redes {
+            objetivos.formUnion(Self.hosts(red: red))
+        }
+        objetivos.subtract(propias) // iPhone/iPad nunca es el servidor OBS.
+        var iterator = objetivos.sorted().makeIterator()
+        var encontrados: [String] = []
+
+        await withTaskGroup(of: String?.self) { grupo in
+            for _ in 0..<64 {
+                guard Date() < limite, let ip = iterator.next() else { break }
+                let host = Self.textoIPv4(ip)
+                grupo.addTask {
+                    await Self.sondear(host: host, puerto: puerto, antesDe: limite) ? host : nil
+                }
+            }
+            while let resultado = await grupo.next() {
+                if let resultado { encontrados.append(resultado) }
+                guard Date() < limite, let ip = iterator.next() else { continue }
+                let host = Self.textoIPv4(ip)
+                grupo.addTask {
+                    await Self.sondear(host: host, puerto: puerto, antesDe: limite) ? host : nil
+                }
+            }
+        }
+
+        var resultado: [OBSEncontradoNativo] = []
+        for host in encontrados.sorted() {
+            let restante = limite.timeIntervalSinceNow
+            let nombre = restante > 0.02
+                ? Self.nombreInverso(host, timeout: min(0.3, restante))
+                : host
+            resultado.append(OBSEncontradoNativo(host: host, nombre: nombre, port: puerto))
+        }
+        return resultado
+    }
+
+    private nonisolated static func redesPrivadasActivas() throws -> [Red] {
+        var primero: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&primero) == 0 else {
+            throw FalloSwitcher(mensaje: "no se pudieron leer las redes activas")
+        }
+        defer { freeifaddrs(primero) }
+        var redes: [Red] = []
+        var actual = primero
+        while let interfaz = actual {
+            defer { actual = interfaz.pointee.ifa_next }
+            let flags = interfaz.pointee.ifa_flags
+            guard flags & UInt32(IFF_UP) != 0,
+                  flags & UInt32(IFF_RUNNING) != 0,
+                  flags & UInt32(IFF_LOOPBACK) == 0,
+                  let direccion = interfaz.pointee.ifa_addr,
+                  let mascara = interfaz.pointee.ifa_netmask,
+                  Int32(direccion.pointee.sa_family) == AF_INET else { continue }
+            let ip = direccion.withMemoryRebound(to: sockaddr_in.self, capacity: 1) {
+                UInt32(bigEndian: $0.pointee.sin_addr.s_addr)
+            }
+            let mask = mascara.withMemoryRebound(to: sockaddr_in.self, capacity: 1) {
+                UInt32(bigEndian: $0.pointee.sin_addr.s_addr)
+            }
+            if Self.esPrivada(ip) {
+                redes.append(Red(ip: ip, mascara: mask))
+            }
+        }
+        return redes
+    }
+
+    private nonisolated static func esPrivada(_ ip: UInt32) -> Bool {
+        (ip & 0xff00_0000) == 0x0a00_0000
+            || (ip & 0xfff0_0000) == 0xac10_0000
+            || (ip & 0xffff_0000) == 0xc0a8_0000
+    }
+
+    private nonisolated static func hosts(red: Red) -> Set<UInt32> {
+        let prefijoReal = red.mascara.nonzeroBitCount
+        let prefijo = max(24, min(32, prefijoReal))
+        guard prefijo < 31 else { return [] }
+        let mascara = UInt32.max << UInt32(32 - prefijo)
+        let base = red.ip & mascara
+        let cantidad = UInt32(1) << UInt32(32 - prefijo)
+        return Set((1..<(cantidad - 1)).map { base &+ $0 })
+    }
+
+    private nonisolated static func textoIPv4(_ ip: UInt32) -> String {
+        "\((ip >> 24) & 255).\((ip >> 16) & 255).\((ip >> 8) & 255).\(ip & 255)"
+    }
+
+    private nonisolated static func sondear(host: String, puerto: Int, antesDe limiteGlobal: Date) async -> Bool {
+        let limite = min(limiteGlobal, Date().addingTimeInterval(0.45))
+        guard await abrirTCP(host: host, puerto: puerto, antesDe: limite), Date() < limite,
+              let url = URL(string: "ws://\(host):\(puerto)") else { return false }
+        let configuracion = URLSessionConfiguration.ephemeral
+        configuracion.timeoutIntervalForRequest = max(0.05, limite.timeIntervalSinceNow)
+        configuracion.timeoutIntervalForResource = max(0.05, limite.timeIntervalSinceNow)
+        let sesion = URLSession(configuration: configuracion)
+        let tarea = sesion.webSocketTask(with: url)
+        tarea.resume()
+        defer {
+            tarea.cancel(with: .normalClosure, reason: nil)
+            sesion.invalidateAndCancel()
+        }
+        do {
+            let mensaje = try await recibir(tarea, antesDe: limite)
+            let objeto = try objeto(mensaje)
+            guard (objeto["op"] as? NSNumber)?.intValue == 0,
+                  let datos = objeto["d"] as? [String: Any],
+                  !(datos["obsWebSocketVersion"] as? String ?? "").isEmpty else { return false }
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private nonisolated static func abrirTCP(host: String, puerto: Int, antesDe limite: Date) async -> Bool {
+        guard let endpointPort = NWEndpoint.Port(rawValue: UInt16(puerto)) else { return false }
+        return await withCheckedContinuation { continuacion in
+            let caja = CajaValor<Bool>()
+            let conexion = NWConnection(host: NWEndpoint.Host(host), port: endpointPort, using: .tcp)
+            let terminar: @Sendable (Bool) -> Void = { valor in
+                guard caja.guardarSiVacio(valor) else { return }
+                conexion.cancel()
+                continuacion.resume(returning: valor)
+            }
+            conexion.stateUpdateHandler = { estado in
+                switch estado {
+                case .ready: terminar(true)
+                case .failed, .cancelled: terminar(false)
+                default: break
+                }
+            }
+            conexion.start(queue: DispatchQueue.global(qos: .userInitiated))
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + max(0.01, limite.timeIntervalSinceNow)) {
+                terminar(false)
+            }
+        }
+    }
+
+    private nonisolated static func recibir(_ tarea: URLSessionWebSocketTask,
+                                             antesDe limite: Date) async throws -> URLSessionWebSocketTask.Message {
+        try await withCheckedThrowingContinuation { continuacion in
+            let caja = UnaSolaRespuesta(continuacion)
+            let operacion = Task {
+                do { caja.terminar(.success(try await tarea.receive())) }
+                catch { caja.terminar(.failure(error)) }
+            }
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + max(0.01, limite.timeIntervalSinceNow)) {
+                operacion.cancel()
+                caja.terminar(.failure(FalloSwitcher(mensaje: "OBS tardó demasiado en responder")))
+            }
+        }
+    }
+
+    private nonisolated static func objeto(_ mensaje: URLSessionWebSocketTask.Message) throws -> [String: Any] {
+        let datos: Data
+        switch mensaje {
+        case .data(let data): datos = data
+        case .string(let texto): datos = Data(texto.utf8)
+        @unknown default: throw FalloSwitcher(mensaje: "respuesta inválida de OBS")
+        }
+        guard let objeto = try JSONSerialization.jsonObject(with: datos) as? [String: Any] else {
+            throw FalloSwitcher(mensaje: "respuesta inválida de OBS")
+        }
+        return objeto
+    }
+
+    private nonisolated static func nombreInverso(_ ip: String, timeout: TimeInterval) -> String {
+        guard timeout > 0 else { return ip }
+        let caja = CajaValor<String>()
+        let semaforo = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .utility).async {
+            var direccion = sockaddr_in()
+            direccion.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+            direccion.sin_family = sa_family_t(AF_INET)
+            guard inet_pton(AF_INET, ip, &direccion.sin_addr) == 1 else {
+                semaforo.signal()
+                return
+            }
+            var buffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            let codigo = withUnsafePointer(to: &direccion) { puntero in
+                puntero.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    getnameinfo($0, socklen_t(MemoryLayout<sockaddr_in>.size),
+                                &buffer, socklen_t(buffer.count), nil, 0, NI_NAMEREQD)
+                }
+            }
+            if codigo == 0 {
+                caja.guardar(String(cString: buffer))
+            }
+            semaforo.signal()
+        }
+        guard semaforo.wait(timeout: .now() + timeout) == .success,
+              var nombre = caja.leer()?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !nombre.isEmpty else { return ip }
+        while nombre.hasSuffix(".") { nombre.removeLast() }
+        if nombre.lowercased().hasSuffix(".local") {
+            nombre.removeLast(6)
+        }
+        return nombre.isEmpty ? ip : nombre
+    }
 }
 
 private protocol SwitcherNativo: Actor {

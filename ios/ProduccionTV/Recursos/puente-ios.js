@@ -50,7 +50,8 @@
     'SaveProjectFile', 'SaveReference', 'SaveSettings', 'SaveTextFile',
     'SetWindowTitle', 'StopWatch', 'WatchProject',
     'SwitcherConnect', 'SwitcherDisconnect', 'SwitcherSetProgram',
-    'SwitcherSetPreview', 'SwitcherStatus', 'SwitcherListInputs'
+    'SwitcherSetPreview', 'SwitcherStatus', 'SwitcherListInputs',
+    'SwitcherBuscarOBS'
   ];
 
   /* Y estas NO existen en app.go: son capacidades que solo tiene el iPad.

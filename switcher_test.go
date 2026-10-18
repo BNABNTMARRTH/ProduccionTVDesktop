@@ -142,6 +142,80 @@ func (f *fakeOBS) emitProgram(scene string) {
 	}
 }
 
+func TestHostsSubredIPv4AcotaYExcluyeExtremos(t *testing.T) {
+	tests := []struct {
+		nombre string
+		ip     string
+		bits   int
+		len    int
+		first  string
+		last   string
+	}{
+		{"red /24", "192.168.100.77", 24, 254, "192.168.100.1", "192.168.100.254"},
+		{"una /16 se acota al /24 propio", "10.20.30.40", 16, 254, "10.20.30.1", "10.20.30.254"},
+		{"una /25 conserva su tamaño", "172.16.4.140", 25, 126, "172.16.4.129", "172.16.4.254"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.nombre, func(t *testing.T) {
+			hosts := hostsSubredIPv4(net.ParseIP(tc.ip), net.CIDRMask(tc.bits, 32))
+			if len(hosts) != tc.len {
+				t.Fatalf("len = %d, want %d", len(hosts), tc.len)
+			}
+			if hosts[0] != tc.first || hosts[len(hosts)-1] != tc.last {
+				t.Fatalf("hosts = %s ... %s, want %s ... %s", hosts[0], hosts[len(hosts)-1], tc.first, tc.last)
+			}
+		})
+	}
+}
+
+func TestSondearDireccionOBSReconoceHello(t *testing.T) {
+	fake := newFakeOBS(t, "")
+	port := fake.server.Listener.Addr().(*net.TCPAddr).Port
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if !sondearDireccionOBS(ctx, "127.0.0.1", port) {
+		t.Fatal("un WebSocket que manda Hello de OBS debe reconocerse")
+	}
+}
+
+func TestSondearDireccionOBSRechazaHTTPYWebSocketSinHello(t *testing.T) {
+	httpListener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("el sandbox no permite abrir el servidor HTTP local: %v", err)
+	}
+	httpServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	httpServer.Listener = httpListener
+	httpServer.Start()
+	t.Cleanup(httpServer.Close)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if sondearDireccionOBS(ctx, "127.0.0.1", httpListener.Addr().(*net.TCPAddr).Port) {
+		t.Fatal("un servidor HTTP no debe contarse como OBS")
+	}
+
+	upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+	wsListener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("el sandbox no permite abrir el WebSocket local: %v", err)
+	}
+	wsServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, upgradeErr := upgrader.Upgrade(w, r, nil)
+		if upgradeErr != nil {
+			return
+		}
+		defer conn.Close()
+		_ = conn.WriteJSON(map[string]any{"op": 5, "d": map[string]any{"eventType": "CurrentProgramSceneChanged"}})
+	}))
+	wsServer.Listener = wsListener
+	wsServer.Start()
+	t.Cleanup(wsServer.Close)
+	if sondearDireccionOBS(ctx, "127.0.0.1", wsListener.Addr().(*net.TCPAddr).Port) {
+		t.Fatal("un WebSocket sin Hello de OBS no debe contarse como OBS")
+	}
+}
+
 func TestOBSHelloWithoutAuthenticationAndProgramEvent(t *testing.T) {
 	fake := newFakeOBS(t, "")
 	updates := make(chan SwitcherStatus, 8)

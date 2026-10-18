@@ -63,6 +63,40 @@ export function normalizarConexionSwitcher(value = {}, { tactil = esEntornoTacti
     };
 }
 
+export function normalizarResultadosOBS(resultados = []) {
+    const vistos = new Set();
+    return (Array.isArray(resultados) ? resultados : []).flatMap((item) => {
+        const host = String(item?.host || '').trim();
+        const port = Number(item?.port);
+        if (!host || vistos.has(host)) return [];
+        vistos.add(host);
+        return [{
+            host,
+            nombre: String(item?.nombre || host).trim() || host,
+            port: Number.isInteger(port) && port > 0 && port <= 65535 ? port : SWITCHER_PUERTOS.obs,
+        }];
+    });
+}
+
+// Sólo los fallos de transporte justifican buscar otra IP. Pedir o rechazar
+// una contraseña demuestra que OBS sí contestó y debe conservar la dirección.
+export function errorOBSRequiereBusqueda(error) {
+    const texto = mensajeError(error).toLocaleLowerCase('es');
+    // «Red local» aparece también como consejo en el aviso de tiempo agotado;
+    // solo el bloqueo explícito de iOS descarta la búsqueda.
+    if (/contrase|password|authentic|saludo válido|saludo valido|bloqueando la red local|local network prohibited/.test(texto)) return false;
+    return /no contest|nadie contest|rechazó la conexión|rechazo la conexion|connection refused|cannot connect|timed out|tiempo de espera|network is unreachable|host is down/.test(texto);
+}
+
+// Para el autorrelleno se exige un único OBS total. Para rescatar una conexión
+// caída se exige un único OBS cuya dirección sea distinta de la guardada.
+export function elegirResultadoOBS(resultados = [], hostActual = '', { soloOtraDireccion = false } = {}) {
+    const actual = String(hostActual || '').trim().toLowerCase();
+    const candidatos = normalizarResultadosOBS(resultados)
+        .filter((item) => !soloOtraDireccion || item.host.toLowerCase() !== actual);
+    return candidatos.length === 1 ? candidatos[0] : null;
+}
+
 function backend() {
     try { return globalThis.window?.go?.main?.App || null; } catch { return null; }
 }
@@ -70,7 +104,7 @@ function backend() {
 const mensajeError = (error) => String(error?.message || error || 'No se pudo completar la operación');
 
 export class ControlSwitcher {
-    constructor({ getConfig, onConfigChange, loadSettings, saveSettings, onState, onExternal, onInputs } = {}) {
+    constructor({ getConfig, onConfigChange, loadSettings, saveSettings, onState, onExternal, onInputs, onDiscovery, onNotice } = {}) {
         this.getConfig = getConfig || (() => null);
         this.onConfigChange = onConfigChange;
         this.loadSettings = loadSettings || (() => ({}));
@@ -78,9 +112,15 @@ export class ControlSwitcher {
         this.onState = onState;
         this.onExternal = onExternal;
         this.onInputs = onInputs;
+        this.onDiscovery = onDiscovery;
+        this.onNotice = onNotice;
         this.active = false;
         this.eventBound = false;
         this.reconnectTimer = 0;
+        this.connecting = false;
+        this.discoveryPromise = null;
+        this.lastDiscoveryAt = 0;
+        this.discovery = { buscando: false, resultados: [], error: '' };
         this.inputs = [];
         this.options = normalizarConexionSwitcher();
         this.status = {
@@ -122,6 +162,42 @@ export class ControlSwitcher {
     persistOptions(options) {
         this.options = normalizarConexionSwitcher(options);
         try { this.saveSettings?.({ switcher: { ...this.options } }); } catch { /* el ensayo sigue local */ }
+    }
+
+    publishDiscovery(next) {
+        this.discovery = {
+            buscando: next?.buscando === true,
+            resultados: normalizarResultadosOBS(next?.resultados),
+            error: String(next?.error || ''),
+        };
+        this.onDiscovery?.({ ...this.discovery, resultados: [...this.discovery.resultados] });
+    }
+
+    async buscarOBS(port = this.options.port, { hostActual = this.options.host } = {}) {
+        if (!this.available) return [];
+        if (this.discoveryPromise) return this.discoveryPromise;
+        const ahora = Date.now();
+        if (ahora - this.lastDiscoveryAt < 15000) return [...this.discovery.resultados];
+        const puerto = Number.isInteger(Number(port)) ? Number(port) : SWITCHER_PUERTOS.obs;
+        this.lastDiscoveryAt = ahora;
+        this.publishDiscovery({ buscando: true, resultados: [], error: '' });
+        this.discoveryPromise = (async () => {
+            try {
+                const encontrados = normalizarResultadosOBS(await this.call('SwitcherBuscarOBS', puerto));
+                const unico = elegirResultadoOBS(encontrados, hostActual);
+                if (unico && !String(hostActual || '').trim()) {
+                    this.persistOptions({ ...this.options, kind: 'obs', host: unico.host, port: unico.port });
+                }
+                this.publishDiscovery({ buscando: false, resultados: encontrados, error: '' });
+                return encontrados;
+            } catch (error) {
+                this.publishDiscovery({ buscando: false, resultados: [], error: mensajeError(error) });
+                return [];
+            } finally {
+                this.discoveryPromise = null;
+            }
+        })();
+        return this.discoveryPromise;
     }
 
     ensureMapping(escenas = this.inputs) {
@@ -197,8 +273,12 @@ export class ControlSwitcher {
     }
 
     async connect(options = this.options, { manual = true } = {}) {
-        if (!this.active || !this.available) return false;
-        const next = normalizarConexionSwitcher({ ...options, reconectar: true });
+        if (!this.active || !this.available || this.connecting) return false;
+        this.connecting = true;
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = 0;
+        let next = normalizarConexionSwitcher({ ...options, reconectar: true });
+        let fallo = false;
         this.persistOptions(next);
         this.handleStatus({ kind: next.kind, estado: 'conectando', conectado: false, programa: '', preview: '', error: '' }, { schedule: false });
         try {
@@ -208,11 +288,34 @@ export class ControlSwitcher {
             await this.refreshInputs();
             return true;
         } catch (error) {
+            let errorFinal = error;
+            if (next.kind === 'obs' && errorOBSRequiereBusqueda(error)) {
+                const encontrados = await this.buscarOBS(next.port, { hostActual: next.host });
+                const cambiado = elegirResultadoOBS(encontrados, next.host, { soloOtraDireccion: true });
+                if (cambiado) {
+                    next = normalizarConexionSwitcher({ ...next, host: cambiado.host, port: cambiado.port, reconectar: true });
+                    this.persistOptions(next);
+                    this.handleStatus({ kind: 'obs', estado: 'conectando', conectado: false, programa: '', preview: '', error: '' }, { schedule: false });
+                    try {
+                        await this.call('SwitcherConnect', next.kind, next.host, next.port, next.password);
+                        const status = await this.call('SwitcherStatus');
+                        this.handleStatus(status, { schedule: false });
+                        await this.refreshInputs();
+                        this.onNotice?.(`OBS cambió de dirección: ahora es ${next.host}`);
+                        return true;
+                    } catch (retryError) {
+                        errorFinal = retryError;
+                    }
+                }
+            }
+            fallo = true;
             this.handleStatus({
-                kind: next.kind, estado: 'error', conectado: false, programa: '', preview: '', error: mensajeError(error),
-            }, { schedule: true });
+                kind: next.kind, estado: 'error', conectado: false, programa: '', preview: '', error: mensajeError(errorFinal),
+            }, { schedule: false });
             return false;
         } finally {
+            this.connecting = false;
+            if (fallo) this.scheduleReconnect();
             if (manual) this.onState?.(this.status);
         }
     }
@@ -227,7 +330,7 @@ export class ControlSwitcher {
     }
 
     scheduleReconnect() {
-        if (!this.active || !this.options.reconectar || this.reconnectTimer) return;
+        if (!this.active || !this.options.reconectar || this.reconnectTimer || this.connecting) return;
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = 0;
             if (this.active && !this.status.conectado) this.connect(this.options, { manual: false });

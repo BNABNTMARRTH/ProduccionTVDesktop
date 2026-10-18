@@ -82,9 +82,13 @@ export function htmlPanelSwitcher({ cams = [], status = {}, options = {}, mapa =
                 <p class="switcher-sheet-help">Conecta OBS Studio o un ATEM en la misma red. Si la conexión falla, el ensayo sigue funcionando aquí.</p>
                 <div class="switcher-form-grid">
                     <label>Tipo<select id="switcher-kind"><option value="obs" ${kind === 'obs' ? 'selected' : ''}>OBS Studio</option><option value="atem" ${kind === 'atem' ? 'selected' : ''}>Blackmagic ATEM</option></select></label>
-                    <label>Dirección<input id="switcher-host" value="${esc(host)}" placeholder="${esc(placeholderHost)}" autocomplete="off"></label>
+                    <div class="switcher-address-field"><label for="switcher-host">Dirección</label><div class="switcher-address-control"><input id="switcher-host" value="${esc(host)}" placeholder="${esc(placeholderHost)}" autocomplete="off"><button type="button" id="switcher-search" class="apple-studio-btn" ${kind === 'atem' ? 'hidden' : ''}>Buscar OBS en la red</button></div></div>
                     <label>Puerto<input id="switcher-port" type="number" min="1" max="65535" value="${esc(options.port || (kind === 'atem' ? 9910 : 4455))}"></label>
                     <label id="switcher-password-row" ${kind === 'atem' ? 'hidden' : ''}>Contraseña<input id="switcher-password" type="password" value="${esc(options.password || '')}" autocomplete="current-password" placeholder="La de OBS"></label>
+                </div>
+                <div id="switcher-search-box" class="switcher-search-box" ${kind === 'atem' ? 'hidden' : ''}>
+                    <p id="switcher-search-status" class="switcher-sheet-help" role="status" aria-live="polite"></p>
+                    <div id="switcher-search-results" class="switcher-search-results"></div>
                 </div>
                 <p class="switcher-sheet-help" id="switcher-password-help" ${kind === 'atem' ? 'hidden' : ''}>${ayudaOBS}</p>
                 <div class="switcher-sheet-actions">
@@ -92,6 +96,7 @@ export function htmlPanelSwitcher({ cams = [], status = {}, options = {}, mapa =
                     <button type="button" id="switcher-disconnect" class="apple-studio-btn" ${status.conectado || status.estado === 'conectando' ? '' : 'disabled'}>Desconectar</button>
                     <span id="switcher-panel-state">${esc(etiquetaEstadoSwitcher(status))}</span>
                 </div>
+                <p id="switcher-panel-notice" class="switcher-panel-notice" hidden role="status" aria-live="polite"></p>
                 <p id="switcher-panel-error" class="switcher-panel-error" ${status.error ? '' : 'hidden'}>${esc(status.error || '')}</p>
                 <div class="switcher-mapping-head"><div><h3>Mapa de cámaras</h3><p>Cada cámara de este proyecto controla una entrada.</p></div></div>
                 <div class="switcher-mapping-scroll"><table><thead><tr><th>Cámara</th><th id="switcher-input-heading">${kind === 'obs' ? 'Escena de OBS' : 'Entrada ATEM'}</th></tr></thead>

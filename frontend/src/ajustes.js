@@ -57,7 +57,7 @@ export const normalizarAjustes = (x = {}) => ({
     movimiento: x.movimiento === 'poco' ? 'poco' : 'normal',
     ...(x.switcher && typeof x.switcher === 'object' ? { switcher: {
         kind: x.switcher.kind === 'atem' ? 'atem' : 'obs',
-        host: String(x.switcher.host || '127.0.0.1'),
+        host: String(x.switcher.host ?? '127.0.0.1'),
         port: Number.isInteger(Number(x.switcher.port)) && Number(x.switcher.port) > 0 && Number(x.switcher.port) <= 65535
             ? Number(x.switcher.port) : (x.switcher.kind === 'atem' ? 9910 : 4455),
         password: String(x.switcher.password || ''),

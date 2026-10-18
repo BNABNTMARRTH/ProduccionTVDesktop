@@ -306,6 +306,12 @@ func (a *App) SwitcherListInputs() ([]string, error) {
 	return a.switcherMgr.ListInputs()
 }
 
+// SwitcherBuscarOBS encuentra servidores OBS reales en las redes privadas
+// activas. Wails ejecuta el binding de forma asíncrona respecto de la interfaz.
+func (a *App) SwitcherBuscarOBS(port int) ([]OBSEncontrado, error) {
+	return buscarOBS(port, true)
+}
+
 /* ---------------- Diálogos Nativos de Guardado ---------------- */
 
 func fileFilter(filename string) []runtime.FileFilter {

@@ -3045,8 +3045,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .switcher-sheet h2{font-size:20px}.switcher-sheet h3{font-size:13px}
 .switcher-sheet-close{width:32px;height:32px;border-radius:9px;border:1px solid var(--vidrio-borde);background:var(--vidrio-a);color:var(--tinta);cursor:pointer}
 .switcher-sheet-help,.switcher-mapping-head p{margin:0;color:var(--tinta-media);font-size:11px;line-height:1.45}
-.switcher-form-grid{display:grid;grid-template-columns:1fr 1.4fr .7fr 1.2fr;gap:10px}
-.switcher-form-grid label{display:flex;flex-direction:column;gap:5px;color:var(--tinta-baja);font-size:10px;font-weight:700}
+.switcher-form-grid{display:grid;grid-template-columns:1fr 2.2fr .7fr 1.2fr;gap:10px}
+.switcher-form-grid label,.switcher-address-field{display:flex;flex-direction:column;gap:5px;color:var(--tinta-baja);font-size:10px;font-weight:700}
+.switcher-address-control{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}
+.switcher-address-control .apple-studio-btn{height:34px;padding:0 10px;white-space:nowrap;font-size:10px}
+.switcher-address-control #switcher-search[hidden]{display:none!important}
 .switcher-form-grid input,.switcher-form-grid select,.switcher-mapping-scroll select{
   width:100%;height:34px;border:1px solid var(--hueco-borde);border-radius:9px;background:var(--hueco-fondo);box-shadow:var(--hueco-sombra);
   color:var(--tinta);font:inherit;font-size:12px;padding:0 9px;outline:none;
@@ -3054,6 +3057,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .switcher-form-grid input:focus,.switcher-form-grid select:focus,.switcher-mapping-scroll select:focus{border-color:var(--azul-apple)}
 .switcher-sheet-actions{display:flex;align-items:center;gap:8px}
 .switcher-sheet-actions>span{margin-left:auto;color:var(--tinta-baja);font-size:10px;font-weight:650}
+.switcher-search-box[hidden]{display:none!important}
+.switcher-search-box{display:flex;flex-direction:column;gap:6px}
+.switcher-search-results{display:flex;flex-direction:column;gap:5px;max-height:130px;overflow:auto}
+.switcher-search-result{display:flex;align-items:center;gap:5px;width:100%;min-height:36px;padding:0 10px;text-align:left;border:1px solid var(--vidrio-borde);border-radius:9px;background:var(--vidrio-b);color:var(--tinta);cursor:pointer}
+.switcher-search-result span{color:var(--tinta-media)}
+.switcher-panel-notice{margin:0;padding:7px 10px;border:1px solid var(--ok);border-radius:9px;color:var(--tinta);font-size:11px;background:var(--vidrio-b)}
 .switcher-panel-error{margin:0;padding:8px 10px;border:1px solid var(--peligro);border-radius:9px;color:var(--peligro);font-size:11px;background:var(--hueco-fondo)}
 .switcher-mapping-head{display:flex;align-items:end;justify-content:space-between;gap:10px;padding-top:4px;border-top:1px solid var(--vidrio-borde)}
 .switcher-mapping-scroll{min-height:0;overflow:auto;border:1px solid var(--vidrio-borde);border-radius:12px;background:var(--vidrio-b)}
@@ -3067,6 +3076,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
    controles pequeños sin cambiar la densidad de la versión de escritorio. */
 :root[data-tactil] .switcher-sheet-close,
 :root[data-tactil] .switcher-sheet-actions button,
+:root[data-tactil] #switcher-search,
+:root[data-tactil] .switcher-search-result,
 :root[data-tactil] .switcher-status,
 :root[data-tactil] #switcher-follow,
 :root[data-tactil] .switcher-cam-btn,
@@ -4146,6 +4157,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 :root[data-layout="compact"] .switcher-sheet{width:100%;max-height:92vh;border-radius:20px 20px 0 0;padding:18px 16px max(18px,var(--ptv-safe-bottom,env(safe-area-inset-bottom)))}
 :root[data-layout="compact"] .switcher-sheet-close{width:44px;height:44px}
 :root[data-layout="compact"] .switcher-form-grid{grid-template-columns:minmax(0,1fr)}
+:root[data-layout="compact"] .switcher-address-control{grid-template-columns:minmax(0,1fr)}
+:root[data-layout="compact"] .switcher-address-control .apple-studio-btn{height:48px;font-size:13px}
 :root[data-layout="compact"] .switcher-form-grid input,
 :root[data-layout="compact"] .switcher-form-grid select,
 :root[data-layout="compact"] .switcher-mapping-scroll select{height:48px;font-size:16px}
