@@ -17,7 +17,7 @@ export const MEDIOS = ['TikTok', 'Instagram / Reels', 'YouTube', 'Facebook', 'Wh
 
 export const perfilVacio = () => ({
     emisor: '', mensaje: '', intencion: [], receptor: '', edad: '',
-    medios: [], presupuesto: '', presupuestoNota: '',
+    medios: [], presupuesto: '', moneda: 'MXN', presupuestoNota: '',
 });
 
 export const normalizeMode = (modo) => (modo === 'narrative' ? 'narrative' : 'live');

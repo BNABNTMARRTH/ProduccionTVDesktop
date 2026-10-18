@@ -14,10 +14,21 @@ export class ShortcutManager {
             id: 'escape',
             matches: (t) => t.key === 'Escape',
             execute: (t, ctx) => {
+                if (ctx.isHelpOpen && ctx.closeHelp) { ctx.closeHelp(); return true; }
                 if (ctx.isWelcomeOpen && ctx.closeWelcome) { ctx.closeWelcome(); return true; }
                 if (ctx.isAjustesOpen && ctx.closeAjustes) { ctx.closeAjustes(); return true; }
                 if (ctx.isNuevoProyectoOpen && ctx.closeNuevoProyecto) { ctx.closeNuevoProyecto(); return true; }
                 if (ctx.desplegarRail) { ctx.desplegarRail(); }
+                return false;
+            },
+        });
+
+        // F1 o Cmd+? / Ctrl+?: Ayuda contextual de la sección
+        this.register({
+            id: 'help',
+            matches: (t) => t.key === 'F1' || ((t.metaKey || t.ctrlKey) && (t.key === '?' || t.key === '/')),
+            execute: (t, ctx) => {
+                if (ctx.abrirAyuda) { ctx.abrirAyuda(); return true; }
                 return false;
             },
         });

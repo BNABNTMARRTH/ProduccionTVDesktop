@@ -46,6 +46,9 @@ func main() {
 		proyecto —que ya es suficiente para distinguirla— y se completa sola. */
 	}
 
+	// Construir la barra de menú nativa de macOS (Apple Menu Bar) estilo OBS/Final Cut
+	appMenu := NewAppMenuBuilder(app).Build()
+
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:       title,
@@ -54,6 +57,7 @@ func main() {
 		MinWidth:    480,
 		MinHeight:   500,
 		StartHidden: true,
+		Menu:        appMenu,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

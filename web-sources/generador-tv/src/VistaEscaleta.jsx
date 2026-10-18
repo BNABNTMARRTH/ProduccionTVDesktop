@@ -9,7 +9,7 @@ import { RundownCues } from "./RundownCues.jsx";
 import { leerImagenStoryboard } from "./imagenesStoryboard.js";
 import { esNarrativo } from "./proyecto.js";
 import { crearPlanoNuevoPorModo } from "./tomas.js";
-import { Box, TarjetaAyuda, btn, inp, inpStyle } from "./ui.jsx";
+import { Box, btn, inp, inpStyle } from "./ui.jsx";
 import { fmt, trunc } from "./util.js";
 import { SelectorDeReferencia, useFichasDelTablero } from "./MesaDeLuz.jsx";
 
@@ -87,27 +87,6 @@ export function VistaEscaleta({ cfg, setCfg }) {
           {!narr && subTab("escaleta", "≡ Escaleta editorial")}
           {subTab("guion", narr ? "✎ Guion técnico" : "✎ Rundown técnico")}
           {subTab("storyboard", "▦ Storyboard")}
-          {editable && (
-            <span className="ml-2">
-              {narr ? (
-                <TarjetaAyuda id="escaleta-narr" titulo="Cómo escribir tu escaleta narrativa"
-                  pasos={[
-                    "Las escenas se escriben en <b>Guion literario</b> (la sección anterior): ahí van encabezado, acción y diálogos. Aquí se desglosan.",
-                    "<b>Guion técnico</b>: cada escena se parte en planos — tamaño, ángulo, movimiento y sonido.",
-                    "<b>Storyboard</b>: la vista visual de cada plano con su imagen y notas.",
-                    "La duración de cada escena se ajusta en el guion literario o en la barra de arriba.",
-                  ]} />
-              ) : (
-                <TarjetaAyuda id="escaleta-live" titulo="Cómo escribir tu escaleta editorial"
-                  pasos={[
-                    "Empieza por los bloques: agrega uno con <b>＋ Agregar segmento</b> y escribe qué contenido va ahí. Puedes agregar, borrar y reordenar cuando quieras.",
-                    "<b>Escaleta editorial</b>: qué contenido ocurre en cada bloque y su función (objetivo, participantes, recursos). La señal al aire NO va aquí.",
-                    "<b>Rundown técnico</b>: la parte técnica — cada segmento se desglosa en cues (cámara al aire, audio, gráficos, instrucción).",
-                    "La duración total, IN y OUT se recalculan solos mientras editas.",
-                  ]} />
-              )}
-            </span>
-          )}
         </div>
         <MetaDuracion cfg={cfg} setCfg={setCfg} total={total} editable={editable} />
 

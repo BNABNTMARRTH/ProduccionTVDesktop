@@ -30,6 +30,7 @@ import { TemplateGridViewStrategy, TemplateListViewStrategy, TemplateViewContext
 import { UIComponentFactory } from './ui_component_factory.js';
 import { PanelLifecycleManager } from './panel_state_machine.js';
 import { globalResponsiveManager } from './responsive_layout_strategy.js';
+import { helpManager } from './help_system/help_manager.js';
 
 export const projectHistory = new ProjectHistoryManager({ maxDepth: 30 });
 export const projectCardBuilder = new ProjectCardBuilder();
@@ -274,7 +275,7 @@ document.querySelector('#app').innerHTML = `
             <button id="redo-btn" title="Rehacer (⌘⇧Z)" aria-label="Rehacer">${icono('rehacer', 17)}</button>
             <button id="guia-btn" title="Guía: cómo se hace este tipo de pieza y qué le falta a la tuya" aria-label="Guía">${icono('guia', 17)}</button>
           </span>
-          <button id="tour-btn" title="Recorrido guiado: cómo usar la app paso a paso">${icono('ayuda', 17)}</button>
+          <button id="tour-btn" title="Ayuda de la sección y atajos (F1)" aria-label="Ayuda de la sección">${icono('ayuda', 17)}</button>
           <button id="desanclar-btn" title="Desanclar esta sección en su propia pestaña (⌘D)${globalThis.__ptvSinVentanas ? '' : '. Después puedes arrastrar la pestaña fuera para abrirla en otra ventana'}.">${icono('desanclar', 17)}</button>
           <button class="compact-only compact-actions-btn" id="compact-actions-btn" type="button"
             aria-label="Más acciones" aria-haspopup="dialog" aria-expanded="false">${icono('masAcciones', 21)}</button>
@@ -393,7 +394,7 @@ document.querySelector('#app').innerHTML = `
       <button type="button" data-compact-source="undo-btn">${icono('deshacer', 20)}<span>Deshacer</span></button>
       <button type="button" data-compact-source="redo-btn">${icono('rehacer', 20)}<span>Rehacer</span></button>
       <button type="button" data-compact-source="guia-btn">${icono('guia', 20)}<span>Guía del módulo</span></button>
-      <button type="button" data-compact-source="tour-btn">${icono('ayuda', 20)}<span>Recorrido guiado</span></button>
+      <button type="button" data-compact-source="tour-btn">${icono('ayuda', 20)}<span>Ayuda de la sección</span></button>
       <button type="button" data-compact-source="desanclar-btn">${icono('desanclar', 20)}<span>Abrir módulo en una pestaña</span></button>
       <button type="button" data-compact-source="reanclar-btn">${icono('reanclar', 20)}<span>Volver a la ventana del proyecto</span></button>
       <button type="button" data-compact-command="modulos">${icono('mas', 20)}<span>Abrir otro módulo</span></button>
@@ -2306,11 +2307,21 @@ document.querySelector('#rail-ajustes-btn')?.addEventListener('click', (e) => {
     menuDeAjustes(e.currentTarget);
 });
 document.querySelector('#ajustes-btn')?.addEventListener('click', () => ajustes.abrir());
-document.querySelector('#tour-btn').onclick = () => {
-    localStorage.setItem(TOUR_KEY, '1');
-    desplegarRail();   // el recorrido señala los botones de etapa: deben verse
-    tour.start();
+export const abrirAyudaContextual = () => {
+    const vista = vistaVisible();
+    const etapa = etapaPorId(ETAPA_DE_VISTA[vista]);
+    helpManager.openHelp(vista, {
+        activeProject,
+        activeView,
+        etapa,
+        startTour: () => {
+            localStorage.setItem(TOUR_KEY, '1');
+            desplegarRail();
+            tour.start();
+        }
+    });
 };
+document.querySelector('#tour-btn').onclick = abrirAyudaContextual;
 
 // Importar proyecto .ptv: desde el botón de Inicio o con doble clic en Finder
 // (el evento llega desde Go vía la asociación de archivos).
@@ -2517,6 +2528,9 @@ responder, y parecía que la app se "rompía" al agrandar la ventana. El puente
 que las reenvía es public/tools/shared/atajos.js. */
 const shortcutManager = new ShortcutManager({
     getContext: () => ({
+        isHelpOpen: !!helpManager.modalElement,
+        closeHelp: () => helpManager.closeHelp(),
+        abrirAyuda: abrirAyudaContextual,
         isWelcomeOpen: welcomeOverlay && document.body.contains(welcomeOverlay),
         closeWelcome,
         isAjustesOpen: typeof ajustes?.estaAbierto === 'function' && ajustes.estaAbierto(),
@@ -2549,6 +2563,63 @@ function atajoDelCaparazon(tecla) {
 document.addEventListener('keydown', (event) => {
     if (atajoDelCaparazon(event)) event.preventDefault();
 });
+
+// Receptor del Menú Nativo de macOS (GoF Command Pattern)
+// Procesa las acciones disparadas desde la barra superior de macOS (Apple Menu Bar)
+if (window.runtime && typeof window.runtime.EventsOn === 'function') {
+    window.runtime.EventsOn('ptv:menu-action', (actionId) => {
+        switch (actionId) {
+            case 'new-project':
+                if (typeof abrirModalNuevoProyecto === 'function') {
+                    abrirModalNuevoProyecto();
+                } else if (nuevoProyecto && typeof nuevoProyecto.open === 'function') {
+                    nuevoProyecto.open();
+                }
+                break;
+            case 'save':
+                flushSaveNow();
+                break;
+            case 'goto-home':
+                irAInicio();
+                break;
+            case 'unpin':
+                if (shell.classList.contains('project-window') && !shell.classList.contains('tool-window') && vistaVisible()) {
+                    desanclar(vistaVisible());
+                }
+                break;
+            case 'close-tab':
+                if (shell.classList.contains('tool-window')) {
+                    volverAlProyecto();
+                } else if (pestanas && pestanas.activa !== PRINCIPAL) {
+                    reanclar(pestanas.activa);
+                }
+                break;
+            case 'rotate-tabs':
+                atajoDelCaparazon({ key: 'Tab', ctrlKey: true, shiftKey: false });
+                break;
+            case 'open-settings':
+                ajustes?.abrir();
+                break;
+            case 'open-help':
+                abrirAyudaContextual();
+                break;
+            case 'open-welcome':
+                if (typeof mostrarBienvenida === 'function') {
+                    mostrarBienvenida();
+                }
+                break;
+            case 'stage-1':
+            case 'stage-2':
+            case 'stage-3':
+            case 'stage-4':
+            case 'stage-5': {
+                const stageNum = actionId.replace('stage-', '');
+                atajoDelCaparazon({ key: stageNum, metaKey: true, ctrlKey: false });
+                break;
+            }
+        }
+    });
+}
 
 // Reconciliación entre ventanas vía disco: al recuperar el foco, el lanzador
 // relee la lista y una ventana de proyecto recarga su .ptv si otra ventana

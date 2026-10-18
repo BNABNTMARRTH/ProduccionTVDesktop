@@ -257,5 +257,114 @@ export class UIComponentFactory {
         const hiddenAttr = hidden ? 'hidden' : '';
         return `<div class="rail-group" ${idAttr} ${hiddenAttr}>${itemsHtml}</div>`;
     }
+
+    /**
+     * Construye un BoxInput con selector de divisa integrado (MXN, USD, EUR)
+     * Implementa el patrón COMPOSITE / ABSTRACT FACTORY (GoF) para reutilización en cualquier vista.
+     * @param {Object} options
+     * @param {string} options.id - ID del input numérico
+     * @param {string} options.value - Valor actual
+     * @param {string} options.selectedCurrency - Divisa seleccionada ('MXN', 'USD', 'EUR')
+     * @param {string} [options.placeholder] - Placeholder
+     * @param {string} [options.dataCampo] - Atributo data-campo para binding automático
+     * @param {string} [options.pickerId] - ID para el select de moneda
+     */
+    static createCurrencyInput({
+        id = 'currency-input',
+        value = '',
+        selectedCurrency = 'MXN',
+        placeholder = '0',
+        dataCampo = 'presupuesto',
+        pickerId = 'currency-select',
+    } = {}) {
+        const currencies = [
+            { code: 'MXN', label: 'MXN ($)' },
+            { code: 'USD', label: 'USD ($)' },
+            { code: 'EUR', label: 'EUR (€)' },
+        ];
+
+        const optionsHtml = currencies.map((c) => {
+            const isSel = c.code === selectedCurrency ? 'selected' : '';
+            return `<option value="${esc(c.code)}" ${isSel}>${esc(c.label)}</option>`;
+        }).join('');
+
+        return `
+        <div class="currency-input-wrap">
+          <input id="${esc(id)}" class="np-input currency-num-input" type="text" inputmode="decimal" maxlength="15"
+            data-campo="${esc(dataCampo)}" placeholder="${esc(placeholder)}" value="${esc(value)}" autocomplete="off">
+          <select id="${esc(pickerId)}" class="currency-picker" aria-label="Seleccionar moneda" data-currency-target="${esc(id)}">
+            ${optionsHtml}
+          </select>
+        </div>`.trim();
+    }
+
+    /**
+     * Construye un BoxInput semántico validado (GoF Abstract Factory + Chain of Responsibility)
+     * Soporta reglas de validación en tiempo real (solo texto, numérico, edad, título) y autocompletado.
+     * @param {Object} options
+     * @param {string} options.id - ID del input
+     * @param {string} [options.label] - Etiqueta superior
+     * @param {string} [options.value] - Valor inicial
+     * @param {string} [options.placeholder] - Texto guía
+     * @param {string} [options.rule] - Regla de caracteres ('texto', 'numerico', 'edad', 'titulo', 'decimal')
+     * @param {string} [options.dataCampo] - Nombre del campo para el modelo de datos
+     * @param {number} [options.maxlength] - Longitud máxima permitida
+     * @param {string} [options.className] - Clases CSS adicionales
+     */
+    static createValidatedInput({
+        id = '',
+        label = '',
+        value = '',
+        placeholder = '',
+        rule = 'titulo',
+        dataCampo = '',
+        maxlength = 80,
+        className = 'np-input',
+    } = {}) {
+        const idAttr = id ? `id="${esc(id)}"` : '';
+        const campoAttr = dataCampo ? `data-campo="${esc(dataCampo)}"` : '';
+        const reglaAttr = rule ? `data-regla="${esc(rule)}"` : '';
+        const maxAttr = maxlength ? `maxlength="${maxlength}"` : '';
+        const labelHtml = label ? `<label class="np-label" ${id ? `for="${esc(id)}"` : ''}>${esc(label)}</label>` : '';
+
+        return `
+        ${labelHtml}
+        <input ${idAttr} class="${esc(className)}" type="text" ${maxAttr} ${reglaAttr} ${campoAttr}
+          placeholder="${esc(placeholder)}" value="${esc(value)}" autocomplete="off" spellcheck="false">`.trim();
+    }
+
+    /**
+     * Construye un BoxInput Dual de Rango (Min - Max) integrado estilo Apple HIG
+     * Implementa el patrón GoF COMPOSITE (trata dos inputs y separador como una sola unidad).
+     * @param {Object} options
+     * @param {string} options.id - Prefijo o ID del rango
+     * @param {string} [options.minVal] - Valor mínimo inicial
+     * @param {string} [options.maxVal] - Valor máximo inicial
+     * @param {string} [options.minPlaceholder] - Placeholder mínimo (default: '18')
+     * @param {string} [options.maxPlaceholder] - Placeholder máximo (default: '25')
+     * @param {string} [options.unit] - Unidad visible (default: 'años')
+     * @param {string} [options.dataCampo] - Atributo data-campo (default: 'edad')
+     */
+    static createRangeInput({
+        id = 'range-edad',
+        minVal = '',
+        maxVal = '',
+        minPlaceholder = '18',
+        maxPlaceholder = '25',
+        unit = 'años',
+        dataCampo = 'edad',
+    } = {}) {
+        return `
+        <div class="range-input-wrap" data-range-campo="${esc(dataCampo)}">
+          <input id="${esc(id)}-min" class="np-input range-num-input" type="text" inputmode="numeric" maxlength="3"
+            data-regla="numerico" placeholder="${esc(minPlaceholder)}" value="${esc(minVal)}" aria-label="Edad mínima" autocomplete="off">
+          <span class="range-sep" aria-hidden="true">—</span>
+          <input id="${esc(id)}-max" class="np-input range-num-input" type="text" inputmode="numeric" maxlength="3"
+            data-regla="numerico" placeholder="${esc(maxPlaceholder)}" value="${esc(maxVal)}" aria-label="Edad máxima" autocomplete="off">
+          ${unit ? `<span class="range-unit">${esc(unit)}</span>` : ''}
+        </div>`.trim();
+    }
 }
+
+
 

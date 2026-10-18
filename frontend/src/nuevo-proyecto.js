@@ -43,6 +43,8 @@ import { INTENCIONES, MEDIOS, perfilVacio } from './templates.js';
 import { cfgDePlantilla } from './plantillas.js';
 import { esc } from './constants.js';
 import { UIComponentFactory } from './ui_component_factory.js';
+import { globalCurrencyConverter } from './currency_converter.js';
+import { attachInputControlsToContainer, CurrencyFormatterStrategy, RangeAdapter } from './input_validator_pipeline.js';
 
 export function createNuevoProyecto({ onCreate }) {
     let abierto = false;
@@ -76,13 +78,13 @@ export function createNuevoProyecto({ onCreate }) {
             <label class="np-label">¿Cómo se produce?</label>
             <div class="np-modos" role="radiogroup" aria-label="Modalidad de producción">
               ${MODOS.map((m) => UIComponentFactory.createModeCard({
-                  modeId: m.id,
-                  isSelected: m.id === modo,
-                  title: m.titulo,
-                  desc: m.desc,
-                  example: m.ejemplo,
-                  iconSvg: m.icono,
-              })).join('')}
+            modeId: m.id,
+            isSelected: m.id === modo,
+            title: m.titulo,
+            desc: m.desc,
+            example: m.ejemplo,
+            iconSvg: m.icono,
+        })).join('')}
             </div>`;
 
         const disclosureHtml = UIComponentFactory.createDisclosureButton({
@@ -114,40 +116,56 @@ export function createNuevoProyecto({ onCreate }) {
             ${headerHtml}
             <div class="np-body">
               <label class="np-label" for="np-nombre">¿Cómo se llama?</label>
-              <input id="np-nombre" class="np-input" type="text" placeholder="${plantilla ? esc(plantilla.nombre) : 'Noticiero de la FCC'}" autocomplete="off">
+              <input id="np-nombre" class="np-input" type="text" maxlength="80" placeholder="${plantilla ? esc(plantilla.nombre) : 'Nombre del proyecto'}" autocomplete="off" spellcheck="false">
               ${modeCardsHtml}
               ${disclosureHtml}
               ${verPerfil ? `
               <div class="np-extra">
                 <label class="np-label" for="np-mensaje">Mensaje — la idea en una frase</label>
-                <input id="np-mensaje" class="np-input" type="text" data-campo="mensaje"
+                <input id="np-mensaje" class="np-input" type="text" maxlength="200" data-campo="mensaje"
                   placeholder="Si tu proyecto solo pudiera decir una cosa, ¿cuál sería?" value="${esc(perfil.mensaje)}">
                 <label class="np-label">Intención — qué quieres que pase en quien lo vea</label>
                 ${intencionesChipsHtml}
                 <div class="np-dos">
                   <div>
                     <label class="np-label" for="np-receptor">Receptor — a quién le hablas</label>
-                    <input id="np-receptor" class="np-input" type="text" data-campo="receptor"
-                      placeholder="Estudiantes de la facultad" value="${esc(perfil.receptor)}">
+                    <input id="np-receptor" class="np-input" type="text" maxlength="80" data-campo="receptor"
+                      placeholder="Tipo de audiencia" value="${esc(perfil.receptor)}">
                   </div>
                   <div>
-                    <label class="np-label" for="np-edad">Edad</label>
-                    <input id="np-edad" class="np-input" type="text" data-campo="edad"
-                      placeholder="18 a 25 años" value="${esc(perfil.edad)}">
+                    <label class="np-label" for="np-edad-min">Edad</label>
+                    ${(() => {
+                    const parsedAge = RangeAdapter.parseRange(perfil.edad);
+                    return UIComponentFactory.createRangeInput({
+                        id: 'np-edad',
+                        minVal: parsedAge.min,
+                        maxVal: parsedAge.max,
+                        minPlaceholder: '18',
+                        maxPlaceholder: '25',
+                        unit: 'años',
+                        dataCampo: 'edad',
+                    });
+                })()}
                   </div>
                 </div>
-                <label class="np-label">Medios que usa tu receptor</label>
+                <label class="np-label">Medios que consume tu audiencia</label>
                 ${mediosChipsHtml}
                 <div class="np-dos">
                   <div>
                     <label class="np-label" for="np-emisor">Emisor — quién produce</label>
-                    <input id="np-emisor" class="np-input" type="text" data-campo="emisor"
-                      placeholder="FCC-UASLP" value="${esc(perfil.emisor)}">
+                    <input id="np-emisor" class="np-input" type="text" maxlength="80" data-campo="emisor"
+                      placeholder="Nombre de la empresa" value="${esc(perfil.emisor)}">
                   </div>
                   <div>
-                    <label class="np-label" for="np-presupuesto">Presupuesto (MXN)</label>
-                    <input id="np-presupuesto" class="np-input" type="text" inputmode="numeric" data-campo="presupuesto"
-                      placeholder="0" value="${esc(perfil.presupuesto)}">
+                    <label class="np-label" for="np-presupuesto">Presupuesto</label>
+                    ${UIComponentFactory.createCurrencyInput({
+                    id: 'np-presupuesto',
+                    value: perfil.presupuesto ? esc(CurrencyFormatterStrategy.formatCurrency(perfil.presupuesto, perfil.moneda || 'MXN', false)) : '',
+                    selectedCurrency: perfil.moneda || 'MXN',
+                    placeholder: '$ 0.00',
+                    dataCampo: 'presupuesto',
+                    pickerId: 'np-moneda-select',
+                })}
                   </div>
                 </div>
               </div>` : ''}
@@ -166,6 +184,26 @@ export function createNuevoProyecto({ onCreate }) {
             nombre.onkeydown = (e) => {
                 if (e.key === 'Enter') crear();
                 if (e.key === 'Escape') cerrar();
+            };
+        }
+
+        // Conversión automática de moneda en tiempo real (GoF Strategy + Observer)
+        const monedaSelect = capa.querySelector('#np-moneda-select');
+        const inputPresupuesto = capa.querySelector('#np-presupuesto');
+        if (monedaSelect && inputPresupuesto) {
+            monedaSelect.onchange = () => {
+                const monedaAnterior = perfil.moneda || 'MXN';
+                const nuevaMoneda = monedaSelect.value;
+                const rawActual = CurrencyFormatterStrategy.parseRawAmount(inputPresupuesto.value);
+                const montoActual = parseFloat(rawActual);
+
+                if (!isNaN(montoActual) && montoActual > 0) {
+                    const convertido = globalCurrencyConverter.convert(montoActual, monedaAnterior, nuevaMoneda, 2);
+                    const formateado = CurrencyFormatterStrategy.formatCurrency(convertido, nuevaMoneda, false);
+                    inputPresupuesto.value = formateado;
+                    perfil.presupuesto = String(convertido);
+                }
+                perfil.moneda = nuevaMoneda;
             };
         }
 
@@ -208,6 +246,10 @@ export function createNuevoProyecto({ onCreate }) {
 
         capa.querySelector('.np-cancel-btn')?.addEventListener('click', cerrar);
         capa.querySelector('.np-crear')?.addEventListener('click', crear);
+
+        // Activa el pipeline GoF de validación, formateo y autocompletado en todos los inputs
+        attachInputControlsToContainer(capa);
+
         if (!verPerfil) {
             setTimeout(() => nombre?.focus(), 20);
         }
@@ -216,12 +258,37 @@ export function createNuevoProyecto({ onCreate }) {
     // Guarda lo escrito antes de volver a dibujar la caja (se redibuja al
     // cambiar de modo, al plegar el perfil y al encender un chip).
     function leerCampos() {
-        nombreEscrito = capa.querySelector('#np-nombre')?.value ?? nombreEscrito;
+        const inputNombre = capa.querySelector('#np-nombre');
+        if (inputNombre) {
+            nombreEscrito = inputNombre.value;
+        }
         capa.querySelectorAll('[data-campo]').forEach((i) => {
-            perfil[i.dataset.campo] = i.dataset.campo === 'presupuesto'
-                ? i.value.replace(/[^\d.]/g, '')
-                : i.value;
+            const campo = i.dataset.campo;
+            let val = i.value || '';
+            if (campo === 'presupuesto') {
+                // Solo dígitos y máximo un punto decimal para formato monetario
+                val = val.replace(/[^\d.]/g, '');
+                const partes = val.split('.');
+                if (partes.length > 2) {
+                    val = partes[0] + '.' + partes.slice(1).join('');
+                }
+            }
+            perfil[campo] = val;
         });
+
+        // Lectura adaptada del control compuesto de rango de edad (GoF Adapter + Composite)
+        const edadMinInput = capa.querySelector('#np-edad-min');
+        const edadMaxInput = capa.querySelector('#np-edad-max');
+        if (edadMinInput || edadMaxInput) {
+            const min = edadMinInput?.value?.trim() || '';
+            const max = edadMaxInput?.value?.trim() || '';
+            perfil.edad = RangeAdapter.formatRange(min, max, 'años');
+        }
+
+        const monedaSelect = capa.querySelector('#np-moneda-select');
+        if (monedaSelect) {
+            perfil.moneda = monedaSelect.value;
+        }
     }
 
     // ¿El perfil trae algo? Si está vacío no se manda, para no ensuciar el cfg.
