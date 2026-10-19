@@ -116,57 +116,14 @@ export function htmlSalaDeControl({ project, programa, hayPrograma, hayEscaleta,
     const switcherStatus = switcherVM.status || {};
     return `
         <div class="studio-workspace ${inspectorVisible ? 'with-inspector' : 'inspector-collapsed'}">
-            <!-- CABECERA PRINCIPAL APPLE STUDIO: TÍTULO, MASTER TRANSPORT Y ACCIONES -->
+            <!-- CABECERA PRINCIPAL APPLE STUDIO: TÍTULO Y ACCIONES DE SISTEMA -->
             <header class="studio-header">
                 <div class="studio-header-identity">
                     <span class="studio-eyebrow">SALA DE CONTROL · MASTER CONTROL ROOM</span>
                     <h1 class="studio-title">${esc(project.name)}</h1>
                 </div>
 
-                <!-- MASTER TRANSPORT HUD (ISLA DINÁMICA DE CRISTAL LÍQUIDO) -->
-                <div class="studio-transport-hud lg-container" aria-label="Transporte principal de emisión">
-                    <div class="studio-transport-controls">
-                        <button id="vivo-prev-step" class="transport-step-btn lg-interactive" ${hayPrograma ? '' : 'disabled'}
-                            title="Paso anterior (J)">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
-                        </button>
-                        <button id="vivo-play" class="transport-btn play-btn lg-interactive" ${hayPrograma ? '' : 'disabled'}
-                            title="${hayPrograma ? 'Arrancar o pausar la emisión (Espacio)' : 'Sin segmentos'}">
-                            <span class="play-btn-icon-wrap" id="vivo-play-icon">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-                            </span>
-                            <b id="vivo-play-t">Arrancar</b>
-                        </button>
-                        <button id="vivo-next-step" class="transport-step-btn lg-interactive" ${hayPrograma ? '' : 'disabled'}
-                            title="Paso siguiente (L)">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
-                        </button>
-                        <button id="vivo-reset" class="transport-btn reset-btn lg-interactive" ${hayPrograma ? '' : 'disabled'}
-                            title="Reiniciar tiempo a 00:00 (R)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                        </button>
-                    </div>
-
-                    <div class="studio-timecode-box">
-                        <div class="timecode-primary">
-                            <span id="vivo-t" class="timecode-digits">00:00</span>
-                            <span class="timecode-badge standby">STANDBY</span>
-                        </div>
-                        <div class="timecode-secondary">
-                            <span id="vivo-resta-total">Restante: -${formatTime(programa.total)}</span>
-                            <span class="timecode-sep">·</span>
-                            <span>Total: ${formatTime(programa.total)}</span>
-                        </div>
-                    </div>
-
-                    <!-- SCRUBBER INTERACTIVO DE LÍNEA DE TIEMPO (SEEKABLE) -->
-                    <div class="studio-scrubber-track" id="vivo-scrubber" title="Hacer clic para saltar en la línea de tiempo">
-                        <i id="vivo-avance" class="studio-scrubber-fill"></i>
-                        <span class="studio-scrubber-thumb"></span>
-                    </div>
-                </div>
-
-                <!-- ACCIONES SUPERIORES APPLE: TELEPROMPTER E INSPECTOR TOGGLE -->
+                <!-- ACCIONES SUPERIORES APPLE: SWITCHER, TELEPROMPTER E INSPECTOR -->
                 <div class="studio-header-actions">
                     <button id="switcher-status-btn" class="apple-studio-btn lg-interactive switcher-status ${esc(switcherStatus.estado || 'desconectado')}" type="button" title="Conectar la app con OBS o con un ATEM">
                         <span class="switcher-status-dot" aria-hidden="true"></span><span id="switcher-status-label">${esc(etiquetaEstadoSwitcher(switcherStatus))}</span>
@@ -189,114 +146,138 @@ export function htmlSalaDeControl({ project, programa, hayPrograma, hayEscaleta,
                 </div>
             </header>
 
-            <!-- CUERPO DE CABINA: CABINA PRINCIPAL + INSPECTOR LATERAL -->
+            <!-- CUERPO DE CABINA: CABINA REPRODUCTOR + INSPECTOR LATERAL -->
             <div class="studio-body">
-                <!-- CABINA PRINCIPAL BROADCAST (CERO SCROLL) -->
-                <main class="studio-main-stage">
-                    <!-- FILA SUPERIOR: MONITORES BROADCAST PGM & PVW + HUD RUNDOWN -->
-                    <section class="studio-monitors-row">
-                        <!-- MONITOR PGM / AL AIRE (ROJO NEÓN BROADCAST) -->
-                        <div class="studio-monitor pgm lg-container">
-                            <div class="monitor-tally-strip"></div>
-                            <div class="monitor-header">
-                                <span class="tally-tag pgm"><span class="tally-led"></span> PGM · AL AIRE</span>
-                                <span class="monitor-signal-chip">SDI 1 · 1080p59.94</span>
+                <!-- CABINA PRINCIPAL BROADCAST: VIDEO PLAYER HERO STAGE -->
+                <main class="studio-main-stage studio-player-stage">
+                    <!-- ÁREA DEL LIENZO HERÓICO (VIEWPORT CON HUDS FLOTANTES LIQUID GLASS) -->
+                    <div class="player-canvas-area" id="vivo-canvas-viewport">
+                        <!-- EL PROTAGONISTA: LIENZO CENITAL BLUEPRINT EXPANDIDO -->
+                        <div class="set-live" id="vivo-plano"></div>
+
+                        <!-- HUD FLOTANTE SUPERIOR IZQUIERDO: MICRO-CÁPSULAS PGM Y PVW (APPLE GLASS) -->
+                        <div class="player-hud-top-left" aria-label="Monitores de emisión">
+                            <div class="hud-monitor pgm">
+                                <span class="tally-tag pgm"><span class="tally-led"></span> PGM</span>
+                                <span id="vivo-aire" class="hud-mon-source">—</span>
+                                <span id="vivo-aire-sub" class="hud-mon-sub">—</span>
                             </div>
-                            <div class="monitor-content">
-                                <h2 id="vivo-aire" class="monitor-source-title">—</h2>
-                                <p id="vivo-aire-sub" class="monitor-source-sub">—</p>
+                            <div class="hud-monitor pvw">
+                                <span class="tally-tag pvw"><span class="tally-led"></span> PVW</span>
+                                <span id="vivo-previo" class="hud-mon-source">—</span>
+                                <span id="vivo-previo-sub" class="hud-mon-sub">—</span>
                             </div>
                         </div>
 
-                        <!-- MONITOR PVW / EN PREVIO (VERDE ESMERALDA BROADCAST) -->
-                        <div class="studio-monitor pvw lg-container">
-                            <div class="monitor-tally-strip"></div>
-                            <div class="monitor-header">
-                                <span class="tally-tag pvw"><span class="tally-led"></span> PVW · EN PREVIO</span>
-                                <span class="monitor-signal-chip">SDI 2 · 1080p59.94</span>
+                        <!-- HUD FLOTANTE SUPERIOR DERECHO: MICRO-CÁPSULA DE RUNDOWN (APPLE GLASS) -->
+                        <div class="player-hud-top-right" aria-label="Escaleta en tiempo real">
+                            <div class="hud-rundown-step now">
+                                <span class="rundown-badge-now">AHORA</span>
+                                <span id="vivo-pos" class="rundown-step-counter">1 de ${programa.pasos.length || 1}</span>
+                                <span id="vivo-seg" class="hud-step-title">—</span>
+                                <span id="vivo-texto" class="hud-step-text"></span>
+                                <div id="vivo-etiquetas" class="hud-step-tags" hidden></div>
                             </div>
-                            <div class="monitor-content">
-                                <h2 id="vivo-previo" class="monitor-source-title">—</h2>
-                                <p id="vivo-previo-sub" class="monitor-source-sub">—</p>
+                            <span class="hud-rundown-divider" aria-hidden="true"></span>
+                            <div class="hud-rundown-step next">
+                                <span class="rundown-badge-next">SIGUE</span>
+                                <span id="vivo-resta" class="rundown-countdown"></span>
+                                <span id="vivo-sig" class="hud-step-title next">—</span>
+                                <small id="vivo-sig-sub" class="hud-step-sub next" hidden></small>
                             </div>
                         </div>
 
-                        <!-- HUD DE RUNDOWN: AHORA & SIGUE -->
-                        <div class="studio-rundown-hud lg-container">
-                            <div class="rundown-col now">
-                                <div class="rundown-label">
-                                    <span>AHORA</span>
-                                    <em id="vivo-pos">1 de ${programa.pasos.length || 1}</em>
-                                </div>
-                                <h3 id="vivo-seg" class="rundown-title">—</h3>
-                                <p id="vivo-texto" class="rundown-instruction"></p>
-                                <div id="vivo-etiquetas" class="rundown-tags"></div>
-                            </div>
-                            <div class="rundown-col next">
-                                <div class="rundown-label">
-                                    <span>SIGUE</span>
-                                    <span id="vivo-resta" class="rundown-countdown"></span>
-                                </div>
-                                <h4 id="vivo-sig" class="rundown-title">—</h4>
-                                <small id="vivo-sig-sub" class="rundown-instruction"></small>
-                            </div>
-                        </div>
-                    </section>
-
-                    <p class="vivo-desvio" id="vivo-desvio" hidden></p>
-
-                    <!-- LIENZO PANORÁMICO BLUEPRINT DEL SET (CON MARCADORES TÉCNICOS HUD) -->
-                    <section class="studio-blueprint-viewport lg-container" aria-label="Plano cenital del foro">
-                        <div class="blueprint-glass">
-                            <span class="blueprint-corner tl"></span>
-                            <span class="blueprint-corner tr"></span>
-                            <span class="blueprint-corner bl"></span>
-                            <span class="blueprint-corner br"></span>
-                            <div class="set-live" id="vivo-plano"></div>
-                        </div>
-                        <div class="blueprint-footer-bar">
+                        <!-- OVERLAY INFERIOR DE LEYENDAS Y HINTS -->
+                        <div class="player-hud-bottom-overlay">
                             <div class="legend-pills-wrap">
                                 <span class="studio-pill pgm"><span class="led-dot"></span> PGM Al aire</span>
                                 <span class="studio-pill pvw"><span class="led-dot"></span> PVW En previo</span>
                             </div>
-                            <span class="blueprint-status-note">Telemetría de set interactiva con tally en tiempo real</span>
-                            <span class="blueprint-hint">Teclas 1..${cams.length || 1} conmutan cortes · Enter: CUT</span>
+                            <span class="blueprint-hint">Teclas 1..${cams.length || 1} conmutan · Enter: CUT</span>
                         </div>
-                    </section>
 
-                    <!-- SWITCHER FÍSICO DE CÁMARAS (ATEM APPLE GLASS BROADCAST PAD) -->
-                    <section class="studio-switcher-bus lg-container" aria-label="Switcher de cámaras">
-                        <div class="switcher-bus-brand">
-                            <span class="switcher-brand-title">BUS DE CORTE</span>
-                            <span class="switcher-brand-sub">ATEM Glass Pad</span>
+                        <p class="vivo-desvio" id="vivo-desvio" hidden></p>
+                    </div>
+
+                    <!-- CONSOLA INFERIOR DEL REPRODUCTOR (MASTER DOCK: SCRUBBER + TRANSPORTE + SWITCHER) -->
+                    <footer class="player-bottom-console lg-container" aria-label="Consola maestra de reproducción y conmutación">
+                        <!-- LÍNEA DE TIEMPO INTERACTIVA (SCRUBBER PROFESIONAL) -->
+                        <div class="player-scrubber-bar">
+                            <div class="studio-scrubber-track" id="vivo-scrubber" title="Hacer clic o arrastrar para saltar en la línea de tiempo">
+                                <i id="vivo-avance" class="studio-scrubber-fill"></i>
+                                <span class="studio-scrubber-thumb"></span>
+                            </div>
                         </div>
-                        <div class="switcher-buttons-row">
-                            ${cams.length
-                                ? cams.map((c, i) => `
-                                    <button class="switcher-cam-btn switcher-cam-pad lg-interactive" data-cam="${c.id}" data-idx="${i + 1}"
-                                        title="Conmutar ${esc(c.nombre || `CAM ${i + 1}`)} al aire (Tecla ${i + 1})">
-                                        <div class="cam-pad-top">
-                                            <span class="cam-pad-tally-bar"></span>
-                                            <span class="cam-btn-num">${i + 1}</span>
-                                        </div>
-                                        <div class="cam-pad-info">
-                                            <b class="cam-btn-name">${esc(c.nombre || `CAM ${i + 1}`)}</b>
-                                            <span class="cam-btn-plano">${esc(c.plano || 'Plano')}</span>
-                                        </div>
-                                    </button>`).join('')
-                                : '<p class="set-live-note">Sin cámaras configuradas. Agrégalas en la etapa Necesidades.</p>'}
+
+                        <!-- BARRA DE CONTROLES: TRANSPORTE + TIMECODE + SWITCHER BUS -->
+                        <div class="player-controls-row">
+                            <!-- CLÚSTER DE TRANSPORTE Y TIMECODE -->
+                            <div class="player-transport-cluster">
+                                <button id="vivo-prev-step" class="transport-step-btn lg-interactive" ${hayPrograma ? '' : 'disabled'}
+                                    title="Paso anterior (J)">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                                </button>
+                                <button id="vivo-play" class="transport-btn play-btn lg-interactive" ${hayPrograma ? '' : 'disabled'}
+                                    title="${hayPrograma ? 'Arrancar o pausar la emisión (Espacio)' : 'Sin segmentos'}">
+                                    <span class="play-btn-icon-wrap" id="vivo-play-icon">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                                    </span>
+                                    <b id="vivo-play-t">Arrancar</b>
+                                </button>
+                                <button id="vivo-next-step" class="transport-step-btn lg-interactive" ${hayPrograma ? '' : 'disabled'}
+                                    title="Paso siguiente (L)">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                                </button>
+                                <button id="vivo-reset" class="transport-btn reset-btn lg-interactive" ${hayPrograma ? '' : 'disabled'}
+                                    title="Reiniciar tiempo a 00:00 (R)">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                </button>
+
+                                <div class="player-timecode-cluster">
+                                    <div class="timecode-primary">
+                                        <span id="vivo-t" class="timecode-digits">00:00</span>
+                                        <span class="timecode-badge standby">STANDBY</span>
+                                    </div>
+                                    <div class="timecode-secondary">
+                                        <span id="vivo-resta-total">Restante: -${formatTime(programa.total)}</span>
+                                        <span class="timecode-sep">·</span>
+                                        <span>Total: ${formatTime(programa.total)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="player-dock-divider"></div>
+
+                            <!-- CLÚSTER SWITCHER DE CÁMARAS (APPLE GLASS PAD) -->
+                            <div class="player-switcher-cluster" aria-label="Switcher de cámaras">
+                                <div class="player-cams-strip">
+                                    ${cams.length
+                                        ? cams.map((c, i) => `
+                                            <button class="switcher-cam-btn switcher-cam-pad lg-interactive" data-cam="${c.id}" data-idx="${i + 1}"
+                                                title="Conmutar ${esc(c.nombre || `CAM ${i + 1}`)} al aire (Tecla ${i + 1})">
+                                                <div class="cam-pad-header">
+                                                    <span class="cam-btn-num">${i + 1}</span>
+                                                    <span class="cam-pad-tally-bar"></span>
+                                                    <span class="cam-pad-status-tag"></span>
+                                                </div>
+                                                <div class="cam-pad-body">
+                                                    <b class="cam-btn-name">${esc(c.nombre || `CAM ${i + 1}`)}</b>
+                                                    <span class="cam-btn-plano">${esc(c.plano || 'Plano')}</span>
+                                                </div>
+                                            </button>`).join('')
+                                        : '<span class="cams-empty-msg">Sin cámaras configuradas</span>'}
+                                </div>
+                                <div class="player-trans-cluster">
+                                    <button id="vivo-cut-btn" class="switcher-action-btn cut-action-btn lg-interactive" title="Conmutar previo al aire inmediatamente (Enter)">
+                                        <span class="trans-btn-label">CUT</span>
+                                    </button>
+                                    <button id="vivo-auto-btn" class="switcher-action-btn auto-action-btn lg-interactive" title="Conmutación automática de señal">
+                                        <span class="trans-btn-label">AUTO</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="switcher-trans-actions">
-                            <button id="vivo-cut-btn" class="switcher-action-btn cut-action-btn lg-interactive" title="Conmutar previo al aire inmediatamente (Enter)">
-                                <b>CUT</b>
-                                <small>CORTE</small>
-                            </button>
-                            <button id="vivo-auto-btn" class="switcher-action-btn auto-action-btn lg-interactive" title="Conmutación automática de señal">
-                                <b>AUTO</b>
-                                <small>TRANS</small>
-                            </button>
-                        </div>
-                    </section>
+                    </footer>
                 </main>
 
                 <!-- INSPECTOR LATERAL DE ALISTAMIENTO TÉCNICO (FLIGHT READINESS) -->

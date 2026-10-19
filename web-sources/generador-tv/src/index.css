@@ -420,6 +420,11 @@ textarea.campo-caja{ min-height:calc(var(--alto) * 1.9); line-height:1.55; resiz
 .mesa{ display:grid; gap:var(--hueco); padding:var(--p-rejilla);
   grid-template-columns:repeat(12,1fr); align-content:start; align-items:start;
   min-height:calc(100vh - 60px); position:relative; z-index:1; }
+.mesa-perfil-wrap{
+  display:flex; flex-direction:column; align-items:center; width:100%;
+  min-height:calc(100vh - 60px); padding:clamp(16px, 3vw, 36px) clamp(12px, 2.5vw, 28px);
+  position:relative; z-index:1; scroll-behavior:smooth;
+}
 .b7{ grid-column:span 7; align-self:start } .b5{ grid-column:span 5; align-self:start }
 .b8{ grid-column:span 8; align-self:start } .b4{ grid-column:span 4; align-self:start }
 @media(max-width:1180px){ .b7,.b5,.b8,.b4{ grid-column:span 12 } }

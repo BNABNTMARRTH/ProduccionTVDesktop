@@ -6,18 +6,18 @@ import { NAVY } from './templates.js';
 export const DEMO_PROJECT_ID = 'project-demo-guia';
 
 const CAMS = [
-    { id: 'demo-cam-1', nombre: 'CAM 1 · edítame', plano: 'Plano General', color: '#1D6FD1' },
-    { id: 'demo-cam-2', nombre: 'CAM 2 · cambia mi plano', plano: 'Plano Medio', color: '#1FA14E' },
-    { id: 'demo-cam-3', nombre: 'CAM 3 · muéveme en Set', plano: 'Close-Up', color: '#F07F13' },
+    { id: 'demo-cam-1', nombre: 'CAM 1', plano: 'Plano General', color: '#1D6FD1' },
+    { id: 'demo-cam-2', nombre: 'CAM 2', plano: 'Plano Medio', color: '#1FA14E' },
+    { id: 'demo-cam-3', nombre: 'CAM 3', plano: 'Primer Plano', color: '#F07F13' },
 ];
 const TALENTOS = [
-    { id: 'demo-tal-1', nombre: 'Conductor(a) · muéveme', tipo: 'conductor' },
+    { id: 'demo-tal-1', nombre: 'Conductor(a)', tipo: 'conductor' },
     { id: 'demo-tal-2', nombre: 'Invitado(a)', tipo: 'invitado' },
 ];
 const MICS = [
-    { id: 'demo-mic-1', nombre: 'Mic 1 · Conductor(a)', conexion: 'XLR', micTipo: 'solapa', asignadoA: 'tal:demo-tal-1' },
-    { id: 'demo-mic-2', nombre: 'Mic 2 · Invitado(a)', conexion: 'Inalámbrico', micTipo: 'dinamico', asignadoA: 'tal:demo-tal-2' },
-    { id: 'demo-mic-3', nombre: 'Boom del set · gírame', conexion: 'XLR', micTipo: 'boom', asignadoA: 'set' },
+    { id: 'demo-mic-1', nombre: 'Mic 1 · Solapa', conexion: 'XLR', micTipo: 'solapa', asignadoA: 'tal:demo-tal-1' },
+    { id: 'demo-mic-2', nombre: 'Mic 2 · Solapa', conexion: 'Inalámbrico', micTipo: 'solapa', asignadoA: 'tal:demo-tal-2' },
+    { id: 'demo-mic-3', nombre: 'Boom del set', conexion: 'XLR', micTipo: 'boom', asignadoA: 'set' },
 ];
 const GFX = { id: 'demo-src-gfx', nombre: 'GRÁFICOS · fuente extra', color: '#0E9F9E', esCorte: false };
 const CORTE = { id: 'demo-src-corte', nombre: 'CORTE · agrupa bloques', color: '#F3C513', esCorte: true };
@@ -27,8 +27,8 @@ function demoCfg() {
         titulo: 'DEMO – CONOCE PRODUCCIÓN TV',
         subtitulo: 'Cada sección de este proyecto explica cómo se usa · bórralo cuando quieras',
         organizacion: 'FCC · UASLP',
-        pantalla: 'TEXTO PARA UNA PANTALLA · AGRÉGALA EN MOBILIARIO',
-        mesa: 'MESA · ARRÁSTRAME EN SET',
+        pantalla: 'Videowall 4K',
+        mesa: 'Mesa de Conducción',
         camaras: CAMS.map((c) => ({ ...c })),
         talentos: TALENTOS.map((t) => ({ ...t })),
         microfonos: MICS.map((m) => ({ ...m })),
@@ -69,13 +69,13 @@ function demoCfg() {
             },
             setLayout: {
                 pos: {
-                    'mesa': { x: 490, y: 225 },
-                    'tal:demo-tal-1': { x: 425, y: 160 },
-                    'tal:demo-tal-2': { x: 555, y: 160 },
-                    'mic:demo-mic-3': { x: 640, y: 210 },
-                    'cam:demo-cam-1': { x: 490, y: 520 },
-                    'cam:demo-cam-2': { x: 205, y: 400 },
-                    'cam:demo-cam-3': { x: 775, y: 400 },
+                    'mesa': { x: 490, y: 250 },
+                    'tal:demo-tal-1': { x: 430, y: 180 },
+                    'tal:demo-tal-2': { x: 550, y: 180 },
+                    'mic:demo-mic-3': { x: 670, y: 220 },
+                    'cam:demo-cam-1': { x: 490, y: 510 },
+                    'cam:demo-cam-2': { x: 220, y: 410 },
+                    'cam:demo-cam-3': { x: 760, y: 410 },
                     'luz:demo-luz-key': { x: 320, y: 375 },
                     'luz:demo-luz-fill': { x: 665, y: 355 },
                     'luz:demo-luz-back': { x: 585, y: 110 },

@@ -398,8 +398,6 @@
     for (let i = 1; i <= filas; i++) grid.push(`<line x1="${M + 2}" y1="${M + 28 + i * U}" x2="${W - M - 2}" y2="${M + 28 + i * U}" stroke="${gridColor}"/>`);
 
     // Mobiliario con sus ocupantes; los talentos sentados no se dibujan sueltos.
-    // ¿Hay un mueble justo encima del punto de foco? Entonces el rótulo del
-    // punto sobra: el mueble ya marca el centro (gemelo de EstudioCenital).
     const muebleEncima = muebles.some(function (m) {
       const q = at('mue:' + m.id);
       return Math.hypot(q.x - mesa.x, q.y - mesa.y) < 46;
@@ -419,24 +417,24 @@
         const a = def.asientos[i % def.asientos.length];
         const col = t.tipo === 'invitado' ? '#0E9F9E' : '#16365F';
         return `<g transform="translate(${a.x} ${a.y})">
-          <circle r="9" fill="#fff" stroke="${col}" stroke-width="2"/>
-          <circle r="3.2" cy="-1.5" fill="${col}"/>
-          <path d="M-4.5 2.5 q4.5 5 9 0 l1 4.5 h-11 z" fill="${col}"/>
+          <circle r="8.5" fill="#fff" stroke="${col}" stroke-width="2"/>
+          <circle r="3" cy="-1.5" fill="${col}"/>
+          <path d="M-4.2 2.5 q4.2 4.5 8.4 0 l1 4 h-10.4 z" fill="${col}"/>
         </g>`;
       }).join('');
       const rotulo = esPantalla
-        ? { mueble: 28, de: function () { return { x: 0, y: 0, corta: 0 }; } }
+        ? { mueble: 22, de: function () { return { x: 0, y: 0, corta: 0 }; } }
         : rotulosDe(def.asientos, rot);
       const nombres = ocupantes.map((t, i) => {
         if (!labOk('tal:' + t.id)) return '';
         const micsT = (esLegacy ? [] : mics.filter((x) => x.micTipo !== 'boom' && x.asignadoA === 'tal:' + t.id));
         const micTxt = micsT.length ? ' · ' + micsT.map((x) => MIC_CORTO[x.micTipo] || 'mic').join(' + ') : '';
         const d = rotulo.de(i);
-        return `<g transform="translate(${d.x} ${d.y}) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="9" font-weight="700" fill="${t.tipo === 'invitado' ? '#0E9F9E' : '#33445f'}">${esc(trunc(t.nombre + micTxt, d.corta))}</text></g>`;
+        return `<g transform="translate(${d.x} ${d.y}) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="8.5" font-weight="600" fill="${t.tipo === 'invitado' ? '#0E9F9E' : '#33445f'}">${esc(trunc(t.nombre + micTxt, d.corta))}</text></g>`;
       }).join('');
       return `<g transform="translate(${p.x} ${p.y})">
         <g transform="rotate(${rot})">${muebleGlyph(m.tipo, anchoPantallaPlano)}${gente}</g>
-        ${labOk('mue:' + m.id) ? `<g transform="translate(0 ${rotulo.mueble}) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="9" font-weight="700" fill="${dark ? '#9CB0CC' : '#5F7189'}">${esc(esPantalla ? 'PANTALLA · ' + trunc(cfg.pantalla || 'PANTALLA', 42) : def.es.toUpperCase())}</text></g>` : ''}
+        ${labOk('mue:' + m.id) ? `<g transform="translate(0 ${rotulo.mueble}) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing="0.3" fill="${dark ? '#7D95B3' : '#6E7C91'}">${esc(esPantalla ? 'VIDEOWALL · ' + trunc(cfg.pantalla || 'PANTALLA', 30) : def.es.toUpperCase())}</text></g>` : ''}
         ${nombres}
       </g>`;
     }).join('');
@@ -447,49 +445,46 @@
       const col = t.tipo === 'invitado' ? '#0E9F9E' : ink;
       const micsT = micsDeTal(t.id);
       const micTxt = micsT.length && labOk('tal:' + t.id)
-        ? `<g transform="translate(0 41) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="8.5" font-weight="600" fill="#1FA14E">${esc(trunc(micsT.map((m) => MIC_CORTO[m.micTipo] || 'mic').join(' + '), 26))}</text></g>`
+        ? `<g transform="translate(0 38) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="8" font-weight="600" fill="#1FA14E">${esc(trunc(micsT.map((m) => MIC_CORTO[m.micTipo] || 'mic').join(' + '), 24))}</text></g>`
         : '';
       return `<g transform="translate(${p.x} ${p.y})">
-        <circle r="15" fill="${opts.display ? '#fff' : 'none'}" stroke="${col}" stroke-width="2"/>
-        <circle r="5" cy="-3" fill="${col}"/>
-        <path d="M-7 3 q7 8 14 0 l2 8 h-18 z" fill="${col}"/>
-        <g transform="translate(11.5 -11.5) scale(${escalaAnotaciones})"><circle r="6" fill="${col}"/><text y="2.5" text-anchor="middle" font-size="7.5" font-weight="800" fill="#fff">${t.tipo === 'invitado' ? 'I' : 'C'}</text></g>
-        ${labOk('tal:' + t.id) ? `<g transform="translate(0 30) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="10" font-weight="700" fill="${dark ? '#C5D6EC' : '#33445f'}">${esc(trunc(t.nombre, 20))}</text></g>` : ''}
+        <circle r="14" fill="${opts.display ? '#fff' : 'none'}" stroke="${col}" stroke-width="2"/>
+        <circle r="4.5" cy="-2.5" fill="${col}"/>
+        <path d="M-6 3 q6 7 12 0 l1.8 7 h-15.6 z" fill="${col}"/>
+        <g transform="translate(10.5 -10.5) scale(${escalaAnotaciones})"><circle r="5.5" fill="${col}"/><text y="2.2" text-anchor="middle" font-size="7" font-weight="800" fill="#fff">${t.tipo === 'invitado' ? 'I' : 'C'}</text></g>
+        ${labOk('tal:' + t.id) ? `<g transform="translate(0 27) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="9" font-weight="600" fill="${dark ? '#C5D6EC' : '#2C3E50'}">${esc(trunc(t.nombre, 18))}</text></g>` : ''}
         ${micTxt}
       </g>`;
     }).join('');
 
-    // Booms perchados (giran hacia la mesa/foco o con ángulo manual)
+    // Booms perchados
     const boomsSvg = booms.map((m) => {
       const manual = rots['mic:' + m.id];
       const p = at('mic:' + m.id);
       const rot = typeof manual === 'number' ? manual : Math.atan2(mesa.y - p.y, mesa.x - p.x) * 180 / Math.PI;
       return `<g transform="translate(${p.x} ${p.y})">
         <g transform="rotate(${rot})">
-          <path d="M8 0 L46 -12 L46 12 Z" fill="#1FA14E" opacity="0.10"/>
-          <line x1="-14" y1="0" x2="26" y2="0" stroke="#3C4654" stroke-width="3" stroke-linecap="round"/>
-          <rect x="26" y="-4" width="14" height="8" rx="4" fill="#1FA14E" stroke="#fff" stroke-width="1.2"/>
+          <path d="M8 0 L42 -10 L42 10 Z" fill="#1FA14E" opacity="0.10"/>
+          <line x1="-12" y1="0" x2="24" y2="0" stroke="#3C4654" stroke-width="2.5" stroke-linecap="round"/>
+          <rect x="24" y="-3.5" width="12" height="7" rx="3.5" fill="#1FA14E" stroke="#fff" stroke-width="1"/>
         </g>
-        <circle cx="-14" cy="0" r="6" fill="#3C4654"/>
-        ${labOk('mic:' + m.id) ? `<g transform="translate(0 24) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="9" font-weight="700" fill="#1FA14E">${esc(trunc(m.nombre, 18))} · boom</text></g>` : ''}
+        <circle cx="-12" cy="0" r="5" fill="#3C4654"/>
+        ${labOk('mic:' + m.id) ? `<g transform="translate(0 20) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="8.5" font-weight="600" fill="#1FA14E">${esc(trunc(m.nombre, 16))} · boom</text></g>` : ''}
       </g>`;
     }).join('');
 
-    // Micrófonos sueltos (sin asignar)
+    // Micrófonos sueltos
     const sueltosSvg = sueltos.map((m) => {
       const p = at('mic:' + m.id);
       return `<g transform="translate(${p.x} ${p.y})">
-        <circle r="10" fill="${opts.display ? '#fff' : 'none'}" stroke="#1FA14E" stroke-width="2"/>
-        <rect x="-2.5" y="-6" width="5" height="8" rx="2.5" fill="#1FA14E"/>
-        <path d="M-5 -1 a5 5 0 0 0 10 0 M0 4 V7" stroke="#1FA14E" stroke-width="1.4" fill="none"/>
-        ${labOk('mic:' + m.id) ? `<g transform="translate(0 23) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="9" font-weight="700" fill="#1FA14E">${esc(trunc(m.nombre, 16))} · ${MIC_CORTO[m.micTipo] || 'mic'}</text></g>` : ''}
+        <circle r="9" fill="${opts.display ? '#fff' : 'none'}" stroke="#1FA14E" stroke-width="1.8"/>
+        <rect x="-2" y="-5" width="4" height="7" rx="2" fill="#1FA14E"/>
+        <path d="M-4 -1 a4 4 0 0 0 8 0 M0 3 V6" stroke="#1FA14E" stroke-width="1.2" fill="none"/>
+        ${labOk('mic:' + m.id) ? `<g transform="translate(0 20) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="8.5" font-weight="600" fill="#1FA14E">${esc(trunc(m.nombre, 14))} · ${MIC_CORTO[m.micTipo] || 'mic'}</text></g>` : ''}
       </g>`;
     }).join('');
 
     const liveMode = !!(opts.air || opts.preview || opts.badge);
-    // Luces del plan de iluminación (instancias autocontenidas en
-    // set.iluminacion.luces; dirección: manual > mesa/muro automática).
-    // En modo tally se atenúan para que las cámaras dominen la vista.
     const lucesSvg = ((set.iluminacion && set.iluminacion.luces) || []).map((l) => {
       const p = at('luz:' + l.id);
       const manual = rots['luz:' + l.id];
@@ -498,75 +493,79 @@
         : l.dir === 'muro' ? -90 : null;
       const rot = typeof manual === 'number' ? manual : auto;
       const color = esc(l.color || '#F59E0B');
-      const beam = rot === null ? '' : `<g transform="rotate(${rot})"><path d="M10 0 L64 -26 L64 26 Z" fill="${color}" opacity="${opts.display ? 0.12 : 0.08}"/></g>`;
-      const anillo = l.opcional ? `<circle transform="scale(${escalaAnotaciones})" r="14" fill="none" stroke="${color}" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.8"/>` : '';
+      const beam = rot === null ? '' : `<g transform="rotate(${rot})"><path d="M10 0 L58 -22 L58 22 Z" fill="${color}" opacity="${opts.display ? 0.10 : 0.07}"/></g>`;
+      const anillo = l.opcional ? `<circle transform="scale(${escalaAnotaciones})" r="12" fill="none" stroke="${color}" stroke-width="1" stroke-dasharray="3 3" opacity="0.8"/>` : '';
       return `<g transform="translate(${p.x} ${p.y})"${liveMode ? ' opacity="0.3"' : ''}>
         ${beam}${anillo}<g>${luzGlyph(l.forma, color)}</g>
-        <g transform="translate(0 -18) scale(${escalaAnotaciones})"><rect x="-14" y="-11" width="28" height="12" rx="6" fill="${color}"/><text y="-2" text-anchor="middle" font-size="8" font-weight="800" fill="#fff">${esc(l.abrev || 'LUZ')}</text></g>
-        ${labOk('luz:' + l.id) ? `<g transform="translate(0 27) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="9" font-weight="700" fill="#33445f">${esc(trunc(l.nombre, 20))}</text></g>` : ''}
+        <g transform="translate(0 -16) scale(${escalaAnotaciones})"><rect x="-12" y="-10" width="24" height="11" rx="5.5" fill="${color}"/><text y="-2" text-anchor="middle" font-size="7.5" font-weight="800" fill="#fff">${esc(l.abrev || 'LUZ')}</text></g>
+        ${labOk('luz:' + l.id) ? `<g transform="translate(0 24) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="8.5" font-weight="600" fill="#33445f">${esc(trunc(l.nombre, 18))}</text></g>` : ''}
       </g>`;
     }).join('');
+
     const camsSvg = cams.map((c, i) => {
       const p = at('cam:' + c.id);
-      // Ángulo manual (fijado con la manija en el editor) o seguimiento de la mesa.
       const manual = rots['cam:' + c.id];
       const rot = typeof manual === 'number' ? manual : Math.atan2(mesa.y - p.y, mesa.x - p.x) * 180 / Math.PI;
       const color = esc(c.color || '#16365F');
       const isAir = opts.air === c.id;
       const isPreview = !isAir && opts.preview === c.id;
       const dim = liveMode && !isAir && !isPreview;
-      // Tally: rojo pulsante = al aire (programa), verde = siguiente (preview).
+      // Tally minimalista broadcast
       const tally = isAir
-        ? `<g transform="translate(0 -48) scale(${escalaAnotaciones})"><circle r="9" fill="#E0312F" stroke="#fff" stroke-width="2">
-             <animate attributeName="opacity" values="1;0.3;1" dur="1.1s" repeatCount="indefinite"/>
-           </circle>
-           <text y="-14" text-anchor="middle" font-size="10" font-weight="800" fill="#E0312F">AL AIRE</text></g>`
+        ? `<g transform="translate(0 -42) scale(${escalaAnotaciones})">
+             <circle r="6.5" fill="#FF3B30" stroke="#fff" stroke-width="1.8">
+               <animate attributeName="opacity" values="1;0.4;1" dur="1.1s" repeatCount="indefinite"/>
+             </circle>
+             <text y="-10" text-anchor="middle" font-size="8.5" font-weight="800" fill="#FF3B30" letter-spacing="0.5">AL AIRE</text>
+           </g>`
         : isPreview
-          ? `<g transform="translate(0 -46) scale(${escalaAnotaciones})"><circle r="7" fill="#1FA14E" stroke="#fff" stroke-width="2"/>
-             <text y="-12" text-anchor="middle" font-size="9" font-weight="800" fill="#1FA14E">SIGUE</text></g>`
+          ? `<g transform="translate(0 -40) scale(${escalaAnotaciones})">
+               <circle r="5.5" fill="#34C759" stroke="#fff" stroke-width="1.6"/>
+               <text y="-9" text-anchor="middle" font-size="8" font-weight="800" fill="#34C759" letter-spacing="0.5">SIGUE</text>
+             </g>`
           : '';
       const shot = shotgunDe(c.id).length
-        ? `<rect x="4" y="-17" width="22" height="5" rx="2.5" fill="#1FA14E" stroke="#fff" stroke-width="1"/>`
+        ? `<rect x="4" y="-15" width="18" height="4" rx="2" fill="#1FA14E" stroke="#fff" stroke-width="0.8"/>`
         : '';
-      return `<g transform="translate(${p.x} ${p.y})"${dim ? ' opacity="0.4"' : ''}>
+      return `<g transform="translate(${p.x} ${p.y})"${dim ? ' opacity="0.35"' : ''}>
         <g transform="rotate(${rot})">
-          <path d="M14 0 L78 -24 L78 24 Z" fill="${color}" opacity="${isAir ? 0.32 : opts.display ? 0.16 : 0.12}"/>
-          <rect x="-16" y="-10" width="28" height="20" rx="4" fill="${opts.display ? '#1B1F26' : 'none'}" stroke="#33445f" stroke-width="2"/>
-          <rect x="12" y="-5" width="7" height="10" fill="#33445f"/>
+          <path d="M14 0 L74 -22 L74 22 Z" fill="${color}" opacity="${isAir ? 0.28 : opts.display ? 0.14 : 0.10}"/>
+          <rect x="-14" y="-9" width="25" height="18" rx="3.5" fill="${opts.display ? '#1B1F26' : 'none'}" stroke="#33445f" stroke-width="1.8"/>
+          <rect x="11" y="-4.5" width="6" height="9" fill="#33445f"/>
           ${shot}
         </g>
-        <g transform="translate(0 -24) scale(${escalaAnotaciones})"><circle r="10" fill="${color}"/><text y="4" text-anchor="middle" font-size="11" font-weight="800" fill="#fff">${i + 1}</text></g>
-        ${labOk('cam:' + c.id) ? `<g transform="translate(0 34) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="10" font-weight="700" fill="${dark ? '#C5D6EC' : '#33445f'}">${esc(trunc(c.nombre, 14))}</text></g>` : ''}
+        <g transform="translate(0 -22) scale(${escalaAnotaciones})"><circle r="9" fill="${color}"/><text y="3.5" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">${i + 1}</text></g>
+        ${labOk('cam:' + c.id) ? `<g transform="translate(0 30) scale(${escalaAnotaciones})"><text text-anchor="middle" font-size="9" font-weight="600" fill="${dark ? '#C5D6EC' : '#33445f'}">${esc(trunc(c.nombre, 14))}</text></g>` : ''}
         ${tally}
       </g>`;
     }).join('');
-    // Cuando la fuente al aire no es cámara (VTR, corte…): letrero con su color.
+
     const badgeSvg = opts.badge
       ? `<g transform="translate(${centroX} ${centroY - 190}) scale(${escalaAnotaciones})">
-           <rect x="-160" y="-16" width="320" height="32" rx="16" fill="${esc(opts.badge.color || '#64748B')}"/>
-           <text y="5" text-anchor="middle" font-size="13" font-weight="800" fill="#fff" letter-spacing="1">AL AIRE · ${esc(trunc(opts.badge.text || '', 28))}</text>
+           <rect x="-140" y="-14" width="280" height="28" rx="14" fill="${esc(opts.badge.color || '#64748B')}"/>
+           <text y="4" text-anchor="middle" font-size="11.5" font-weight="800" fill="#fff" letter-spacing="0.8">AL AIRE · ${esc(trunc(opts.badge.text || '', 26))}</text>
          </g>`
       : '';
-    // Interior: muro/ciclorama. La pantalla se dibuja como mobiliario.
-    // Exterior: sol y etiqueta de locación.
+
     const cabecera = ext
       ? `<g transform="translate(${W - M - 57 * escalaAnotaciones} ${M + 48 * escalaAnotaciones}) scale(${escalaAnotaciones})">
            <circle r="14" fill="#FCD34D" stroke="#F59E0B" stroke-width="2"/>
            ${[0, 45, 90, 135, 180, 225, 270, 315].map((a) => `<line transform="rotate(${a})" x1="0" y1="-19" x2="0" y2="-25" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round"/>`).join('')}
          </g>
-         <g transform="translate(${M + 20 * escalaAnotaciones} ${M + 54 * escalaAnotaciones}) scale(${escalaAnotaciones})"><text font-size="12" font-weight="800" fill="#4C7C54" letter-spacing="1">LOCACIÓN EXTERIOR</text></g>`
-      : `<rect x="${M}" y="${M}" width="${W - M * 2}" height="26" rx="12" fill="${dark ? '#1A273B' : (opts.display ? '#16365F' : '#33445f')}"/>`;
-    // Mesa del set, o punto de foco cuando el set no tiene mesa.
+         <g transform="translate(${M + 20 * escalaAnotaciones} ${M + 54 * escalaAnotaciones}) scale(${escalaAnotaciones})"><text font-size="11" font-weight="800" fill="#4C7C54" letter-spacing="0.8">LOCACIÓN EXTERIOR</text></g>`
+      : `<rect x="${M}" y="${M}" width="${W - M * 2}" height="22" rx="8" fill="${dark ? '#1A273B' : 'rgba(22, 54, 95, 0.05)'}" stroke="${dark ? '#283852' : 'rgba(22, 54, 95, 0.15)'}" stroke-width="1.2"/>`;
+
+    // Mesa del set estilizada como escritorio curvo de emisión
     const mesaSvg = set.mesaVisible !== false
       ? `<g transform="translate(${mesa.x} ${mesa.y})">
-           <rect x="-105" y="-32" width="210" height="64" rx="14" fill="${dark ? '#1E2C42' : (opts.display ? '#fff' : 'none')}" stroke="${ink}" stroke-width="2.5"/>
-           <g transform="scale(${escalaAnotaciones})"><text y="5" text-anchor="middle" font-size="12" font-weight="800" fill="${dark ? '#E2EAF4' : '#33445f'}">${esc(trunc(cfg.mesa || '', 24))}</text></g>
+           <rect x="-75" y="-18" width="150" height="36" rx="12" fill="${dark ? '#1F2D42' : (opts.display ? '#ffffff' : 'none')}" stroke="${dark ? '#4A6284' : (opts.display ? '#0071E3' : ink)}" stroke-width="${opts.display ? '1.6' : '2'}"/>
+           <g transform="scale(${escalaAnotaciones})"><text y="3.5" text-anchor="middle" font-size="10" font-weight="700" letter-spacing="0.2" fill="${dark ? '#E2EAF4' : (opts.display ? '#1D1D1F' : '#33445f')}">${esc(trunc(cfg.mesa || '', 22))}</text></g>
          </g>`
       : `<g transform="translate(${mesa.x} ${mesa.y})">
-           <g transform="scale(${escalaAnotaciones})"><circle r="16" fill="none" stroke="${dark ? '#647894' : '#8A97A8'}" stroke-width="1.6" stroke-dasharray="4 3"/>
-           <path d="M-23 0 H23 M0 -23 V23" stroke="${dark ? '#647894' : '#8A97A8'}" stroke-width="1.4"/>
-           <circle r="3" fill="${dark ? '#647894' : '#8A97A8'}"/>
-           ${muebleEncima ? '' : `<text y="36" text-anchor="middle" font-size="9" font-weight="700" fill="${dark ? '#8FA3BD' : '#8A97A8'}">PUNTO DE FOCO</text>`}</g>
+           <g transform="scale(${escalaAnotaciones})"><circle r="14" fill="none" stroke="${dark ? '#647894' : '#8A97A8'}" stroke-width="1.4" stroke-dasharray="4 3"/>
+           <path d="M-20 0 H20 M0 -20 V20" stroke="${dark ? '#647894' : '#8A97A8'}" stroke-width="1.2"/>
+           <circle r="2.5" fill="${dark ? '#647894' : '#8A97A8'}"/>
+           ${muebleEncima ? '' : `<text y="32" text-anchor="middle" font-size="8.5" font-weight="700" fill="${dark ? '#8FA3BD' : '#8A97A8'}">PUNTO DE FOCO</text>`}</g>
          </g>`;
     const clavesActivas = {};
     if (set.mesaVisible !== false) clavesActivas.mesa = true;

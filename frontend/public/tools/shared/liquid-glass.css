@@ -14,21 +14,27 @@
   
   --lg-saturate: 190%;
 
-  /* Material Regular (Barras de navegación, toolbars, paneles laterales) */
+  /* Materiales Liquid Glass (Inspirado en Landmarks SwiftUI .glassEffect) */
   --lg-material-regular: rgba(255, 255, 255, 0.72);
+  --lg-material-thick: rgba(255, 255, 255, 0.88);
+  --lg-material-thin: rgba(255, 255, 255, 0.55);
+  --lg-material-clear: rgba(255, 255, 255, 0.35);
   --lg-material-subtle: rgba(255, 255, 255, 0.45);
   --lg-material-hover: rgba(255, 255, 255, 0.84);
   --lg-material-active: rgba(255, 255, 255, 0.95);
 
-  /* Bordes de Luz y Reflejos Ópticos */
+  /* Bordes de Luz y Reflejos Ópticos Especulares */
   --lg-border-light: rgba(255, 255, 255, 0.65);
   --lg-border-subtle: rgba(23, 21, 18, 0.08);
   --lg-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --lg-specular-rim: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -0.5px 0 rgba(0, 0, 0, 0.04);
+  --lg-specular-border: 1px solid rgba(255, 255, 255, 0.7);
 
-  /* Sombras y Elevación Concéntrica */
+  /* Sombras y Elevación Concéntrica Apple */
   --lg-shadow-sm: 0 2px 8px -2px rgba(0, 0, 0, 0.08);
   --lg-shadow-md: 0 12px 28px -10px rgba(0, 0, 0, 0.16), 0 2px 6px -1px rgba(0, 0, 0, 0.06);
   --lg-shadow-lg: 0 24px 50px -16px rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 0, 0, 0.08);
+  --lg-shadow-volumetric: 0 20px 48px -12px rgba(0, 0, 0, 0.32), 0 2px 8px rgba(0, 0, 0, 0.08);
 
   /* Tipografía y Espaciado Óptico Apple HIG (San Francisco Font System) */
   --lg-font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", system-ui, sans-serif;
@@ -72,39 +78,52 @@
 
   --lg-spring-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --lg-spring-touch: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --lg-spring-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* Modo Oscuro / Dark Mode */
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema="claro"]) {
-    --lg-material-regular: rgba(255, 255, 255, 0.05);
-    --lg-material-subtle: rgba(255, 255, 255, 0.02);
-    --lg-material-hover: rgba(255, 255, 255, 0.08);
-    --lg-material-active: rgba(255, 255, 255, 0.14);
+    --lg-material-regular: rgba(22, 28, 40, 0.65);
+    --lg-material-thick: rgba(16, 20, 30, 0.85);
+    --lg-material-thin: rgba(255, 255, 255, 0.08);
+    --lg-material-clear: rgba(255, 255, 255, 0.03);
+    --lg-material-subtle: rgba(255, 255, 255, 0.04);
+    --lg-material-hover: rgba(255, 255, 255, 0.10);
+    --lg-material-active: rgba(255, 255, 255, 0.16);
 
-    --lg-border-light: rgba(255, 255, 255, 0.10);
+    --lg-border-light: rgba(255, 255, 255, 0.12);
     --lg-border-subtle: rgba(255, 255, 255, 0.06);
-    --lg-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    --lg-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    --lg-specular-rim: inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -0.5px 0 rgba(0, 0, 0, 0.4);
+    --lg-specular-border: 1px solid rgba(255, 255, 255, 0.14);
 
     --lg-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.25);
     --lg-shadow-md: 0 16px 36px -8px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
     --lg-shadow-lg: 0 28px 64px -16px rgba(0, 0, 0, 0.65), 0 4px 16px rgba(0, 0, 0, 0.35);
+    --lg-shadow-volumetric: 0 24px 56px -12px rgba(0, 0, 0, 0.7), 0 4px 16px rgba(0, 0, 0, 0.4);
   }
 }
 
 :root[data-tema="oscuro"] {
-  --lg-material-regular: rgba(255, 255, 255, 0.05);
-  --lg-material-subtle: rgba(255, 255, 255, 0.02);
-  --lg-material-hover: rgba(255, 255, 255, 0.08);
-  --lg-material-active: rgba(255, 255, 255, 0.14);
+  --lg-material-regular: rgba(22, 28, 40, 0.65);
+  --lg-material-thick: rgba(16, 20, 30, 0.85);
+  --lg-material-thin: rgba(255, 255, 255, 0.08);
+  --lg-material-clear: rgba(255, 255, 255, 0.03);
+  --lg-material-subtle: rgba(255, 255, 255, 0.04);
+  --lg-material-hover: rgba(255, 255, 255, 0.10);
+  --lg-material-active: rgba(255, 255, 255, 0.16);
 
-  --lg-border-light: rgba(255, 255, 255, 0.10);
+  --lg-border-light: rgba(255, 255, 255, 0.12);
   --lg-border-subtle: rgba(255, 255, 255, 0.06);
-  --lg-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --lg-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --lg-specular-rim: inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -0.5px 0 rgba(0, 0, 0, 0.4);
+  --lg-specular-border: 1px solid rgba(255, 255, 255, 0.14);
 
   --lg-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.25);
   --lg-shadow-md: 0 16px 36px -8px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
   --lg-shadow-lg: 0 28px 64px -16px rgba(0, 0, 0, 0.65), 0 4px 16px rgba(0, 0, 0, 0.35);
+  --lg-shadow-volumetric: 0 24px 56px -12px rgba(0, 0, 0, 0.7), 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 /* ==========================================================================
@@ -154,6 +173,127 @@
 
 .lg-interactive:active {
   transform: scale(0.97);
+}
+
+/* ==========================================================================
+   Componentes Esenciales Liquid Glass (SwiftUI Landmarks to Web)
+   ========================================================================== */
+
+/* 1. Panel de Vidrio Regular (.glassEffect(.regular)) */
+.lg-glass-panel {
+  background: var(--lg-material-regular);
+  -webkit-backdrop-filter: blur(var(--lg-blur-regular)) saturate(var(--lg-saturate));
+  backdrop-filter: blur(var(--lg-blur-regular)) saturate(var(--lg-saturate));
+  border: var(--lg-specular-border);
+  box-shadow: var(--lg-specular-rim), var(--lg-shadow-md);
+  border-radius: var(--apple-card-radius);
+  transition: all 0.22s var(--lg-spring-ease);
+}
+
+/* 2. Panel de Vidrio Grueso para Modales e Inspectores (.glassEffect(.thick)) */
+.lg-glass-panel-thick {
+  background: var(--lg-material-thick);
+  -webkit-backdrop-filter: blur(var(--lg-blur-thick)) saturate(var(--lg-saturate));
+  backdrop-filter: blur(var(--lg-blur-thick)) saturate(var(--lg-saturate));
+  border: var(--lg-specular-border);
+  box-shadow: var(--lg-specular-rim), var(--lg-shadow-volumetric);
+  border-radius: var(--apple-modal-radius);
+}
+
+/* 3. Micro-Cápsula de Cristal (.glassEffect(.thin)) */
+.lg-glass-pill {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--lg-material-thin);
+  -webkit-backdrop-filter: blur(var(--lg-blur-clear)) saturate(var(--lg-saturate));
+  backdrop-filter: blur(var(--lg-blur-clear)) saturate(var(--lg-saturate));
+  border: var(--lg-specular-border);
+  box-shadow: var(--lg-specular-rim), var(--lg-shadow-sm);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tinta);
+  white-space: nowrap;
+}
+
+/* 4. Botón Estilo Liquid Glass (.buttonStyle(.glass)) */
+.lg-glass-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: var(--apple-control-radius);
+  background: var(--lg-material-subtle);
+  border: var(--lg-specular-border);
+  box-shadow: var(--lg-specular-rim), var(--lg-shadow-sm);
+  -webkit-backdrop-filter: blur(var(--lg-blur-clear)) saturate(var(--lg-saturate));
+  backdrop-filter: blur(var(--lg-blur-clear)) saturate(var(--lg-saturate));
+  color: var(--tinta);
+  font-family: var(--lg-font-family);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.12s var(--lg-spring-touch),
+              background 0.18s ease,
+              border-color 0.18s ease,
+              box-shadow 0.18s ease;
+}
+
+.lg-glass-btn:hover {
+  background: var(--lg-material-hover);
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow: var(--lg-specular-rim), var(--lg-shadow-md);
+  transform: translateY(-0.5px);
+}
+
+.lg-glass-btn:active {
+  transform: scale(0.965);
+  background: var(--lg-material-active);
+}
+
+.lg-glass-btn.primary {
+  background: var(--apple-system-blue);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 4px 14px rgba(10, 132, 255, 0.35);
+}
+
+.lg-glass-btn.primary:hover {
+  filter: brightness(1.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 6px 18px rgba(10, 132, 255, 0.45);
+}
+
+/* 5. Contenedor Compartido de Efectos (GlassEffectContainer) */
+.lg-glass-container {
+  display: flex;
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--apple-card-radius);
+  background: var(--lg-material-subtle);
+  -webkit-backdrop-filter: blur(var(--lg-blur-regular)) saturate(var(--lg-saturate));
+  backdrop-filter: blur(var(--lg-blur-regular)) saturate(var(--lg-saturate));
+  border: var(--lg-specular-border);
+  box-shadow: var(--lg-specular-rim), var(--lg-shadow-md);
+}
+
+/* 6. Extensión de Fondo Transversal (backgroundExtensionEffect) */
+.lg-bg-extension {
+  position: relative;
+  overflow: hidden;
+}
+
+.lg-bg-extension::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.08), transparent 70%);
 }
 
 /* ==========================================================================
@@ -300,3 +440,136 @@ button[aria-pressed="false"]:hover {
 button[aria-pressed]:active {
   transform: scale(0.965) !important;
 }
+
+/* ==========================================================================
+   6. LIENZO CONTINUO DE PERFIL & COMPONENTES EMBEBIDOS (APPLE HIG LIQUID GLASS)
+   ========================================================================== */
+
+/* Superficie Maestra de Lienzo (Apple GlassEffectContainer) */
+.bg-white\/95,
+[class*="bg-white/95"] {
+  background: rgba(255, 255, 255, 0.72) !important;
+  -webkit-backdrop-filter: blur(34px) saturate(190%) !important;
+  backdrop-filter: blur(34px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 20px 48px -12px rgba(0, 0, 0, 0.09) !important;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+:root[data-tema="oscuro"] .bg-white\/95,
+:root[data-tema="oscuro"] [class*="bg-white/95"],
+.dark .bg-white\/95,
+.dark [class*="bg-white/95"] {
+  background: rgba(20, 26, 38, 0.76) !important;
+  -webkit-backdrop-filter: blur(34px) saturate(190%) !important;
+  backdrop-filter: blur(34px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 24px 56px -12px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Trench Glass en Inputs y Textareas del Lienzo */
+input[type="text"].w-full,
+textarea.w-full,
+.campo-caja {
+  background: rgba(255, 255, 255, 0.52) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  backdrop-filter: blur(14px) !important;
+  border: 1px solid rgba(0, 0, 0, 0.11) !important;
+  box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.05), inset 0 0 0 1px rgba(255, 255, 255, 0.75) !important;
+  transition: all 0.15s var(--lg-spring-touch) !important;
+}
+
+input[type="text"].w-full:hover,
+textarea.w-full:hover,
+.campo-caja:hover {
+  background: rgba(255, 255, 255, 0.68) !important;
+  border-color: rgba(0, 0, 0, 0.18) !important;
+}
+
+input[type="text"].w-full:focus,
+textarea.w-full:focus,
+.campo-caja:focus {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-color: #007AFF !important;
+  box-shadow: 0 0 0 3.5px rgba(0, 122, 255, 0.22), inset 0 1px 2px rgba(0, 0, 0, 0.03), inset 0 0 0 1px rgba(255, 255, 255, 0.95) !important;
+}
+
+:root[data-tema="oscuro"] input[type="text"].w-full,
+:root[data-tema="oscuro"] textarea.w-full,
+:root[data-tema="oscuro"] .campo-caja,
+.dark input[type="text"].w-full,
+.dark textarea.w-full,
+.dark .campo-caja {
+  background: rgba(0, 0, 0, 0.32) !important;
+  border: 1px solid rgba(255, 255, 255, 0.11) !important;
+  box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.04) !important;
+  color: #F5F5F7 !important;
+}
+
+:root[data-tema="oscuro"] input[type="text"].w-full:focus,
+:root[data-tema="oscuro"] textarea.w-full:focus,
+:root[data-tema="oscuro"] .campo-caja:focus,
+.dark input[type="text"].w-full:focus,
+.dark textarea.w-full:focus,
+.dark .campo-caja:focus {
+  background: rgba(0, 0, 0, 0.5) !important;
+  border-color: #0A84FF !important;
+  box-shadow: 0 0 0 3.5px rgba(10, 132, 255, 0.3), inset 0 1.5px 3px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Botones de Formato de Cuadro (Aspect Ratio Selector) */
+button.h-24 {
+  background: rgba(255, 255, 255, 0.45) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+  transition: transform 0.12s var(--lg-spring-touch), background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+button.h-24:hover {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border-color: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: inset 0 1px 0 #fff, 0 4px 12px rgba(0, 0, 0, 0.07) !important;
+  transform: translateY(-1px) !important;
+}
+
+button.h-24:active {
+  transform: scale(0.97) !important;
+}
+
+:root[data-tema="oscuro"] button.h-24,
+.dark button.h-24 {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+:root[data-tema="oscuro"] button.h-24:hover,
+.dark button.h-24:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Área de Carga de Logotipo Oficial */
+button.border-dashed {
+  background: rgba(255, 255, 255, 0.4) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  backdrop-filter: blur(14px) !important;
+  border: 1.5px dashed rgba(0, 0, 0, 0.18) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85) !important;
+  transition: all 0.15s ease !important;
+}
+
+button.border-dashed:hover {
+  background: rgba(0, 122, 255, 0.06) !important;
+  border-color: #007AFF !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 0 0 3px rgba(0, 122, 255, 0.12) !important;
+}
+
+:root[data-tema="oscuro"] button.border-dashed,
+.dark button.border-dashed {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+

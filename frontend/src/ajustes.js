@@ -27,6 +27,7 @@
 
 import { icono } from './iconos.js';
 import { esc } from './constants.js';
+import { globalThemeManager } from './theme_manager.js';
 
 const LLAVE = 'producciontv:ajustes';
 const LLAVE_TEMA_VIEJA = 'ptv:tema';   // antes del 30-ago el tema vivía aparte
@@ -101,12 +102,8 @@ export function crearAjustes({ alAplicar, leerDeDisco, escribirEnDisco } = {}) {
     // disco, que es la verdad compartida (ver sincronizar()).
     let a = leer();
 
-    /* EL TEMA QUE SE ESTÁ VIENDO. Tres estados a propósito: sin elección manda
-       el sistema. Se lee del DOM y no de localStorage porque hay WebViews donde
-       el almacenamiento no persiste y setItem lanza; leyendo el DOM la app
-       sigue funcionando, y lo único que se pierde es recordarlo al reabrir. */
-    const temaEfectivo = () => document.documentElement.dataset.tema
-        || (prefiereOscuro() ? 'oscuro' : 'claro');
+    /* EL TEMA QUE SE ESTÁ VIENDO. Gobernado por GoF Strategy (globalThemeManager). */
+    const temaEfectivo = () => globalThemeManager.getEffectiveTheme();
 
     function guardar() {
         const texto = JSON.stringify(a);
@@ -140,7 +137,7 @@ export function crearAjustes({ alAplicar, leerDeDisco, escribirEnDisco } = {}) {
     function mandarA(ventana) {
         if (!ventana) return;
         try {
-            ventana.postMessage({ type: 'producciontv:tema', tema: temaEfectivo() }, '*');
+            globalThemeManager.dispatchToIframe(ventana);
             ventana.postMessage({ type: 'producciontv:ajustes',
                 ajustes: { contraste: a.contraste, movimiento: a.movimiento } }, '*');
         } catch { /* la herramienta todavía no escucha; la hidratación insiste */ }
@@ -167,13 +164,8 @@ export function crearAjustes({ alAplicar, leerDeDisco, escribirEnDisco } = {}) {
     function aplicar() {
         conBloqueoTransicion(() => {
             const raiz = document.documentElement;
-            if (a.tema) {
-                raiz.dataset.tema = a.tema;
-                raiz.style.colorScheme = a.tema;
-            } else {
-                delete raiz.dataset.tema;
-                raiz.style.colorScheme = '';
-            }
+            globalThemeManager.setThemeMode(a.tema);
+            globalThemeManager.applyToElement(raiz);
             raiz.style.zoom = a.escala === 1 ? '' : String(a.escala);
             raiz.dataset.contraste = a.contraste;
             raiz.dataset.movimiento = a.movimiento;

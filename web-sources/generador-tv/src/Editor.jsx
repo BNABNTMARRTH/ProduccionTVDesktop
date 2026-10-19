@@ -27,6 +27,7 @@ import { AIR_COLOR, NAVY, PALETTE } from "./theme.js";
 import { Aviso, Btn, btn, Campo, Campos, Card, Chips, ColorPickerField, Formatos, inp, inpStyle,
          Lectura, Seccion, Swatches, Tabulador } from "./ui.jsx";
 import { fmt, parseDur, reorder, slug, textOn, trunc, uid } from "./util.js";
+import { LienzoPerfilContinuous } from "./LienzoPerfilContinuous.jsx";
 
 const estiloSelectorEquipo = { ...inpStyle, minHeight: 34, paddingTop: 5, paddingBottom: 5 };
 
@@ -258,7 +259,7 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
   const delRol = (id) => setCfg((c) => ({ ...c, personal: c.personal.filter((p) => p.id !== id) }));
 
   return (
-    <div className={grupo === "perfil" ? "mesa" : "rejilla-tarjetas"}>
+    <div className={grupo === "perfil" ? "mesa-perfil-wrap" : "rejilla-tarjetas"}>
       {/* Proyectos (solo versión web: en la app de escritorio los proyectos los maneja el shell) */}
       {ver('perfil') && !EMBEDDED && (
       <Card title="Proyectos" open={false}>
@@ -288,150 +289,17 @@ export function Editor({ cfg, setCfg, proyectos, guardar, cargar, eliminar, grup
         <p className="text-xs text-slate-500">Los proyectos se guardan en este navegador y tu trabajo actual se autoguarda automáticamente.</p>
       </Card>)}
 
-      {/* LA MESA DE INSTRUMENTOS — etapa 1
-          Antes: una sola losa larga con filas de campos. Antes de eso, TRES
-          cajas de 39, 296 y 527 px de alto una junto a otra.
-          Ahora cuatro BAHÍAS de distinto tamaño, cada una con su gelatina, en
-          el orden en que de verdad se piensa un proyecto: quién es → para
-          quién → qué dice → con cuánto. */}
-      {ver('perfil') && (<>
-
-      <Card
-        title="Identidad"
-        gel="rosa"
-        className="b7"
-        resumen={[cfg.titulo || "Sin título", perfil.formato, perfil.genero].filter(Boolean).join(" • ")}
-      >
-        <Campos>
-          <Campo etiqueta="Título principal" value={cfg.titulo}
-            onChange={(e) => up({ titulo: e.target.value })} className="col-2" />
-          <Campo etiqueta="Subtítulo" value={cfg.subtitulo}
-            onChange={(e) => up({ subtitulo: e.target.value })} className="col-2" />
-          <Campo etiqueta="Organización" value={cfg.organizacion}
-            onChange={(e) => up({ organizacion: e.target.value })} />
-          <Campo etiqueta="Género" list="generos" placeholder="Comercial, documental…"
-            value={perfil.genero} onChange={(e) => upPerfil({ genero: e.target.value })} />
-          <datalist id="generos">
-            {["Ficción", "Documental", "Comercial de producto", "Videoclip",
-              "Reportaje", "Institucional", "Programa en vivo"].map((g) => <option key={g} value={g} />)}
-          </datalist>
-          <Campo etiqueta="Fecha de entrega" type="date" ancho="medio"
-            value={perfil.entrega} onChange={(e) => upPerfil({ entrega: e.target.value })} />
-          <ColorPickerField
-            etiqueta="Color de marca"
-            value={cfg.branding?.primaryColor || "#1D6FD1"}
-            onChange={(e) => setCfg((c) => ({ ...c, branding: { ...(c.branding || {}), primaryColor: e.target.value } }))}
-          />
-          <div className="campo">
-            <span className="campo-et">Logotipo</span>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              {cfg.branding?.logoDataUrl && (
-                <div className="logo-preview-box">
-                  <img src={cfg.branding.logoDataUrl} alt="Logotipo actual" className="logo-preview-img" />
-                </div>
-              )}
-              <Btn rango={2} icono={Upload} onClick={() => logoRef.current?.click()} className="btn-upload-logo">
-                {cfg.branding?.logoDataUrl ? "Cambiar logo" : "Subir logotipo"}
-              </Btn>
-              {cfg.branding?.logoDataUrl && (
-                <Btn rango="x" icono={X} titulo="Quitar el logotipo"
-                  onClick={() => setCfg((c) => ({ ...c, branding: { ...(c.branding || {}), logoDataUrl: "" } }))} />
-              )}
-              <input ref={logoRef} type="file" hidden
-                accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                onChange={(e) => importLogo(e.target.files?.[0])} />
-            </div>
-          </div>
-        </Campos>
-        <Formatos valor={perfil.formato} sugerido={formatoSugerido(perfil.medios)}
-          onChange={(f) => upPerfil({ formato: f })} />
-      </Card>
-
-      <Card
-        title="El encargo"
-        gel="azul"
-        className="b5"
-        resumen={[perfil.receptor || perfil.emisor, perfil.edad ? `${perfil.edad} años` : null, perfil.alcance].filter(Boolean).join(" • ") || "Público y alcance"}
-      >
-        <Campos>
-          <Campo etiqueta="Emisor — quién produce" placeholder="FCC-UASLP, taller de documental"
-            value={perfil.emisor} onChange={(e) => upPerfil({ emisor: e.target.value })} className="col-2" />
-          <Campo etiqueta="Receptor — a quién le hablas" placeholder="Estudiantes de la facultad"
-            value={perfil.receptor} onChange={(e) => upPerfil({ receptor: e.target.value })} className="col-2" />
-          <Campo etiqueta="Edad" ancho="corto" placeholder="18 a 25"
-            value={perfil.edad} onChange={(e) => upPerfil({ edad: e.target.value })} />
-          <label className="campo">
-            <span className="campo-et">Alcance</span>
-            <select className="campo-caja" value={perfil.alcance}
-              onChange={(e) => upPerfil({ alcance: e.target.value })}>
-              <option value="">Sin definir</option>
-              {ALCANCES.map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </label>
-          <label className="campo col-2">
-            <span className="campo-et">Qué tanto sabe ya del tema</span>
-            <select className="campo-caja" value={perfil.conocimiento}
-              onChange={(e) => upPerfil({ conocimiento: e.target.value })}>
-              <option value="">Sin definir</option>
-              {CONOCIMIENTOS.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </label>
-        </Campos>
-        <Chips titulo="Dónde lo va a ver"
-          ayuda="Define formato, duración y hasta el encuadre."
-          opciones={MEDIOS} valor={perfil.medios} onChange={(v) => upPerfil({ medios: v })} />
-      </Card>
-
-      <Card
-        title="La idea"
-        gel="rosa"
-        className="b8"
-        resumen={perfil.mensaje ? `"${perfil.mensaje.slice(0, 45)}${perfil.mensaje.length > 45 ? '…' : ''}"` : (perfil.tono || "Mensaje y narrativa")}
-      >
-        <div className="seccion crece">
-          <Campos>
-            <Campo etiqueta="Mensaje — la idea en una frase" area rows={2}
-              placeholder="Lo que quieres que se lleve quien lo vea"
-              value={perfil.mensaje} onChange={(e) => upPerfil({ mensaje: e.target.value })} className="col-2" />
-            <Campo etiqueta="Logline — la historia en una frase" area rows={2}
-              placeholder="Un protagonista quiere algo, pero algo se lo impide"
-              value={cfg.narrativa?.logline || ""} onChange={(e) => upNarr({ logline: e.target.value })} className="col-2" />
-          </Campos>
-        </div>
-        <Campos>
-          <Campo etiqueta="Llamada a la acción" placeholder="Qué quieres que haga al terminar de verlo"
-            value={cfg.narrativa?.cta || ""} onChange={(e) => upNarr({ cta: e.target.value })} className="col-2" />
-          <Campo etiqueta="Tono" placeholder="Cómico, solemne, íntimo…"
-            value={perfil.tono} onChange={(e) => upPerfil({ tono: e.target.value })} />
-          <Campo etiqueta="Referencias — a qué se debe parecer"
-            placeholder="Una película, un spot, un video que ya existe"
-            value={perfil.referencias} onChange={(e) => upPerfil({ referencias: e.target.value })} />
-        </Campos>
-        <Chips titulo="Intención — qué quieres que pase en quien lo vea"
-          opciones={IMPACTOS} valor={perfil.intencion} onChange={(v) => upPerfil({ intencion: v })} />
-      </Card>
-
-      <Card
-        title="Recursos"
-        gel="ambar"
-        className="b4"
-        resumen={perfil.presupuesto ? `$${Number(perfil.presupuesto).toLocaleString("es-MX")} MXN` : "Presupuesto y costos"}
-      >
-        {segundos > 0 && costoSegundo != null && (
-          <Lectura cifra={`$${costoSegundo.toLocaleString("es-MX")}`} pie="por segundo en pantalla" />
-        )}
-        <Campos>
-          <Campo etiqueta="Presupuesto (MXN)" ancho="corto" inputMode="numeric" placeholder="0"
-            className="mono" value={perfil.presupuesto}
-            onChange={(e) => upPerfil({ presupuesto: e.target.value.replace(/[^\d.]/g, "") })} />
-          <Campo etiqueta="¿De dónde sale el dinero?" placeholder="Beca, recursos propios, patrocinio…"
-            value={perfil.presupuestoNota} onChange={(e) => upPerfil({ presupuestoNota: e.target.value })}
-            className="col-2" />
-        </Campos>
-        <Tabulador perfil={perfil} onChange={(reparto) => upPerfil({ reparto })} />
-      </Card>
-
-      </>)}
+      {/* LIENZO UNIFICADO CONTINUO — Etapa 1: Perfil (macOS Sequoia & GoF) */}
+      {ver('perfil') && (
+        <LienzoPerfilContinuous
+          cfg={cfg}
+          setCfg={setCfg}
+          up={up}
+          upPerfil={upPerfil}
+          upNarr={upNarr}
+          importLogo={importLogo}
+        />
+      )}
 
       {/* Cámaras */}
       {ver('necesidades') && (
